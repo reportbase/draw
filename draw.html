@@ -63716,7 +63716,7 @@
                 p.delete('claude_gateway_error');
                 const rest = p.toString();
                 try {
-                    history.replaceState(null, '', location.pathname + location.search + (rest ? '#' + rest : ''));
+                    window.history.replaceState(null, '', location.pathname + location.search + (rest ? '#' + rest : ''));
                 } catch (_) {}
                 if (e)
                     setStatus('sign-in failed: ' + e, 'err');
@@ -71797,6 +71797,212 @@
                 setTimeout(boot, 300);
             else
                 window.addEventListener('load', () => setTimeout(boot, 300));
+        })();
+
+        // ── THE SHAPE DEEP LINK — draw.html#tvf=… ─────────────────────────────────────────
+        // ?bucket= names shapes that live somewhere; this one CARRIES them. The catalogue pages
+        // (gallery.radiolaria and its kin) put an "edit" button on every tile, and that button
+        // opens this page with the tile's curves packed into the link, so a shape dialled in
+        // over there lands here in one click with no clipboard in the middle — the clipboard
+        // being the one thing a page opened from disk is least able to touch.
+        //
+        // IN THE FRAGMENT, NOT THE QUERY. A browser never sends the part after # to a server,
+        // so GitHub Pages never sees it and cannot answer 414 however many curves ride along —
+        // the only ceiling left is the browser's own (two megabytes in Chromium, far more in
+        // the others). Even so the payload is kept small, because a link is also something
+        // people paste into messages, and a message app is far less forgiving than a browser:
+        //
+        //   - QUANTIZED. Each coordinate is an integer in 1/q units (q = 8192 by default). The
+        //     catalogue normalizes to ±0.9, so that is a step of about one ten-thousandth of
+        //     the canvas — under a pixel at any zoom anybody sculpts at.
+        //   - DELTA-CODED. Neighbouring leaves are close, so each value is written as its step
+        //     from the previous one, zig-zagged and varint-packed: one or two bytes, not eight.
+        //   - DEFLATED, when the browser has CompressionStream, and then base64url — the
+        //     alphabet that needs no percent-escaping. A leading 'z' marks a deflated payload
+        //     and 'r' a plain one, so a sender without CompressionStream still works.
+        //
+        // THE PAYLOAD, after inflating:
+        //   u8 version (1) · varint q · varint S · u8 flags
+        //   [flags&1] u8 r, g, b, a — one fill for every curve (a is opacity, 0–255)
+        //   [flags&2] varint len, then len bytes of UTF-8 — the name, which becomes the group's
+        //   S × ( varint N · N zig-zag x deltas · N zig-zag y deltas ), y already pointing up
+        //
+        // It goes through pasteTvfShapes, the same door as .tvf text on the clipboard, so the
+        // curves land exactly as a paste of the same shapes would: appended to whatever is on
+        // the page, resampled to the document's N, grouped, one undo step. The fragment is
+        // scrubbed afterwards, so a reload does not paste the shape a second time on top of the
+        // saved scene that already holds it. A link opened into a tab that already has this
+        // page changes only the fragment, which reloads nothing — hashchange covers that case.
+        (function() {
+            function b64urlBytes(s) {
+                s = s.replace(/-/g, '+').replace(/_/g, '/');
+                while (s.length % 4)
+                    s += '=';
+                const bin = atob(s),
+                    out = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++)
+                    out[i] = bin.charCodeAt(i);
+                return out;
+            }
+            async function inflate(bytes) {
+                const ds = new DecompressionStream('deflate-raw');
+                const buf = await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer();
+                return new Uint8Array(buf);
+            }
+            // Decode a payload into { name, fill, curves: [{x, y}] }. Throws on anything malformed
+            // rather than guessing: a half-read curve is worse than a clear message.
+            async function decodeShapeLink(code) {
+                const kind = code.charAt(0);
+                let b = b64urlBytes(code.slice(1));
+                if (kind === 'z')
+                    b = await inflate(b);
+                else if (kind !== 'r')
+                    throw new Error('unknown encoding “' + kind + '”');
+                let p = 0;
+                const u8 = () => {
+                    if (p >= b.length)
+                        throw new Error('payload ends early');
+                    return b[p++];
+                };
+                const uv = () => {
+                    let v = 0,
+                        mul = 1,
+                        c;
+                    do {
+                        c = u8();
+                        v += (c & 127) * mul;
+                        mul *= 128;
+                    } while (c & 128);
+                    return v;
+                };
+                const zz = () => {
+                    const v = uv();
+                    return v % 2 ? -(v + 1) / 2 : v / 2;
+                };
+                if (u8() !== 1)
+                    throw new Error('unsupported version');
+                const q = uv(),
+                    S = uv(),
+                    flags = u8();
+                if (!(q > 0) || !(S > 0) || S > 4096)
+                    throw new Error('bad header');
+                let fill = null,
+                    name = null;
+                if (flags & 1) {
+                    const r = u8(),
+                        g = u8(),
+                        bl = u8(),
+                        a = u8();
+                    fill = {
+                        color: '#' + [r, g, bl].map(v => v.toString(16).padStart(2, '0')).join(''),
+                        opacity: a / 255
+                    };
+                }
+                if (flags & 2) {
+                    const len = uv();
+                    if (p + len > b.length)
+                        throw new Error('payload ends early');
+                    name = new TextDecoder().decode(b.subarray(p, p + len));
+                    p += len;
+                }
+                const curves = [];
+                for (let s = 0; s < S; s++) {
+                    const N = uv();
+                    if (N < 3 || N > 65536)
+                        throw new Error('bad curve length ' + N);
+                    const ch = () => {
+                        const a = new Float64Array(N);
+                        let acc = 0;
+                        for (let i = 0; i < N; i++) {
+                            acc += zz();
+                            a[i] = acc / q;
+                        }
+                        return a;
+                    };
+                    const x = ch(),
+                        y = ch();
+                    curves.push({ x, y });
+                }
+                return { name, fill, curves };
+            }
+            window.decodeShapeLink = decodeShapeLink; // for the smoke test, and for poking at a link by hand
+
+            // Re-spell the curves as .tvf text so they take the paste path. Six decimals keeps
+            // every bit the quantization left.
+            function asTvfText(d) {
+                return d.curves.map((c, i) => {
+                    const lines = ['TVF ' + c.x.length + ' 1 2', '#meta type:curve', '#meta closed:true', '#meta channels:xy'];
+                    if (d.curves.length > 1)
+                        lines.push('#meta subpath:' + (i + 1) + '/' + d.curves.length);
+                    if (d.fill) {
+                        lines.push('#meta fill:' + d.fill.color);
+                        lines.push('#meta fillOpacity:' + d.fill.opacity.toFixed(3));
+                    }
+                    lines.push('0 ' + Array.from(c.x, v => +v.toFixed(6)).join(' '));
+                    lines.push('0 ' + Array.from(c.y, v => +v.toFixed(6)).join(' '));
+                    return lines.join('\n') + '\n';
+                }).join('\n');
+            }
+
+            function takeFromHash() {
+                let h = '';
+                try {
+                    h = location.hash || '';
+                } catch (_) {
+                    return null;
+                }
+                const m = h.match(/(?:^#|&)tvf=([^&]*)/);
+                if (!m)
+                    return null;
+                const p = new URLSearchParams(h.replace(/^#/, ''));
+                p.delete('tvf');
+                const rest = p.toString();
+                // window.history, not history: this scope's `history` is the undo stack.
+                try {
+                    window.history.replaceState(null, '', location.pathname + location.search + (rest ? '#' + rest : ''));
+                } catch (_) {}
+                return m[1];
+            }
+
+            async function boot() {
+                const code = takeFromHash();
+                if (!code)
+                    return;
+                if (state.editMode || drawMode) {
+                    flashStatus('shape link ignored — leave the edit or draw mode and open it again');
+                    return;
+                }
+                let d;
+                try {
+                    d = await decodeShapeLink(code);
+                } catch (e) {
+                    flashStatus('shape link did not decode — ' + (e.message || e));
+                    console.warn('[tvf link] decode failed', e);
+                    return;
+                }
+                const n = pasteTvfShapes(asTvfText(d));
+                if (!n)
+                    return;
+                // Same tail as the .tvf paste in doPaste, in the same order and for the same reason.
+                rebuildSignalSelect();
+                const g = groupTail(n, d.name);
+                rebuildScroller();
+                pushHistory();
+                scheduleSave();
+                drawAll();
+                updateStatus();
+                flashStatus('opened ' + (d.name ? '“' + d.name + '” — ' : '') + n + ' shape' + (n > 1 ? 's' : '') + ' from the link'
+                + (g ? ' — grouped as one object' : ''));
+                if (typeof syncArrangeBtns === 'function')
+                    syncArrangeBtns();
+            }
+            // After the saved scene has restored, as the bucket link waits, so the restore does not
+            // land on top of the shape and replace it.
+            if (document.readyState === 'complete')
+                setTimeout(boot, 300);
+            else
+                window.addEventListener('load', () => setTimeout(boot, 300));
+            window.addEventListener('hashchange', () => boot());
         })();
 
         // ── THE LAB DEEP LINK — ?lab=CODE ───────────────────────────────────────────────

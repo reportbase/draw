@@ -78,6 +78,29 @@ try {
   await page.waitForTimeout(1500);
   console.log('page loaded');
 
+  /* The #tvf= shape link (see "THE SHAPE DEEP LINK" in draw.html). Built here
+     in the plain 'r' encoding, a 24-leaf circle named "smoke ring", and set on
+     the open page so it arrives by hashchange, the path a second "edit" click
+     in the gallery takes. It must paste, report it, and scrub the fragment. */
+  await step('shape link (#tvf=)', async () => {
+    const out = [], uv = v => { while (v >= 128) { out.push((v % 128) | 128); v = Math.floor(v / 128); } out.push(v); };
+    const zz = v => uv(v < 0 ? -2 * v - 1 : 2 * v), Q = 8192, N = 24, name = 'smoke ring';
+    out.push(1); uv(Q); uv(1); out.push(2); uv(name.length); for (const c of Buffer.from(name)) out.push(c);
+    uv(N);
+    for (const f of [Math.cos, Math.sin]) {
+      let prev = 0;
+      for (let j = 0; j < N; j++) { const v = Math.round(0.5 * f(2 * Math.PI * j / N) * Q); zz(v - prev); prev = v; }
+    }
+    const code = 'r' + Buffer.from(out).toString('base64url');
+    const decoded = await page.evaluate(c => window.decodeShapeLink(c).then(d => [d.name, d.curves.length, d.curves[0].x.length, d.curves[0].x[0]]), code);
+    if (decoded.join() !== 'smoke ring,1,24,0.5') throw new Error('decoded as ' + decoded.join());
+    await page.evaluate(c => { location.hash = 'tvf=' + c; }, code);
+    await page.waitForTimeout(600);
+    const r = await page.evaluate(() => [location.hash, document.getElementById('status').textContent]);
+    if (r[0]) throw new Error('fragment not scrubbed: ' + r[0]);
+    if (!/opened .smoke ring. . 1 shape from the link/.test(r[1])) throw new Error('status: ' + r[1]);
+  });
+
   await step('drag on the canvas', () => drag([[640, 400], [700, 430], [760, 460]]));
   await step('freehand stroke', async () => {
     await page.click('#bDraw');
