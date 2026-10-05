@@ -134,6 +134,39 @@ try {
   failures.push(`[${current}] ${e.message.split('\n')[0]}`);
 }
 
+/* The gallery pages: each must load without an uncaught error, and its first
+   tile's edit button must produce a link that this editor opens. window.open is
+   stubbed so the link can be followed here, in a page of our own. */
+const { readdir } = await import('node:fs/promises');
+const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html')).sort();
+for (const g of galleries){
+  current = 'gallery/' + g;
+  const gp = await browser.newPage();
+  gp.on('pageerror', e => failures.push(`[gallery/${g}] ${e.message}`));
+  await gp.addInitScript(() => { window.__links = []; window.open = u => { window.__links.push(u); return null; }; });
+  const before = failures.length;
+  try {
+    await gp.goto(new URL('gallery/' + g, base).href, { waitUntil: 'load' });
+    await gp.$eval('.tile .edit', b => b.click());
+    await gp.waitForFunction(() => window.__links.length > 0, null, { timeout: 10000 });
+    const link = await gp.evaluate(() => window.__links[0]);
+    if (!link.startsWith(new URL('draw.html#tvf=', base).href)) throw new Error('edit link points at ' + link.slice(0, 80));
+    // A fresh editor page each time, so the scene the button walk left behind (and its
+    // saved copy) is not in the way: the link should open on a page of its own.
+    const ep = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    ep.on('pageerror', e => failures.push(`[gallery/${g} → editor] ${e.message}`));
+    await ep.goto(link, { waitUntil: 'load' });
+    const status = await ep.waitForFunction(() => {
+      const t = document.getElementById('status')?.textContent || '';
+      return /opened|shape link/.test(t) && t;
+    }, null, { timeout: 15000 }).then(h => h.jsonValue()).catch(async () => 'timed out; status: ' + await ep.evaluate(() => document.getElementById('status')?.textContent));
+    await ep.close();
+    if (!/opened/.test(status)) throw new Error(status);
+  } catch (e){ failures.push(`[gallery/${g}] ${e.message.split('\n')[0]}`); }
+  await gp.close();
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} gallery/${g} edit → editor`);
+}
+
 if (failures.length){
   console.error(`\n${failures.length} failure(s):\n` + failures.map(f => '  ' + f).join('\n'));
   code = 1;
