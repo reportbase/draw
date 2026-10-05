@@ -98,11 +98,14 @@ section{padding-top:34px;scroll-margin-top:52px}
 .tile.tall canvas{height:340px}
 .tile .stage .badge{position:absolute;top:8px;right:10px;font-size:11px;letter-spacing:.09em;
   color:var(--dim);text-transform:uppercase}
-.tile .stage .save,.tile .stage .tvf{position:absolute;bottom:9px;opacity:0;transition:opacity .15s;
+.tile .stage .save,.tile .stage .tvf,.tile .stage .edit{position:absolute;bottom:9px;opacity:0;transition:opacity .15s;
   padding:4px 9px;font-size:11.5px;border-radius:7px}
 .tile .stage .save{right:10px}
 .tile .stage .tvf{right:62px}
-.tile:hover .stage .save,.tile:hover .stage .tvf{opacity:1}
+.tile .stage .edit{right:114px;background:var(--curv);border-color:var(--curv);color:#fff}
+.tile:hover .stage .save,.tile:hover .stage .tvf,.tile:hover .stage .edit{opacity:1}
+/* touch screens have no hover, and a button you cannot see is a button you cannot find */
+@media (hover:none){.tile .stage .save,.tile .stage .tvf,.tile .stage .edit{opacity:1}}
 .tile .stage .tvf.done,.tile .stage .save.done{background:var(--ok);border-color:var(--ok);color:#0c0f16}
 
 .tile .body{padding:0 5px 4px;display:flex;flex-direction:column;gap:10px}
@@ -3831,6 +3834,70 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.remove('on'), 2100);
 }
+// ── the editor link ──────────────────────────────────────────────────────
+// The leaf editor reads draw.html#tvf=<payload> and pastes the curves it carries, the
+// same as .tvf text on the clipboard. Its comment block (search "THE SHAPE DEEP LINK")
+// is the spec; this is the writer half, and the two must agree byte for byte.
+//
+// IN THE FRAGMENT, so no server ever sees it and the length can never be refused with
+// a 414. It is still kept small, because links get pasted into messages: coordinates
+// are normalized the way toTVF does it (the whole list fitted into ±0.9 together, y
+// flipped up), quantized to 1/8192, delta-coded, zig-zag varint-packed, deflated when
+// CompressionStream exists, and written in base64url, which needs no escaping.
+//
+// Served from the draw site this page lives one folder below the editor, so a relative
+// link finds the editor that shipped with it (a local server, a fork's own Pages); opened
+// from disk there is nothing relative to find, and the published editor is the answer.
+const EDITOR_URL = /^https?:$/.test(location.protocol)
+  ? new URL('../draw.html', location.href).href
+  : 'https://reportbase.github.io/draw/draw.html';
+async function editorLink(list, o = {}) {
+  const Q = 8192, box = 0.9;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of list) {
+    const b = s.bbox();
+    x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+    x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
+  }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const half = Math.max((x1 - x0) / 2, (y1 - y0) / 2);
+  const k = half > 1e-12 ? box / half : 1;
+
+  const out = [];
+  const u8 = v => out.push(v & 255);
+  const uv = v => { while (v >= 128) { out.push((v % 128) | 128); v = Math.floor(v / 128); } out.push(v); };
+  const zz = v => uv(v < 0 ? -2 * v - 1 : 2 * v);
+  const name = o.name ? new TextEncoder().encode(String(o.name).slice(0, 80)) : null;
+  u8(1); uv(Q); uv(list.length); u8((o.fill ? 1 : 0) | (name ? 2 : 0));
+  if (o.fill) {
+    const h = o.fill.replace('#', '');
+    for (let i = 0; i < 6; i += 2) u8(parseInt(h.slice(i, i + 2), 16));
+    u8(Math.round(255 * (o.fillOpacity == null ? 1 : o.fillOpacity)));
+  }
+  if (name) { uv(name.length); for (const c of name) u8(c); }
+  for (const s of list) {
+    const N = s.N;
+    uv(N);
+    for (const [arr, c0, sgn] of [[s.x, cx, 1], [s.y, cy, -1]]) {
+      let prev = 0;
+      for (let j = 0; j < N; j++) {
+        const v = Math.round(sgn * (arr[j] - c0) * k * Q);
+        zz(v - prev); prev = v;
+      }
+    }
+  }
+  let bytes = new Uint8Array(out), kind = 'r';
+  if (typeof CompressionStream === 'function') {
+    const cs = new CompressionStream('deflate-raw');
+    bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(cs)).arrayBuffer());
+    kind = 'z';
+  }
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return EDITOR_URL + '#tvf=' + kind + b64;
+}
+
 async function copyText(text) {
   try {
     if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
@@ -4273,6 +4340,7 @@ function makeTile(entry) {
 
   tile.innerHTML =
     `<div class="stage"><canvas></canvas>` +
+    `<button class="edit" title="open in the leaf editor — the curves ride in the link">edit</button>` +
     `<button class="tvf" title="copy as .tvf — paste straight into the leaf editor">.tvf</button>` +
     `<button class="save" title="copy the svg markup \u2014 paste straight into the leaf editor. Alt-click to save it as a file instead.">svg</button></div>` +
     `<div class="body"><h3>${entry.name}</h3><p class="note">${entry.note}</p>` +
@@ -4349,6 +4417,22 @@ function makeTile(entry) {
     toast(ok
       ? `${last.length} curve${last.length > 1 ? 's' : ''}, ${(text.length / 1024).toFixed(1)} KB on the clipboard — ⌘V in the leaf editor`
       : 'clipboard refused — open over http:// or use the round-trip tile');
+  });
+
+  // EDIT OPENS THE EDITOR WITH THE SHAPE ALREADY IN IT. The two buttons beside it put
+  // text on a clipboard and leave the rest to you; this one is the whole trip. The curves
+  // are packed into the link itself (see editorLink), so nothing is uploaded anywhere.
+  tile.querySelector('.edit').addEventListener('click', async (ev) => {
+    if (!last) render();          // tiles draw lazily as they scroll in; edit must not wait for that
+    if (!last) return;
+    let href;
+    try {
+      href = await editorLink(last, { name: entry.name, fill: opts.fill ? '#7c5cff' : null, fillOpacity: 0.16 });
+    } catch (err) { toast('could not encode: ' + err.message); return; }
+    // A named window, so a second edit lands in the editor tab already open (the editor
+    // picks the new fragment up on hashchange) rather than stacking up tabs.
+    window.open(href, 'tangent-draw');
+    toast(`${last.length} curve${last.length > 1 ? 's' : ''} sent to the leaf editor — a ${(href.length / 1024).toFixed(1)} KB link`);
   });
 
   // THE SVG GOES TO THE CLIPBOARD, like the .tvf beside it. Downloading was the
