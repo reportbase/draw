@@ -234,6 +234,27 @@ await step('tile link and predict mode', async () => {
   if (score !== '2 of 2 right') throw new Error('a right answer scored ' + score);
 });
 
+/* Letters: facts about type that hold in any font. A B is an outline and two counters, and
+   each counter winds the other way from the outline, which is what a fill rule reads; a
+   slant applied to the leaves is the slant of the curve, to rounding. */
+await step('letters', async () => {
+  const gp = await browser.newPage();
+  gp.on('pageerror', e => failures.push(`[letters] ${e.message}`));
+  await gp.goto(new URL('gallery/letters.html', base).href, { waitUntil: 'load' });
+  const r = await gp.evaluate(() => {
+    const B = LT.letter('B', { font: 'sans', N: 128 });
+    const area = s => { let a = 0; for (let i = 0; i < s.N; i++) { const j = (i + 1) % s.N; a += s.x[i] * s.y[j] - s.x[j] * s.y[i]; } return a; };
+    const out = B.filter(s => !s.meta.hole), holes = B.filter(s => s.meta.hole);
+    const s = LT.letter('a', { font: 'serif', N: 128 })[0], k = 0.2, a = LT.shear(s, k).sample(1024), d = s.sample(1024);
+    let e = 0; for (let i = 0; i < 1024; i++) e = Math.max(e, Math.abs(a.x[i] - d.x[i] - k * d.y[i]));
+    return { loops: B.length, holes: holes.length, opposite: holes.every(h => Math.sign(area(h)) === -Math.sign(area(out[0]))), shear: e };
+  });
+  await gp.close();
+  if (r.loops !== 3 || r.holes !== 2) throw new Error(`B traced as ${r.loops} loops, ${r.holes} holes`);
+  if (!r.opposite) throw new Error('a counter of B winds the same way as its outline');
+  if (!(r.shear < 1e-12)) throw new Error('a slant is off by ' + r.shear);
+});
+
 /* The inspector reads facts off the leaves. Two of its examples have answers that can be
    worked by hand: a heart is one mirror (D1, vertical axis) and fits in 9 leaves; an
    ellipse wobbles twice but is Z₁ and Z₋₁ only, so 3 leaves hold it. */
