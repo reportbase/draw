@@ -34,7 +34,14 @@ publishes.
   library as an ES module, *generated* from the copy the pages inline: regenerate it from
   a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
   the front page `index.html` that lists them, and `inspect.html`, which reads a shape's
-  spectrum, symmetry, width and leaf count back off its leaves.
+  spectrum, symmetry, width and leaf count back off its leaves, and reads depth files
+  (TVF §2.8). Its depth code (`DEPTH`, `fmtSig`, `rungOfRow`, `depthToTVF`, `depthFromTVF`,
+  `depthLearnedFacing`) is copied unchanged from `draw.html` between `// >>> copied from
+  draw.html` markers; `npm test` fails if the two drift, so change it in the editor and copy.
+  - **Links into the papers:** where a page states a result a paper proves or measures, its
+    note carries `<a class="paper" href="../papers.html#paper:heading-id">…</a>` (a small pill,
+    styled in `style.css`). `npm test` opens every such link and fails on one that names no
+    heading, so retitling a section in a paper means updating the links.
   - **Styles live in `gallery/style.css`**, shared by every page in `gallery/` (and by
     `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
     a layout of their own have a section there scoped to their body class (`page-index`,

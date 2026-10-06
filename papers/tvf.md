@@ -4,7 +4,7 @@
 
 *Revised 5 October 2026: TVF holds depth as well as breadth, with no new syntax (§2.8). Measured in the drawing tool's editor; see `wander/tvf-depth-test.md`.*
 
-*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8).*
+*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8).*
 
 This is the tight specification. It supersedes the v22.x working document,
 which accreted iteration logs, extrapolations later withdrawn, and
@@ -376,9 +376,21 @@ for the depth case.
 
 **Open:**
 - entering octaves only where needed;
-- a depth reader in the reference decoder outside the drawing tool;
+- a depth reader in the reference decoder. One now runs outside the drawing
+  tool: the gallery's inspector (`gallery/inspect.html`) reads a depth file,
+  pasted or built from its example, and puts it back on the shape level by
+  level. Its engine is the drawing tool's, copied unchanged and kept matched
+  by the smoke test. On the closed-form example, a unit circle with two
+  bumps, it misses the shape by 4.8×10⁻⁶ of the departure at level 3, scored
+  only where the reading reaches level 3. It reads its 518 sweeps back
+  through text to 1.1×10⁻⁶;
 - the joins at walls (each wall is one octave's far wall meeting the next one's
-  home; the reference gives a wall its own address);
+  home; the reference gives a wall its own address). The inspector met this
+  directly. At exactly s = 2^k the address runs to the end of its octave
+  (ρ = ∞) and goes no deeper, so a reading sampled there stops short. On the
+  example that is a miss of 1.9% of the departure, where points just off the
+  wall miss by a few millionths.
+  It samples between walls;
 - depth rows for readers nested in readers (a chain of standpoints rather than
   octaves of one reading).
 
@@ -678,8 +690,11 @@ contour; closed-contour band floor (K ≥ 4).
 **Depth (§2.8), measured 5 Oct 2026:** depth held in concatenated TVF documents
 with `#meta address`, no new syntax; round trip to 2.3×10⁻⁷ of the departure;
 at equal value count, better than breadth alone on 24 of 24 library shapes
-(18× to about 5×10⁴). Open: entering octaves only where needed, a depth reader
-outside the drawing tool, the joins at walls.
+(18× to about 5×10⁴). A depth reader outside the drawing tool, in the
+gallery's inspector (6 Oct): level 3 within 4.8×10⁻⁶ of the departure on the
+closed-form example. Open: entering octaves only where needed, and the joins
+at walls, where a reading sampled exactly on 2^k stops short (1.9% on the
+example).
 
 **Partially validated:** forward transform on *real* (non-synthetic) sensor
 output; multi-depth segmented encoder (30–33 dB on landscapes, tuning open);
