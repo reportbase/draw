@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tvf — epicycles</title>
+<title>tvf — where you stand</title>
 <!-- FRAUNCES IS GONE WITH THE PAPER THEME. The Loop pane sets its prose in the system
      sans and nothing else, so the display serif has no job here any more; IBM Plex Mono
      stays, for source lines and the .tvf box, and falls back to the platform's own
@@ -14,48 +14,45 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
-<body class="page-chart page-motion">
+<body class="page-chart">
 
 <header>
-  <nav class="crumbs"><a href="index.html">← all galleries</a> · 3 of 19</nav>
-  <h1>tvf <em>epicycles</em> <span class="pill">tvf.epicycles.js</span></h1>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 18 of 19</nav>
+  <h1>tvf <em>where you stand</em> <span class="pill">tvf.situated.js</span></h1>
   <p class="lede">
-    A closed curve is a chain of circles, each riding on the rim of the one before, each turning a whole number of
-    times while the pen goes round once. That is Ptolemy's machine for the planets, and it is also, <b>exactly</b>,
-    what this format does between its leaves.
+    Every other page reads a curve from <b>nowhere in particular</b>: N leaves spaced evenly in the curve's own
+    parameter, the whole loop at once, the surveyor's view. This page reads the same curves from <b>somewhere</b>:
+    a reader that stands at a point and holds only what it reads from there.
   </p>
   <p class="sub">
-    N leaves give a fixed centre and N − 1 circles (one more when N is even: the fastest circle splits into a pair
-    turning opposite ways). The
-    cardinal kernel adds them up leaf by leaf; the chain adds the same sum circle by circle, and the two agree to
-    rounding. So everything the other pages say about harmonics can be watched here as machinery: a symmetric shape is
-    a chain with most of its circles missing, a corner is a chain that never ends, and dropping the small circles is
-    the gentlest way there is to make a shape simpler. Space bar pauses.
+    The situated reader's reading is v/h, how far across against how far along, and it has a <b>corner</b> where
+    the two are equal. From that one idea: where the corner falls says how wide a shape is; a glowing outline seen
+    from far and from near shows two different sizes; there are places a reader standing anywhere cannot see; and
+    when one reader is not enough, the way to add more is to put the next one where the last saw furthest, which
+    is a recursion. Every number on the page is measured as you scroll, with the same arithmetic as the leaf
+    editor's lab drawer, and the gold reader can be dragged.
   </p>
 </header>
 
 <div class="bar"><div class="bar-in">
-  <button id="t-play" class="on">pause</button>
-  <div class="speed"><span>speed</span><input type="range" id="t-speed" min="0.05" max="2" step="0.05" value="0.35"></div>
-  <button id="t-circles" class="on">circles</button>
-  <button id="t-leaves">leaves</button>
-  <button id="t-exact" class="on">exact curve</button>
+  <button id="t-leaves" class="on">surveyor's leaves</button>
   <div class="spacer"></div>
-  <a class="jump" href="#machine">the machine</a>
-  <a class="jump" href="#symmetry">symmetry</a>
-  <a class="jump" href="#truncate">dropping circles</a>
-  <a class="jump" href="#any">any chain</a>
-  <a class="jump" href="#evidence">evidence</a>
+  <a class="jump" href="#two">two readers</a>
+  <a class="jump" href="#corner">the corner</a>
+  <a class="jump" href="#nearfar">near and far</a>
+  <a class="jump" href="#hidden">what it cannot see</a>
+  <a class="jump" href="#nest">readers within readers</a>
 </div></div>
 
 <main id="main"></main>
 
 <footer>
-  <b>tvf.epicycles.js</b> is the discrete Fourier transform of a shape's leaves read as complex numbers, the chain
-  drawn from it, what dropping circles costs, and the way back: any chain, sampled at twice its fastest circle plus
-  one, is a shape this format holds exactly.<br>
-  <b>The number to carry off:</b> a shape needs as many leaves as twice its fastest circle that matters, plus one.
-  <div class="next">Next: <a href="snowflakes.html">Snow crystals →</a></div>
+  <b>tvf.situated.js</b> is the situated reader: readings laid along an outline from a standpoint, the four numbers
+  of its opening, the corner read back as a breadth, the glowing outline's two sizes, first meetings, and the rule
+  that puts a child reader where its parent saw furthest, all ported unchanged from the leaf editor's labs.<br>
+  <b>The number to carry off:</b> the circle read from its centre opens at ½, 1, 2/π, 2/π, and every other shape and
+  standpoint is read as a departure from it.
+  <div class="next">Next: <a href="fail.html">Where it breaks →</a></div>
 </footer>
 
 <script>
@@ -1495,470 +1492,666 @@ function fromTVF(text, o = {}) {
 return { toTVF, fromTVF, fmtSig, rungOfRow };
 
 })();
-const EPICYCLES = (function () {
-// tvf.epicycles.js — a closed curve as circles riding on circles
+const SITUATED = (function () {
+// tvf.situated.js — a reader that stands somewhere
 // ============================================================================
 //
-// Read a shape's leaves as complex numbers, z_k = x_k + i·y_k, and the curve the
-// format reconstructs between them is a finite sum
+// Every other page reads a closed curve the surveyor's way: N leaves evenly spaced in the
+// curve's own parameter, the whole loop at once, from nowhere in particular. That reader is
+// UN-SITUATED. This module is the other one, the SITUATED reader, the one the leaf editor's
+// lab drawer is full of: it stands at a point, and what it holds of a shape is what it reads
+// from there, the ratio v/h of how far a point of the outline is across and along.
 //
-//     z(φ) = Σ Z_m e^{imφ},     m = −⌊(N−1)/2⌋ … ⌊(N−1)/2⌋
+// Everything here is ported from the editor's labs, unchanged in its arithmetic, so a number
+// on this page and the same number in the drawer agree:
+//   opening the shapes (R144)      resample, centre, readings, the four numbers
+//   the corner reads the breadth   the share before the corner, read back as b
+//   near and far                   the glowing outline's two sizes
+//   what a reader cannot see       first meetings, seen and hidden
+//   readers within readers         a child stands where its parent saw furthest
 //
-// (plus a split Nyquist pair when N is even). Each term is a circle: radius |Z_m|,
-// turning m times while the pen goes round once, starting at angle arg Z_m. Put
-// them end to end and the last one's rim is the pen. That is Ptolemy's machine,
-// and it is not an approximation of the format: it IS the format, the same sum the
-// cardinal kernel adds up, written term by term instead of leaf by leaf. A chain
-// with every circle draws the curve exactly; a chain with fewer draws the curve
-// with the smaller circles left off.
-//
-// The leaves sit at φ_k = 2π(k + ½)/N, so the coefficients carry that half-leaf
-// shift in their phase. The Nyquist term needs care: for even N the kernel holds
-// cos(Nφ/2) at half weight, which as a complex sum is two circles of equal size
-// turning at +N/2 and −N/2, so an even N gives N + 1 circles, not N.
+// A point is { x, y }; an outline is an array of points, closed.
 
-const { Shape, TAU } = TVF;
+const TAU = 2 * Math.PI;
 
-/** Every circle of a shape, centre (m = 0) first, as { m, re, im, r, ph }. */
-function coeffs(s) {
-  const N = s.N, half = Math.floor((N - 1) / 2), out = [];
-  const one = (m, w) => {
-    let re = 0, im = 0;
-    for (let k = 0; k < N; k++) {
-      const a = -m * TAU * (k + 0.5) / N, c = Math.cos(a), d = Math.sin(a);
-      re += s.x[k] * c - s.y[k] * d; im += s.x[k] * d + s.y[k] * c;
-    }
-    re *= w / N; im *= w / N;
-    return { m, re, im, r: Math.hypot(re, im), ph: Math.atan2(im, re) };
-  };
-  for (let m = 0; m <= half; m++) { out.push(one(m, 1)); if (m) out.push(one(-m, 1)); }
-  if (N % 2 === 0) { out.push(one(N / 2, 0.5)); out.push(one(-N / 2, 0.5)); }
+// ── laying and reading ───────────────────────────────────────────────────
+/** M points laid evenly along the outline (equal arc length each), as the editor lays them. */
+function resample(P, M) {
+  const n = P.length, c = new Float64Array(n + 1);
+  for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n]; c[i + 1] = c[i] + Math.hypot(b.x - a.x, b.y - a.y); }
+  const X = new Float64Array(M), Y = new Float64Array(M), T = c[n];
+  let j = 0;
+  for (let k = 0; k < M; k++) {
+    const t = (k + 0.5) / M * T;
+    while (j < n - 1 && c[j + 1] <= t) j++;
+    const a = P[j], b = P[(j + 1) % n], d = c[j + 1] - c[j], f = d > 0 ? (t - c[j]) / d : 0;
+    X[k] = a.x + (b.x - a.x) * f; Y[k] = a.y + (b.y - a.y) * f;
+  }
+  return { X, Y };
+}
+/** The area centre. */
+function centre(P) {
+  let A = 0, cx = 0, cy = 0;
+  for (let i = 0; i < P.length; i++) {
+    const p = P[i], q = P[(i + 1) % P.length], a = p.x * q.y - q.x * p.y;
+    A += a; cx += (p.x + q.x) * a; cy += (p.y + q.y) * a;
+  }
+  return { x: cx / (3 * A), y: cy / (3 * A) };
+}
+/**
+ * What a reader at o holds of the outline: at each of M points laid evenly along it, the
+ * reading s = v/h, h along the page's x from the reader and v across it. The corner is s = 1.
+ * lay = 'outline' (the editor's, the default) or 'direction' (M equal turns about o, the
+ * control: it does not look at the outline at all).
+ */
+function readings(P, M, o, lay) {
+  o = o || centre(P);
+  const s = new Float64Array(M);
+  if (lay === 'direction') {
+    for (let k = 0; k < M; k++) { const t = (k + 0.5) / M * TAU; s[k] = Math.abs(Math.sin(t)) / Math.max(Math.abs(Math.cos(t)), 1e-15); }
+    return { s, o };
+  }
+  const R = resample(P, M);
+  for (let k = 0; k < M; k++) s[k] = Math.abs(R.Y[k] - o.y) / Math.max(Math.abs(R.X[k] - o.x), 1e-15);
+  return { s, o, R };
+}
+/** The four numbers: corner (share before s = 1), middle (median s), tail and head (40 × share past 40, below 1/40). */
+function stats(s) {
+  const M = s.length;
+  let lo = 0, hi = 0, head = 0;
+  for (let k = 0; k < M; k++) { const r = s[k]; if (r < 1) lo++; if (r > 40) hi++; if (r < 0.025) head++; }
+  const srt = Float64Array.from(s).sort();
+  return { corner: lo / M, middle: (srt[(M - 1) >> 1] + srt[M >> 1]) / 2, tail: 40 * hi / M, head: head / M / 0.025 };
+}
+/** The breadth ratio the reader at o sees: the widest v over the widest h. */
+function breadth(P, o) {
+  o = o || centre(P);
+  let mh = 0, mv = 0;
+  for (const p of P) { mh = Math.max(mh, Math.abs(p.x - o.x)); mv = Math.max(mv, Math.abs(p.y - o.y)); }
+  return mv / mh;
+}
+
+// ── the corner reads the breadth ─────────────────────────────────────────
+// Stretch the outline in v by b, laid along the UNSTRETCHED outline (as the circle is): every
+// reading becomes b times itself, so the share before the corner is the share of unstretched
+// readings below 1/b. The evenly spread world's rule reads b back as 1/tan(π·share/2), exact
+// for the circle; against the shape's own unstretched readings it is exact for any shape.
+const evenRule = p => 1 / Math.tan(Math.PI * p / 2);
+function cornerReads(P, b, M) {
+  M = M || 20000;
+  const s = readings(P, M).s, sorted = Float64Array.from(s).sort();
+  let n = 0;
+  for (let i = 0; i < M; i++) if (s[i] * b < 1) n++;
+  const p = n / M, q = n > 0 ? sorted[n - 1] : sorted[0];
+  const st = P.map(v => ({ x: v.x, y: v.y * b }));
+  const s2 = readings(st, M).s;
+  let n2 = 0;
+  for (let i = 0; i < M; i++) if (s2[i] < 1) n2++;
+  return { share: p, even: evenRule(p), known: 1 / Math.max(q, 1e-15), along: evenRule(n2 / M), alongShare: n2 / M };
+}
+
+// ── near and far ─────────────────────────────────────────────────────────
+// A flat outline glowing evenly, read from a point on its axis at distance d through its area
+// centre: the light arriving, as a share of its most, is the glowing disc's law s²/(1 + s²)
+// averaged round the outline with s = R(θ)/d. Far off it goes with the area (the mean of R²),
+// close in with the harmonic reach (the mean of 1/R²): two sizes, one only for the circle.
+function nearFar(P, M) {
+  M = M || 8000;
+  let A = 0;
+  for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; A += p.x * q.y - q.x * p.y; }
+  if (!(Math.abs(A) > 2e-3)) return null;
+  const c = centre(P), R = resample(P, M), r2 = new Float64Array(M), dth = new Float64Array(M), sg = A > 0 ? 1 : -1;
+  for (let k = 0; k < M; k++) {
+    const j = (k + 1) % M, ax = R.X[k] - c.x, ay = R.Y[k] - c.y, bx = R.X[j] - c.x, by = R.Y[j] - c.y;
+    r2[k] = 0.5 * (ax * ax + ay * ay + bx * bx + by * by);
+    dth[k] = sg * Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
+  }
+  let wind = 0; for (let k = 0; k < M; k++) wind += dth[k];
+  if (Math.abs(wind / TAU - 1) > 1e-6) return null;
+  const f = d => { const d2 = d * d; let s = 0; for (let k = 0; k < M; k++) s += r2[k] / (r2[k] + d2) * dth[k]; return s / TAU; };
+  let lo = -12, hi = 12;
+  for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; if (f(2 ** m) > 0.5) lo = m; else hi = m; }
+  const dh = 2 ** ((lo + hi) / 2);
+  let flip = 0;
+  for (let i = 1; i <= 160; i++) { const s = 2 ** (i / 20); flip = Math.max(flip, Math.abs(f(dh * s) + f(dh / s) - 1)); }
+  let mA = 0, mB = 0;
+  for (let k = 0; k < M; k++) { const w = dth[k] / TAU; mA += w * r2[k]; mB += w / r2[k]; }
+  return { f, Q: mA * mB, dh, D: Math.pow(mA / mB, 0.25), flip, area: Math.sqrt(mA), harm: 1 / Math.sqrt(mB) };
+}
+
+// ── the shapes the labs use ──────────────────────────────────────────────
+// The pathological families (wander/patho, as the editor generates them) and a few plain
+// ones, all smooth, as point lists.
+function polarShape(M, r) { const P = []; for (let i = 0; i < M; i++) { const t = TAU * i / M, R = r(t); P.push({ x: R * Math.cos(t), y: R * Math.sin(t) }); } return P; }
+function patho(fam, lvl, M) {
+  M = M || 1024;
+  const P = [];
+  if (fam === 'elongated') { const a = [2, 4, 8, 16, 32][lvl - 1]; for (let i = 0; i < M; i++) P.push({ x: a * Math.cos(TAU * i / M), y: Math.sin(TAU * i / M) }); return P; }
+  if (fam === 'lobed') { const [k, e] = [[3, .3], [5, .45], [8, .6], [13, .7], [21, .8]][lvl - 1], ee = Math.min(e, 3 / k); return polarShape(M, t => 1 + ee * Math.cos(k * t)); }
+  if (fam === 'pinched') { const q = [1.6, 1.3, 1.15, 1.07, 1.03][lvl - 1];
+    return polarShape(M, t => Math.sqrt(Math.max(Math.cos(2 * t) + Math.sqrt(Math.max(q ** 4 - Math.sin(2 * t) ** 2, 0)), 1e-12))); }
+  if (fam === 'curled') {
+    const phi = [90, 180, 250, 290, 310][lvl - 1] * Math.PI / 180, w = 0.35, R = 1, n1 = M / 3 | 0, n2 = M / 6 | 0;
+    for (let i = 0; i < n1; i++) { const a = -phi / 2 + phi * i / (n1 - 1); P.push({ x: (R + w) * Math.cos(a), y: (R + w) * Math.sin(a) }); }
+    for (let i = 1; i < n2 - 1; i++) { const u = Math.PI * i / (n2 - 1); P.push({ x: R * Math.cos(phi / 2) + w * Math.cos(phi / 2 + u), y: R * Math.sin(phi / 2) + w * Math.sin(phi / 2 + u) }); }
+    for (let i = n1 - 1; i >= 0; i--) { const a = -phi / 2 + phi * i / (n1 - 1); P.push({ x: (R - w) * Math.cos(a), y: (R - w) * Math.sin(a) }); }
+    for (let i = 1; i < n2 - 1; i++) { const u = Math.PI * i / (n2 - 1); P.push({ x: R * Math.cos(-phi / 2) + w * Math.cos(-phi / 2 + Math.PI + u), y: R * Math.sin(-phi / 2) + w * Math.sin(-phi / 2 + Math.PI + u) }); }
+    return P;
+  }
+  if (fam === 'spiral') {
+    const turns = [0.5, 0.8, 1.1, 1.4, 1.7][lvl - 1], w = 0.12, n1 = M / 3 | 0, n2 = M / 6 | 0, C = [];
+    for (let i = 0; i < n1; i++) { const s = i / (n1 - 1), th = TAU * turns * s, rr = 0.35 + 0.65 * s; C.push([rr * Math.cos(th), rr * Math.sin(th)]); }
+    const Nn = C.map((c, i) => { const a = C[Math.max(0, i - 1)], b = C[Math.min(n1 - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); return [-dy / L, dx / L, dx / L, dy / L]; });
+    const cap = (p, sv, mv) => { const sg = sv[0] * mv[1] - sv[1] * mv[0] > 0 ? 1 : -1, a0 = Math.atan2(sv[1], sv[0]), o = [];
+      for (let i = 1; i < n2 - 1; i++) { const u = Math.PI * i / (n2 - 1); o.push({ x: p[0] + w * Math.cos(a0 + sg * u), y: p[1] + w * Math.sin(a0 + sg * u) }); } return o; };
+    for (let i = 0; i < n1; i++) P.push({ x: C[i][0] + w * Nn[i][0], y: C[i][1] + w * Nn[i][1] });
+    P.push(...cap(C[n1 - 1], [Nn[n1 - 1][0], Nn[n1 - 1][1]], [Nn[n1 - 1][2], Nn[n1 - 1][3]]));
+    for (let i = n1 - 1; i >= 0; i--) P.push({ x: C[i][0] - w * Nn[i][0], y: C[i][1] - w * Nn[i][1] });
+    P.push(...cap(C[0], [-Nn[0][0], -Nn[0][1]], [-Nn[0][2], -Nn[0][3]]));
+    return P;
+  }
+  return null;
+}
+/** About its area centre, greatest radius 2 (the editor's prep for the pathological labs). */
+function prep(P) {
+  let A = 0, cx = 0, cy = 0;
+  const n = P.length;
+  for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n], c = a.x * b.y - b.x * a.y; A += c; cx += (a.x + b.x) * c; cy += (a.y + b.y) * c; }
+  A /= 2; cx /= 6 * A; cy /= 6 * A;
+  let mx = 0; for (const p of P) mx = Math.max(mx, Math.hypot(p.x - cx, p.y - cy));
+  const s = 2 / mx;
+  return P.map(p => ({ x: (p.x - cx) * s, y: (p.y - cy) * s }));
+}
+
+// ── what a reader cannot see ─────────────────────────────────────────────
+/** The theorem's leaves of one quarter turn, from the corner, no trigonometry. */
+function tbLeaves(N) {
+  let u = 1, m = 0;
+  while (Math.pow(2, m + 2) < 2 * N) { u = u / (1 + Math.sqrt(1 + u * u)); m++; }
+  const two = 2 * u / (1 - u * u), out = [u];
+  while (out.length < N / 2) { const a = out[out.length - 1]; out.push((a + two) / (1 - a * two)); }
   return out;
 }
-
-/**
- * The circles in drawing order, centre first. By size, the largest circle rides
- * on the centre and the smallest is the pen's; by speed, the slow ones come first
- * (+1, −1, +2, −2 …), which is the order a truncated Fourier series keeps.
- */
-function order(cs, by = 'size') {
-  const c0 = cs.find(c => c.m === 0), rest = cs.filter(c => c.m !== 0);
-  rest.sort(by === 'size' ? (a, b) => b.r - a.r || Math.abs(a.m) - Math.abs(b.m) || b.m - a.m
-                          : (a, b) => Math.abs(a.m) - Math.abs(b.m) || b.m - a.m);
-  return [c0 || { m: 0, re: 0, im: 0, r: 0, ph: 0 }, ...rest];
+/** First meeting of the ray from p along unit direction d with the closed outline (Infinity if none). */
+function firstMeet(px, py, dx, dy, P) {
+  let best = Infinity;
+  const n = P.length;
+  for (let i = 0; i < n; i++) {
+    const a = P[i], b = P[(i + 1) % n], ex = b.x - a.x, ey = b.y - a.y, den = dx * ey - dy * ex;
+    if (Math.abs(den) < 1e-15) continue;
+    const ax = a.x - px, ay = a.y - py, t = (ax * ey - ay * ex) / den, u = (ax * dy - ay * dx) / den;
+    if (t > 1e-9 && u >= -1e-9 && u <= 1 + 1e-9 && t < best) best = t;
+  }
+  return best;
 }
-
-/** The joints of the first K circles at angle φ: K + 1 points, the centre first, the pen last. */
-function joints(chain, K, phi) {
-  const out = [[chain[0].re, chain[0].im]];
-  let x = chain[0].re, y = chain[0].im;
-  for (let i = 1; i <= K && i < chain.length; i++) {
-    const c = chain[i], a = c.m * phi;
-    x += c.re * Math.cos(a) - c.im * Math.sin(a);
-    y += c.re * Math.sin(a) + c.im * Math.cos(a);
-    out.push([x, y]);
+/** Which points (every step-th) a reader at (ox, oy) sees: its ray meets the outline there first. */
+function seen(P, ox, oy, step) {
+  const out = [];
+  for (let i = 0; i < P.length; i += step) {
+    const dx0 = P[i].x - ox, dy0 = P[i].y - oy, d = Math.hypot(dx0, dy0);
+    out.push(d <= firstMeet(ox, oy, dx0 / d, dy0 / d, P) + 1e-6 * d);
   }
   return out;
 }
-/** The pen of the first K circles at angle φ. */
-function pen(chain, K, phi) {
-  let x = chain[0].re, y = chain[0].im;
-  for (let i = 1; i <= K && i < chain.length; i++) {
-    const c = chain[i], a = c.m * phi;
-    x += c.re * Math.cos(a) - c.im * Math.sin(a);
-    y += c.re * Math.sin(a) + c.im * Math.cos(a);
+function inside(P, x, y) {
+  let c = false;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const a = P[i], b = P[j];
+    if ((a.y > y) !== (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x) c = !c;
   }
-  return [x, y];
-}
-/** The curve the first K circles trace, at P points. */
-function trace(chain, K, P = 600) {
-  const x = new Float64Array(P), y = new Float64Array(P);
-  for (let q = 0; q < P; q++) { const p = pen(chain, K, TAU * q / P); x[q] = p[0]; y[q] = p[1]; }
-  return { x, y };
-}
-
-/** The curve's size: its RMS distance from its centre, which is Parseval's sum of the circles. */
-const size = chain => Math.sqrt(chain.slice(1).reduce((a, c) => a + c.r * c.r, 0)) || 1;
-
-/**
- * What dropping circles costs, keeping the first K: the worst miss (sup over the
- * curve, sampled at P points) and the RMS miss, both as a share of size, and the
- * share of the curve's energy the kept circles hold. The RMS miss is exact, by
- * Parseval: it is the square root of the energy left off.
- */
-function miss(chain, K, P = 512) {
-  const S = size(chain);
-  let left = 0, kept = 0;
-  chain.slice(1).forEach((c, i) => { if (i < K) kept += c.r * c.r; else left += c.r * c.r; });
-  let worst = 0;
-  for (let q = 0; q < P; q++) {
-    let x = 0, y = 0;
-    for (let i = K + 1; i < chain.length; i++) {
-      const c = chain[i], a = c.m * TAU * q / P;
-      x += c.re * Math.cos(a) - c.im * Math.sin(a); y += c.re * Math.sin(a) + c.im * Math.cos(a);
-    }
-    worst = Math.max(worst, Math.hypot(x, y));
-  }
-  return { sup: worst / S, rms: Math.sqrt(left) / S, energy: kept / (kept + left || 1) };
-}
-
-/** The fewest circles whose worst miss is within tol of the size. */
-function circlesFor(chain, tol, by) {
-  const c = by ? order(chain, by) : chain;
-  let lo = 0, hi = c.length - 1;
-  if (miss(c, hi).sup > tol) return Infinity;
-  while (lo < hi) { const mid = (lo + hi) >> 1; if (miss(c, mid).sup <= tol) hi = mid; else lo = mid + 1; }
-  return lo;
-}
-
-/**
- * Any chain is a closed curve, and a band-limited one: its fastest circle turns k
- * times, so N = 2k + 1 leaves sampled from it hold it exactly. `list` is
- * [{ m, r, ph }]; the shape comes back with that many leaves.
- */
-function fromChain(list, o = {}) {
-  const k = list.reduce((a, c) => Math.max(a, Math.abs(c.m)), 0);
-  const N = Math.max(3, o.N || 2 * k + 1);
-  const chain = [{ m: 0, re: 0, im: 0, r: 0, ph: 0 },
-    ...list.map(c => ({ m: c.m, r: c.r, ph: c.ph, re: c.r * Math.cos(c.ph), im: c.r * Math.sin(c.ph) }))];
-  return { shape: Shape.fromFunction(t => pen(chain, chain.length - 1, TAU * t), N), chain, k, N };
-}
-
-/** A seeded chain: n circles at random frequencies up to ±kmax, radii falling as 1/|m|^decay. */
-function randomChain(seed, n, kmax, decay) {
-  let s = (seed * 2654435761) >>> 0 || 1;
-  const rnd = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
-  const used = new Set([1]), list = [{ m: 1, r: 1, ph: 0 }];
-  for (let tries = 0; list.length < n && tries < 200; tries++) {
-    const m = (rnd() < 0.5 ? -1 : 1) * (1 + Math.floor(rnd() * kmax));
-    if (used.has(m)) continue;
-    used.add(m);
-    list.push({ m, r: (0.25 + 0.6 * rnd()) / Math.pow(Math.abs(m), decay), ph: TAU * rnd() });
-  }
-  return list;
-}
-
-/** The frequencies a shape actually uses: the circles above `tol` of its size. */
-function present(chain, tol = 1e-9) {
-  const S = size(chain);
-  return chain.slice(1).filter(c => c.r > tol * S).map(c => c.m);
-}
-
-return { coeffs, order, joints, pen, trace, size, miss, circlesFor, fromChain, randomChain, present };
-})();
-const EP = EPICYCLES;
-
-const { Shape, circle, star, blob, rose, polygon, evalAt, TAU } = TVF;
-const { toTVF } = FORMAT;
-
-const opts = { leaves: false, exact: true, circles: true, playing: true, speed: 0.35 };
-const p = (key, min, max, step, value) => ({ key, min, max, step, value });
-const sel = (key, options, value) => ({ key, options, value });
-// The page's palette on the slate ground, as on the other chart pages: INK the light
-// contour, CLAY the violet for what the tile is about, BLUE the arms, SLIP the pen.
-const INK = 'rgba(232,236,245,0.92)', CLAY = 'rgba(160,138,255,0.95)', GHOST = 'rgba(232,236,245,0.22)',
-      SLIP = '#4ade80', BLUE = 'rgba(94,182,255,0.95)', RIM = 'rgba(232,236,245,0.15)', DIM = 'rgba(139,149,171,1)';
-const cache = new Map();
-const memo = (k, f) => { if (!cache.has(k)) cache.set(k, f()); return cache.get(k); };
-const pct = e => (e * 100).toFixed(e < 0.001 ? 3 : e < 0.1 ? 2 : 1) + '%';
-
-// The shapes the chains are asked to draw. The heart is the classic parametric one,
-// which is a trigonometric polynomial of degree four, so nine circles hold it exactly;
-// the star and the square have corners, so no number of circles does.
-const heart = N => Shape.fromFunction(t => { const a = TAU * t, s = Math.sin(a);
-  return [16 * s * s * s, 13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)]; }, N);
-const flake = (N, n = 6, a = 0.22, b = 0.08) => Shape.fromFunction(t => { const th = TAU * t;
-  const r = 1 + a * Math.cos(n * th) + b * Math.cos(2 * n * th); return [r * Math.cos(th), r * Math.sin(th)]; }, N);
-const SHAPE_OF = {
-  heart, star: N => star(N, { points: 5 }), square: N => polygon(N, { sides: 4, rotation: Math.PI / 4 }),
-  rose: N => rose(N, { petals: 3, depth: 0.45 }), blob: N => blob(N, { amp: 30, seed: 11 }), snowflake: N => flake(N),
-};
-const SHAPE_NAMES = Object.keys(SHAPE_OF);
-const chainOf = (name, N, by) => memo(`ch:${name}:${N}:${by}`, () => {
-  const s = SHAPE_OF[name](N);
-  return { s, chain: EP.order(EP.coeffs(s), by) };
-});
-
-// ── drawing ──────────────────────────────────────────────────────────────
-function cam(pts, w, h, pad) {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const s of pts) for (let i = 0; i < s.x.length; i++) {
-    if (s.x[i] < x0) x0 = s.x[i]; if (s.x[i] > x1) x1 = s.x[i];
-    if (s.y[i] < y0) y0 = s.y[i]; if (s.y[i] > y1) y1 = s.y[i];
-  }
-  const bw = x1 - x0 || 1, bh = y1 - y0 || 1;
-  const k = Math.min((w - 2 * pad) / bw, (h - 2 * pad) / bh);
-  return { k, X: x => w / 2 + (x - (x0 + bw / 2)) * k, Y: y => h / 2 - (y - (y0 + bh / 2)) * k };
-}
-function strokePoly(ctx, c, d, style, width, dash, open, upto) {
-  const n = upto == null ? d.x.length : upto;
-  if (n < 2) return;
-  ctx.beginPath();
-  for (let i = 0; i < n; i++) { const X = c.X(d.x[i]), Y = c.Y(d.y[i]); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
-  if (!open && upto == null) ctx.closePath();
-  ctx.setLineDash(dash || []); ctx.strokeStyle = style; ctx.lineWidth = width || 1.3;
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke(); ctx.setLineDash([]);
-}
-function dots(ctx, c, s, style, r) { ctx.fillStyle = style;
-  for (let i = 0; i < s.x.length; i++) { ctx.beginPath(); ctx.arc(c.X(s.x[i]), c.Y(s.y[i]), r || 1.8, 0, TAU); ctx.fill(); } }
-function label(ctx, x, y, t, style, align) {
-  ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace'; ctx.fillStyle = style || DIM;
-  ctx.textAlign = align || 'left'; ctx.fillText(t, x, y); }
-function logLadder(ctx, x0, y0, w, h, series, o = {}) {
-  const lo = o.lo == null ? -9 : o.lo, hi = o.hi == null ? 0 : o.hi;
-  ctx.strokeStyle = 'rgba(232,236,245,0.10)'; ctx.lineWidth = 1;
-  for (let e = Math.ceil(lo); e <= hi; e += 1) { const Y = y0 + h - (e - lo) / (hi - lo) * h;
-    ctx.beginPath(); ctx.moveTo(x0 + 30, Y); ctx.lineTo(x0 + w, Y); ctx.stroke();
-    label(ctx, x0, Y + 3, `1e${e}`, 'rgba(139,149,171,0.9)'); }
-  for (const s of series) {
-    ctx.beginPath();
-    s.errs.forEach((e, i) => { const X = x0 + 34 + i / (s.errs.length - 1) * (w - 42);
-      const Y = y0 + h - (Math.log10(Math.max(e, Math.pow(10, lo))) - lo) / (hi - lo) * h;
-      i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
-    ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 1.4; ctx.stroke();
-    if (s.name) label(ctx, x0 + w, y0 + (s.labelY || 10), s.name, s.color, 'right');
-  }
-}
-/**
- * The machine at angle φ: each circle drawn round the joint it rides on, the arms
- * joint to joint, the pen at the end. Circles under half a pixel are left out of
- * the drawing (not out of the sum), which is most of them on a fine curve.
- */
-function drawChain(ctx, c, chain, K, phi) {
-  const J = EP.joints(chain, K, phi);
-  if (opts.circles) {
-    ctx.strokeStyle = RIM; ctx.lineWidth = 1;
-    for (let i = 1; i < J.length; i++) {
-      const R = chain[i].r * c.k;
-      if (R < 0.6) continue;
-      ctx.beginPath(); ctx.arc(c.X(J[i - 1][0]), c.Y(J[i - 1][1]), R, 0, TAU); ctx.stroke();
-    }
-  }
-  ctx.beginPath();
-  J.forEach((q, i) => i ? ctx.lineTo(c.X(q[0]), c.Y(q[1])) : ctx.moveTo(c.X(q[0]), c.Y(q[1])));
-  ctx.strokeStyle = BLUE; ctx.lineWidth = 1.2; ctx.lineJoin = 'round'; ctx.stroke();
-  const e = J[J.length - 1];
-  ctx.fillStyle = SLIP; ctx.beginPath(); ctx.arc(c.X(e[0]), c.Y(e[1]), 3.4, 0, TAU); ctx.fill();
-  return e;
-}
-/**
- * One chain in a tile: the target curve faint, the curve the kept circles draw
- * in violet (bright behind the pen, dim ahead of it), the machine on top. The
- * camera frames the circles' whole reach, so the arms never leave the stage.
- */
-function stageChain(ctx, w, h, clock, o) {
-  const P = o.tr.x.length, phi = TAU * clock;
-  const reach = { x: [], y: [] };
-  let rr = 0; for (let i = 1; i <= o.K && i < o.chain.length; i++) rr += o.chain[i].r;
-  const half = Math.max(rr * 0.55, 1e-9);
-  reach.x.push(o.chain[0].re - half, o.chain[0].re + half); reach.y.push(o.chain[0].im - half, o.chain[0].im + half);
-  const c = o.cam || cam([o.tr, o.target || o.tr, reach], w, h, o.pad || 18);
-  if (opts.exact && o.target) strokePoly(ctx, c, o.target, GHOST, 2.4);
-  strokePoly(ctx, c, o.tr, 'rgba(160,138,255,0.28)', 1.2);
-  strokePoly(ctx, c, o.tr, CLAY, 1.8, null, true, Math.max(2, Math.round(clock * P) + 1));
-  if (opts.leaves && o.leaves) dots(ctx, c, o.leaves, INK, o.leaves.N > 120 ? 1.1 : 1.8);
-  drawChain(ctx, c, o.chain, o.K, phi);
   return c;
 }
+/** The 16 turns the editor's occlusion lab reads from (cos, sin), made from the leaves. */
+function turns16() {
+  const half = tbLeaves(32), S = half.slice().reverse().map(s => -s).concat(half), out = [];
+  for (let i = 0; i < S.length; i += 2) { const s = S[i]; out.push([(1 - s * s) / (1 + s * s), 2 * s / (1 + s * s)]); }
+  return out;
+}
+/** The occlusion lab's reading of one shape: one view 32 away, sixteen turns pooled, and from inside at its centre. */
+function occlusion(Q0) {
+  const step = 4;
+  let pooled = null, single = 0;
+  const T = turns16();
+  for (const [c, sn] of T) {
+    const P = Q0.map(p => ({ x: c * p.x - sn * p.y, y: sn * p.x + c * p.y }));
+    const s = seen(P, 0, -32, step);
+    single += s.filter(Boolean).length / s.length;
+    pooled = pooled ? pooled.map((v, j) => v || s[j]) : s;
+  }
+  const out = pooled.filter(Boolean).length / pooled.length;
+  let ins = null, both = out;
+  if (!inside(Q0, 0, 0)) {
+    const s2 = seen(Q0, 0, 0, step);
+    ins = s2.filter(Boolean).length / s2.length;
+    both = pooled.map((v, j) => v || s2[j]).filter(Boolean).length / pooled.length;
+  }
+  return { one: single / T.length, out, ins, both };
+}
+
+// ── readers within readers ───────────────────────────────────────────────
+let _dirs = null;
+function dirs() {
+  if (_dirs) return _dirs;
+  const base = tbLeaves(128).map(q => { const L = Math.hypot(1, q); return [1 / L, q / L]; }), D = [];
+  for (const [x, y] of base) D.push([x, y]);
+  for (const [x, y] of base) D.push([-y, x]);
+  for (const [x, y] of base) D.push([-x, -y]);
+  for (const [x, y] of base) D.push([y, -x]);
+  return (_dirs = D);
+}
+/** Up to K children of the reader at o: where it saw furthest, 3% short of the meeting. */
+function children(P, o, K) {
+  const D = dirs(), d = D.map(([dx, dy]) => firstMeet(o.x, o.y, dx, dy, P)), fin = d.filter(isFinite);
+  if (fin.length < 3) return [];
+  const med = fin.slice().sort((a, b) => a - b)[fin.length >> 1], n = d.length, pk = [];
+  for (let i = 0; i < n; i++) {
+    if (!isFinite(d[i])) continue;
+    const a = d[(i + n - 1) % n], b = d[(i + 1) % n];
+    if ((!isFinite(a) || d[i] >= a) && (!isFinite(b) || d[i] >= b) && d[i] > med) pk.push([d[i] - med, i]);
+  }
+  pk.sort((u, v) => v[0] - u[0]);
+  return pk.slice(0, K).map(([, i]) => ({ x: o.x + 0.97 * d[i] * D[i][0], y: o.y + 0.97 * d[i] * D[i][1] }));
+}
+/** The 16 outside readers, 32 away at the occlusion lab's turns. */
+function outsideStarts() { return turns16().map(([c, sn]) => ({ x: -32 * sn, y: -32 * c })); }
+/** Readers within readers from the given first readers: per point the level that first sees it (−1 never). */
+function nest(P, starts, LEV, step) {
+  LEV = LEV || 10; step = step || 2;
+  let mnx = Infinity, mxx = -Infinity, mny = Infinity, mxy = -Infinity;
+  for (const p of P) { mnx = Math.min(mnx, p.x); mxx = Math.max(mxx, p.x); mny = Math.min(mny, p.y); mxy = Math.max(mxy, p.y); }
+  const tol = 0.01 * Math.max(mxx - mnx, mxy - mny), nT = Math.ceil(P.length / step), lvl = new Int16Array(nT).fill(-1);
+  const readers = starts.map(o => ({ x: o.x, y: o.y, L: 0 }));
+  const look = (o, L) => { const s = seen(P, o.x, o.y, step); for (let j = 0; j < nT; j++) if (s[j] && lvl[j] < 0) lvl[j] = L; };
+  for (const o of starts) look(o, 0);
+  const cov = () => { let c = 0; for (let j = 0; j < nT; j++) if (lvl[j] >= 0) c++; return c / nT; };
+  const hist = [[0, readers.length, cov()]];
+  let fresh = readers.slice();
+  for (let L = 1; L <= LEV && hist[hist.length - 1][2] < 0.999; L++) {
+    const nxt = [];
+    for (const o of fresh) for (const c of children(P, o, 3)) {
+      if (readers.some(r => Math.hypot(r.x - c.x, r.y - c.y) < tol) || nxt.some(r => Math.hypot(r.x - c.x, r.y - c.y) < tol)) continue;
+      nxt.push({ x: c.x, y: c.y, L });
+    }
+    if (!nxt.length) break;
+    for (const o of nxt) look(o, L);
+    readers.push(...nxt); fresh = nxt;
+    hist.push([L, readers.length, cov()]);
+  }
+  return { lvl, step, readers, hist };
+}
+
+return { resample, centre, readings, stats, breadth, evenRule, cornerReads, nearFar, polarShape, patho, prep,
+         tbLeaves, firstMeet, seen, inside, turns16, occlusion, children, outsideStarts, nest };
+})();
+const SI = SITUATED;
+
+const { Shape, TAU } = TVF;
+const { toTVF } = FORMAT;
+
+const opts = { leaves: true };
+const p = (key, min, max, step, value) => ({ key, min, max, step, value });
+const sel = (key, options, value) => ({ key, options, value });
+// The chart pages' palette: INK the light contour, CLAY the violet of what the tile is about,
+// BLUE before the corner, GOLD past it, SLIP for what is seen.
+const INK = 'rgba(232,236,245,0.92)', CLAY = 'rgba(160,138,255,0.95)', GHOST = 'rgba(232,236,245,0.2)',
+      SLIP = '#4ade80', BLUE = 'rgba(94,182,255,0.95)', GOLD = '#f2c14e', DIM = 'rgba(139,149,171,1)', HIDE = 'rgba(139,149,171,0.35)';
+const NEST_PAL = ['#6f8cff', '#5fb4f0', '#4fd0d0', '#5fd99a', '#9ad65f', '#d6d24f', '#e8b04f', '#e88a4f', '#e0644f', '#d94f7a', '#c94fd0'];
+const cache = new Map();
+const memo = (k, f) => { if (!cache.has(k)) cache.set(k, f()); return cache.get(k); };
+const pct = (x, d) => (100 * x).toFixed(d == null ? 1 : d) + '%';
+const f3 = x => x.toFixed(3);
+
+// ── the shapes ───────────────────────────────────────────────────────────
+// Centred shapes for the readers that stand at the middle (sections one to three), and the
+// editor's pathological families for the ones that have to walk (four and five).
+const CENTRED = {
+  circle:   () => SI.polarShape(2048, t => 1),
+  ellipse:  () => SI.polarShape(2048, t => 1).map(q => ({ x: q.x, y: 0.5 * q.y })),
+  egg:      () => SI.polarShape(2048, t => 1).map(q => ({ x: q.x * (1 + 0.18 * q.y), y: 1.25 * q.y })),
+  lobed:    () => SI.patho('lobed', 1, 2048),
+  pinched:  () => SI.patho('pinched', 2, 2048),
+  star:     () => SI.polarShape(2048, t => 1 + 0.32 * Math.cos(5 * t) + 0.06 * Math.cos(10 * t)),
+  elongated:() => SI.patho('elongated', 2, 2048),
+};
+const PATHO = {};
+for (const lvl of [2, 3, 4, 5]) PATHO['curled ' + [90, 180, 250, 290, 310][lvl - 1] + '°'] = ['curled', lvl];
+for (const lvl of [1, 2, 3, 4, 5]) PATHO['spiral ' + [0.5, 0.8, 1.1, 1.4, 1.7][lvl - 1] + ' turns'] = ['spiral', lvl];
+PATHO['lobed'] = ['lobed', 3]; PATHO['elongated'] = ['elongated', 2];
+const shapeOf = name => memo('sh:' + name, () => CENTRED[name]());
+const pathoOf = name => memo('pa:' + name, () => SI.prep(SI.patho(PATHO[name][0], PATHO[name][1], 1024)));
+const asShape = P => Shape.fromPoints(P, 128);
+
+// ── drawing ──────────────────────────────────────────────────────────────
+// The camera fits the given point sets and remembers its inverse, so a drag on the canvas
+// can be read back in the shape's coordinates (y up).
+function cam(sets, w, h, pad) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of sets) for (const q of s) {
+    if (q.x < x0) x0 = q.x; if (q.x > x1) x1 = q.x; if (q.y < y0) y0 = q.y; if (q.y > y1) y1 = q.y;
+  }
+  const bw = x1 - x0 || 1, bh = y1 - y0 || 1, k = Math.min((w - 2 * pad) / bw, (h - 2 * pad) / bh);
+  const mx = x0 + bw / 2, my = y0 + bh / 2;
+  return { k, X: x => w / 2 + (x - mx) * k, Y: y => h / 2 - (y - my) * k,
+           inv: (sx, sy) => ({ x: mx + (sx - w / 2) / k, y: my - (sy - h / 2) / k }) };
+}
+function outline(ctx, c, P, style, width, closed) {
+  ctx.beginPath();
+  P.forEach((q, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, c.X(q.x), c.Y(q.y)));
+  if (closed !== false) ctx.closePath();
+  ctx.strokeStyle = style; ctx.lineWidth = width || 1.2; ctx.lineJoin = 'round'; ctx.stroke();
+}
+function label(ctx, x, y, t, style, align) {
+  ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace'; ctx.fillStyle = style || DIM;
+  ctx.textAlign = align || 'left'; ctx.fillText(t, x, y);
+}
+function dot(ctx, x, y, r, fill, stroke) {
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.2; ctx.stroke(); }
+}
+/** The reader: a dot, and its two corner lines v = ±h, dashed, across the stage. */
+function reader(ctx, c, o, w, h) {
+  const X = c.X(o.x), Y = c.Y(o.y), L = Math.max(w, h);
+  ctx.setLineDash([3, 4]); ctx.strokeStyle = 'rgba(242,193,78,0.35)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(X - L, Y - L); ctx.lineTo(X + L, Y + L); ctx.moveTo(X - L, Y + L); ctx.lineTo(X + L, Y - L); ctx.stroke();
+  ctx.setLineDash([]);
+  dot(ctx, X, Y, 4.2, '#fff', GOLD);
+}
+/** A strip of the readings' spread in log₂ s, against the circle read from its centre (grey). */
+function spread(ctx, x0, y0, w, h, s, ref) {
+  const B = 48, lo = -6, hi = 6, hist = a => { const H = new Float64Array(B); for (const v of a) { const l = Math.log2(Math.max(v, 1e-12));
+    const b = Math.floor((l - lo) / (hi - lo) * B); if (b >= 0 && b < B) H[b]++; } return H.map(n => n / a.length); };
+  const A = hist(s), R = hist(ref), top = Math.max(...A, ...R) || 1, bw = w / B;
+  for (let b = 0; b < B; b++) {
+    const hr = R[b] / top * h, ha = A[b] / top * h, mid = lo + (b + 0.5) / B * (hi - lo);
+    ctx.fillStyle = 'rgba(232,236,245,0.10)'; ctx.fillRect(x0 + b * bw, y0 + h - hr, bw - 1, hr);
+    ctx.fillStyle = mid < 0 ? BLUE : GOLD; ctx.globalAlpha = 0.75; ctx.fillRect(x0 + b * bw + 1, y0 + h - ha, bw - 3, ha); ctx.globalAlpha = 1;
+  }
+  const cx = x0 + w / 2;
+  ctx.strokeStyle = 'rgba(242,193,78,0.6)'; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(cx, y0 - 4); ctx.lineTo(cx, y0 + h); ctx.stroke(); ctx.setLineDash([]);
+  label(ctx, x0, y0 + h + 12, 'v/h = 1/64', DIM); label(ctx, cx, y0 + h + 12, 'the corner, v = h', GOLD, 'center'); label(ctx, x0 + w, y0 + h + 12, '64', DIM, 'right');
+}
+const circleRef = () => memo('circleRef', () => SI.readings(SI.polarShape(2048, t => 1), 20000).s);
 
 // ── the catalogue ────────────────────────────────────────────────────────
 const SECTIONS = [
 {
-  id: 'machine', title: 'Circles riding circles', kicker: 'the sum the kernel adds, term by term',
-  note: 'Read a shape\'s N leaves as complex numbers, x + iy, and take their discrete Fourier transform. Each ' +
-        'coefficient Z<sub>m</sub> is a circle: radius |Z<sub>m</sub>|, turning <b>m times</b> while the pen goes ' +
-        'round once, starting at the angle of Z<sub>m</sub>. Put the circles end to end and the rim of the last ' +
-        'one is the pen. This is Ptolemy\'s machine, and here it is not an approximation of the format: <b>it is ' +
-        'the format</b>, the same finite sum the cardinal kernel adds up between the leaves, written circle by ' +
-        'circle instead of leaf by leaf. Every circle draws the curve exactly; fewer draw it with the smaller ' +
-        'ones left off. <a class="paper" href="../papers.html#tb_spectral:17.1-statement">spectral §17</a> <a class="paper" href="../papers.html#tb_spectral:18.1-statement">§18, the Nyquist pair</a>',
+  id: 'two', title: 'One shape, two readers', kicker: 'the surveyor, and someone standing somewhere',
+  note: 'Every other page reads a curve the <b>un-situated</b> way: N leaves evenly spaced in the curve\'s own parameter, ' +
+        'the whole loop at once, from nowhere in particular. Move the curve and its leaves go with it; nothing about ' +
+        'them depends on where anyone is. The <b>situated</b> reader stands at a point and holds only what it reads from ' +
+        'there: for each place on the outline, v/h, how far across against how far along. Its reading has a ' +
+        '<b>corner</b>, v = h, where across overtakes along. The circle read from its centre is the evenly spread ' +
+        'world: a quarter of the turn on each side of every corner, so it opens at ½, 1, 2/π, 2/π (the four numbers ' +
+        'below). Every other shape, and every other standpoint, reads as a departure from that. ' +
+        '<a class="paper" href="../papers.html#tb_algebra:10.2-reparameterization-invariance-the-embedding-coordinate-">algebraic form §10.2</a>',
   entries: [
-    { name: 'the chain', wide: true, tall: true, animate: true,
-      note: 'Pick a shape and drag <b>circles</b>. With all of them the violet trace lands on the grey curve to ' +
-            'rounding, measured in the verdict. Take most away and the shape is still there: by size, the ' +
-            'first handful of circles hold nearly all of it, and what the rest add is the corners. A negative ' +
-            'm turns clockwise; a curve that runs anticlockwise is mostly m = +1.',
-      params: [ sel('shape', SHAPE_NAMES, 'star'), p('N', 8, 256, 1, 64), p('circles', 1, 256, 1, 10), sel('order', ['size', 'speed'], 'size') ],
-      code: v => { const { chain } = chainOf(v.shape, v.N, v.order), K = Math.min(v.circles, chain.length - 1);
-        return `order(coeffs(${v.shape}(${v.N})), '${v.order}').slice(0, 1 + ${K})   // m = ` +
-          chain.slice(1, 1 + Math.min(K, 9)).map(c => (c.m > 0 ? '+' : '') + c.m).join(', ') + (K > 9 ? ' …' : ''); },
-      state: v => { const { s, chain } = chainOf(v.shape, v.N, v.order), K = Math.min(v.circles, chain.length - 1);
-        const full = chain.length - 1, m = EP.miss(chain, K);
-        let exact = 0;
-        if (K === full) for (let q = 0; q < 64; q++) { const ph = TAU * (q + 0.37) / 64, pp = EP.pen(chain, K, ph);
-          exact = Math.max(exact, Math.hypot(pp[0] - evalAt(s.x, ph), pp[1] - evalAt(s.y, ph)) / EP.size(chain)); }
-        return { s, chain, K, full, m, exact, tr: EP.trace(chain, K, 600), target: s.sample(600),
-                 sh: Shape.fromFunction(t => EP.pen(chain, K, TAU * t), v.N) }; },
-      verdict: s => s.K === s.full
-        ? `all ${s.full} circles: the chain and the kernel agree to ${s.exact.toExponential(1)} of the size — they are one sum`
-        : s.m.sup < 1e-9 ? `${s.K} of ${s.full} circles, and the ones left off are zero: this shape is exact with ${s.K}`
-        : `${s.K} of ${s.full} circles · ${(s.m.energy * 100).toFixed(s.m.energy > 0.999 ? 4 : 2)}% of the energy · worst miss ${pct(s.m.sup)} of the size`,
-      bad: s => s.K < s.full && s.m.sup > 0.01,
-      draw: (ctx, w, h, v, s, clock) => {
-        stageChain(ctx, w, h, clock, { chain: s.chain, K: s.K, tr: s.tr, target: s.target, leaves: s.s });
-        label(ctx, 10, 16, `${s.K} circle${s.K > 1 ? 's' : ''}, by ${v.order}`, CLAY);
-        label(ctx, 10, 29, `the ${v.shape} at N = ${v.N}`, DIM);
-      } },
-
-    { name: 'two circles make an ellipse', animate: true,
-      note: 'One circle turning forward (m = +1) and one turning back (m = −1). Their sum is an ellipse with ' +
-            'semi-axes <b>a + b</b> and <b>|a − b|</b>, tilted by half the phase between them. Equal radii flatten it to ' +
-            'a line segment, traced there and back. Three leaves hold any of these exactly, which the edit button proves.',
-      params: [ p('a (m = +1)', 0, 1, .01, 0.7), p('b (m = −1)', 0, 1, .01, 0.3), p('phase°', -180, 180, 1, 40) ],
-      code: v => `fromChain([{ m: 1, r: ${v['a (m = +1)']} }, { m: -1, r: ${v['b (m = −1)']}, ph: ${v['phase°']}° }])   // N = 3`,
-      state: v => { const a = v['a (m = +1)'], b = v['b (m = −1)'];
-        const f = EP.fromChain([{ m: 1, r: a, ph: 0 }, { m: -1, r: b, ph: v['phase°'] * Math.PI / 180 }]);
-        return { a, b, f, chain: f.chain, tr: EP.trace(f.chain, 2, 400), sh: f.shape }; },
-      verdict: s => `semi-axes ${(s.a + s.b).toFixed(2)} and ${Math.abs(s.a - s.b).toFixed(2)}` +
-        (Math.abs(s.a - s.b) < 0.005 ? ': equal circles, a segment' : s.b < 0.005 ? ': one circle, a circle' : '') + ` · held exactly by ${s.f.N} leaves`,
-      draw: (ctx, w, h, v, s, clock) => {
-        const box = { x: [-1.6, 1.6], y: [-1.6, 1.6] };
-        stageChain(ctx, w, h, clock, { chain: s.chain, K: 2, tr: s.tr, leaves: s.sh, cam: cam([box], w, h, 14) });
-      } },
-  ]
-},
-{
-  id: 'symmetry', title: 'Symmetry is which circles turn', kicker: 'a snowflake only uses 1 mod 6',
-  note: 'Turn a six-fold shape by a sixth of a turn and it is the same shape, met a sixth of the way round. ' +
-        'A circle turning m times comes back rotated by m/6 of a turn over that sixth, and the only way the sum ' +
-        'can come back rotated by exactly one sixth is for every circle in it to have <b>m ≡ 1 (mod 6)</b>: ' +
-        '1, −5, 7, −11, 13 … Every other circle is zero, not small. So the spectrum strips on the other pages ' +
-        'are reading this machine\'s parts list.',
-  entries: [
-    { name: 'a snowflake\'s chain', wide: true, animate: true,
-      note: 'A polar curve with n-fold symmetry, r = 1 + a·cos nθ + b·cos 2nθ. Change the fold and watch the parts list ' +
-            'in the verdict: the frequencies present step by n, from 1. The fast circles alternate direction, which ' +
-            'is where the points come from.',
-      params: [ p('fold', 2, 9, 1, 6), p('a', 0, 0.5, .01, 0.22), p('b', 0, 0.3, .01, 0.08), p('N', 16, 256, 1, 96) ],
-      code: v => `order(coeffs(flake(${v.N}, { fold: ${v.fold}, a: ${v.a}, b: ${v.b} })), 'speed')`,
-      state: v => { const s = flake(v.N, v.fold, v.a, v.b), chain = EP.order(EP.coeffs(s), 'speed');
-        const used = EP.present(chain, 1e-9), live = chain.filter((c, i) => i === 0 || c.r > 1e-9 * EP.size(chain));
-        return { s, chain: live, used, fold: v.fold, ok: used.every(m => ((m - 1) % v.fold + v.fold) % v.fold === 0),
-                 tr: EP.trace(live, live.length - 1, 600), sh: s }; },
-      verdict: s => `${s.chain.length - 1} circles are not zero: m = ${s.used.map(m => (m > 0 ? '+' : '') + m).join(', ')} — ` +
-        (s.ok ? `every one ≡ 1 (mod ${s.fold})` : 'not all ≡ 1, which the symmetry forbids'),
-      bad: s => !s.ok,
-      draw: (ctx, w, h, v, s, clock) => {
-        stageChain(ctx, w, h, clock, { chain: s.chain, K: s.chain.length - 1, tr: s.tr, leaves: s.s });
-        label(ctx, 10, 16, `${v.fold}-fold: only m ≡ 1 (mod ${v.fold})`, CLAY);
-      } },
-  ]
-},
-{
-  id: 'truncate', title: 'Dropping circles', kicker: 'the smallest first, by Parseval',
-  note: 'The energy of a curve, its mean squared distance from its centre, is the sum of its circles\' squared ' +
-        'radii (Parseval). So the RMS miss of a chain with circles left off is exactly the square root of the ' +
-        'energy left off, and keeping the <b>largest</b> circles is the best any K can do in that measure. ' +
-        'Keeping the <b>slowest</b> (the ordinary truncated Fourier series) is the same thing only for a curve whose ' +
-        'circles shrink as they speed up, and a star\'s do not: five-fold, it uses only m = 1, −4, 6, −9, 11 …, so by ' +
-        'speed most of the circles kept are zeros. <a class="paper" href="../papers.html#tb_spectral:19.1-statement">spectral §19</a>',
-  entries: [
-    { name: 'circle by circle', wide: true,
-      note: 'The same shape kept to 1, 2, 4, 8, 16 circles by size, and all of them. The outline settles first and the ' +
-            'corners arrive last, which is the same order the leaf count brings them in, because it is the same sum.',
-      params: [ sel('shape', SHAPE_NAMES, 'star'), p('N', 16, 256, 1, 128) ],
-      code: v => `[1, 2, 4, 8, 16, all].map(K => trace(order(coeffs(${v.shape}(${v.N})), 'size'), K))`,
-      state: v => { const { s, chain } = chainOf(v.shape, v.N, 'size'), full = chain.length - 1;
-        const Ks = [1, 2, 4, 8, 16, full];
-        return { s, chain, Ks, rows: Ks.map(K => ({ K, tr: EP.trace(chain, K, 500), m: EP.miss(chain, K) })), sh: s }; },
-      verdict: s => s.rows.slice(0, -1).map(r => `${r.K}: ${pct(r.m.sup)}`).join(' · ') + ` · all ${s.Ks[5]}: exact`,
+    { name: 'where it stands', wide: true, tall: true, drag: true,
+      note: 'Drag the gold reader. The outline is coloured by what the reader holds of each place: <b>blue</b> before its ' +
+            'corner (v < h), <b>gold</b> past it. The violet ticks are the un-situated reader\'s leaves; they do not move, ' +
+            'whatever you do. The strip below is the spread of the readings against the circle\'s from its centre (grey). ' +
+            'Switch <b>lay</b> to direction and the reader spaces its readings by equal turns instead of along the outline: ' +
+            'then every shape, from every standpoint, opens exactly as the circle does, because it is no longer looking at the shape.',
+      params: [ sel('shape', Object.keys(CENTRED), 'egg'), sel('lay', ['outline', 'direction'], 'outline') ],
+      code: v => `readings(${v.shape}, 20000, reader, '${v.lay}')   // reader ${v.o ? `at (${v.o.x.toFixed(2)}, ${v.o.y.toFixed(2)})` : 'at the area centre'}`,
+      state: v => {
+        const P = shapeOf(v.shape), o = v.o || SI.centre(P);
+        const r = SI.readings(P, 20000, o, v.lay), st = SI.stats(r.s);
+        const show = SI.readings(P, 720, o, 'outline');
+        return { P, o, st, s: r.s, show, inside: SI.inside(P, o.x, o.y), sh: asShape(P) };
+      },
+      verdict: s => `corner ${f3(s.st.corner)} · middle ${f3(s.st.middle)} · tail ${f3(s.st.tail)} · head ${f3(s.st.head)}` +
+                    `   (the circle from its centre: 0.500 · 1.000 · 0.637 · 0.637)` + (s.inside ? '' : ' · the reader is outside the shape'),
       draw: (ctx, w, h, v, s) => {
-        const cols = s.rows.length, cw = w / cols;
-        const c0 = cam([s.s.sample(400)], cw, h - 30, 10);
-        s.rows.forEach((r, i) => {
-          ctx.save(); ctx.translate(i * cw, 0);
-          if (opts.exact) strokePoly(ctx, c0, s.s.sample(400), GHOST, 2);
-          strokePoly(ctx, c0, r.tr, CLAY, 1.5);
-          label(ctx, cw / 2, h - 18, i === cols - 1 ? `all ${r.K}` : `K = ${r.K}`, INK, 'center');
-          label(ctx, cw / 2, h - 6, i === cols - 1 ? 'exact' : pct(r.m.sup), r.m.sup > 0.01 ? '#f6d68a' : SLIP, 'center');
-          ctx.restore();
-        });
+        const sh = h - 70, c = cam([s.P, [s.o]], w, sh, 22);
+        outline(ctx, c, s.P, GHOST, 2.4);
+        const R = s.show.R;
+        for (let k = 0; k < R.X.length; k++) dot(ctx, c.X(R.X[k]), c.Y(R.Y[k]), 1.6, s.show.s[k] < 1 ? BLUE : GOLD);
+        if (opts.leaves) for (let k = 0; k < s.P.length; k += s.P.length / 24) { const q = s.P[Math.floor(k)]; dot(ctx, c.X(q.x), c.Y(q.y), 3, CLAY); }
+        reader(ctx, c, s.o, w, sh);
+        spread(ctx, 30, sh + 6, w - 60, 40, s.s, circleRef());
+        label(ctx, 10, 14, 'drag the reader', GOLD);
+        return c;
       } },
-
-    { name: 'by size or by speed', tall: true,
-      note: 'The RMS miss against the number of circles kept, both orders, on a log scale. By size is never above by ' +
-            'speed (Parseval guarantees it). Where the lines meet, the shape\'s circles were already in order of size.',
-      params: [ sel('shape', SHAPE_NAMES, 'star'), p('N', 16, 256, 1, 128) ],
-      code: v => `miss(order(coeffs(${v.shape}(${v.N})), 'size' | 'speed'), K).rms   // K = 1 … 64`,
-      state: v => { const a = chainOf(v.shape, v.N, 'size').chain, b = chainOf(v.shape, v.N, 'speed').chain;
-        const Kmax = Math.min(64, a.length - 1), Ks = Array.from({ length: Kmax }, (_, i) => i + 1);
-        const sz = Ks.map(K => EP.miss(a, K, 8).rms), sp = Ks.map(K => EP.miss(b, K, 8).rms);
-        const at = Math.min(8, Kmax) - 1;
-        return { Ks, sz, sp, at, worse: Ks.filter((K, i) => sz[i] > sp[i] * (1 + 1e-9)).length }; },
-      verdict: s => `at ${s.Ks[s.at]} circles: by size ${pct(s.sz[s.at])}, by speed ${pct(s.sp[s.at])}` +
-        (s.worse ? ` — by size worse at ${s.worse} K, which Parseval forbids` : ' · by size never worse'),
-      bad: s => s.worse > 0,
+    { kind: 'report', name: 'every shape, from its centre', wide: true },
+  ]
+},
+{
+  id: 'corner', title: 'The corner reads the breadth', kicker: 'where the corner falls says how wide the world is',
+  note: 'Stretch a shape across by b and read it from its centre again. Laid as the circle is, along the unstretched ' +
+        'outline, every reading is b times what it was, so fewer of them fall before the corner, and the share that ' +
+        'does says what b is. Read in the evenly spread world, b = 1/tan(π·share/2): exact for the circle, close for ' +
+        'round shapes, and wrong for the rest, because the rule assumes the reader is in the circle\'s world. Read ' +
+        'against the shape\'s own unstretched readings it is exact for any shape. And laid along the <em>stretched</em> ' +
+        'outline the share still falls with b, but the rule misreads it, the circle itself by 30%: what a situated reader learns depends ' +
+        'on how the world was laid out, not only on where it stands.',
+  entries: [
+    { name: 'stretch it and read it back', wide: true,
+      params: [ sel('shape', ['circle', 'egg', 'lobed', 'pinched', 'star'], 'egg'), p('b', 1, 10, 0.1, 3) ],
+      note: 'The stretched shape, read from its centre, blue before the corner and gold past it. The verdict reads b back three ways.',
+      code: v => `cornerReads(${v.shape}, b = ${v.b})`,
+      state: v => {
+        const P = shapeOf(v.shape), r = SI.cornerReads(P, v.b, 20000), S = P.map(q => ({ x: q.x, y: q.y * v.b }));
+        const show = SI.readings(P, 720, SI.centre(P));
+        return { P, S, b: v.b, r, show, sh: asShape(S) };
+      },
+      verdict: s => `share before the corner ${f3(s.r.share)} · the evenly spread world reads b = ${s.r.even.toFixed(2)} (${pct(Math.abs(s.r.even / s.b - 1))} off)` +
+                    ` · against the shape itself ${s.r.known.toFixed(2)} (${pct(Math.abs(s.r.known / s.b - 1))})` +
+                    ` · laid along the stretched outline ${s.r.along.toFixed(2)} (${pct(Math.abs(s.r.along / s.b - 1))})`,
+      bad: s => Math.abs(s.r.even / s.b - 1) > 0.05,
       draw: (ctx, w, h, v, s) => {
-        label(ctx, 8, 16, `RMS miss vs circles kept, K = 1 … ${s.Ks.length}`, DIM);
-        logLadder(ctx, 8, 28, w - 16, h - 52, [
-          { errs: s.sp, color: BLUE, name: 'by speed', labelY: 24 },
-          { errs: s.sz, color: CLAY, width: 2, name: 'by size', labelY: 10 }], { lo: -6, hi: 0 });
+        const c = cam([s.S], w, h - 10, 18), o = SI.centre(s.P), oo = { x: o.x, y: o.y * s.b };
+        outline(ctx, c, s.S, GHOST, 2.2);
+        const R = s.show.R;
+        for (let k = 0; k < R.X.length; k++) dot(ctx, c.X(R.X[k]), c.Y(R.Y[k] * s.b), 1.6, s.show.s[k] * s.b < 1 ? BLUE : GOLD);
+        reader(ctx, c, oo, w, h);
+        label(ctx, 10, 14, `stretched across by b = ${s.b}`, INK);
       } },
+    { kind: 'report', name: 'b read back, shape by shape', wide: true },
   ]
 },
 {
-  id: 'any', title: 'Any chain is a curve', kicker: 'and N = 2k + 1 leaves hold it',
-  note: 'Run the machine the other way: choose the circles, and the pen draws a closed curve. It is band-limited ' +
-        'by construction, so it is exactly the kind of curve this format holds: if the fastest circle turns k ' +
-        'times, <b>2k + 1 leaves</b> sampled from the pen reproduce it everywhere, not just at the leaves. Ptolemy ' +
-        'used this to fit planets; here it is a way to make shapes that the format holds with no error at all.',
+  id: 'nearfar', title: 'Near and far', kicker: 'two ends, two sizes',
+  note: 'Let the outline glow evenly and walk away from it along its axis. The light arriving, as a share of its ' +
+        'most, is the glowing disc\'s law s²/(1 + s²) averaged round the outline, with s its reach R in each direction ' +
+        'over the distance d. Far off it falls as the inverse square, set by the outline\'s <b>area</b> (the mean of R²); ' +
+        'close in its shortfall grows as d², set by its <b>harmonic reach</b> (the mean of 1/R²). For the circle these are ' +
+        'one size, and the near law is the far law read through the flip f(1/s) = 1 − f(s), with the corner at d = R. ' +
+        'For any other shape the two ends see two sizes, and Q, the mean of R² times the mean of 1/R², says how far apart; ' +
+        'whether they also set two corners is a different question, which the flip answers.',
   entries: [
-    { name: 'a random chain', wide: true, tall: true, animate: true,
-      note: 'A seeded handful of circles, the first at m = +1, the rest at random frequencies with radii falling as ' +
-            '1/|m|<sup>decay</sup>. The verdict samples the pen at 2k + 1 leaves and checks the reconstruction between ' +
-            'them against the chain. The edit button sends those leaves, and the editor redraws the same curve.',
-      params: [ p('seed', 1, 99, 1, 7), p('circles', 2, 14, 1, 6), p('fastest', 2, 30, 1, 12), p('decay', 0, 2, .05, 0.8) ],
-      code: v => { const f = EP.fromChain(EP.randomChain(v.seed, v.circles, v.fastest, v.decay));
-        return `fromChain(randomChain(${v.seed}, ${v.circles}, ${v.fastest}, ${v.decay}))   // m = ` +
-          f.chain.slice(1).map(c => (c.m > 0 ? '+' : '') + c.m).join(', ') + ` → N = ${f.N}`; },
-      state: v => { const f = EP.fromChain(EP.randomChain(v.seed, v.circles, v.fastest, v.decay)), s = f.shape;
-        let e = 0;
-        for (let q = 0; q < 256; q++) { const ph = TAU * (q + 0.29) / 256, pp = EP.pen(f.chain, f.chain.length - 1, ph);
-          e = Math.max(e, Math.hypot(pp[0] - evalAt(s.x, ph), pp[1] - evalAt(s.y, ph))); }
-        return { f, e: e / EP.size(f.chain), chain: f.chain, tr: EP.trace(f.chain, f.chain.length - 1, 900), sh: s }; },
-      verdict: s => `fastest circle k = ${s.f.k}, so ${s.f.N} leaves · leaves vs chain between them: ${s.e.toExponential(1)} of the size`,
-      bad: s => s.e > 1e-9,
-      draw: (ctx, w, h, v, s, clock) => {
-        stageChain(ctx, w, h, clock, { chain: s.chain, K: s.chain.length - 1, tr: s.tr, leaves: s.sh });
-        label(ctx, 10, 16, `${s.chain.length - 1} circles · ${s.f.N} leaves`, CLAY);
+    { name: 'the light, from far to near', wide: true,
+      params: [ sel('shape', ['circle', 'ellipse', 'egg', 'lobed', 'pinched', 'star', 'elongated'], 'ellipse') ],
+      note: 'The share of the light arriving against the distance, on a log scale: the shape (violet), and the circle\'s law at the shape\'s area size (blue, right for far) and at its harmonic reach (green, right for near). The gold mark is the middle d½, where half the light has come; the dashed one is D, the corner the two ends would agree on.',
+      code: v => `nearFar(${v.shape})`,
+      state: v => {
+        const P = shapeOf(v.shape), r = SI.nearFar(P);
+        return { P, r, sh: asShape(P) };
+      },
+      verdict: s => !s.r ? 'this outline does not wind once round its centre, so it has no axis to read on'
+        : `Q = ${s.r.Q.toFixed(4)} · area size ${f3(s.r.area)}, harmonic reach ${f3(s.r.harm)} · middle d½ = ${f3(s.r.dh)} against D = ${f3(s.r.D)}` +
+          ` · the flip holds to ${s.r.flip.toExponential(1)}` + (s.r.flip < 1e-3 && Math.abs(s.r.dh / s.r.D - 1) < 0.02 ? ': one corner' : ': two corners'),
+      bad: s => !s.r || s.r.flip > 0.02,
+      draw: (ctx, w, h, v, s) => {
+        if (!s.r) return;
+        const lo = -4, hi = 4, X = l => 40 + (l - lo) / (hi - lo) * (w - 60), Y = f => h - 24 - f * (h - 44);
+        ctx.strokeStyle = 'rgba(232,236,245,0.10)';
+        for (let l = lo; l <= hi; l++) { ctx.beginPath(); ctx.moveTo(X(l), 14); ctx.lineTo(X(l), h - 24); ctx.stroke(); label(ctx, X(l), h - 10, '2' + (l < 0 ? '⁻' : '') + '⁰¹²³⁴'[Math.abs(l)], DIM, 'center'); }
+        const disc = (R, d) => (R * R) / (R * R + d * d);
+        const curve = (fn, style, width, dash) => { ctx.beginPath(); for (let i = 0; i <= 200; i++) { const l = lo + (hi - lo) * i / 200, d = 2 ** l * s.r.D;
+          (i ? ctx.lineTo : ctx.moveTo).call(ctx, X(l), Y(fn(d))); } ctx.setLineDash(dash || []); ctx.strokeStyle = style; ctx.lineWidth = width; ctx.stroke(); ctx.setLineDash([]); };
+        curve(d => disc(s.r.area, d), BLUE, 1.2, [4, 3]);
+        curve(d => disc(s.r.harm, d), SLIP, 1.2, [4, 3]);
+        curve(s.r.f, CLAY, 2);
+        const xm = X(Math.log2(s.r.dh / s.r.D));
+        ctx.strokeStyle = GOLD; ctx.beginPath(); ctx.moveTo(xm, 14); ctx.lineTo(xm, h - 24); ctx.stroke();
+        ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(242,193,78,0.6)'; ctx.beginPath(); ctx.moveTo(X(0), 14); ctx.lineTo(X(0), h - 24); ctx.stroke(); ctx.setLineDash([]);
+        label(ctx, 44, 24, 'light arriving, of its most', DIM);
+        label(ctx, w - 20, h - 30, 'distance d, against D', DIM, 'right');
+        // the shape itself, small, top right
+        const c = cam([s.P], 90, 70, 6); ctx.save(); ctx.translate(w - 104, 18); outline(ctx, c, s.P, INK, 1.2); ctx.restore();
       } },
+    { kind: 'report', name: 'two sizes, shape by shape', wide: true },
   ]
 },
 {
-  id: 'evidence', title: 'Evidence', kicker: 'measured in this tab',
-  note: 'Measured when you scroll here.',
+  id: 'hidden', title: 'What a situated reader cannot see', kicker: 'the surveyor holds all of it; no one standing anywhere does',
+  note: 'The un-situated reader has every leaf of the outline, whatever the outline does. A reader standing somewhere ' +
+        'holds a place only if its ray towards it meets the outline there first. For a convex shape that is everything ' +
+        'it faces. For a curl, the inside of the curl is hidden from outside, and turning the shape round helps only up to ' +
+        'a point: a reader inside, at the centre, sees what the outside readers cannot. A spiral past a full turn ' +
+        'defeats both: there are places no single standpoint, outside or in, ever holds.',
   entries: [
-    { kind: 'report', name: 'circles for one percent', wide: true },
+    { name: 'drag the reader round it', wide: true, tall: true, drag: true,
+      params: [ sel('shape', Object.keys(PATHO), 'curled 290°') ],
+      note: 'Each place on the outline is <b>green</b> if the reader sees it from where it stands, <b>grey</b> if something is in the way. Drag the reader outside and in.',
+      code: v => `seen(${v.shape}, from ${v.o ? `(${v.o.x.toFixed(2)}, ${v.o.y.toFixed(2)})` : '(0, −3)'})`,
+      state: v => {
+        const P = pathoOf(v.shape), o = v.o || { x: 0, y: -3 }, step = 2, seenAt = SI.seen(P, o.x, o.y, step);
+        return { P, o, step, seenAt, share: seenAt.filter(Boolean).length / seenAt.length, inside: SI.inside(P, o.x, o.y), sh: asShape(P) };
+      },
+      verdict: s => `from ${s.inside ? 'inside' : 'outside'} the shape, the reader holds ${pct(s.share, 0)} of the outline · the un-situated reader holds all of it`,
+      bad: s => s.share < 0.6,
+      draw: (ctx, w, h, v, s) => {
+        const box = [{ x: -2.4, y: -2.4 }, { x: 2.4, y: 2.4 }], c = cam([s.P, box, [s.o]], w, h, 16);
+        for (let j = 0; j < s.seenAt.length; j++) {
+          const a = s.P[j * s.step], b = s.P[Math.min(s.P.length - 1, (j + 1) * s.step) % s.P.length];
+          ctx.beginPath(); ctx.moveTo(c.X(a.x), c.Y(a.y)); ctx.lineTo(c.X(b.x), c.Y(b.y));
+          ctx.strokeStyle = s.seenAt[j] ? SLIP : HIDE; ctx.lineWidth = s.seenAt[j] ? 2.6 : 1.4; ctx.stroke();
+        }
+        dot(ctx, c.X(s.o.x), c.Y(s.o.y), 4.2, '#fff', GOLD);
+        label(ctx, 10, 14, 'drag the reader', GOLD);
+        return c;
+      } },
+    { kind: 'report', name: 'outside, turned, and inside', wide: true },
+  ]
+},
+{
+  id: 'nest', title: 'Readers within readers', kicker: 'stand where the last reader saw furthest',
+  note: 'If no one standpoint holds a shape, put more readers in, by one rule taken from the readers themselves: a ' +
+        'child stands where its parent saw furthest, just short of the meeting, up to three children a parent. Each ' +
+        'level is a reader of the same kind as the first, situated again, which is the recursion. The outline is ' +
+        'coloured by the <b>level</b> of the reader that first sees each place. From outside, the levels step down ' +
+        'each channel of a spiral one stretch at a time: the harder a place is to see, the deeper in the recursion it ' +
+        'sits, and the count follows how often the way in turns out of sight, not how intricate the outline is. ' +
+        '<a class="paper" href="../papers.html#tvf:2.8-depth">format §2.8, depth</a>',
+  entries: [
+    { name: 'the levels, from outside', wide: true, tall: true, drag: true, settle: true,
+      params: [ sel('shape', ['spiral 1.1 turns', 'spiral 1.4 turns', 'spiral 1.7 turns', 'curled 290°', 'curled 310°'], 'spiral 1.7 turns'),
+                sel('start', ['16 outside', 'one you place'], '16 outside') ],
+      note: 'Start from sixteen readers far outside, or choose <b>one you place</b> and drag it (the levels are worked out when you let go). Colour runs from blue at the first readers through green to red at the deepest; grey is never seen.',
+      code: v => `nest(${v.shape}, ${v.start === '16 outside' ? 'outsideStarts()' : `[{ x: ${(v.o || { x: 0, y: 0 }).x.toFixed(2)}, y: ${(v.o || { x: 0, y: 0 }).y.toFixed(2)} }]`})`,
+      state: v => {
+        const P = pathoOf(v.shape), one = v.start !== '16 outside', o = v.o || { x: 0, y: 0 };
+        const r = memo(`nest:${v.shape}:${one ? o.x.toFixed(3) + ',' + o.y.toFixed(3) : 'out'}`, () => SI.nest(P, one ? [o] : SI.outsideStarts()));
+        const last = r.hist[r.hist.length - 1], done = r.hist.find(h => h[2] >= 0.99);
+        return { P, r, one, o, last, done, sh: asShape(P) };
+      },
+      verdict: s => (s.done ? `seen whole after ${s.done[0]} level${s.done[0] === 1 ? '' : 's'}, ${s.done[1]} readers`
+                            : `not seen whole: ${pct(s.last[2], 0)} by level ${s.last[0]}, ${s.last[1]} readers, and no reader left to place`) +
+                    ` · seen by level: ${s.r.hist.map(h => pct(h[2], 0)).join(' · ')}`,
+      bad: s => !s.done,
+      draw: (ctx, w, h, v, s) => {
+        const box = [{ x: -2.4, y: -2.4 }, { x: 2.4, y: 2.4 }], c = cam([s.P, box], w, h, 16);
+        for (let j = 0; j < s.r.lvl.length; j++) {
+          const a = s.P[j * s.r.step], b = s.P[((j + 1) * s.r.step) % s.P.length], L = s.r.lvl[j];
+          ctx.beginPath(); ctx.moveTo(c.X(a.x), c.Y(a.y)); ctx.lineTo(c.X(b.x), c.Y(b.y));
+          ctx.strokeStyle = L < 0 ? HIDE : NEST_PAL[Math.min(L, NEST_PAL.length - 1)]; ctx.lineWidth = L < 0 ? 1.4 : 2.6; ctx.stroke();
+        }
+        for (const q of s.r.readers) {
+          let X = c.X(q.x), Y = c.Y(q.y);
+          const edge = X < 6 || X > w - 6 || Y < 6 || Y > h - 6;
+          X = Math.max(6, Math.min(w - 6, X)); Y = Math.max(6, Math.min(h - 6, Y));
+          dot(ctx, X, Y, edge ? 3.6 : 2.4, edge ? null : NEST_PAL[Math.min(q.L, 10)], edge ? NEST_PAL[Math.min(q.L, 10)] : null);
+        }
+        if (s.one) dot(ctx, c.X(s.o.x), c.Y(s.o.y), 7, null, GOLD);
+        const L = s.last[0];
+        for (let l = 0; l <= L; l++) { dot(ctx, 16 + l * 16, h - 14, 5, NEST_PAL[Math.min(l, 10)]); label(ctx, 16 + l * 16, h - 24, String(l), DIM, 'center'); }
+        label(ctx, 10, 14, s.one ? 'drag the first reader, let go to read' : 'first readers outside (rings at the edge)', s.one ? GOLD : DIM);
+        return c;
+      } },
+    { kind: 'report', name: 'levels, shape by shape', wide: true },
   ]
 },
 ];
 
 // ── reports ──────────────────────────────────────────────────────────────
 const REPORTS = {
-'circles for one percent': (host) => {
-  const N = 256;
-  const rows = SHAPE_NAMES.map(name => {
-    const { chain } = chainOf(name, N, 'size'), sp = chainOf(name, N, 'speed').chain;
-    return { name, full: chain.length - 1, a: EP.circlesFor(chain, 0.01), b: EP.circlesFor(sp, 0.01),
-             c: EP.circlesFor(chain, 0.001), used: EP.present(chain, 1e-12).length };
-  });
-  const say = k => k === Infinity ? '—' : k;
+'every shape, from its centre': (host) => {
+  const names = Object.keys(CENTRED), dir = SI.stats(SI.readings(shapeOf('circle'), 20000, null, 'direction').s);
+  const rows = names.map(n => { const P = shapeOf(n), st = SI.stats(SI.readings(P, 40000).s), b = SI.breadth(P);
+    const el = SI.stats(SI.readings(SI.polarShape(2048, t => 1).map(q => ({ x: q.x, y: q.y * b })), 40000).s);
+    return { n, st, b, el }; });
   host.innerHTML =
-    `<p>Every shape at N = ${N} leaves, so a centre and ${N} circles (the fastest split into a pair). The fewest circles whose worst miss
-      is within a percent, and a tenth of a percent, of the shape's size, kept by size and, for a percent, by speed.</p>
-     <table><thead><tr><th>shape</th><th>circles not zero</th><th>1%, by size</th><th>1%, by speed</th><th>0.1%, by size</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.name}</td><td>${r.used} of ${r.full}</td><td class="ok">${say(r.a)}</td>` +
-      `<td>${say(r.b)}</td><td>${say(r.c)}</td></tr>`).join('') +
+    `<p>Each shape read from its area centre, its readings laid evenly along the outline, beside an ellipse of the same breadth ratio b laid the same way.</p>
+     <table><thead><tr><th>shape</th><th>b</th><th>corner</th><th>middle</th><th>tail</th><th>head</th><th>the same-b ellipse: corner, middle</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.n}</td><td>${r.b.toFixed(2)}</td><td>${f3(r.st.corner)}</td><td>${f3(r.st.middle)}</td><td>${f3(r.st.tail)}</td><td>${f3(r.st.head)}</td>` +
+      `<td>${f3(r.el.corner)}, ${f3(r.el.middle)}</td></tr>`).join('') +
     `</tbody></table>
-     <p style="margin-top:8px">The heart uses <b>${rows[0].used}</b> circles and no more at any N: it is a trigonometric
-      polynomial of degree four, so the rest are zero to rounding, and nine leaves would hold it. The snowflake
-      uses five, all ≡ 1 (mod 6). The star and the square have corners, and a corner has no last circle: every
-      circle their symmetry allows is there, shrinking only as 1/m², which is why the tenth of a percent costs so many more than the
-      percent.</p>
-     <p class="foot">Kept by size, a shape is a short list of (m, radius, phase) triples, and it reads as a
-      compression scheme. It is not one this format uses, because the leaves already are the curve and the
-      circles are computed from them, but it is the reason the leaves can be so few: a shape needs as many leaves as
-      twice its fastest circle that matters, plus one.</p>`;
+     <p style="margin-top:8px">The circle opens at ½, 1, 2/π and 2/π: a quarter of the outline on each side of every
+      corner, and its middle reading exactly on the corner. Laid evenly by direction instead, every shape gives
+      <b>${f3(dir.corner)}, ${f3(dir.middle)}, ${f3(dir.tail)}, ${f3(dir.head)}</b>, which is the control: a reader that
+      spaces its readings by turns rather than along the world reads nothing about the world.</p>
+     <p class="foot">Ported from the editor's <em>opening the shapes</em> lab (draw.html?lab=unc), which reads the whole
+      library the same way.</p>`;
+},
+'b read back, shape by shape': (host) => {
+  const BS = [1.5, 2, 3, 5, 10], med = a => a.slice().sort((x, y) => x - y)[a.length >> 1];
+  const rows = ['circle', 'egg', 'lobed', 'pinched', 'star'].map(n => { const P = shapeOf(n), r = BS.map(b => SI.cornerReads(P, b, 20000));
+    return { n, even: med(r.map((x, i) => Math.abs(x.even / BS[i] - 1))), known: med(r.map((x, i) => Math.abs(x.known / BS[i] - 1))),
+             along: med(r.map((x, i) => Math.abs(x.along / BS[i] - 1))) }; });
+  host.innerHTML =
+    `<p>The median error in b over the stretches b = 1.5, 2, 3, 5 and 10, read back three ways.</p>
+     <table><thead><tr><th>shape</th><th>evenly spread world's rule</th><th>against the shape itself</th><th>laid along the stretched outline</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.n}</td><td class="${r.even < 0.05 ? 'ok' : 'bad'}">${pct(r.even)}</td><td class="ok">${pct(r.known, 2)}</td><td class="bad">${pct(r.along)}</td></tr>`).join('') +
+    `</tbody></table>
+     <p class="foot">The editor's <em>the corner reads the breadth</em> lab (draw.html?lab=crb) runs the whole library:
+      its notes record a median 13% for the evenly spread world's rule and 27% laid along the stretched outline.</p>`;
+},
+'two sizes, shape by shape': (host) => {
+  const rows = ['circle', 'ellipse', 'egg', 'lobed', 'pinched', 'star', 'elongated'].map(n => ({ n, r: SI.nearFar(shapeOf(n)) })).filter(x => x.r);
+  host.innerHTML =
+    `<table><thead><tr><th>shape</th><th>Q</th><th>area size</th><th>harmonic reach</th><th>middle d½</th><th>D</th><th>flip</th></tr></thead><tbody>` +
+    rows.map(({ n, r }) => `<tr><td>${n}</td><td>${r.Q.toFixed(4)}</td><td>${f3(r.area)}</td><td>${f3(r.harm)}</td><td>${f3(r.dh)}</td><td>${f3(r.D)}</td>` +
+      `<td class="${r.flip < 1e-3 ? 'ok' : r.flip < 0.02 ? '' : 'bad'}">${r.flip.toExponential(1)}</td></tr>`).join('') +
+    `</tbody></table>
+     <p style="margin-top:8px">Q is 1 only for the circle: every other shape shows its two ends two sizes. Whether the
+      ends also set two <em>corners</em> is the flip's question, not Q's. Near-round shapes keep the flip to about
+      10⁻³; the long thin one breaks it, a corner for each end. And the pinched oval, two sizes apart (Q = 1.26), holds
+      the flip almost exactly, its middle on D: two sizes, one corner.</p>
+     <p class="foot">The editor's <em>near and far</em> lab (draw.html?lab=nfr) reads the library the same way.</p>`;
+},
+'outside, turned, and inside': (host) => {
+  const shapes = ['elongated', 'lobed', 'curled 180°', 'curled 250°', 'curled 290°', 'curled 310°', 'spiral 0.5 turns', 'spiral 0.8 turns', 'spiral 1.1 turns', 'spiral 1.4 turns', 'spiral 1.7 turns'];
+  const rows = shapes.map(n => ({ n, o: SI.occlusion(pathoOf(n)) }));
+  host.innerHTML =
+    `<p>The share of each outline seen: from one view 32 away, pooled over sixteen turns of the shape, from inside at
+      its centre (where that is in the hollow), and from all of those together.</p>
+     <table><thead><tr><th>shape</th><th>one view</th><th>sixteen turns</th><th>inside</th><th>all together</th></tr></thead><tbody>` +
+    rows.map(({ n, o }) => `<tr><td>${n}</td><td>${pct(o.one, 0)}</td><td>${pct(o.out, 0)}</td><td>${o.ins == null ? '—' : pct(o.ins, 0)}</td>` +
+      `<td class="${o.both > 0.999 ? 'ok' : 'bad'}">${pct(o.both, 0)}</td></tr>`).join('') +
+    `</tbody></table>
+     <p style="margin-top:8px">Turning recovers open shapes. The deep curls need the reader inside, and with it they are
+      seen whole. The spirals past a full turn stay partly hidden from every standpoint here, outside and in: the outside
+      sees the outside, and the inside has to be received from inside, but a spiral's middle is neither.</p>
+     <p class="foot">The editor's <em>what a reader cannot see</em> lab (draw.html?lab=occ) recorded 82% and 63% for the
+      deepest curls from outside, 100% with the inside, and 92%, 72% and 66% for the spirals.</p>`;
+},
+'levels, shape by shape': (host) => {
+  const names = ['spiral 0.8 turns', 'spiral 1.1 turns', 'spiral 1.4 turns', 'spiral 1.7 turns', 'curled 290°', 'curled 310°'];
+  const rows = names.map(n => { const r = memo(`nest:${n}:out`, () => SI.nest(pathoOf(n), SI.outsideStarts())), done = r.hist.find(h => h[2] >= 0.99);
+    return { n, r, done, last: r.hist[r.hist.length - 1] }; });
+  host.innerHTML =
+    `<p>From sixteen readers outside: the levels of readers within readers needed to see each outline whole, and how much each level adds.</p>
+     <table><thead><tr><th>shape</th><th>levels</th><th>readers</th><th>seen, by level</th></tr></thead><tbody>` +
+    rows.map(x => `<tr><td>${x.n}</td><td class="${x.done ? 'ok' : 'bad'}">${x.done ? x.done[0] : 'not whole'}</td><td>${x.last[1]}</td>` +
+      `<td>${x.r.hist.map(h => pct(h[2], 0)).join(' · ')}</td></tr>`).join('') +
+    `</tbody></table>
+     <p style="margin-top:8px">The curls are seen whole after a level, once a child stands at the mouth. The spirals
+      take a level for every stretch of channel that turns out of sight: the deeper the winding, the deeper the
+      recursion, one level at a time.</p>
+     <p class="foot">The editor's <em>readers within readers</em> sheet (draw.html?lab=nsr) recorded six levels for the
+      deepest spiral from outside, and runs the strange tier too.</p>`;
 },
 };
 
@@ -2022,7 +2215,6 @@ async function editorLink(list, o = {}) {
 // ── build ────────────────────────────────────────────────────────────────
 const main = document.getElementById('main');
 const tiles = [];
-let clock = 0, lastT = performance.now();
 for (const sec of SECTIONS) {
   const el = document.createElement('section');
   el.id = sec.id;
@@ -2044,23 +2236,20 @@ function makeTile(entry) {
   }
   const vals = {};
   for (const par of entry.params) vals[par.key] = par.value;
-  // A dial is a slider, or a select where the choice is a name (a shape, an order).
   const dials = entry.params.map(par => par.options
     ? `<div class="dial"><label><span>${par.key}</span><span class="val" data-v="${par.key}">${par.value}</span></label>
        <select data-k="${par.key}">${par.options.map(o => `<option${o === par.value ? ' selected' : ''}>${o}</option>`).join('')}</select></div>`
     : `<div class="dial"><label><span>${par.key}</span><span class="val" data-v="${par.key}">${par.value}</span></label>
        <input type="range" data-k="${par.key}" min="${par.min}" max="${par.max}" step="${par.step}" value="${par.value}"></div>`).join('');
   tile.innerHTML =
-    `<div class="stage"><canvas></canvas></div>` +
-    `<div class="tools"><button class="edit" title="open this tile's curve in the leaf editor — it rides in the link">edit</button>` +
+    `<div class="stage"><canvas${entry.drag ? ' style="cursor:crosshair;touch-action:none"' : ''}></canvas></div>` +
+    `<div class="tools"><button class="edit" title="open this tile's shape in the leaf editor — it rides in the link">edit</button>` +
     `<button class="tvf" title="copy as .tvf">.tvf</button></div>` +
     `<div class="body"><h3>${entry.name}</h3><p class="note">${entry.note}</p>` +
     `<div class="verdict"></div><code class="src"></code><div class="dials">${dials}</div></div>`;
   const canvas = tile.querySelector('.stage canvas');
   const src = tile.querySelector('code.src'), vEl = tile.querySelector('.verdict');
-  let st = null;
-  // Drawing is per frame on the animated tiles, so it is kept apart from the
-  // measuring, which runs only when a dial moves.
+  let st = null, view = null, pending = null;
   const render = () => {
     if (!st) return;
     const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
@@ -2068,7 +2257,8 @@ function makeTile(entry) {
     if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
-    try { entry.draw(ctx, w, h, vals, st, clock); } catch (e) { label(ctx, 10, 20, 'draw error: ' + e.message, CLAY); }
+    try { view = entry.draw(ctx, w, h, vals, st) || view; } catch (e) { label(ctx, 10, 20, 'draw error: ' + e.message, CLAY); }
+    if (pending) dot(ctx, view.X(pending.x), view.Y(pending.y), 7, null, GOLD);
   };
   const paint = () => {
     try { st = entry.state(vals); }
@@ -2083,66 +2273,58 @@ function makeTile(entry) {
     inp.addEventListener('input', () => {
       vals[inp.dataset.k] = inp.tagName === 'SELECT' ? inp.value : parseFloat(inp.value);
       tile.querySelector(`[data-v="${inp.dataset.k}"]`).textContent = vals[inp.dataset.k];
+      if (inp.dataset.k === 'shape') vals.o = null;      // a new shape: back to its own standpoint
       paint(); });
   });
+  // THE STANDPOINT IS DRAGGED, not dialled: a reader stands at a point, and the point is the
+  // whole of what the page asks you to vary. A tile marked settle (the nesting, which takes a
+  // moment) marks the spot while you drag and reads when you let go.
+  if (entry.drag) {
+    let down = false;
+    const at = ev => { const r = canvas.getBoundingClientRect(); return view ? view.inv(ev.clientX - r.left, ev.clientY - r.top) : null; };
+    const move = ev => {
+      const q = at(ev); if (!q) return;
+      if (entry.settle) { if (vals.start === '16 outside') return; pending = q; render(); }
+      else { vals.o = q; paint(); }
+    };
+    canvas.addEventListener('pointerdown', ev => { down = true; canvas.setPointerCapture(ev.pointerId); move(ev); });
+    canvas.addEventListener('pointermove', ev => { if (down) move(ev); });
+    canvas.addEventListener('pointerup', () => { down = false; if (pending) { vals.o = pending; pending = null; paint(); } });
+  }
   src.addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(src.textContent);
     src.classList.add('copied'); setTimeout(() => src.classList.remove('copied'), 700); });
   tile.querySelector('.tvf').addEventListener('click', async ev => {
     if (!st || !st.sh) return;
     let okd = false;
-    try { await navigator.clipboard.writeText(toTVF([st.sh], { source: 'tvf.epicycles — ' + entry.name })); okd = true; } catch (e) {}
+    try { await navigator.clipboard.writeText(toTVF([st.sh], { source: 'tvf.situated — ' + entry.name })); okd = true; } catch (e) {}
     const b = ev.currentTarget; b.classList.toggle('done', okd); b.textContent = okd ? 'copied' : 'select+⌘C';
     setTimeout(() => { b.classList.remove('done'); b.textContent = '.tvf'; }, 1200);
   });
   tile.querySelector('.edit').addEventListener('click', async () => {
     if (!st) paint();
     if (!st || !st.sh) return;
-    const href = await editorLink([st.sh], { name: entry.name, source: entry.code(vals) });
+    const href = await editorLink([st.sh], { name: entry.name + ' · ' + vals.shape, source: entry.code(vals) });
     window.open(href, 'tangent-draw');
   });
-  tiles.push({ tile, paint, render, animate: !!entry.animate });
+  tiles.push({ tile, paint, render });
   return tile;
 }
 
-// ── clock ────────────────────────────────────────────────────────────────
-// One clock for the page, so every machine on screen is at the same angle: the pen
-// of the ellipse and the pen of the heart go round together. Only tiles in view
-// are drawn each frame; the rest wait.
 const io = new IntersectionObserver(ents => {
   for (const e of ents) {
+    if (!e.isIntersecting) continue;
     const rec = tiles.find(t => t.tile === e.target);
-    if (!rec) continue;
-    rec.live = e.isIntersecting;
-    if (!e.isIntersecting || rec.done) continue;
+    if (!rec || rec.done) continue;
     rec.done = true;
     setTimeout(() => { if (rec.paint) rec.paint(); if (rec.once) rec.once(); }, 20);
   }
 }, { rootMargin: '200px' });
 for (const t of tiles) io.observe(t.tile);
-function tick(now) {
-  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
-  if (opts.playing) {
-    clock = (clock + dt * opts.speed * 0.35) % 1;
-    for (const t of tiles) if (t.live && t.done && t.animate) t.render();
-  }
-  requestAnimationFrame(tick);
-}
-requestAnimationFrame(tick);
-
-// ── controls ─────────────────────────────────────────────────────────────
-const playBtn = document.getElementById('t-play');
-playBtn.addEventListener('click', () => {
-  opts.playing = !opts.playing;
-  playBtn.textContent = opts.playing ? 'pause' : 'play';
-  playBtn.classList.toggle('on', opts.playing);
-});
-document.getElementById('t-speed').addEventListener('input', e => { opts.speed = parseFloat(e.target.value); });
-for (const [id, key] of [['t-leaves', 'leaves'], ['t-exact', 'exact'], ['t-circles', 'circles']]) {
-  const btn = document.getElementById(id);
-  btn.addEventListener('click', () => { opts[key] = !opts[key]; btn.classList.toggle('on', opts[key]);
+{
+  const btn = document.getElementById('t-leaves');
+  btn.addEventListener('click', () => { opts.leaves = !opts.leaves; btn.classList.toggle('on', opts.leaves);
     for (const t of tiles) if (t.render && t.done) t.render(); });
 }
-window.addEventListener('keydown', e => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); playBtn.click(); } });
 globalThis.addEventListener('resize', () => { for (const t of tiles) if (t.render && t.done) t.render(); });
 
 </script>
