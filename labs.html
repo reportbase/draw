@@ -14,7 +14,7 @@
 <body class="page-labs">
 <header>
   <nav class="crumbs"><a href="draw.html">← the editor</a> · <a href="gallery/index.html">the galleries</a></nav>
-  <h1>tvf <em>labs</em> <span class="pill">78 labs</span></h1>
+  <h1>tvf <em>labs</em> <span class="pill">79 labs</span></h1>
   <p class="lede">
     The leaf editor's lab drawer holds the <b>experiments</b>: instruments that measure the format rather than
     make shapes with it, test suites that print their own numbers, and figures laid out for a paper. Each
@@ -29,7 +29,7 @@
 </header>
 <div class="bar"><div class="bar-in">
   <input id="q" type="search" placeholder="filter: a code, a word, a heading" aria-label="filter the labs" autocomplete="off">
-  <span class="count" id="count">78 labs</span>
+  <span class="count" id="count">79 labs</span>
   <div class="spacer"></div>
   <a class="jump" href="draw.html?lab=list" title="open the editor with the lab drawer listed">open the drawer</a>
 </div></div>
@@ -649,6 +649,16 @@
     </ul>
   </section>
   <section class="group" id="g54">
+    <div class="sec-head"><h2>decoder test vectors</h2><div class="rule"></div><span class="n">1 lab</span></div>
+    <div class="sec-note">The format paper (TVF §8) names three vectors any decoder must reproduce, each an identity with a proof behind it. <details><summary>more</summary>The invisible mode : cos(Nθ/2) reads exactly zero at every leaf, so a decoder whose leaves sit half a leaf off reads it as ±1 and is caught. The band Gram : the band basis at the leaves is orthogonal with Gram diag(N, N/2, …, N/2, N), the doubled weight on the two extreme modes, and the decoder presents every band mode exactly between the leaves. The home sum : the Lebesgue function at home equals (2/N)·Σ 1/τ_k over the positive leaves, and nothing in the cell reads higher. Run against this editor's own kernel at N = 8 … 1024. A report, not a scene: nothing on the page is touched.</details></div>
+    <ul class="labs">
+      <li class="lab" data-q="vec run the vectors run the three canonical decoder test vectors of tvf §8 against this editor's kernel at n = 8 … 1024: the invisible mode reads zero at every leaf, the band gram is diag(n, n/2, …, n/2, n) and every band mode is presented exactly, and the lebesgue function peaks at home at (2/n)·σ 1/τ_k. touches nothing on the page. decoder test vectors">
+        <a class="run" href="draw.html?lab=vec" title="open the editor and run run the vectors"><span class="code">vec</span>run the vectors</a>
+        <p>run the three canonical decoder test vectors of TVF §8 against this editor's kernel at N = 8 … 1024: the invisible mode reads zero at every leaf, the band Gram is diag(N, N/2, …, N/2, N) and every band mode is presented exactly, and the Lebesgue function peaks at home at (2/N)·Σ 1/τ_k. Touches nothing on the page.</p>
+      </li>
+    </ul>
+  </section>
+  <section class="group" id="g55">
     <div class="sec-head"><h2>the live morph</h2><div class="rule"></div><span class="n">4 labs</span></div>
     <div class="sec-note">The controls of a running morph, which sit in the bar under the canvas rather than in the drawer. <details><summary>more</summary>They act on the morph that is live, so they do nothing until one is: select two or more shapes, press morph in the toolbar, then live.</details></div>
     <ul class="labs">
@@ -692,7 +702,7 @@ q.addEventListener('input', () => {
     }
     sec.hidden = !any;
   }
-  count.textContent = words.length ? shown + ' of 78' : '78 labs';
+  count.textContent = words.length ? shown + ' of 79' : '79 labs';
   none.hidden = shown > 0;
 });
 </script>

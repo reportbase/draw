@@ -4,6 +4,8 @@
 
 *Revised 5 October 2026: TVF holds depth as well as breadth, with no new syntax (§2.8). Measured in the drawing tool's editor; see `wander/tvf-depth-test.md`.*
 
+*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). The exact-rational reference decoder they were specified alongside is still open.*
+
 This is the tight specification. It supersedes the v22.x working document,
 which accreted iteration logs, extrapolations later withdrawn, and
 interpretive material across dozens of dated revisions. What remains here is
@@ -559,6 +561,37 @@ leaves, which is also the measured amplification peak (verified at machine
 precision to d = 9). Any drift in these three localizes a kernel bug faster
 than SNR regression does, because each is an identity with a proof attached.
 
+**Built (6 October 2026).** The three vectors run against the drawing tool's own
+decoder, its leaf positions, kernel and evaluator, at N = 8 … 1024 (the lab
+`draw.html?lab=vec`, and a step of the repository's smoke test). In float64,
+"exactly" is to rounding:
+
+| N | (i) invisible mode, worst leaf | (ii) band Gram, worst entry ÷ N | (ii) band modes presented between leaves | (iii) home sum (2/N)·Σ 1/τ_k |
+|---|---|---|---|---|
+| 8 | 2.8×10⁻¹⁵ | 5.4×10⁻¹⁶ | 2.3×10⁻¹⁵ | 1.847759 |
+| 32 | 8.8×10⁻¹⁵ | 1.3×10⁻¹⁵ | 1.1×10⁻¹⁴ | 2.727778 |
+| 128 | 4.3×10⁻¹⁴ | 4.2×10⁻¹⁵ | 5.1×10⁻¹⁴ | 3.610161 |
+| 512 | 1.9×10⁻¹³ | 1.4×10⁻¹⁴ | 2.0×10⁻¹³ | 4.492693 |
+| 1024 | 3.8×10⁻¹³ | (not run; O(N³)) | 3.1×10⁻¹³ | 4.933964 |
+
+- **(i)** is read twice: by cosine, and trig-free as Re[(1+is)^N]/(1+s²)^{N/2}
+  at the leaf slopes; the column is the worse of the two. On a grid half a leaf
+  off (the even nodes 2πk/N), the same mode reads ±1 at every point.
+- **(ii)** also checks the decoder. Every band mode, the visible top mode
+  sin(Nθ/2) included, is sampled at the leaves and presented between them
+  exactly.
+- **(iii)** equals the Lebesgue function at home to 10⁻¹⁴ relative. No point of
+  the cell reads higher, on a 401-point grid across it. The values are the
+  Lebesgue constants the spectral companion publishes (§19.3: 1.848, 2.728,
+  3.610, 4.493), and every one clears the proved floor (√2−1)d/2.
+
+The vectors are worth what they catch. Two deliberate decoder bugs were
+planted and both fail by O(1), not by a drift:
+- **Leaves half a leaf off:** the invisible mode reads 1, and the Gram is off
+  by N.
+- **The odd-N kernel used at even N:** the home sum reads 2.287 at N = 8,
+  against 1.848.
+
 ---
 
 ## 9. Status
@@ -581,6 +614,16 @@ floor); TVF.gz smaller than all raw forms at equal fidelity; encoder/decoder
 roundtrip with meta tags to 0.01 dB; master-and-reconstruct LOD from one
 contour; closed-contour band floor (K ≥ 4).
 
+**Decoder test vectors (§8), built 6 Oct 2026:**
+- **What:** the invisible mode, the band Gram and the home sum, run against
+  the drawing tool's decoder at N = 8 … 1024.
+- **Result:** all three hold to rounding, and the home sums are the published
+  Λ_N.
+- **Do they catch bugs?** Yes: a half-leaf shift and a wrong-parity kernel
+  each fail them by O(1).
+- **Still open:** the exact-rational reference decoder, which would hold them
+  to the last bit.
+
 **Depth (§2.8), measured 5 Oct 2026:** depth held in concatenated TVF documents
 with `#meta address`, no new syntax; round trip to 2.3×10⁻⁷ of the departure;
 at equal value count, better than breadth alone on 24 of 24 library shapes
@@ -595,8 +638,8 @@ conventions.
 **Open:** real captured-data round-trip on photos and audio (synthetic only so
 far); regularization above 5% noise; production GPU shaders; the full 16-bit
 N×L cascade sweep; more tokenizer-efficient text encodings; the exact-rational
-reference decoder and the three canonical test vectors of §8 (specified, not
-built); benchmark of the log-magnitude/band-byte kernel arithmetic against
+reference decoder (specified in §8; the three test vectors it was specified
+with are now built and run in float64, see below); benchmark of the log-magnitude/band-byte kernel arithmetic against
 the trig path (OI-10's implementation gate — no speed claim until run).
 
 ---

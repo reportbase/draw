@@ -19,8 +19,9 @@ publishes.
 - `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
   specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
   and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and
-  `tb_spectral_notes.md` (§23, preliminary). Replace a file when the owner sends a new revision;
-  don't edit them on your own account.
+  `tb_spectral_notes.md` (§23, preliminary). Replace a file when the owner sends a new revision.
+  Claude may edit them too, in their voice: when a change here builds or measures something a
+  paper lists as open, say so in the paper (its status section and a dated revision line).
 - `papers.html`: the index of `papers/` and a reader for them (`#tvf` opens one, `#tvf:heading-id`
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before

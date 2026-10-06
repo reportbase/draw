@@ -4616,6 +4616,22 @@
                 <div style="font-size:11px;color:var(--fg-muted,#8b8477);margin-top:2px;" id="vLattice">—</div>
             </div>
 
+            <div class="group">
+                <div class="menu-title">decoder test vectors</div>
+                <div class="menu-note sub">
+                    The format paper (TVF §8) names three vectors any decoder must reproduce, each an identity with a proof behind it. 
+                    <b>The invisible mode</b>
+                    : cos(Nθ/2) reads exactly zero at every leaf, so a decoder whose leaves sit half a leaf off reads it as ±1 and is caught. 
+                    <b>The band Gram</b>
+                    : the band basis at the leaves is orthogonal with Gram diag(N, N/2, …, N/2, N), the doubled weight on the two extreme modes, and the decoder presents every band mode exactly between the leaves. 
+                    <b>The home sum</b>
+                    : the Lebesgue function at home equals (2/N)·Σ 1/τ_k over the positive leaves, and nothing in the cell reads higher. Run against this editor's own kernel at N = 8 … 1024. A report, not a scene: nothing on the page is touched.
+                </div>
+                <div class="group row" style="margin-top:6px;gap:8px;">
+                    <button id="bDecoderVectors" data-code="vec" class="res-btn" title="run the three canonical decoder test vectors of TVF §8 against this editor's kernel at N = 8 … 1024: the invisible mode reads zero at every leaf, the band Gram is diag(N, N/2, …, N/2, N) and every band mode is presented exactly, and the Lebesgue function peaks at home at (2/N)·Σ 1/τ_k. Touches nothing on the page.">run the vectors</button>
+                </div>
+            </div>
+
             <!-- THE LEAF-COLOUR GROUP MOVED. Its five readings are now one combo in the reading
                    popover, beside the instrument that shares their palette — see "leaf colour"
                    there. They were never experiments; they are which reading the dots are showing,
@@ -50042,6 +50058,141 @@
                         finally {
                             bNT.disabled = false;
                             bNT.textContent = 'run the tests';
+                        }
+                    }, 0);
+                });
+        }
+
+        // ── DECODER TEST VECTORS (TVF §8) ─────────────────────────────────────────────
+        // The format paper names three vectors that any decoder must reproduce, each an
+        // identity with a proof behind it rather than a tolerance someone picked. They are
+        // run here against the editor's own decoder — tvf.leafPositions, tvf.kernel,
+        // tvf.evalAt, tvf.leafSlopes — so a bug in any of them shows up as a named
+        // identity failing, which localises it faster than an error ratio drifting.
+        //
+        //   (i)   THE INVISIBLE MODE. cos(Nθ/2) is the even top character, and on the
+        //         odd-node leaves it reads exactly zero at every leaf: cos((k+½)π) = 0.
+        //         A decoder whose leaves sit half a leaf off (at 2πk/N) reads it as ±1
+        //         instead, which is the quiet bug this vector exists to catch. Read twice:
+        //         by cosine, and trig-free as Re[(1+is)^N]/(1+s²)^(N/2) at the leaf slopes.
+        //   (ii)  THE BAND GRAM. The band basis {1, cos mθ, sin mθ (m < N/2), sin(Nθ/2)}
+        //         evaluated at the leaves is orthogonal with Gram diag(N, N/2, …, N/2, N):
+        //         discrete Parseval, with the doubled weight on the two extreme modes. And
+        //         the decoder must present every one of those modes exactly between the
+        //         leaves, the top mode included (its half-weight cos is invisible; its sin
+        //         is not).
+        //   (iii) THE HOME SUM. The Lebesgue function at home, Σ_k |K(0 − θ_k)|, equals
+        //         (2/N)·Σ 1/τ_k over the positive leaves (τ_k their slopes), and that is the
+        //         decoder's amplification peak: no point of the cell reads higher.
+        //
+        // In float64 "exactly" means to rounding; the tolerances below are ~10³ ulps of the
+        // quantities involved, far under anything a bug would produce (the vectors fail by
+        // O(1) when they fail at all). An exact-rational reference decoder, which would make
+        // them identities to the last bit, is still open (§9).
+        function runDecoderVectors(opts) {
+            const t0 = performance.now();
+            const ds = (opts && opts.ds) || [2, 3, 4, 5, 6, 7, 8, 9];
+            const gramMax = 512;                     // the Gram is O(N³); 512 is 1.3e8 steps
+            const rows = [];
+            for (const d of ds) {
+                const N = 2 << d;                    // N = 2^(d+1)
+                const th = tvf.leafPositions(N), sl = tvf.leafSlopes(N);
+                // (i) the invisible mode, by cosine and trig-free
+                let invTrig = 0, invFree = 0, shifted = Infinity;
+                for (let k = 0; k < N; k++) {
+                    invTrig = Math.max(invTrig, Math.abs(Math.cos(N * th[k] / 2)));
+                    const s = sl[k], q = 1 / Math.sqrt(1 + s * s);
+                    let zr = q, zi = s * q, wr = 1, wi = 0, n = N;
+                    while (n > 0) {
+                        if (n & 1) { const t = wr * zr - wi * zi; wi = wr * zi + wi * zr; wr = t; }
+                        const t2 = zr * zr - zi * zi; zi = 2 * zr * zi; zr = t2; n >>= 1;
+                    }
+                    invFree = Math.max(invFree, Math.abs(wr));
+                    shifted = Math.min(shifted, Math.abs(Math.cos(N * (TAU * k / N) / 2)));
+                }
+                // (ii) the band Gram, and the decoder presenting each band mode
+                const basis = [p => 1];
+                for (let m = 1; m < N / 2; m++) { basis.push(p => Math.cos(m * p)); basis.push(p => Math.sin(m * p)); }
+                basis.push(p => Math.sin(N * p / 2));
+                let gram = null;
+                if (N <= gramMax) {
+                    const B = basis.map(f => Float64Array.from(th, f));
+                    gram = 0;
+                    for (let i = 0; i < N; i++) for (let j = i; j < N; j++) {
+                        let g = 0;
+                        const bi = B[i], bj = B[j];
+                        for (let k = 0; k < N; k++) g += bi[k] * bj[k];
+                        const want = i !== j ? 0 : (i === 0 || i === N - 1 ? N : N / 2);
+                        gram = Math.max(gram, Math.abs(g - want) / N);
+                    }
+                }
+                let present = 0;
+                const probes = 9, step = Math.max(1, Math.floor(N / 64));
+                for (let j = 0; j < N; j += step) {
+                    const f = basis[j], v = Float64Array.from(th, f);
+                    for (let q = 0; q < probes; q++) {
+                        const p = TAU * (q + 0.3183) / probes;
+                        present = Math.max(present, Math.abs(tvf.evalAt(v, p) - f(p)));
+                    }
+                }
+                {   // and always the top mode itself, which is the one a wrong Nyquist weight breaks
+                    const f = basis[N - 1], v = Float64Array.from(th, f);
+                    for (let q = 0; q < probes; q++) { const p = TAU * (q + 0.3183) / probes; present = Math.max(present, Math.abs(tvf.evalAt(v, p) - f(p))); }
+                }
+                // (iii) the home sum against the Lebesgue function over one whole cell
+                let home = 0;
+                for (let k = 0; k < N / 2; k++) home += 1 / sl[k];
+                home *= 2 / N;
+                const leb = p => { let s = 0; for (let k = 0; k < N; k++) s += Math.abs(tvf.kernel(p - th[k], N)); return s; };
+                const atHome = leb(0);
+                let peak = 0, peakAt = 0;
+                const G = 200;
+                for (let g = -G; g <= G; g++) { const p = (g / G) * (Math.PI / N), L = leb(p); if (L > peak) { peak = L; peakAt = p; } }
+                rows.push({ d, N, invTrig, invFree, shifted, gram, present, home, atHome, peak, peakAt: peakAt * N / Math.PI,
+                            floor: (Math.SQRT2 - 1) * d / 2 });
+            }
+            const ok = r => r.invTrig < 1e-12 && r.invFree < 1e-12 && r.shifted > 0.999
+                         && (r.gram == null || r.gram < 1e-12) && r.present < 1e-11
+                         && Math.abs(r.atHome - r.home) < 1e-12 * r.home && Math.abs(r.peak - r.home) < 1e-12 * r.home
+                         && r.home >= r.floor;
+            for (const r of rows) r.ok = ok(r);
+            return { rows, pass: rows.every(r => r.ok), ms: Math.round(performance.now() - t0) };
+        }
+        // On window so the smoke test can run the vectors against a deliberately broken
+        // decoder and see them fail: a check that cannot fail checks nothing.
+        window.runDecoderVectors = runDecoderVectors;
+        function showDecoderVectors(res) {
+            const e = x => x === 0 ? '0' : x.toExponential(0);
+            const worst = k => Math.max(...res.rows.map(r => r[k] == null ? 0 : r[k]));
+            const lam = res.rows.filter(r => [8, 32, 128, 512].includes(r.N)).map(r => 'Λ' + r.N + ' = ' + r.home.toFixed(3)).join(', ');
+            flashStatus('decoder test vectors (TVF §8) · ' + res.rows.filter(r => r.ok).length + '/' + res.rows.length
+            + ' depths pass, N = ' + res.rows[0].N + ' … ' + res.rows[res.rows.length - 1].N
+            + ' · (i) the invisible mode cos(Nθ/2) reads 0 at every leaf, to ' + e(Math.max(worst('invTrig'), worst('invFree')))
+            + ' by cosine and trig-free — and ±1 on a grid half a leaf off, which is the bug it catches'
+            + ' · (ii) the band Gram is diag(N, N/2, …, N/2, N) to ' + e(worst('gram')) + ' of N, and the decoder presents every band mode, the top sin included, to ' + e(worst('present'))
+            + ' · (iii) the Lebesgue function at home equals (2/N)·Σ 1/τ_k to ' + e(Math.max(...res.rows.map(r => Math.abs(r.atHome - r.home) / r.home)))
+            + ' and no point of the cell reads higher: ' + lam
+            + (res.pass ? '' : ' · FAILED at N = ' + res.rows.filter(r => !r.ok).map(r => r.N).join(', '))
+            + ' · ' + res.ms + ' ms');
+        }
+        {
+            const bDV = $('bDecoderVectors');
+            if (bDV)
+                bDV.addEventListener('click', () => {
+                    bDV.disabled = true;
+                    bDV.textContent = 'checking…';
+                    setTimeout(() => {
+                        try {
+                            const res = runDecoderVectors();
+                            window.__decoderVectors = res;       // the smoke test reads the numbers, not the prose
+                            showDecoderVectors(res);
+                        }
+                        catch (e) {
+                            flashStatus('decoder test vectors failed: ' + e.message);
+                        }
+                        finally {
+                            bDV.disabled = false;
+                            bDV.textContent = 'run the vectors';
                         }
                     }, 0);
                 });
