@@ -313,6 +313,23 @@ await step('playground', async () => {
   if (!/s\.smooth\(/.test(tape)) throw new Error('the transcript did not record smooth: ' + tape.slice(-120));
 });
 
+/* labs.html is generated from the lab drawer (tools/build-labs.mjs). Regenerate it here and
+   compare: a lab added, renamed or re-described in draw.html without \`npm run labs\` fails. */
+await step('labs.html matches the drawer', async () => {
+  const { readLabs, render } = await import('../tools/build-labs.mjs');
+  const want = render(await readLabs(base));
+  const have = await readFile(join(ROOT, 'labs.html'), 'utf8');
+  if (have !== want) throw new Error('labs.html is out of date with draw.html: run `npm run labs`');
+  const lp = await browser.newPage();
+  lp.on('pageerror', e => failures.push(`[labs.html] ${e.message}`));
+  await lp.goto(new URL('labs.html', base).href, { waitUntil: 'load' });
+  await lp.fill('#q', 'walker');
+  const shown = await lp.textContent('#count');
+  await lp.close();
+  const m = shown.match(/^(\d+) of (\d+)$/);
+  if (!m || !(+m[1] > 0 && +m[1] < +m[2])) throw new Error('filtering for "walker" shows ' + shown);
+});
+
 /* The front page: it loads, and each of its cards points at a gallery that exists. */
 await step('gallery index', async () => {
   const gp = await browser.newPage();
