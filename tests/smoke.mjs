@@ -138,7 +138,7 @@ try {
    tile's edit button must produce a link that this editor opens. window.open is
    stubbed so the link can be followed here, in a page of our own. */
 const { readdir } = await import('node:fs/promises');
-const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html')).sort();
+const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html') && f !== 'index.html' && f !== 'inspect.html').sort();
 for (const g of galleries){
   current = 'gallery/' + g;
   const gp = await browser.newPage();
@@ -150,6 +150,9 @@ for (const g of galleries){
     await gp.$eval('.tile .edit', b => b.click());
     await gp.waitForFunction(() => window.__links.length > 0, null, { timeout: 10000 });
     const link = await gp.evaluate(() => window.__links[0]);
+    // The spectrum strip under that tile drew, and said something.
+    const cap = await gp.$eval('.tile .spec-cap', c => c.textContent);
+    if (!/N = \d+ allows up to m = \d+/.test(cap)) throw new Error('spectrum caption: ' + cap);
     if (!link.startsWith(new URL('draw.html#tvf=', base).href)) throw new Error('edit link points at ' + link.slice(0, 80));
     // A fresh editor page each time, so the scene the button walk left behind (and its
     // saved copy) is not in the way: the link should open on a page of its own.
@@ -166,6 +169,97 @@ for (const g of galleries){
   await gp.close();
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} gallery/${g} edit → editor`);
 }
+
+/* The spectrum strip has to tell the truth, not just draw: a six-fold plate has
+   energy only at multiples of six, which is the snowflake page's first claim. */
+await step('spectrum: a plate is six-fold', async () => {
+  const gp = await browser.newPage();
+  await gp.goto(new URL('gallery/snowflakes.html', base).href, { waitUntil: 'load' });
+  const cap = await gp.evaluate(() => {
+    const t = [...document.querySelectorAll('.tile')].find(t => t.querySelector('h3')?.textContent === 'plate');
+    t.querySelector('.edit').dispatchEvent(new MouseEvent('click'));   // edit renders a lazy tile first
+    return t.querySelector('.spec-cap').textContent;
+  });
+  await gp.close();
+  if (!/only multiples of 6\b/.test(cap)) throw new Error('plate spectrum says: ' + cap);
+});
+
+/* A tile link sets the dials it names (clamping what is out of range) and the strip
+   follows; predict mode hides the strip behind a question and scores the answer. */
+await step('tile link and predict mode', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[tile link] ${e.message}`));
+  await gp.goto(new URL('gallery/snowflakes.html#tile=stellar-dendrite&K=4&N=999', base).href, { waitUntil: 'load' });
+  await gp.waitForTimeout(600);
+  const r = await gp.$eval('[data-slug="stellar-dendrite"]', t => [t.querySelector('[data-v=K]').textContent,
+    t.querySelector('[data-v=N]').textContent, t.querySelector('.spec-cap').textContent]);
+  if (r[0] !== '4' || r[1] !== '420' || !/nothing above m = 24\b/.test(r[2])) throw new Error('link gave ' + r.join(' | '));
+  await gp.click('#t-predict');
+  const t = gp.locator('[data-slug="plate"]');
+  await t.scrollIntoViewIfNeeded();
+  if (await t.locator('.predict').isHidden()) throw new Error('predict mode did not ask');
+  await t.locator('.pf').fill('6'); await t.locator('.pt').fill('48'); await t.locator('.reveal').click();
+  const score = await gp.textContent('#predict-score');
+  await gp.close();
+  if (score !== '2 of 2 right') throw new Error('a right answer scored ' + score);
+});
+
+/* The inspector reads facts off the leaves. Two of its examples have answers that can be
+   worked by hand: a heart is one mirror (D1, vertical axis) and fits in 9 leaves; an
+   ellipse wobbles twice but is Z₁ and Z₋₁ only, so 3 leaves hold it. */
+await step('inspector', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[inspector] ${e.message}`));
+  await gp.goto(new URL('gallery/inspect.html', base).href, { waitUntil: 'load' });
+  const read = async ex => {
+    await gp.click(`#examples button:text-is("${ex}")`);
+    return gp.$$eval('.fact', fs => Object.fromEntries(fs.map(f => [f.querySelector('.k').textContent, f.querySelector('.v').textContent])));
+  };
+  const heart = await read('heart'), ell = await read('ellipse');
+  await gp.close();
+  if (heart['symmetry group'] !== 'D1' || !/axis at 90\.0°/.test(heart.mirror) || !/could be 9$/.test(heart.leaves))
+    throw new Error('heart read as ' + JSON.stringify(heart));
+  if (ell['symmetry group'] !== 'D2' || !/could be 3$/.test(ell.leaves)) throw new Error('ellipse read as ' + JSON.stringify(ell));
+});
+
+/* THE SEVEN COPIES. Each gallery page carries the same bundled library (tvf.js through
+   tvf.format.js, ~130 KB) and the same tile code (spectrum strip, predict mode, editor
+   link), so that each opens from disk as one file. Nothing makes them stay the same but
+   this: a fix made in one page and not the others fails here, naming the odd ones out. */
+await step('gallery copies agree', async () => {
+  const spans = [
+    ['bundled library', 'const TVF = (function', s => { const j = s.indexOf('})();', s.indexOf('return { toTVF')); return j < 0 ? -1 : j + 5; }],
+    ['tile code', "// The loop a tile's strip", s => s.indexOf('async function copyText')],
+  ];
+  for (const [what, start, end] of spans) {
+    const seen = new Map();
+    for (const g of galleries) {
+      const s = await readFile(join(ROOT, 'gallery', g), 'utf8');
+      const i = s.indexOf(start), j = end(s);
+      const key = i < 0 || j < i ? '(missing)' : s.slice(i, j);
+      if (!seen.has(key)) seen.set(key, []);
+      seen.get(key).push(g);
+    }
+    if (seen.size > 1) {
+      const groups = [...seen.values()].sort((a, b) => b.length - a.length);
+      const odd = groups.slice(1).flat();
+      throw new Error(`${what} differs: ${odd.join(', ')} ${odd.length === 1 ? 'does' : 'do'} not match ${groups[0].join(', ')}`);
+    }
+  }
+});
+
+/* The front page: it loads, and each of its cards points at a gallery that exists. */
+await step('gallery index', async () => {
+  const gp = await browser.newPage();
+  gp.on('pageerror', e => failures.push(`[gallery/index] ${e.message}`));
+  await gp.goto(new URL('gallery/index.html', base).href, { waitUntil: 'load' });
+  const hrefs = await gp.$$eval('a.card:not(.after)', as => as.map(a => a.getAttribute('href')));
+  const after = await gp.$$eval('a.card.after', as => as.map(a => a.getAttribute('href')));
+  await gp.close();
+  if (hrefs.length !== galleries.length) throw new Error(`${hrefs.length} cards for ${galleries.length} pages`);
+  for (const h of hrefs) if (!galleries.includes(h)) throw new Error('card points at missing ' + h);
+  if (after.join() !== 'inspect.html') throw new Error('the inspector card points at ' + after.join());
+});
 
 if (failures.length){
   console.error(`\n${failures.length} failure(s):\n` + failures.map(f => '  ' + f).join('\n'));

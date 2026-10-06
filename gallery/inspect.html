@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tvf inspector</title>
+<meta name="description" content="Paste a closed curve, or send one from the leaf editor, and read what it is: its spectrum, its symmetry, its width, and how few leaves would hold it.">
+<!-- THE OTHER DIRECTION. The seven galleries start from a description (a fold, a mirror,
+     a support function) and show the shape it makes. This page starts from a shape, any
+     shape, the one you just sculpted in the editor, and reads the description back off
+     it. Every fact on the right is computed from the leaves alone, and every one of them
+     links to the gallery that explains why it is the right question to ask.
+
+     It is self-contained like the galleries, and deliberately does not inline tvf.js: it
+     needs only a DFT of the leaves, which is twenty lines, and the curve between the leaves
+     is drawn by trigonometric interpolation, which is what a band-limited loop is. -->
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#0c0f16; --panel:#141926; --stage:#0e131d;
+  --ink:#e8ecf5; --ink-2:#c3ccdf; --dim:#8b95ab; --line:#1e2637; --line-2:#2a3348;
+  --curv:#7c5cff; --A:#f2c14e; --ok:#4ade80; --bad:#ef4444;
+  --mono:ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:13.5px;-webkit-font-smoothing:antialiased}
+header,main{max-width:1240px;margin:0 auto;padding-left:20px;padding-right:20px}
+header{padding-top:26px}
+.crumbs{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
+a{color:#b9a6ff;text-decoration:none} a:hover{text-decoration:underline}
+h1{font-size:20px;font-weight:650;margin:0 0 2px;letter-spacing:-.01em}
+h1 em{font-style:normal;color:var(--curv)}
+.lede{max-width:80ch;color:var(--dim);font-size:13.5px;line-height:1.6;margin:10px 0 0}
+.lede b{color:var(--ink-2);font-weight:600}
+main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;padding-top:20px;padding-bottom:60px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}
+#stage{display:block;width:100%;height:420px;background:var(--stage);border:1px solid var(--line);border-radius:9px;cursor:pointer}
+#spec{display:block;width:100%;height:76px;margin-top:10px}
+.cap{font-size:11.5px;color:var(--dim);line-height:1.45;font-variant-numeric:tabular-nums;margin-top:2px}
+.cap b{color:#b9a6ff;font-weight:600}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+button{font:inherit;font-size:12.5px;color:var(--ink);background:#1c2333;border:1px solid var(--line-2);border-radius:8px;
+  padding:5px 11px;cursor:pointer}
+button:hover{background:#232c42}
+button.v{background:var(--curv);border-color:var(--curv);color:#fff}
+.which{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+textarea{width:100%;min-height:86px;resize:vertical;font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink-2);
+  background:#10151f;border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;margin-top:10px}
+textarea::placeholder{color:#5c6680}
+h2{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);font-weight:600;margin:4px 2px 10px}
+.fact{border-top:1px solid #1c2333;padding:11px 2px}
+.fact:first-of-type{border-top:none;padding-top:2px}
+.fact .k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+.fact .v{font-size:15px;font-weight:650;margin:3px 0 4px;color:var(--ink)}
+.fact .v .yes{color:var(--ok)} .fact .v .no{color:var(--dim)}
+.fact p{margin:0;color:var(--dim);line-height:1.55;font-size:12.5px}
+.fact p b{color:var(--ink-2);font-weight:600}
+.empty{color:var(--dim);padding:30px 4px;text-align:center}
+@media(max-width:860px){
+  header,main{padding-left:16px;padding-right:16px}
+  main{grid-template-columns:1fr}
+  #stage{height:300px}
+}
+</style>
+</head>
+<body>
+<header>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · inspector</nav>
+  <h1>tvf <em>inspector</em></h1>
+  <p class="lede">
+    The galleries go from a description to a shape. This goes the other way: give it a closed
+    curve and it reads the description back off the leaves. It reports the <b>spectrum</b>,
+    <b>rotational and mirror symmetry</b>, <b>width</b>, and <b>how few leaves would hold it</b>,
+    and links each finding to the gallery that explains it. Send a shape here with
+    <b>inspect the selection</b> in the leaf editor's settings menu, paste <code>.tvf</code> text below,
+    or start from an example.
+  </p>
+</header>
+<main>
+  <section class="panel">
+    <canvas id="stage" title="click a loop to inspect it"></canvas>
+    <canvas id="spec"></canvas>
+    <div class="cap" id="cap"></div>
+    <div class="row">
+      <button id="prev" title="previous loop">‹</button>
+      <span class="which" id="which"></span>
+      <button id="next" title="next loop">›</button>
+      <span style="flex:1"></span>
+      <button id="toEditor" class="v" title="open these curves in the leaf editor">edit</button>
+    </div>
+    <textarea id="paste" placeholder="paste .tvf text here (TVF N 1 2, #meta lines, then a row of x and a row of y)"></textarea>
+    <div class="row" id="examples"><span class="which">examples:</span></div>
+  </section>
+  <section class="panel" id="facts"><div class="empty">nothing loaded</div></section>
+</main>
+<script>
+'use strict';
+const TAU = 2 * Math.PI;
+
+// ── reading shapes in ───────────────────────────────────────────────────
+// The #tvf= link is the editor's own deep-link format (see "THE SHAPE DEEP LINK" in
+// draw.html): quantized, delta-coded, zig-zag varints, deflated, base64url. This is the
+// same reader; y arrives pointing up.
+function b64urlBytes(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  const bin = atob(s), out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function decodeShapeLink(code) {
+  const kind = code.charAt(0);
+  let b = b64urlBytes(code.slice(1));
+  if (kind === 'z') {
+    const ds = new DecompressionStream('deflate-raw');
+    b = new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(ds)).arrayBuffer());
+  } else if (kind !== 'r') throw new Error('unknown encoding');
+  let p = 0;
+  const u8 = () => { if (p >= b.length) throw new Error('payload ends early'); return b[p++]; };
+  const uv = () => { let v = 0, mul = 1, c; do { c = u8(); v += (c & 127) * mul; mul *= 128; } while (c & 128); return v; };
+  const zz = () => { const v = uv(); return v % 2 ? -(v + 1) / 2 : v / 2; };
+  const text = () => { const n = uv(); const s = new TextDecoder().decode(b.subarray(p, p + n)); p += n; return s; };
+  if (u8() !== 1) throw new Error('unsupported version');
+  const q = uv(), S = uv(), flags = u8();
+  if (flags & 1) p += 4;
+  const name = flags & 2 ? text() : null;
+  const curves = [];
+  for (let s = 0; s < S; s++) {
+    const N = uv();
+    const ch = () => { const a = new Float64Array(N); let acc = 0; for (let i = 0; i < N; i++) { acc += zz(); a[i] = acc / q; } return a; };
+    const x = ch(), y = ch();
+    curves.push({ x, y });
+  }
+  const source = flags & 4 ? text() : null;
+  return { name, source, curves };
+}
+
+// .tvf text: `TVF N H C` blocks, #meta lines, then H×C rows each led by a rung. Only the
+// single-curve block (H = 1, C = 2) matters here, and concatenated blocks are several curves.
+function parseTvf(text) {
+  const lines = String(text).split(/\r?\n/);
+  const curves = [];
+  let name = null;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].trim().match(/^TVF\s+(\d+)\s+(\d+)\s+(\d+)/);
+    if (!m) continue;
+    const N = +m[1], H = +m[2], C = +m[3];
+    let j = i + 1;
+    while (j < lines.length && (lines[j].trim().startsWith('#') || !lines[j].trim())) {
+      const mm = lines[j].match(/^#meta\s+name:\s*(.*)$/);
+      if (mm && !name) name = mm[1].trim();
+      j++;
+    }
+    const rows = [];
+    while (j < lines.length && rows.length < H * C) {
+      const t = lines[j].trim(); j++;
+      if (!t || t.startsWith('#')) continue;
+      const v = t.split(/\s+/).slice(1).map(Number);
+      if (v.length < N || v.some(x => !isFinite(x))) throw new Error('a data row is short or not numeric');
+      rows.push(Float64Array.from(v.slice(0, N)));
+    }
+    for (let r = 0; r + 1 < rows.length; r += C) if (N >= 3) curves.push({ x: rows[r], y: rows[r + 1] });
+    i = j - 1;
+  }
+  if (!curves.length) throw new Error('no TVF block found');
+  return { name, curves };
+}
+
+// ── the spectrum ────────────────────────────────────────────────────────
+// Z_k = (1/N) Σ z_j e^(−2πikj/N), z = x + iy, for every k the leaves can carry. An integer
+// twiddle index keeps it exact; O(N²) is fine at leaf counts.
+function dft(c) {
+  const N = c.x.length, X = c.x, Y = c.y;
+  const cos = new Float64Array(N), sin = new Float64Array(N);
+  for (let j = 0; j < N; j++) { cos[j] = Math.cos(TAU * j / N); sin[j] = Math.sin(TAU * j / N); }
+  const re = new Float64Array(N), im = new Float64Array(N);
+  for (let k = 0; k < N; k++) {
+    let a = 0, b = 0;
+    for (let j = 0, t = 0; j < N; j++, t += k, t >= N && (t -= N)) {
+      a += X[j] * cos[t] + Y[j] * sin[t];
+      b += Y[j] * cos[t] - X[j] * sin[t];
+    }
+    re[k] = a / N; im[k] = b / N;
+  }
+  return { N, re, im, at: k => { const i = ((k % N) + N) % N; return [re[i], im[i]]; } };
+}
+
+const FLOOR = 1e-9;
+function analyse(c) {
+  const F = dft(c), N = F.N;
+  const mag2 = k => { const [a, b] = F.at(k); return a * a + b * b; };
+  const dir = mag2(1) >= mag2(-1) ? 1 : -1;
+  const M = Math.floor((N - 1) / 2);
+  // lobe m: the pair Z(1+m), Z(1−m) in the loop's own direction (see the galleries' strip)
+  const amp = new Float64Array(M + 1);
+  amp[0] = Math.sqrt(mag2(dir));
+  for (let m = 1; m <= M; m++) amp[m] = Math.sqrt(mag2(dir * (1 + m)) + mag2(dir * (1 - m)));
+  let peak = 0; for (const a of amp) peak = Math.max(peak, a);
+  const live = []; for (let m = 1; m <= M; m++) if (amp[m] > FLOOR * peak) live.push(m);
+  const top = live.length ? live[live.length - 1] : 0;
+  let wob = 0; for (let m = 1; m <= M; m++) wob += amp[m] * amp[m];
+
+  // ROTATION. Energy only at multiples of f is exactly z(t + 1/f) = e^(2πi/f)·z(t): turn
+  // it by 360°/f about its centroid and it lands on itself. A drawn shape is never exact,
+  // so the fraction of its wobble that sits on multiples of f is reported too, and the
+  // largest f holding nearly all of it is the shape's nearest fold.
+  const gcd = (a, b) => b ? gcd(b, a % b) : a;
+  const exactFold = live.reduce((g, m) => gcd(g, m), 0);
+  let nearFold = 1, nearFrac = 1;
+  if (wob > 0) for (let f = Math.min(M, 64); f >= 2; f--) {
+    let e = 0; for (let m = f; m <= M; m += f) e += amp[m] * amp[m];
+    if (e / wob >= 0.95) { nearFold = f; nearFrac = e / wob; break; }
+  }
+
+  // MIRROR. Reflecting across a line through the centroid at angle α, and running the
+  // loop backwards from a shifted start c, turns Z_k into e^(2iα)·e^(−2πikc)·conj(Z_k). So
+  // the shape has a mirror exactly when e^(i(2φ_k + γk)) is the same for every k (γ = 2πc),
+  // weighting by |Z_k|². S(γ) = |Σ w_k e^(i(2φ_k+γk))| is scanned over γ and refined; at
+  // its best, sqrt(2(1 − S/W)) is the rms distance between the loop and its mirror image
+  // as a fraction of the loop's rms radius, which is the number reported.
+  const terms = [];
+  for (let k = -M; k <= M + 1; k++) {
+    if (k === 0) continue;
+    const [a, b] = F.at(k); const w = a * a + b * b;
+    if (w > FLOOR * FLOOR * peak * peak) terms.push({ k, w, ph: Math.atan2(b, a) });
+  }
+  terms.sort((p, q) => q.w - p.w);
+  const T = terms.slice(0, 96);
+  const W = T.reduce((s, t) => s + t.w, 0);
+  const S = g => { let a = 0, b = 0; for (const t of T) { const th = 2 * t.ph + g * t.k; a += t.w * Math.cos(th); b += t.w * Math.sin(th); } return [Math.hypot(a, b), Math.atan2(b, a)]; };
+  let bestG = 0, bestS = -1;
+  const kmax = T.reduce((m, t) => Math.max(m, Math.abs(t.k)), 1);
+  const steps = Math.min(20000, 16 * kmax);
+  for (let i = 0; i < steps; i++) { const g = TAU * i / steps; const s = S(g)[0]; if (s > bestS) { bestS = s; bestG = g; } }
+  let lo = bestG - TAU / steps, hi = bestG + TAU / steps;          // golden-section refine
+  for (let it = 0; it < 60; it++) {
+    const a = lo + (hi - lo) * 0.382, b = lo + (hi - lo) * 0.618;
+    if (S(a)[0] > S(b)[0]) hi = b; else lo = a;
+  }
+  bestG = (lo + hi) / 2;
+  const [sBest, beta] = S(bestG);
+  const mirrorErr = W > 0 ? Math.sqrt(Math.max(0, 2 * (1 - sBest / W))) : 0;
+  let axis = (beta / 2) * 180 / Math.PI; axis = ((axis % 180) + 180) % 180;
+
+  // the curve itself, by trigonometric interpolation of the leaves
+  const D = Math.min(4096, Math.max(256, 8 * N));
+  const half = Math.floor(N / 2), even = N % 2 === 0;
+  const px = new Float64Array(D), py = new Float64Array(D);
+  for (let k = -half; k <= half; k++) {
+    let [a, b] = F.at(k);
+    if (even && Math.abs(k) === half) { a /= 2; b /= 2; }           // the Nyquist bin, split
+    for (let d = 0; d < D; d++) {
+      const th = TAU * k * d / D, cs = Math.cos(th), sn = Math.sin(th);
+      px[d] += a * cs - b * sn; py[d] += a * sn + b * cs;
+    }
+  }
+  let area = 0, per = 0;
+  for (let d = 0; d < D; d++) {
+    const e = (d + 1) % D;
+    area += px[d] * py[e] - px[e] * py[d];
+    per += Math.hypot(px[e] - px[d], py[e] - py[d]);
+  }
+  area = Math.abs(area) / 2;
+  let wMin = Infinity, wMax = -Infinity;
+  for (let i = 0; i < 360; i++) {
+    const th = Math.PI * i / 360, cs = Math.cos(th), sn = Math.sin(th);
+    let lo2 = Infinity, hi2 = -Infinity;
+    for (let d = 0; d < D; d++) { const v = px[d] * cs + py[d] * sn; if (v < lo2) lo2 = v; if (v > hi2) hi2 = v; }
+    wMin = Math.min(wMin, hi2 - lo2); wMax = Math.max(wMax, hi2 - lo2);
+  }
+  // convex when the tangent never turns back
+  let turnSign = 0, convex = true;
+  for (let d = 0; d < D && convex; d++) {
+    const a = (d + D - 1) % D, e = (d + 1) % D;
+    const cr = (px[d] - px[a]) * (py[e] - py[d]) - (py[d] - py[a]) * (px[e] - px[d]);
+    if (Math.abs(cr) < 1e-14) continue;
+    const s = Math.sign(cr);
+    if (!turnSign) turnSign = s; else if (s !== turnSign) convex = false;
+  }
+
+  // HOW FEW LEAVES. N leaves carry frequencies |k| ≤ (N − 1)/2, so a loop whose highest
+  // nonzero frequency is K needs 2K + 1 of them, exactly. That is K, not the wobble number:
+  // an ellipse wobbles twice (m = 2) but is Z₁ and Z₋₁ only, so three leaves hold it. For a
+  // shape with frequencies all the way up, the useful number is the smallest count that
+  // keeps it within 0.1% of its size.
+  const halfK = Math.floor(N / 2);
+  const band = new Float64Array(halfK + 1);         // energy at |k|, translation left out
+  let total = 0;
+  for (let k = 1; k <= halfK; k++) {
+    band[k] = mag2(k) + (k === N - k ? 0 : mag2(-k));
+    total += band[k];
+  }
+  let K = 0; for (let k = 1; k <= halfK; k++) if (band[k] > FLOOR * FLOOR * peak * peak) K = k;
+  const need = Math.max(3, 2 * K + 1);
+  let kKeep = 1, tail = total - band[1];
+  while (kKeep < halfK && tail > (1e-3) ** 2 * total) { kKeep++; tail -= band[kKeep]; }
+  const needApprox = Math.max(3, 2 * kKeep + 1);
+
+  return { N, M, amp, peak, live, top, exactFold, nearFold, nearFrac, mirrorErr, axis,
+           px, py, area, per, wMin, wMax, convex, K, need, needApprox, dir };
+}
+
+// ── drawing ──────────────────────────────────────────────────────────────
+const stage = document.getElementById('stage'), specC = document.getElementById('spec');
+const capEl = document.getElementById('cap'), factsEl = document.getElementById('facts');
+let doc = null, pick = 0, info = [], view = null;
+
+function sizeCanvas(cv) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  return [ctx, w, h];
+}
+function drawStage() {
+  const [ctx, w, h] = sizeCanvas(stage);
+  if (!doc) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const a of info) for (let d = 0; d < a.px.length; d++) {
+    x0 = Math.min(x0, a.px[d]); x1 = Math.max(x1, a.px[d]); y0 = Math.min(y0, a.py[d]); y1 = Math.max(y1, a.py[d]);
+  }
+  const k = Math.min((w - 40) / (x1 - x0 || 1), (h - 40) / (y1 - y0 || 1));
+  const X = x => w / 2 + (x - (x0 + x1) / 2) * k, Y = y => h / 2 - (y - (y0 + y1) / 2) * k;   // y up
+  view = { X, Y };
+  info.forEach((a, i) => {
+    ctx.beginPath();
+    for (let d = 0; d < a.px.length; d++) (d ? ctx.lineTo : ctx.moveTo).call(ctx, X(a.px[d]), Y(a.py[d]));
+    ctx.closePath();
+    ctx.strokeStyle = i === pick ? '#e8ecf5' : 'rgba(232,236,245,.28)';
+    ctx.lineWidth = i === pick ? 1.6 : 1;
+    ctx.stroke();
+  });
+  const a = info[pick], c = doc.curves[pick];
+  // the mirror axis, when there is one
+  if (a.mirrorErr < 0.02) {
+    const cx = a.px.reduce((s, v) => s + v, 0) / a.px.length, cy = a.py.reduce((s, v) => s + v, 0) / a.py.length;
+    const r = Math.max(x1 - x0, y1 - y0), t = a.axis * Math.PI / 180;
+    ctx.setLineDash([5, 5]); ctx.strokeStyle = 'rgba(124,92,255,.7)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X(cx - r * Math.cos(t)), Y(cy - r * Math.sin(t))); ctx.lineTo(X(cx + r * Math.cos(t)), Y(cy + r * Math.sin(t))); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.fillStyle = '#f2c14e';
+  for (let j = 0; j < c.x.length; j++) { ctx.beginPath(); ctx.arc(X(c.x[j]), Y(c.y[j]), c.x.length > 400 ? 1.2 : 2, 0, TAU); ctx.fill(); }
+}
+function drawSpec() {
+  const [ctx, w, h] = sizeCanvas(specC);
+  if (!doc) { capEl.textContent = ''; return; }
+  const a = info[pick];
+  const show = Math.min(a.M, Math.max(16, Math.ceil(a.top * 1.25) + 2));
+  const base = h - 14, topY = 4, step = (w - 8) / (show + 1), bw = Math.max(1, Math.min(10, step * 0.7));
+  const yOf = v => base - (base - topY) * Math.max(0, 1 + Math.log10(v / a.peak) / 9);
+  ctx.strokeStyle = 'rgba(139,149,171,.16)';
+  for (let d = 0; d < 9; d += 3) { const y = Math.round(yOf(a.peak * 10 ** -d)) + .5; ctx.beginPath(); ctx.moveTo(4, y); ctx.lineTo(w - 4, y); ctx.stroke(); }
+  for (let m = 0; m <= show; m++) {
+    const x = 4 + (m + .5) * step;
+    if (a.amp[m] > FLOOR * a.peak) { const y = yOf(a.amp[m]); ctx.fillStyle = m ? '#7c5cff' : 'rgba(195,204,223,.55)'; ctx.fillRect(x - bw / 2, y, bw, base - y); }
+    else { ctx.fillStyle = 'rgba(139,149,171,.35)'; ctx.fillRect(x - .5, base - 2, 1, 2); }
+  }
+  ctx.fillStyle = '#8b95ab'; ctx.font = '10px ' + getComputedStyle(document.body).fontFamily; ctx.textBaseline = 'bottom';
+  const f = a.exactFold > 1 ? a.exactFold : 0;
+  const every = f && show / f <= 14 ? f : [1, 2, 5, 10, 20, 50, 100, 200].find(t => show / t <= 10) || 500;
+  for (let m = 0; m <= show; m += every) { ctx.textAlign = m ? 'center' : 'left'; ctx.fillText(String(m), m ? 4 + (m + .5) * step : 2, h); }
+  capEl.innerHTML = `spectrum of the highlighted loop · bar <i>m</i>: how strongly it wobbles <i>m</i> times per lap, log scale · N = ${a.N} allows up to m = ${a.M}`;
+}
+
+// ── the facts ────────────────────────────────────────────────────────────
+const G = { snow: 'snowflakes.html', radio: 'radiolaria.html', width: 'width.html', land: 'landscape.html',
+            cat: 'gallery.html', growth: 'growth.html' };
+const pct = v => v < 1e-6 ? 'exactly' : v < 1e-3 ? (v * 100).toPrecision(2) + '%' : (v * 100).toFixed(v < 0.1 ? 2 : 1) + '%';
+function fact(k, v, p) { return `<div class="fact"><div class="k">${k}</div><div class="v">${v}</div><p>${p}</p></div>`; }
+function renderFacts() {
+  if (!doc) { factsEl.innerHTML = '<div class="empty">nothing loaded</div>'; return; }
+  const a = info[pick];
+  const out = [`<h2>${doc.name ? esc(doc.name) + ' · ' : ''}loop ${pick + 1} of ${info.length}</h2>`];
+  if (doc.source) out.push(fact('made by', `<code style="font-size:12px;color:#b9a6ff">${esc(doc.source)}</code>`, 'The gallery call that produced these curves, carried along with them.'));
+
+  // rotation
+  const f = a.live.length ? a.exactFold : 0;
+  if (!a.live.length) out.push(fact('rotation', '<span class="yes">a circle</span>', 'Only the round body: no wobble at all, so it lands on itself at every angle.'));
+  else if (f > 1) out.push(fact('rotation', `<span class="yes">${f}-fold, exactly</span>`,
+    `Every harmonic is a multiple of <b>${f}</b>, which is the same statement as "turn it by ${+(360 / f).toFixed(2)}° and it lands on itself". <a href="${G.snow}">Snow crystals</a> is built on this.`));
+  else if (a.nearFold > 1) out.push(fact('rotation', `nearly ${a.nearFold}-fold`,
+    `${pct(a.nearFrac)} of its wobble sits on multiples of <b>${a.nearFold}</b>; the rest is what keeps it from being exact. A hand-drawn shape lands here. See <a href="${G.snow}">snow crystals</a>.`));
+  else out.push(fact('rotation', '<span class="no">none</span>', `Harmonics at every m, with no common factor: no turn short of a full one brings it back. See <a href="${G.snow}">snow crystals</a> for what a fold looks like in the spectrum.`));
+
+  // mirror
+  const exactMirror = a.mirrorErr < 1e-6;
+  if (!a.live.length) out.push(fact('mirror', '<span class="yes">every line through the centre</span>', 'A circle is its own reflection in any diameter.'));
+  else if (exactMirror) out.push(fact('mirror', `<span class="yes">yes, axis at ${a.axis.toFixed(1)}°</span>`,
+    `Reflected in the dashed line it is itself. In the spectrum that is a statement about <b>phases</b>, not magnitudes: every harmonic is lined up with the same axis. ${f > 1 ? `With the ${f}-fold turn that makes ${f} mirror lines. ` : ''}<a href="${G.radio}">Radiolaria</a> is about exactly this.`));
+  else out.push(fact('mirror', a.mirrorErr < 0.02 ? `nearly, axis at ${a.axis.toFixed(1)}°` : '<span class="no">no</span>',
+    `Its closest mirror image is off by ${pct(a.mirrorErr)} of its size${a.mirrorErr < 0.02 ? ' (the dashed line)' : ''}. The harmonics are there, but their phases point different ways: <a href="${G.radio}">radiolaria</a> shows how the same magnitudes become mirrored or not.`));
+
+  // the group, in one word
+  const n = f > 1 ? f : 1, mir = exactMirror || !a.live.length;
+  const grp = !a.live.length ? 'O(2), a circle' : mir ? `D<sub>${n}</sub>` : `C<sub>${n}</sub>`;
+  const like = !a.live.length ? '' : mir ? (n === 1 ? 'one mirror and nothing else, like a heart or a leaf' : n === 2 ? 'two mirrors at right angles, like Navicula' : n === 6 ? 'the snowflake\'s group' : `${n} mirrors and a ${n}-fold turn`)
+             : (n === 1 ? 'no symmetry at all' : `turns without mirrors: it has a handedness, like a pinwheel`);
+  out.push(fact('symmetry group', grp, like ? like.charAt(0).toUpperCase() + like.slice(1) + '.' : ''));
+
+  // width
+  const wv = (a.wMax - a.wMin) / ((a.wMax + a.wMin) / 2);
+  out.push(fact('width', wv < 1e-3 ? `<span class="yes">constant${a.convex ? '' : ' (but not convex)'}</span>` : `varies ${pct(wv)} with direction`,
+    wv < 1e-3 ? `Every pair of parallel tangents is the same distance apart, so it rolls between two planks without lifting them. <a href="${G.width}">Curves of constant width</a> explains why that means its even harmonics vanish.`
+              : `From ${a.wMin.toPrecision(3)} to ${a.wMax.toPrecision(3)} between parallel tangents${a.convex ? '' : '; it is not convex, so the tangents span its hull'}. A circle varies 0%. <a href="${G.width}">Curves of constant width</a> shows the others that vary 0%.`));
+
+  // leaves
+  if (a.need < a.N) out.push(fact('leaves', `${a.N}, could be <b>${a.need}</b>`,
+    `Its highest frequency goes round ${a.K} time${a.K === 1 ? '' : 's'} per lap, and 2·${a.K} + 1 = ${a.need} leaves hold that exactly. It has ${a.N - a.need} more than it needs, and dropping them would change nothing. <a href="${G.snow}">Snow crystals</a> shows what happens with fewer.`));
+  else out.push(fact('leaves', `${a.N}, all in use`,
+    `It has harmonics right up to the limit its leaf count allows, so every leaf carries something. Keeping it within 0.1% of its size takes about <b>${Math.min(a.N, a.needApprox)}</b>. Shapes with no last harmonic are the subject of <a href="${G.land}">landscape</a>.`));
+
+  // round
+  const iso = 4 * Math.PI * a.area / (a.per * a.per);
+  out.push(fact('roundness', iso.toFixed(3), `4π·area / perimeter². A circle scores 1, and every other shape scores less. ${iso > 0.99 ? 'This one is nearly a circle.' : iso < 0.3 ? 'This one has a long boundary for its area, as folded and spiky shapes do (see <a href="' + G.growth + '">differential growth</a>).' : ''}`));
+  factsEl.innerHTML = out.join('');
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function show(d) {
+  doc = d;
+  info = d.curves.map(analyse);
+  // start on the largest loop, which in a group is usually the body
+  pick = 0; let best = -1;
+  info.forEach((a, i) => { if (a.area > best) { best = a.area; pick = i; } });
+  refresh();
+}
+function refresh() {
+  document.getElementById('which').textContent = doc ? `loop ${pick + 1} of ${info.length}` : '';
+  drawStage(); drawSpec(); renderFacts();
+}
+window.inspectShapes = show;     // for the smoke test, and for poking at shapes by hand
+
+// ── examples ─────────────────────────────────────────────────────────────
+// Each is sampled uniformly in its own parameter, so its spectrum is exactly what its
+// formula says, and each lands in a different symmetry group.
+function polar(N, r) { const x = new Float64Array(N), y = new Float64Array(N); for (let j = 0; j < N; j++) { const t = TAU * j / N, R = r(t); x[j] = R * Math.cos(t); y[j] = R * Math.sin(t); } return { x, y }; }
+function param(N, f) { const x = new Float64Array(N), y = new Float64Array(N); for (let j = 0; j < N; j++) { const [a, b] = f(TAU * j / N); x[j] = a; y[j] = b; } return { x, y }; }
+const EXAMPLES = {
+  'six-fold crystal': () => polar(57, t => 1 + 0.22 * Math.cos(6 * t) + 0.08 * Math.cos(12 * t) + 0.03 * Math.cos(18 * t)),
+  'pinwheel (no mirror)': () => polar(41, t => 1 + 0.2 * Math.cos(3 * t) + 0.12 * Math.cos(6 * t + 1.1)),
+  'heart': () => param(19, t => [16 * Math.sin(t) ** 3 / 16, (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 16]),
+  'constant width': () => param(31, t => { const h = 1 + 0.12 * Math.cos(3 * t), dh = -0.36 * Math.sin(3 * t); return [h * Math.cos(t) - dh * Math.sin(t), h * Math.sin(t) + dh * Math.cos(t)]; }),
+  'ellipse': () => param(16, t => [1.4 * Math.cos(t), 0.8 * Math.sin(t)]),
+};
+const exRow = document.getElementById('examples');
+for (const [name, make] of Object.entries(EXAMPLES)) {
+  const b = document.createElement('button'); b.textContent = name;
+  b.addEventListener('click', () => { history.replaceState(null, '', location.pathname); show({ name, curves: [make()] }); });
+  exRow.appendChild(b);
+}
+
+// ── wiring ───────────────────────────────────────────────────────────────
+document.getElementById('prev').addEventListener('click', () => { if (doc) { pick = (pick + info.length - 1) % info.length; refresh(); } });
+document.getElementById('next').addEventListener('click', () => { if (doc) { pick = (pick + 1) % info.length; refresh(); } });
+stage.addEventListener('click', ev => {
+  if (!doc || !view) return;
+  const r = stage.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+  let best = Infinity, bi = pick;
+  info.forEach((a, i) => { for (let d = 0; d < a.px.length; d += 4) { const dd = Math.hypot(view.X(a.px[d]) - mx, view.Y(a.py[d]) - my); if (dd < best) { best = dd; bi = i; } } });
+  if (best < 24) { pick = bi; refresh(); }
+});
+const paste = document.getElementById('paste');
+paste.addEventListener('input', () => {
+  const t = paste.value.trim(); if (!t) return;
+  try { show(parseTvf(t)); } catch (e) { factsEl.innerHTML = `<div class="empty">that did not read as .tvf: ${esc(e.message)}</div>`; }
+});
+// Back to the editor with the same curves, through the editor's own link.
+document.getElementById('toEditor').addEventListener('click', async () => {
+  if (!doc) return;
+  const out = [], u8 = v => out.push(v & 255);
+  const uv = v => { while (v >= 128) { out.push((v % 128) | 128); v = Math.floor(v / 128); } out.push(v); };
+  const zz = v => uv(v < 0 ? -2 * v - 1 : 2 * v);
+  let span = 0; for (const c of doc.curves) for (let j = 0; j < c.x.length; j++) span = Math.max(span, Math.abs(c.x[j]), Math.abs(c.y[j]));
+  const Q = Math.max(1, Math.round(8192 * 0.9 / (span || 1)));    // ~1/9000 of the extent, whatever the units
+  const name = doc.name ? new TextEncoder().encode(doc.name.slice(0, 80)) : null;
+  u8(1); uv(Q); uv(doc.curves.length); u8(name ? 2 : 0);
+  if (name) { uv(name.length); for (const c of name) u8(c); }
+  for (const c of doc.curves) {
+    uv(c.x.length);
+    for (const ch of [c.x, c.y]) { let prev = 0; for (const v of ch) { const q = Math.round(v * Q); zz(q - prev); prev = q; } }
+  }
+  const cs = new CompressionStream('deflate-raw');
+  const bytes = new Uint8Array(await new Response(new Blob([new Uint8Array(out)]).stream().pipeThrough(cs)).arrayBuffer());
+  let bin = ''; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  window.open(new URL('../draw.html', location.href).href + '#tvf=z' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), 'tangent-draw');
+});
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => doc && refresh(), 150); });
+
+async function fromHash() {
+  const m = (location.hash || '').match(/(?:^#|&)tvf=([^&]*)/);
+  if (!m) return false;
+  try { show(await decodeShapeLink(m[1])); return true; }
+  catch (e) { factsEl.innerHTML = `<div class="empty">the link did not decode: ${esc(e.message)}</div>`; return true; }
+}
+window.addEventListener('hashchange', fromHash);
+fromHash().then(had => { if (!had) show({ name: 'six-fold crystal', curves: [EXAMPLES['six-fold crystal']()] }); });
+</script>
+</body>
+</html>
