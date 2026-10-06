@@ -563,6 +563,30 @@ await step('gallery index', async () => {
   if (after.join() !== 'playground.html,inspect.html') throw new Error('the cards after the course point at ' + after.join());
 });
 
+/* The curve library is its own file (tvf-core.js), and must stay a library: it runs on its own,
+   outside any page, and draw.html loads it rather than carrying a second copy that could drift. */
+await step('tvf-core.js stands alone', async () => {
+  const vm = await import('node:vm');
+  const src = await readFile(join(ROOT, 'tvf-core.js'), 'utf8');
+  const ctx = { module: { exports: {} } };
+  vm.createContext(ctx);
+  vm.runInContext(src, ctx, { filename: 'tvf-core.js' });
+  const C = ctx.module.exports, t = C.tvf;
+  for (const k of ['tvf', 'reconstructFFT', 'reconstructFejer', 'isPow2'])
+    if (!C[k]) throw new Error('tvf-core.js exports no ' + k);
+  let pou = 0, r2 = 0;
+  for (const N of [16, 33]) for (let i = 0; i < 50; i++) {
+    const p = i * 0.1237; let sum = 0;
+    for (let k = 0; k < N; k++) sum += t.kernel(p - (k + 0.5) * 2 * Math.PI / N, N);
+    pou = Math.max(pou, Math.abs(sum - 1));
+  }
+  for (let j = 1; j < 16; j++) r2 = Math.max(r2, Math.abs(t.kernel(j * 2 * Math.PI / 16, 16)));
+  if (!(pou < 1e-12 && r2 < 1e-12)) throw new Error(`the library outside a page: partition of unity ${pou}, R2 ${r2}`);
+  const html = await readFile(join(ROOT, 'draw.html'), 'utf8');
+  if (!html.includes('<script src="tvf-core.js"></script>')) throw new Error('draw.html does not load tvf-core.js');
+  if (html.includes('const tvf = (function')) throw new Error('draw.html carries its own copy of the library again');
+});
+
 /* The papers: every Markdown file in papers/ has a card, every card's file is there, and
    each paper renders: no math placeholder left behind, its sections headed, its TeX found
    (typeset when the CDN answers, shown as source when it does not). A section link opens
