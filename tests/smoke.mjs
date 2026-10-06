@@ -436,6 +436,36 @@ await step('gallery index', async () => {
   if (after.join() !== 'playground.html,inspect.html') throw new Error('the cards after the course point at ' + after.join());
 });
 
+/* The papers: every Markdown file in papers/ has a card, every card's file is there, and
+   each paper renders: no math placeholder left behind, its sections headed, its TeX found
+   (typeset when the CDN answers, shown as source when it does not). A section link opens
+   the paper at that heading. */
+await step('papers', async () => {
+  const files = (await readdir(join(ROOT, 'papers'))).filter(f => f.endsWith('.md')).sort();
+  const pp = await browser.newPage({ viewport: { width: 1200, height: 900 } });
+  pp.on('pageerror', e => failures.push(`[papers] ${e.message}`));
+  await pp.goto(new URL('papers.html', base).href, { waitUntil: 'load' });
+  const listed = (await pp.evaluate(() => PAPERS.map(p => p.file.replace('papers/', '')))).sort();
+  if (listed.join() !== files.join()) throw new Error(`papers.html lists ${listed.join(', ')}; papers/ holds ${files.join(', ')}`);
+  for (const f of files) {
+    const id = f.replace(/\.md$/, '');
+    await pp.evaluate(i => { location.hash = i; }, id);
+    await pp.waitForFunction(i => document.getElementById('reader').dataset.id === i && document.querySelector('#reader .md'), id, { timeout: 10000 });
+    const r = await pp.evaluate(() => { const el = document.querySelector('#reader .md');
+      return { stray: /[\u0000-\u0002]/.test(el.innerHTML), h2: el.querySelectorAll('h2').length, math: el.querySelectorAll('.math').length,
+               index: !document.getElementById('index').hidden }; });
+    if (r.stray) throw new Error(f + ': a placeholder was left in the text');
+    if (r.h2 < 5) throw new Error(f + `: only ${r.h2} sections rendered`);
+    if (r.index) throw new Error(f + ': the index is still showing over the paper');
+    if (f !== 'tvf.md' && r.math < 100) throw new Error(f + `: only ${r.math} formulas found`);
+  }
+  await pp.goto(new URL('papers.html#tb_spectral:17.3-numerical-verification', base).href, { waitUntil: 'load' });
+  const top = await pp.waitForFunction(() => { const h = document.getElementById('17.3-numerical-verification');
+    return !!h && Math.abs(h.getBoundingClientRect().top) < 200; }, null, { timeout: 10000 }).catch(() => null);
+  await pp.close();
+  if (!top) throw new Error('a section link did not open the paper at its heading');
+});
+
 if (failures.length){
   console.error(`\n${failures.length} failure(s):\n` + failures.map(f => '  ' + f).join('\n'));
   code = 1;

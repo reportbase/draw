@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tvf papers</title>
+<meta name="description" content="The papers behind the leaf editor: the TVF format and the Tangent Bridge theorem it stores, readable in the page.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="gallery/style.css">
+<!-- KaTeX typesets the mathematics when the CDN is there. When it is not (a sandbox,
+     a train), the reader still works: every formula is shown as its TeX source,
+     which is what the papers are written in and reads well enough to follow. -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+</head>
+<body class="page-papers">
+<header>
+  <nav class="crumbs"><a href="draw.html">← the editor</a> · <a href="gallery/index.html">the galleries</a> · <a href="labs.html">the labs</a></nav>
+  <h1>tvf <em>papers</em> <span class="pill" id="pill">5 papers</span></h1>
+  <p class="lede" id="lede">
+    The writing behind the editor. One specification, of the <b>.tvf</b> format the editor reads and writes, and
+    the theorem the format is an instance of, the <b>Tangent Bridge</b>: a closed curve held as N leaves and
+    presented continuously between them, exact at the leaves and bounded in between. The theorem comes in two
+    presentations and a spectral companion with its newest section. Each paper is a Markdown file in
+    <code>papers/</code>; <b>read</b> opens it here, with the mathematics typeset.
+  </p>
+  <p class="sub" id="sub">
+    In reading order. The galleries are the same claims run live: where a paper's result has a page that shows
+    it, the page is named under the paper.
+  </p>
+</header>
+
+<div class="bar"><div class="bar-in" id="bar">
+  <span class="count" id="where">the index</span>
+  <div class="spacer"></div>
+  <a class="jump" href="#" id="back" hidden>← all papers</a>
+  <a class="jump" id="raw" hidden>the .md file</a>
+</div></div>
+
+<main id="main">
+  <ol class="papers" id="index"></ol>
+  <article class="paper" id="reader" hidden></article>
+</main>
+
+<footer>
+  These are the owner's papers, kept here beside the code they describe so that a change to one can be checked
+  against the other. The reader is a small Markdown renderer written for these files (headings, paragraphs, lists,
+  tables, quotes, code, and TeX between dollar signs); it is not a general one.
+</footer>
+
+<script>
+// ── THE PAPERS ─────────────────────────────────────────────────────────────
+// The list is written by hand, like the gallery's cards: a title, what the paper
+// is for, and the galleries that show its results running. The text itself is
+// fetched from papers/ when a paper is opened, so the files stay the source.
+const PAPERS = [
+  { id: 'tvf', file: 'papers/tvf.md', kind: 'specification',
+    title: 'TVF — The Tangent Vector Format',
+    sub: 'A text-native export format for cascade-reconstructed signals',
+    note: 'The format the editor\'s <code>.tvf</code> button writes. The header, the <code>#meta</code> tags and ' +
+          'the rows; the band byte; cascade levels as precision and, since 5 October, <b>depth</b> held as ' +
+          'concatenated documents with no new syntax. Then the kernel and its Gibbs constant, the operations the ' +
+          'format makes exact, its honest operating envelope, and the claims it has retired.',
+    shows: [['bench', 'gallery/bench.html'], ['the loop', 'gallery/motion.html'], ['composed', 'gallery/compose.html']] },
+  { id: 'tb_classical', file: 'papers/tb_classical.md', kind: 'theorem · classical presentation',
+    title: 'The Tangent Bridge Theorem',
+    sub: 'Discrete geometric atoms, presented continuously on the bounded observer\'s virtual circle',
+    note: 'The theorem, R1 to R5: an exact round trip, exact at the atoms, bounded between them by the Lebesgue ' +
+          'constant times Jackson, convergent on the Dini–Lipschitz class, and inside-bounded. Proved in the angle ' +
+          'chart, in the language of classical approximation theory, with the Chord Projection Corollary ' +
+          '(the leaves\' shadows are the Chebyshev nodes), the product tori, composition, and multiresolution.',
+    shows: [['bench', 'gallery/bench.html'], ['the menagerie', 'gallery/curves.html'], ['where it breaks', 'gallery/fail.html']] },
+  { id: 'tb_algebra', file: 'papers/tb_algebra.md', kind: 'theorem · algebraic form',
+    title: 'The Tangent Bridge Theorem, algebraic form',
+    sub: 'The same theorem, executed in the slope chart',
+    note: 'The later and longer presentation, the one the format specification cites. The proof still lives in ' +
+          'the angle chart, but the operation is put in the slope chart, where the kernel is a rational function ' +
+          'of the held slope and R1 and R2 are integer-polynomial identities. Adds the two arcs and their letters, ' +
+          'the lattice that is generated rather than converted, the horizon as an address, two parities, and an ' +
+          'appendix that recovers classical approximation theory from the observer\'s constraints, with its record.',
+    shows: [['the spiral', 'gallery/spiral.html'], ['shape space', 'gallery/space.html']] },
+  { id: 'tb_spectral', file: 'papers/tb_spectral.md', kind: 'companion · §§17–22',
+    title: 'The Tangent Bridge in the Spectral Court',
+    sub: 'R1–R3 reproved in the frequency domain',
+    note: 'The theorem walked through Fourier language. The kernel as a normalized rotation raised to the depth; ' +
+          'reconstruction as folding, so the error is out-of-band mass; the energy face, a tight frame with bounds ' +
+          '½ and 1 and no logarithm; which sections run trig-free; the FFT as the cascade; and the Fejér operator, ' +
+          'which buys unconditional convergence by giving up exactness at the leaves. The half-weight Nyquist mode ' +
+          'turns up in every section.',
+    shows: [['epicycles', 'gallery/epicycles.html'], ['snow crystals', 'gallery/snowflakes.html'], ['heard', 'gallery/sound.html']] },
+  { id: 'tb_spectral_notes', file: 'papers/tb_spectral_notes.md', kind: 'companion · §23 · preliminary',
+    title: 'The aperture band is constructible',
+    sub: 'A windowed read on a lattice of rational weights',
+    note: 'A draft section for the spectral companion. Read the curve through a window of only the K leaves in ' +
+          'view and every kernel argument lands on a small constructible lattice, so the window becomes a sparse ' +
+          'banded matrix of rational weights: the cheapest operator in the system rather than the dearest. With ' +
+          'addenda to §18, §20 and §21 that the implementation forced, and its open questions.',
+    shows: [] },
+];
+
+// ── A SMALL MARKDOWN READER ────────────────────────────────────────────────
+// Written for these five files and no others. The one thing it must get right that
+// a general renderer usually gets wrong is the mathematics: TeX is lifted out
+// before anything else runs, so an underscore in a subscript is never emphasis and
+// a | inside \big| never splits a table cell, and put back afterwards as a span
+// KaTeX can typeset in place.
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const slug = s => s.toLowerCase().replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, '').replace(/[^\w§.\- ]+/g, '').trim()
+  .replace(/\s+/g, '-').replace(/\.+$/, '').slice(0, 60) || 'section';
+
+function render(md) {
+  const math = [];
+  const hold = (tex, display) => { math.push({ tex, display }); return `\u0000${math.length - 1}\u0000`; };
+  // code first, so a dollar sign in a fence stays a dollar sign
+  const code = [];
+  md = md.replace(/^```[^\n]*\n([\s\S]*?)^```[ \t]*$/gm, (_, c) => { code.push(c); return `\u0001${code.length - 1}\u0001`; });
+  md = md.replace(/`([^`\n]+)`/g, (_, c) => { code.push(c); return `\u0002${code.length - 1}\u0002`; });
+  md = md.replace(/\$\$([\s\S]+?)\$\$/g, (_, t) => hold(t.trim(), true));
+  md = md.replace(/\$([^$\n]+?)\$/g, (_, t) => hold(t, false));
+
+  const inline = s => esc(s)
+    .replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>')
+    .replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?!\w)/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, u) => /^(https?:|#|\.{0,2}\/|[\w-]+\.html)/.test(u) ? `<a href="${u}">${t}</a>` : `${t} (${u})`)
+    .replace(/\u0002(\d+)\u0002/g, (_, i) => `<code>${esc(code[+i])}</code>`);
+
+  const lines = md.split('\n'), out = [], toc = [];
+  const used = new Set();
+  let i = 0;
+  const isBlockStart = l => /^(#{1,6} |```|\u0001|>|\s*[-*] |\s*\d+\. |\||---\s*$|\u0000\d+\u0000\s*$)/.test(l);
+  while (i < lines.length) {
+    const l = lines[i];
+    if (!l.trim()) { i++; continue; }
+    let m;
+    if ((m = l.match(/^(#{1,6}) +(.*)$/))) {
+      const n = m[1].length, html = inline(m[2]);
+      let id = slug(m[2].replace(/[\u0000-\u0002]\d+[\u0000-\u0002]/g, '')); while (used.has(id)) id += '-'; used.add(id);
+      if (n <= 3) toc.push({ n, id, html });
+      out.push(`<h${n} id="${id}">${html}</h${n}>`); i++; continue;
+    }
+    if (/^---\s*$/.test(l)) { out.push('<hr>'); i++; continue; }
+    if ((m = l.match(/^\u0001(\d+)\u0001\s*$/))) { out.push(`<pre><code>${esc(code[+m[1]])}</code></pre>`); i++; continue; }
+    if (/^\u0000\d+\u0000\s*$/.test(l.trim())) { out.push(`<div class="display">${l.trim()}</div>`); i++; continue; }
+    if (l.startsWith('>')) {
+      const q = [];
+      while (i < lines.length && lines[i].startsWith('>')) q.push(lines[i++].replace(/^> ?/, ''));
+      out.push(`<blockquote>${render.blocks(q.join('\n'), inline)}</blockquote>`); continue;
+    }
+    if (l.startsWith('|')) {
+      const rows = [];
+      while (i < lines.length && lines[i].startsWith('|')) rows.push(lines[i++]);
+      const cells = r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+      const head = cells(rows[0]), body = rows.slice(/^\|[\s:|-]+\|?\s*$/.test(rows[1] || '') ? 2 : 1);
+      out.push(`<div class="table"><table><thead><tr>${head.map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>` +
+        body.map(r => `<tr>${cells(r).map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('') + '</tbody></table></div>');
+      continue;
+    }
+    if ((m = l.match(/^(\s*)([-*]|\d+\.) /))) {
+      const ordered = /\d/.test(m[2]), items = [];
+      while (i < lines.length) {
+        const k = lines[i].match(/^(\s*)([-*]|\d+\.) +(.*)$/);
+        if (k && (/\d/.test(k[2]) === ordered)) { items.push({ depth: k[1].length, text: k[3] }); i++; continue; }
+        // a continuation line, indented under the item it belongs to
+        if (items.length && /^\s+\S/.test(lines[i]) && !isBlockStart(lines[i].trim())) { items[items.length - 1].text += ' ' + lines[i].trim(); i++; continue; }
+        break;
+      }
+      out.push(render.list(items, ordered, inline)); continue;
+    }
+    const p = [];
+    while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i])) p.push(lines[i++]);
+    if (!p.length) p.push(lines[i++]);
+    out.push(`<p>${inline(p.join(' '))}</p>`);
+  }
+  const finish = s => s
+    .replace(/\u0001(\d+)\u0001/g, (_, k) => `<code>${esc(code[+k])}</code>`)
+    .replace(/\u0000(\d+)\u0000/g, (_, k) => {
+      const { tex, display } = math[+k];
+      return `<span class="math${display ? ' display' : ''}" data-tex="${esc(tex).replace(/"/g, '&quot;')}">${esc(display ? '$$' + tex + '$$' : '$' + tex + '$')}</span>`;
+    });
+  for (const t of toc) t.html = finish(t.html);
+  return { html: finish(out.join('\n')), toc, math: math.length };
+}
+// a quote's own blocks: paragraphs and lists only, which is all these papers put in one
+render.blocks = (md, inline) => md.split(/\n\s*\n/).map(b => /^\s*([-*]|\d+\.) /.test(b)
+  ? render.list(b.split('\n').filter(Boolean).map(l => ({ depth: 0, text: l.replace(/^\s*([-*]|\d+\.) +/, '') })), /^\s*\d/.test(b), inline)
+  : `<p>${inline(b.replace(/\n/g, ' '))}</p>`).join('');
+render.list = (items, ordered, inline) => {
+  // nesting by indent: deeper items open a list inside the previous item
+  let html = '', stack = [];
+  const tag = ordered ? 'ol' : 'ul';
+  for (const it of items) {
+    if (!stack.length || it.depth > stack[stack.length - 1]) { html += `<${tag}>`; stack.push(it.depth); }
+    else { while (stack.length > 1 && it.depth < stack[stack.length - 1]) { html += `</li></${tag}>`; stack.pop(); } html += '</li>'; }
+    html += `<li>${inline(it.text)}`;
+  }
+  while (stack.length) { html += `</li></${tag}>`; stack.pop(); }
+  return html;
+};
+
+function typeset(root) {
+  if (!globalThis.katex) return false;
+  for (const el of root.querySelectorAll('.math[data-tex]')) {
+    try { katex.render(el.dataset.tex, el, { displayMode: el.classList.contains('display'), throwOnError: false, strict: 'ignore' }); }
+    catch (e) { /* leave the source showing */ }
+    el.removeAttribute('data-tex');
+  }
+  return true;
+}
+
+// ── THE PAGE ───────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const index = $('index'), reader = $('reader');
+index.innerHTML = PAPERS.map((p, k) => `
+  <li class="card" id="card-${p.id}">
+    <div class="num">${k + 1}</div>
+    <div class="text">
+      <div class="kind">${p.kind}</div>
+      <h2><a href="#${p.id}">${p.title}</a></h2>
+      <div class="subt">${p.sub}</div>
+      <p>${p.note}</p>
+      <div class="links"><a class="read" href="#${p.id}">read</a><a href="${p.file}">${p.file.replace('papers/', '')}</a>` +
+      (p.shows.length ? `<span class="shows">shown in ${p.shows.map(([t, u]) => `<a href="${u}">${t}</a>`).join(', ')}</span>` : '') +
+      `</div>
+    </div>
+  </li>`).join('');
+
+const texts = new Map();
+async function open(id, at) {
+  const p = PAPERS.find(q => q.id === id);
+  if (!p) return showIndex();
+  index.hidden = true; reader.hidden = false;
+  for (const el of ['lede', 'sub']) $(el).hidden = true;
+  $('back').hidden = false; $('raw').hidden = false; $('raw').href = p.file;
+  $('where').textContent = p.title;
+  $('pill').textContent = p.kind;
+  document.title = 'tvf papers — ' + p.title;
+  if (reader.dataset.id !== id) {
+    reader.dataset.id = id;
+    reader.innerHTML = '<p class="loading">reading…</p>';
+    let md = texts.get(id);
+    if (md == null) {
+      try { const r = await fetch(p.file); if (!r.ok) throw new Error(r.status + ' ' + r.statusText); md = await r.text(); texts.set(id, md); }
+      catch (e) {
+        reader.innerHTML = `<p class="loading">This page could not fetch <code>${p.file}</code> (${esc(String(e.message || e))}). Opened from disk, ` +
+          `a browser will not let a page read the files beside it; serve the folder, or open <a href="${p.file}">the file itself</a>.</p>`;
+        return;
+      }
+    }
+    if (reader.dataset.id !== id) return;          // another paper was opened while this one loaded
+    const { html, toc, math } = render(md);
+    const contents = toc.filter(t => t.n === 2);
+    reader.innerHTML = (contents.length > 2
+      ? `<details class="toc"><summary>contents · ${contents.length} sections</summary><ol>${contents.map(t =>
+          `<li><a href="#${id}:${t.id}">${t.html}</a></li>`).join('')}</ol></details>` : '') + `<div class="md">${html}</div>`;
+    reader.dataset.math = math;
+    if (!typeset(reader)) addEventListener('load', () => typeset(reader), { once: true });
+  }
+  const target = at && reader.querySelector('#' + CSS.escape(at));
+  if (target) target.scrollIntoView(); else scrollTo(0, 0);
+}
+function showIndex() {
+  index.hidden = false; reader.hidden = true;
+  for (const el of ['lede', 'sub']) $(el).hidden = false;
+  $('back').hidden = true; $('raw').hidden = true;
+  $('where').textContent = 'the index'; $('pill').textContent = PAPERS.length + ' papers';
+  document.title = 'tvf papers';
+}
+// #tvf opens a paper; #tvf:some-heading opens it at that heading, so a section can be linked
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (!h) return showIndex();
+  const [id, at] = h.split(':');
+  open(id, at);
+}
+addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>

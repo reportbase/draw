@@ -16,6 +16,15 @@ publishes.
   `draw.html?lab=CODE` link that runs it. **Generated** by `npm run labs`
   (`tools/build-labs.mjs` reads the lab buttons off the live editor); after adding, renaming
   or re-describing a lab in `draw.html`, run it, or `npm test` fails.
+- `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
+  specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
+  and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and
+  `tb_spectral_notes.md` (§23, preliminary). Replace a file when the owner sends a new revision;
+  don't edit them on your own account.
+- `papers.html`: the index of `papers/` and a reader for them (`#tvf` opens one, `#tvf:heading-id`
+  at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
+  fails. The renderer is its own small one, written for these files: TeX is lifted out before
+  anything else, typeset by KaTeX from cdnjs when that loads and shown as source when it does not.
 - `gallery/`: eighteen teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `epicycles`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`

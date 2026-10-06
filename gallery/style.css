@@ -415,3 +415,61 @@ body.page-inspect{margin:0;background:var(--bg);color:var(--ink); font-family:-a
 .page-inspect main{grid-template-columns:1fr}
 .page-inspect #stage{height:300px}
 }
+
+/* ── THE PAPERS (papers.html, at the root beside labs.html) ──────────────────
+   An index of numbered cards, then a reader for one paper at a time. The reader
+   sets prose at a reading measure, not the gallery's full width: these are long
+   arguments, and a line of 200 characters loses the reader at every return. */
+.page-papers main{max-width:1360px;margin:0 auto;padding:6px 20px 30px}
+.page-papers ol.papers{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.page-papers .card{display:grid;grid-template-columns:44px 1fr;gap:4px 14px;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:16px 18px}
+.page-papers .card .num{width:30px;height:30px;border-radius:50%;background:rgba(124,92,255,.16);color:#b9a6ff;font-weight:650;
+  display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.page-papers .card .kind{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.page-papers .card h2{font-size:16px;margin:4px 0 2px;font-weight:650}
+.page-papers .card h2 a{color:var(--ink);text-decoration:none}
+.page-papers .card h2 a:hover{color:#b9a6ff}
+.page-papers .card .subt{color:var(--ink-2);font-style:italic;font-size:12.5px}
+.page-papers .card p{color:var(--dim);font-size:13px;line-height:1.6;margin:8px 0 10px;max-width:880px}
+.page-papers .card code,.page-papers .md code{font-family:var(--mono);font-size:.92em;color:#d9cfff;background:rgba(124,92,255,.10);
+  padding:1px 4px;border-radius:4px}
+.page-papers .links{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px;font-size:12.5px}
+.page-papers .links a{color:#b9a6ff;text-decoration:none}
+.page-papers .links a:hover{text-decoration:underline}
+.page-papers .links a.read{background:var(--curv);color:#fff;padding:4px 14px;border-radius:999px;font-weight:600}
+.page-papers .links a.read:hover{text-decoration:none;filter:brightness(1.1)}
+.page-papers .links .shows{color:var(--dim)}
+.page-papers .bar .count{color:var(--ink-2);font-size:12.5px;font-weight:600}
+.page-papers article.paper{max-width:860px;margin:0 auto}
+.page-papers .loading{color:var(--dim);padding:30px 0;line-height:1.6}
+.page-papers .loading a{color:#b9a6ff}
+.page-papers .toc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 16px;margin:6px 0 18px}
+.page-papers .toc summary{cursor:pointer;color:#b9a6ff;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.page-papers .toc ol{margin:10px 0 4px;padding-left:20px;columns:2;column-gap:28px;font-size:12.5px;line-height:1.7}
+.page-papers .toc a{color:var(--ink-2);text-decoration:none}
+.page-papers .toc a:hover{color:#b9a6ff}
+.page-papers .md{font-size:14.5px;line-height:1.7;color:var(--ink-2)}
+.page-papers .md h1{font-size:24px;color:var(--ink);margin:10px 0 6px;line-height:1.25}
+.page-papers .md h2{font-size:18px;color:var(--ink);margin:34px 0 8px;padding-top:12px;border-top:1px solid var(--line)}
+.page-papers .md h3{font-size:15.5px;color:var(--ink);margin:24px 0 6px}
+.page-papers .md h4{font-size:14px;color:var(--ink);margin:18px 0 4px}
+.page-papers .md h1+h3{font-weight:400;font-size:15px;color:var(--dim);margin-top:0;border:none}
+.page-papers .md b{color:var(--ink)}
+.page-papers .md a{color:#b9a6ff}
+.page-papers .md hr{border:none;border-top:1px solid var(--line-2);margin:26px 0}
+.page-papers .md blockquote{margin:14px 0;padding:4px 16px;border-left:3px solid var(--curv);background:rgba(124,92,255,.06);border-radius:0 8px 8px 0}
+.page-papers .md pre{background:#10151f;border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;font-size:12.5px;line-height:1.5}
+.page-papers .md pre code{background:none;padding:0;color:var(--ink-2)}
+.page-papers .md .table{overflow-x:auto;margin:12px 0}
+.page-papers .md table{border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.page-papers .md th,.page-papers .md td{border-bottom:1px solid var(--line);padding:5px 10px;text-align:left;vertical-align:top}
+.page-papers .md th{color:var(--ink);font-weight:600;border-bottom-color:var(--line-2)}
+.page-papers .md .display{overflow-x:auto;margin:12px 0;text-align:center}
+.page-papers .md .math:not(.katex-rendered){font-family:var(--mono);font-size:.9em;color:#d9cfff}
+.page-papers .md .katex{font-size:1.05em;color:var(--ink)}
+.page-papers .md .katex-display{margin:0}
+.page-papers [hidden]{display:none !important}
+@media(max-width:640px){.page-papers .card{grid-template-columns:1fr}.page-papers .toc ol{columns:1}}
+.page-papers .md hr+h2{border-top:none;padding-top:0;margin-top:0}
+.page-papers .md h2,.page-papers .md h3,.page-papers .md h4{scroll-margin-top:64px}
