@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SETTLE_MS = Number(process.env.SETTLE_MS || 400);    // time each action gets to run
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
+const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript',
                 '.json': 'application/json', '.svg': 'image/svg+xml' };
 
 /* Buttons the walk does not press: they touch the clipboard (cut, paste), call
@@ -139,6 +139,10 @@ try {
    stubbed so the link can be followed here, in a page of our own. */
 const { readdir } = await import('node:fs/promises');
 const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html') && f !== 'index.html' && f !== 'inspect.html').sort();
+// Chart pages (the spiral) draw a measurement per tile rather than a list of loops: no
+// spectrum strip, and their own tile code. Everything else here is a shape page.
+const CHART_PAGES = new Set(['spiral.html']);
+const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of galleries){
   current = 'gallery/' + g;
   const gp = await browser.newPage();
@@ -147,12 +151,17 @@ for (const g of galleries){
   const before = failures.length;
   try {
     await gp.goto(new URL('gallery/' + g, base).href, { waitUntil: 'load' });
+    // styled by gallery/style.css: the slate ground, not the browser's white
+    const bg = await gp.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    if (bg !== 'rgb(12, 15, 22)') throw new Error('style.css did not apply (body is ' + bg + ')');
     await gp.$eval('.tile .edit', b => b.click());
     await gp.waitForFunction(() => window.__links.length > 0, null, { timeout: 10000 });
     const link = await gp.evaluate(() => window.__links[0]);
     // The spectrum strip under that tile drew, and said something.
-    const cap = await gp.$eval('.tile .spec-cap', c => c.textContent);
-    if (!/N = \d+ allows up to m = \d+/.test(cap)) throw new Error('spectrum caption: ' + cap);
+    if (!CHART_PAGES.has(g)) {
+      const cap = await gp.$eval('.tile .spec-cap', c => c.textContent);
+      if (!/N = \d+ allows up to m = \d+/.test(cap)) throw new Error('spectrum caption: ' + cap);
+    }
     if (!link.startsWith(new URL('draw.html#tvf=', base).href)) throw new Error('edit link points at ' + link.slice(0, 80));
     // A fresh editor page each time, so the scene the button walk left behind (and its
     // saved copy) is not in the way: the link should open on a page of its own.
@@ -222,18 +231,21 @@ await step('inspector', async () => {
   if (ell['symmetry group'] !== 'D2' || !/could be 3$/.test(ell.leaves)) throw new Error('ellipse read as ' + JSON.stringify(ell));
 });
 
-/* THE SEVEN COPIES. Each gallery page carries the same bundled library (tvf.js through
-   tvf.format.js, ~130 KB) and the same tile code (spectrum strip, predict mode, editor
-   link), so that each opens from disk as one file. Nothing makes them stay the same but
+/* THE COPIES. Each gallery page carries tvf.js, and each shape page also the same bundle
+   after it (through tvf.format.js, ~130 KB) and the same tile code (spectrum strip, predict
+   mode, editor link), so that each opens from disk as one file. Nothing makes them stay the same but
    this: a fix made in one page and not the others fails here, naming the odd ones out. */
 await step('gallery copies agree', async () => {
   const spans = [
     ['bundled library', 'const TVF = (function', s => { const j = s.indexOf('})();', s.indexOf('return { toTVF')); return j < 0 ? -1 : j + 5; }],
     ['tile code', "// The loop a tile's strip", s => s.indexOf('async function copyText')],
   ];
-  for (const [what, start, end] of spans) {
+  // tvf.js itself is shared by every page, chart pages included; the rest of the bundle and
+  // the tile code only by the shape pages.
+  spans.unshift(['core tvf.js', 'const TVF = (function', s => { const j = s.indexOf('})();', s.indexOf('const TVF = (function')); return j < 0 ? -1 : j + 5; }, galleries]);
+  for (const [what, start, end, pages = shapePages] of spans) {
     const seen = new Map();
-    for (const g of galleries) {
+    for (const g of pages) {
       const s = await readFile(join(ROOT, 'gallery', g), 'utf8');
       const i = s.indexOf(start), j = end(s);
       const key = i < 0 || j < i ? '(missing)' : s.slice(i, j);
@@ -257,6 +269,7 @@ await step('gallery index', async () => {
   const after = await gp.$$eval('a.card.after', as => as.map(a => a.getAttribute('href')));
   await gp.close();
   if (hrefs.length !== galleries.length) throw new Error(`${hrefs.length} cards for ${galleries.length} pages`);
+  if (new Set(hrefs).size !== hrefs.length) throw new Error('a page has two cards');
   for (const h of hrefs) if (!galleries.includes(h)) throw new Error('card points at missing ' + h);
   if (after.join() !== 'inspect.html') throw new Error('the inspector card points at ' + after.join());
 });

@@ -12,17 +12,24 @@ publishes.
   `tvf-core.js` are not in this repo, so **this file is now the source**: edit the
   block in place.
 - `index.html`: forwards `/draw/` to `draw.html`, keeping `?lab=` and `?bucket=`.
-- `gallery/`: seven teaching pages (`gallery.html` the catalogue, then `snowflakes`,
-  `radiolaria`, `width`, `landscape`, `growth`, `assemblies`, in that reading order), the
-  front page `index.html` that lists them, and `inspect.html`, which reads a shape's
+- `gallery/`: eight teaching pages, in reading order: `gallery.html` (the catalogue),
+  `snowflakes`, `radiolaria`, `width`, `landscape`, `spiral`, `growth`, `assemblies`. Also
+  the front page `index.html` that lists them, and `inspect.html`, which reads a shape's
   spectrum, symmetry, width and leaf count back off its leaves.
-  - Each gallery page is one self-contained file so it opens from disk. They all carry the
-    **same** bundled library (from `const TVF = (function` to the end of the FORMAT module)
-    and the **same** tile code (from `// The loop a tile's strip` to `async function
-    copyText`: spectrum strip, predict mode, editor link). Change one, change all seven;
-    `npm test` fails and names the page that differs.
+  - **Styles live in `gallery/style.css`**, shared by all eight pages; a page keeps only its
+    fonts link. Change the look there, once. (`index.html` and `inspect.html` still carry
+    their own small `<style>`.)
+  - Each page bundles its JavaScript so it runs from one file. All eight carry the **same**
+    `tvf.js` (`const TVF = (function` … `})();`). The seven *shape* pages (all but `spiral`)
+    also carry the same rest of the bundle (through the FORMAT module) and the same tile code
+    (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
+    mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
+    names the page that differs.
+  - `spiral.html` is a *chart* page: each tile draws a measurement with a verdict line, from
+    its own tile code and its own extra modules (MOTION … SPIRAL). It has no spectrum strip
+    or predict mode, but shares the stylesheet, `tvf.js` and the editor link.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a gallery page means updating it (and the "N of 7" crumbs and "next" links in each page).
+    a page means updating it, and the "N of 8" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE
