@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tvf — curves of constant width</title>
+<title>tvf — letters</title>
 <!-- FRAUNCES IS GONE WITH THE PAPER THEME. The Loop pane sets its prose in the system
      sans and nothing else, so the display serif has no job here any more; IBM Plex Mono
      stays, for source lines and the .tvf box, and falls back to the platform's own
@@ -17,20 +17,20 @@
 <body>
 
 <header>
-  <nav class="crumbs"><a href="index.html">← all galleries</a> · 5 of 16</nav>
-  <h1>tvf <em>wheels that are not round</em> <span class="pill">tvf.width.js</span></h1>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 12 of 16</nav>
+  <h1>tvf <em>letters</em> <span class="pill">tvf.letters.js</span></h1>
   <p class="lede">
-    A second chart on shape space. The other galleries write a curve as a <b>radius</b> — how far the
-    boundary is from the centre at each angle. These are written by their <b>support function</b> h(θ):
-    the distance from the centre to the tangent line whose outward normal points at θ. Same curves,
-    different coordinates, and a family of facts that are invisible in one and one line in the other.
+    Type, traced. Each letter here is drawn by your browser in one of its own fonts, read back as
+    pixels, and its outline walked into <b>closed loops</b>: one for the outside of the letter and one
+    for every counter, the enclosed white of an o or a B. Each loop is then N samples of a band-limited
+    curve, like everything else in these galleries.
   </p>
   <p class="sub">
-    The width across θ is h(θ) + h(θ+π), and that sum cancels every <b>odd</b> harmonic and doubles every
-    <b>even</b> one. So a curve has constant width if and only if its support function has no even
-    harmonics above the constant — the whole theory of rollers, 20p coins and square-hole drills, as one
-    sentence about a spectrum. Barbier's theorem and the convexity bound fall out of the same two lines,
-    and both are measured on the page rather than quoted. Every tile is live; click the source to copy it.
+    tvf.js names typographic work in its own header as something it is for, and type is a good test of
+    that, because it is made of two things the format prices very differently: <b>curves</b>, which are
+    cheap, and <b>corners</b>, which are not. A round letter holds in a few dozen leaves; a letter with
+    serifs, points or sharp joins keeps asking for more. The fonts are your system's, so the outlines,
+    and every number measured from them, are measured in your tab.
   </p>
   <p class="sub spec-help">
     Under every tile is its <b>spectrum</b>: bar <i>m</i> is how strongly the outline wobbles
@@ -48,26 +48,23 @@
   <span id="predict-score" hidden></span>
   <button id="t-spec" class="on" title="the harmonic spectrum under every tile">spectrum</button>
   <div class="spacer"></div>
-  <a class="jump" href="#width">constant width</a>
-  <a class="jump" href="#machines">machines</a>
+  <a class="jump" href="#loops">loops</a>
+  <a class="jump" href="#corners">corners</a>
+  <a class="jump" href="#morphs">morphs</a>
   <a class="jump" href="#evidence">evidence</a>
 </div></div>
 
 <main id="main"></main>
 
 <footer>
-  <b>tvf.width.js</b> is built on the public surface of tvf.js — <code>Shape</code>, the primitives —
-  and on <code>tvf.shapes.js</code> for the traced parts. Nothing here reaches into the kernel.<br>
-  The curve comes out of the support function as p(θ) = h(θ)·(cos θ, sin θ) + h′(θ)·(−sin θ, cos θ),
-  with radius of curvature ρ = h + h″. Sampling is uniform in the <b>normal angle</b> — not arc length,
-  not the polar angle — so h up to harmonic H gives a curve up to H + 1, and the leaf requirement is
-  2·(H + 1) + 1. h′ is summed in closed form rather than differenced: the derivative of a finite trig
-  series is another finite trig series, and a finite difference would put an error on every leaf for
-  nothing.<br>
-  Barbier 1860 (perimeter πw), Blaschke 1915 and Lebesgue 1914 (least area), Reuleaux 1875. The 20p and
-  50p are Reuleaux heptagons; an even-sided Reuleaux polygon does not exist, since the construction needs
-  a vertex opposite every arc.
-  <div class="next">Next: <a href="space.html">Shape space →</a></div>
+  <b>tvf.letters.js</b> is a marching-squares tracer and nothing more: the browser draws the text, the
+  tracer walks the half-coverage contour of the pixels, and each loop is arc-length resampled to N
+  leaves through the public surface of tvf.js — <code>arcLengthResample</code>, <code>Shape</code>,
+  <code>mix</code>, <code>alignTo</code>. There is no font file and no Bézier anywhere: the format is
+  handed the outline a reader sees, not the one a designer drew.<br>
+  The traced outline is the reference every error on this page is measured against. It is good to a
+  fraction of a pixel of a 360-pixel em, so a miss of half a percent is real and not the tracer's.
+  <div class="next">Next: <a href="sound.html">Heard →</a></div>
 </footer>
 
 <script>
@@ -3289,387 +3286,233 @@ const { Shape, mix, alignTo, circle, ellipse, superellipse, rect, polygon, star,
         reconstruct, reconstructSlope, evalAt, kernel, kernelSlope, leafSlopes, TAU } = TVF;
 const SH = SHAPES, PT = PATTERNS, CO = COMPOSITES;
 const { toTVF, fromTVF } = FORMAT;
-const WIDTH = (function () {
-// tvf.width.js — the support function, and the shapes it makes obvious
+const LETTERS = (function () {
+// tvf.letters.js — type, traced into closed curves
 // ============================================================================
 //
-// A SECOND CHART ON SHAPE SPACE. Everything in the snowflake and radiolaria
-// galleries is written as a radius: how far the boundary is from the centre at
-// each ANGLE. This file writes shapes the other way — by their SUPPORT FUNCTION
-// h(θ), the distance from the centre to the tangent line whose outward normal
-// points at θ. Same curves, different coordinates, and a whole family of facts
-// that are invisible in one chart and trivial in the other.
+// A letter is drawn by the browser in one of its own fonts, read back as pixels,
+// and its outline walked into closed polylines with marching squares at half
+// coverage. Each polyline is then arc-length resampled to N leaves and becomes an
+// ordinary Shape. Nothing here knows anything about type beyond what the pixels
+// say: there is no font file, no Bézier, no hinting. That is the point — the
+// format is being handed the outline a reader sees, not the one a designer drew.
 //
-// The curve comes back out of h by
+// Coordinates are in ems, baseline at y = 0, y down like the rest of the page,
+// so a capital sits between y = -0.7 and 0 or so.
 //
-//     p(θ) = h(θ)·(cos θ, sin θ) + h′(θ)·(−sin θ, cos θ)
-//
-// and the radius of curvature is ρ(θ) = h(θ) + h″(θ), which has to stay positive
-// or the shape stops being convex and the parameterisation folds over itself.
-//
-// ── WHY IT IS WORTH A CHART OF ITS OWN ──────────────────────────────────────
-// The WIDTH of a convex shape measured across the direction θ is
-//
-//     w(θ) = h(θ) + h(θ + π)
-//
-// and h(θ+π) flips the sign of every ODD harmonic. So the odd harmonics cancel
-// in the sum and the even ones double:
-//
-//     w(θ) = 2·a₀ + 2·Σ (even n ≥ 2) [ aₙ cos nθ + bₙ sin nθ ]
-//
-// A CURVE HAS CONSTANT WIDTH IF AND ONLY IF ITS SUPPORT FUNCTION HAS NO EVEN
-// HARMONICS ABOVE THE CONSTANT. That is the whole theory of rollers, 20p coins
-// and square-hole drills, and in this chart it is one sentence about a spectrum
-// — the same kind of sentence the snowflakes' six-fold symmetry was.
-//
-// Two more that fall straight out, both measured on the page:
-//   · Perimeter = 2π·a₀ (Cauchy), so every constant-width shape of width w has
-//     perimeter πw whatever else it does — Barbier's theorem.
-//   · Area does NOT follow: the circle is the largest at that perimeter and the
-//     Reuleaux triangle the smallest (Blaschke–Lebesgue).
-//
-// ── AND THE SAMPLING ────────────────────────────────────────────────────────
-// These are sampled uniformly in θ, the NORMAL ANGLE — not arc length, not the
-// polar angle. If h carries harmonics up to H then p carries up to H + 1, since
-// multiplying by cos θ and sin θ shifts every harmonic by one. So the leaf
-// requirement is 2·(H + 1) + 1: the same sideband that cost the snowflakes two
-// leaves, arriving here for the same reason.
-//
-// ============================================================================
+// The fonts are the platform's generic families, so the outlines differ from one
+// machine to the next, and every number measured from them is measured here.
 
-const { Shape, circle, TAU } = TVF;
-const S = SHAPES;
-const PI = Math.PI;
+const { Shape, arcLengthResample, mix, alignTo } = TVF;
 
-// ────────────────────────────────────────────────────────────────────────────
-// THE CONSTRUCTOR
-// ────────────────────────────────────────────────────────────────────────────
+const FAMILY = { sans: 'sans-serif', serif: 'serif', mono: 'monospace' };
+const PX = 360;                        // the raster em, in pixels
+const cache = new Map();
 
-/**
- * A convex curve from its support function.
- * `terms` is [{ n, a, b }, ...] for h(θ) = R + Σ aₙ cos nθ + bₙ sin nθ.
- *
- * Both h and h′ are summed in closed form rather than differenced numerically —
- * the derivative of a finite trig series is another finite trig series, and a
- * finite difference here would put a small error on every leaf of the result for
- * no reason at all.
- *
- * The shape carries `meta.rhoMin`, the smallest radius of curvature it reached.
- * Non-positive means the support function asked for a curve that is not convex,
- * the parameterisation has folded, and what you are looking at has a cusp in it.
- * Reported rather than clamped: it is a real boundary of this chart and hiding
- * it would make the convexity tile impossible to write.
- */
-function fromSupport(N = 128, o = {}) {
-  const R = o.R == null ? 100 : o.R;
-  const terms = o.terms || [];
-  let H = 0;
-  for (const t of terms) H = Math.max(H, Math.abs(t.n || 0));
-  let rhoMin = Infinity;
-  const sh = Shape.fromFunction(u => {
-    const th = u * TAU;
-    let h = R, hp = 0, hpp = 0;
-    for (const t of terms) {
-      const n = t.n || 0, a = t.a || 0, b = t.b || 0;
-      const c = Math.cos(n * th), s = Math.sin(n * th);
-      h += a * c + b * s;
-      hp += n * (-a * s + b * c);
-      hpp += n * n * (-a * c - b * s);
-    }
-    const rho = h + hpp;
-    if (rho < rhoMin) rhoMin = rho;
-    const ct = Math.cos(th), st = Math.sin(th);
-    return [h * ct - hp * st, h * st + hp * ct];
-  }, N);
-  // NOT `width`. That key is the RENDERER's line width in world units — a shape that
-  // reports its own diameter there is drawn with a 200-unit pen, which paints the tile
-  // solid white and looks like a framing bug for a good ten minutes. The measurements
-  // this file cares about go under names of their own.
-  sh.meta = Object.assign({}, sh.meta, {
-    support: true, H, nyquist: 2 * (H + 1) + 1, rhoMin,
-    convex: rhoMin > 0, bodyWidth: 2 * R, bodyPerimeter: TAU * R,
-  });
-  return sh;
-}
-
-/**
- * A curve of constant width, by construction: only ODD harmonics are admitted,
- * and anything even in the request is dropped rather than silently drawn.
- *
- * `amp` is a FRACTION OF THE CONVEXITY LIMIT, not a length. For a single
- * harmonic n the curve stays convex while |aₙ| < R/(n² − 1) — from ρ = h + h″ =
- * R + a(1 − n²)cos nθ — so amp = 1 is exactly the cusp and amp = 0.9 is nine
- * tenths of the way to it whatever n you picked. A raw amplitude would mean a
- * different thing at every harmonic and the slider would be useless.
- */
-function constantWidth(N = 160, o = {}) {
-  const R = o.R == null ? 100 : o.R;
-  const n = Math.max(3, Math.round(o.n == null ? 3 : o.n)) | 1;   // odd, ≥ 3
-  const amp = o.amp == null ? 0.9 : o.amp;
-  const limit = R / (n * n - 1);
-  const phase = o.phase == null ? 0 : o.phase;
-  const terms = [{ n, a: amp * limit * Math.cos(phase), b: amp * limit * Math.sin(phase) }];
-  // A second odd harmonic, when asked for: constant width is closed under sums,
-  // so any number of odd terms is still constant width and the shapes get much
-  // less obviously "a rounded triangle".
-  //
-  // AND THE AMPLITUDES ADD. Each amp is a fraction of its own harmonic's convexity
-  // limit, and ρ = h + h″ ≥ R·(1 − amp − amp2), so the body stays convex exactly
-  // while the two fractions sum to under 1. Which matters more than it looks: the
-  // width identity, Barbier's perimeter and the support function itself are all
-  // statements about CONVEX bodies, and past that sum they quietly stop being true —
-  // measured, not guessed: a pair at 0.6 + 0.8 overshoots Barbier by 4%.
-  if (o.n2) {
-    const m = Math.max(3, Math.round(o.n2)) | 1;
-    const l2 = R / (m * m - 1);
-    terms.push({ n: m, a: (o.amp2 == null ? 0.4 : o.amp2) * l2, b: 0 });
+function area(l) {
+  let a = 0;
+  for (let i = 0, n = l.x.length; i < n; i++) {
+    const j = (i + 1) % n;
+    a += l.x[i] * l.y[j] - l.x[j] * l.y[i];
   }
-  const sh = fromSupport(N, { R, terms });
-  sh.meta.constantWidth = true;
-  return sh;
+  return a / 2;
 }
+function inside(l, px, py) {
+  let c = false;
+  for (let i = 0, n = l.x.length, j = n - 1; i < n; j = i++) {
+    if ((l.y[i] > py) !== (l.y[j] > py) &&
+        px < (l.x[j] - l.x[i]) * (py - l.y[i]) / (l.y[j] - l.y[i]) + l.x[i]) c = !c;
+  }
+  return c;
+}
+function minX(l) { let m = Infinity; for (const v of l.x) if (v < m) m = v; return m; }
 
-/**
- * The classic Reuleaux polygon: circular arcs, each centred on the opposite
- * vertex. Constant width and NOT smooth — there is a corner at every vertex,
- * where the curvature jumps from 1/w to 0. Traced rather than written as a
- * spectrum, because that is what it is: the arcs are exact and the corners are
- * infinite bandwidth, so this is the tile where the band limit costs something.
- */
-function reuleaux(N = 256, o = {}) {
-  const sides = Math.max(3, Math.round(o.sides == null ? 3 : o.sides)) | 1;
-  const w = o.w == null ? 200 : o.w;                 // the width IS the arc radius
-  const M = Math.max(600, sides * 240);
-  const vert = [];
-  for (let i = 0; i < sides; i++) {
-    const a = (i / sides) * TAU - PI / 2;
-    vert.push({ x: Math.cos(a), y: Math.sin(a) });
-  }
-  // WHICH VERTEX CENTRES WHICH ARC. The arc centred on vertex k runs between the two
-  // vertices k+g and k+g+1, where g = (n−1)/2 — and those two are EQUIDISTANT from k,
-  // which is the whole reason an odd polygon works and an even one cannot. A first
-  // draft centred each arc on "the opposite vertex" by a different count and drew a
-  // shape whose measured width wandered by 7%: the arcs no longer had a common radius,
-  // so it was three arcs of three different circles and constant width by coincidence
-  // of nothing at all.
-  const g = (sides - 1) / 2;
-  const Rc = w / (2 * Math.sin(PI * g / sides));     // makes that chord exactly w
-  for (const v of vert) { v.x *= Rc; v.y *= Rc; }
-  const pts = [];
-  for (let i = 0; i < sides; i++) {
-    const c = vert[i];
-    const p0 = vert[(i + g) % sides], p1 = vert[(i + g + 1) % sides];
-    let a0 = Math.atan2(p0.y - c.y, p0.x - c.x);
-    let a1 = Math.atan2(p1.y - c.y, p1.x - c.x);
-    while (a1 - a0 > PI) a1 -= TAU;
-    while (a1 - a0 < -PI) a1 += TAU;
-    const steps = Math.round(M / sides);
-    for (let k = 0; k < steps; k++) {
-      const a = a0 + (a1 - a0) * (k / steps);
-      pts.push({ x: c.x + w * Math.cos(a), y: c.y + w * Math.sin(a) });
-    }
-  }
-  const sh = Shape.fromPoints(pts, N);
-  sh.meta = Object.assign({}, sh.meta, { constantWidth: true, bodyWidth: w, corners: sides });
-  return sh;
-}
-
-/** The width of a shape across direction φ, measured off the reconstruction. */
-function widthAt(sh, phi, M) {
-  const m = M || 2048;
-  const pts = sh.sample(m);
-  const cx = Math.cos(phi), cy = Math.sin(phi);
-  let lo = Infinity, hi = -Infinity;
-  for (let i = 0; i < m; i++) {
-    const d = pts.x[i] * cx + pts.y[i] * cy;
-    if (d < lo) lo = d; if (d > hi) hi = d;
-  }
-  return hi - lo;
-}
-/** min, max and spread of the width over a full turn — the whole test, in one call. */
-function widthProfile(sh, samples) {
-  const n = samples || 360;
-  let lo = Infinity, hi = -Infinity, sum = 0;
-  const pts = sh.sample(4096);
-  for (let j = 0; j < n; j++) {
-    const phi = (j / n) * PI, cx = Math.cos(phi), cy = Math.sin(phi);
-    let a = Infinity, b = -Infinity;
-    for (let i = 0; i < 4096; i++) {
-      const d = pts.x[i] * cx + pts.y[i] * cy;
-      if (d < a) a = d; if (d > b) b = d;
-    }
-    const w = b - a;
-    if (w < lo) lo = w; if (w > hi) hi = w; sum += w;
-  }
-  return { min: lo, max: hi, mean: sum / n, spread: hi - lo, rel: (hi - lo) / (sum / n) };
-}
-/** Perimeter and area of the reconstruction, by the shoelace and by chords. */
-function measure(sh, M) {
-  const m = M || 4096, pts = sh.sample(m);
-  let per = 0, area = 0;
-  for (let i = 0; i < m; i++) {
-    const j = (i + 1) % m;
-    per += Math.hypot(pts.x[j] - pts.x[i], pts.y[j] - pts.y[i]);
-    area += pts.x[i] * pts.y[j] - pts.x[j] * pts.y[i];
-  }
-  return { perimeter: per, area: Math.abs(area) / 2 };
-}
-/** Recover the support function from a curve: h(θ) = max over the boundary of p·u. */
-function supportOf(sh, samples, M) {
-  const n = samples || 256, m = M || 2048, pts = sh.sample(m);
-  const h = new Float64Array(n);
-  for (let j = 0; j < n; j++) {
-    const th = (j / n) * TAU, cx = Math.cos(th), cy = Math.sin(th);
-    let best = -Infinity;
-    for (let i = 0; i < m; i++) {
-      const d = pts.x[i] * cx + pts.y[i] * cy;
-      if (d > best) best = d;
-    }
-    h[j] = best;
-  }
-  return h;
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// WHAT THEY ARE FOR
-// ────────────────────────────────────────────────────────────────────────────
-
-function part(sh, style) { sh.meta = Object.assign({}, sh.meta, style || {}); return sh; }
-const WASH = 'rgba(124,92,255,0.16)';
-
-/**
- * Rollers under a plank. Three constant-width rollers at different rotations,
- * with the ground and the plank drawn as bars: the plank stays level whatever
- * the rollers are doing, which is the entire practical content of the theorem.
- *
- * And the honest half of it: the rollers' CENTRES bob up and down. Constant
- * width is not constant radius, so these work under a plank and would be awful
- * on an axle. That is why the coin is a Reuleaux heptagon and the wheel is not.
- */
-function rollers(o = {}) {
-  const w = o.w == null ? 92 : o.w;
-  const n = Math.max(1, Math.round(o.n == null ? 3 : o.n));
-  const N = o.N == null ? 192 : o.N;
-  const span = w * (n + 1.4);
-  const out = [];
-  out.push(part(S.stadium(48, { w: span, h: w * 0.09 }).translate(0, w / 2 + w * 0.045), { tone: 0.55 }));
-  out.push(part(S.stadium(48, { w: span, h: w * 0.09 }).translate(0, -w / 2 - w * 0.045), { tone: 0.55 }));
-  for (let i = 0; i < n; i++) {
-    const turn = (o.turn == null ? 0 : o.turn) + i * (TAU / 3) / Math.max(1, n);
-    const r = (o.kind === 'reuleaux' ? reuleaux(N, { sides: o.sides == null ? 3 : o.sides, w })
-                                     : constantWidth(N, { R: w / 2, n: o.harm == null ? 3 : o.harm,
-                                                          amp: o.amp == null ? 0.9 : o.amp }));
-    // Centre it on its own width box, then turn it — a support-function shape is
-    // already centred on its Steiner point, which is what makes this legitimate.
-    r.rotate(turn, { x: 0, y: 0 });
-    // Centre the WIDTH BOX, in both axes. A support-function shape sits on its Steiner
-    // point, which is not the centre of its bounding box — so correcting x only left the
-    // third roller hanging through the floor, which is precisely the thing this tile is
-    // supposed to be showing does not happen.
-    const b = r.bbox();
-    r.translate((i - (n - 1) / 2) * w * 1.25 - (b.x + b.w / 2), -(b.y + b.h / 2));
-    out.push(part(r, { fill: WASH }));
-  }
-  return out;
-}
-
-/**
- * A rotor in a square. A Reuleaux triangle turned inside a square touches all
- * four sides at every angle — which is the square-hole drill, and also the
- * clearest picture of what constant width buys. The corners the drill cannot
- * reach are visible as the gap at each corner of the square.
- */
-function rotorInSquare(o = {}) {
-  const w = o.w == null ? 150 : o.w;
-  const steps = Math.max(1, Math.round(o.steps == null ? 4 : o.steps));
-  const out = [part(S.squircle(96, { n: 14, rx: w / 2, ry: w / 2 }), { tone: 0.5 })];
-  for (let i = 0; i < steps; i++) {
-    const turn = (i / steps) * (TAU / 3);
-    const r = (o.kind === 'smooth')
-      ? constantWidth(192, { R: w / 2, n: 3, amp: o.amp == null ? 0.9 : o.amp })
-      : reuleaux(256, { sides: 3, w });
-    r.rotate(turn, { x: 0, y: 0 });
-    const b = r.bbox();
-    r.translate(-(b.x + b.w / 2), -(b.y + b.h / 2));
-    out.push(part(r, { tone: 0.35 + 0.65 * (i === 0 ? 1 : 0.4), fill: i === 0 ? WASH : null }));
-  }
-  return out;
-}
-
-/**
- * A CAM IS A SUPPORT FUNCTION. For a flat-faced translating follower, the lift
- * at cam angle θ is exactly h(θ) — the follower face is the tangent line, and
- * how far it is pushed out is the distance to it. So designing a motion IS
- * writing a spectrum, and this tile is the one place in these galleries where
- * the band limit has a physical consequence: truncating the series is what
- * bounds the jerk, and the ringing you can see is acceleration the follower
- * would actually feel.
- */
-function cam(N = 256, o = {}) {
-  const R = o.R == null ? 80 : o.R;
-  const lift = o.lift == null ? 34 : o.lift;
-  const K = Math.max(1, Math.round(o.K == null ? 5 : o.K));
-  const dwell = o.dwell == null ? 0.45 : o.dwell;     // fraction of the turn at rest
-  // Project the desired lift curve — a dwell, a rise, a dwell, a fall — onto K
-  // harmonics. Same projection the crystals use, aimed at a motion instead.
-  const M = 2048, c = new Float64Array(K + 1), s2 = new Float64Array(K + 1);
-  const want = u => {
-    const a = ((u % 1) + 1) % 1;
-    if (a < dwell / 2) return 0;
-    if (a < 0.5 - dwell / 2) return 0.5 * (1 - Math.cos(PI * (a - dwell / 2) / (0.5 - dwell)));
-    if (a < 0.5 + dwell / 2) return 1;
-    if (a < 1 - dwell / 2) return 0.5 * (1 + Math.cos(PI * (a - 0.5 - dwell / 2) / (0.5 - dwell)));
-    return 0;
+// MARCHING SQUARES at one iso level, with the crossing interpolated along each cell
+// edge. Every crossing lives on a grid edge, and an edge is shared by exactly two
+// cells, so the segments are linked by edge rather than by comparing coordinates:
+// no tolerance to choose, no near-misses. The raster is padded, so no contour
+// touches the border and every chain closes. The two ambiguous cases (5 and 10)
+// are settled by the cell's centre value, which keeps diagonal strokes joined.
+function march(f, W, H, iso) {
+  const at = (i, j) => f[j * W + i];
+  const pt = new Map();                 // edge key -> [x, y]
+  const hKey = (i, j) => 2 * (j * W + i), vKey = (i, j) => 2 * (j * W + i) + 1;
+  const edge = (key) => {
+    if (pt.has(key)) return key;
+    const e = key >> 1, i = e % W, j = (e - i) / W;
+    let p;
+    if (key & 1) { const a = at(i, j), b = at(i, j + 1); p = [i, j + (iso - a) / (b - a)]; }
+    else         { const a = at(i, j), b = at(i + 1, j); p = [i + (iso - a) / (b - a), j]; }
+    pt.set(key, p);
+    return key;
   };
-  for (let m = 0; m < M; m++) {
-    const u = (m + 0.5) / M, v = want(u);
-    for (let j = 0; j <= K; j++) { c[j] += v * Math.cos(TAU * j * u); s2[j] += v * Math.sin(TAU * j * u); }
+  const seg = [];                        // pairs of edge keys
+  for (let j = 0; j < H - 1; j++) for (let i = 0; i < W - 1; i++) {
+    const tl = at(i, j), tr = at(i + 1, j), br = at(i + 1, j + 1), bl = at(i, j + 1);
+    const c = (tl > iso ? 8 : 0) | (tr > iso ? 4 : 0) | (br > iso ? 2 : 0) | (bl > iso ? 1 : 0);
+    if (c === 0 || c === 15) continue;
+    const T = () => edge(hKey(i, j)), B = () => edge(hKey(i, j + 1));
+    const L = () => edge(vKey(i, j)), R = () => edge(vKey(i + 1, j));
+    const mid = (tl + tr + br + bl) / 4 > iso;
+    switch (c) {
+      case 1: case 14: seg.push([L(), B()]); break;
+      case 2: case 13: seg.push([B(), R()]); break;
+      case 3: case 12: seg.push([L(), R()]); break;
+      case 4: case 11: seg.push([T(), R()]); break;
+      case 6: case 9:  seg.push([T(), B()]); break;
+      case 7: case 8:  seg.push([L(), T()]); break;
+      case 5:  if (mid) seg.push([L(), T()], [B(), R()]); else seg.push([T(), R()], [L(), B()]); break;
+      case 10: if (mid) seg.push([T(), R()], [L(), B()]); else seg.push([L(), T()], [B(), R()]); break;
+    }
   }
-  c[0] /= M;
-  for (let j = 1; j <= K; j++) { c[j] *= 2 / M; s2[j] *= 2 / M; }
-  const terms = [];
-  for (let j = 1; j <= K; j++) terms.push({ n: j, a: lift * c[j], b: lift * s2[j] });
-  const sh = fromSupport(N, { R: R + lift * c[0], terms });
-  sh.meta.cam = true;
-  return sh;
+  const byKey = new Map();
+  seg.forEach((s, k) => { for (const e of s) { if (!byKey.has(e)) byKey.set(e, []); byKey.get(e).push(k); } });
+  const used = new Uint8Array(seg.length), loops = [];
+  for (let s0 = 0; s0 < seg.length; s0++) {
+    if (used[s0]) continue;
+    const out = [];
+    let s = s0, from = seg[s0][0];
+    while (s >= 0 && !used[s]) {
+      used[s] = 1;
+      const to = seg[s][0] === from ? seg[s][1] : seg[s][0];
+      const p = pt.get(from); out.push(p[0], p[1]);
+      from = to;
+      s = (byKey.get(to) || []).find(k => !used[k]);
+      if (s === undefined) s = -1;
+    }
+    if (out.length >= 6) loops.push(out);
+  }
+  return loops;
 }
 
 /**
- * The Wankel pair: an epitrochoid housing and the rotor inside it. The housing
- * is a two-lobe epitrochoid, the rotor is a Reuleaux-ish triangle, and the
- * reason they are on this page is that the whole engine is an argument about
- * constant width — the rotor's flanks have to stay in contact with a curve that
- * is not a circle, at every angle.
+ * The outline of `text` as closed loops, in ems, in reading order: each outline
+ * followed by its holes. Outlines run one way round and holes the other, which is
+ * the winding a fill rule reads to know a counter from a letter.
  */
-function wankel(o = {}) {
-  const R = o.R == null ? 100 : o.R;
-  const e = o.e == null ? 0.22 : o.e;                 // eccentricity, as a fraction of R
-  const N = o.N == null ? 256 : o.N;
-  const housing = Shape.fromFunction(u => {
-    const t = u * TAU;
-    return [R * (Math.cos(t) + e * Math.cos(3 * t)), R * (Math.sin(t) + e * Math.sin(3 * t))];
-  }, N);
-  const out = [part(housing, { tone: 0.55 })];
-  const turn = o.turn == null ? 0 : o.turn;
-  const rot = constantWidth(192, { R: R * (o.rotor == null ? 0.62 : o.rotor), n: 3,
-                                   amp: o.amp == null ? 0.55 : o.amp });
-  rot.rotate(turn, { x: 0, y: 0 });
-  rot.translate(Math.cos(-3 * turn) * R * e, Math.sin(-3 * turn) * R * e);
-  out.push(part(rot, { fill: WASH }));
-  return out;
+function contours(text, font = 'sans', weight = 400) {
+  const key = text + '\u0000' + font + '\u0000' + weight;
+  if (cache.has(key)) return cache.get(key);
+  const fam = FAMILY[font] || font;
+  const probe = document.createElement('canvas').getContext('2d');
+  probe.font = `${weight} ${PX}px ${fam}`;
+  const pad = Math.round(PX * 0.25);
+  const W = Math.ceil(probe.measureText(text).width) + 2 * pad, H = Math.round(PX * 1.7), base = Math.round(PX * 1.2);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  ctx.font = probe.font; ctx.fillStyle = '#000'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(text, pad, base);
+  const px = ctx.getImageData(0, 0, W, H).data;
+  const f = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) f[i] = px[4 * i + 3] / 255;
+  const loops = march(f, W, H, 0.5).map(p => {
+    const n = p.length / 2, x = new Float64Array(n), y = new Float64Array(n);
+    for (let k = 0; k < n; k++) { x[k] = (p[2 * k] - pad) / PX; y[k] = (p[2 * k + 1] - base) / PX; }
+    return { x, y };
+  }).filter(l => Math.abs(area(l)) > 4e-5);       // specks: a dot of antialiasing is not a counter
+  for (const l of loops) {
+    let depth = 0;
+    for (const o of loops) if (o !== l && inside(o, l.x[0], l.y[0])) depth++;
+    l.hole = depth % 2 === 1;
+    if ((area(l) > 0) === l.hole) { l.x.reverse(); l.y.reverse(); }
+  }
+  const ordered = [];
+  for (const o of loops.filter(l => !l.hole).sort((a, b) => minX(a) - minX(b))) {
+    ordered.push(o);
+    for (const h of loops) if (h.hole && !ordered.includes(h) && inside(o, h.x[0], h.y[0])) ordered.push(h);
+  }
+  for (const l of loops) if (!ordered.includes(l)) ordered.push(l);
+  cache.set(key, ordered);
+  return ordered;
 }
 
-return { fromSupport, constantWidth, reuleaux, cam, wankel, rollers, rotorInSquare,
-         widthAt, widthProfile, measure, supportOf };
+const toShape = (l, N) => { const r = arcLengthResample(Array.from(l.x), Array.from(l.y), N); return new Shape(r.x, r.y); };
 
+// The stage colour, so a counter cut out of a filled letter reads as a hole when the
+// page's fill toggle is on; with fill off it paints over nothing.
+const HOLE_FILL = '#0e131d', HOLE_INK = 'rgba(160,138,255,0.95)';
+
+/** `text` as Shapes, N leaves to every loop. Holes are marked and drawn in violet. */
+function letter(text, o = {}) {
+  const N = o.N || 128;
+  return contours(text, o.font, o.weight).map(l => {
+    const s = toShape(l, N);
+    s.meta.hole = l.hole;
+    if (l.hole && o.mark !== false) { s.meta.ink = HOLE_INK; s.meta.fill = HOLE_FILL; }
+    return s;
+  });
+}
+
+/**
+ * How far the N-leaf curve lands from the traced outline: the worst distance from
+ * any traced point to the reconstruction, in ems. Points are paired by arc length
+ * (the leaves were placed by it) and the nearest is searched in a window around
+ * that, so a corner the curve cuts is measured as the cut, not lost to a neighbour.
+ */
+function fitError(l, N) {
+  const s = toShape(l, N);
+  const M = Math.min(4096, Math.max(512, 8 * N));
+  const d = s.sample(M);
+  const n = l.x.length, cum = new Float64Array(n + 1);
+  for (let k = 1; k <= n; k++) cum[k] = cum[k - 1] + Math.hypot(l.x[k % n] - l.x[k - 1], l.y[k % n] - l.y[k - 1]);
+  // Distance to the SEGMENTS between consecutive dense samples, not to the samples: the
+  // samples are about half a percent of the em apart at low N, and measuring to the nearest
+  // one reads that spacing back as error, a floor that never falls however many leaves.
+  const step = Math.max(1, Math.floor(n / 900)), win = Math.ceil(M / 12);
+  let worst = 0;
+  for (let k = 0; k < n; k += step) {
+    const c = Math.round(cum[k] / cum[n] * M - 0.5 * M / N), px = l.x[k], py = l.y[k];
+    let best = Infinity;
+    for (let m = c - win; m <= c + win; m++) {
+      const q = ((m % M) + M) % M, r = (q + 1) % M;
+      const ax = d.x[q], ay = d.y[q], bx = d.x[r] - ax, by = d.y[r] - ay, L = bx * bx + by * by;
+      const u = L > 0 ? Math.max(0, Math.min(1, ((px - ax) * bx + (py - ay) * by) / L)) : 0;
+      const dx = ax + u * bx - px, dy = ay + u * by - py, e = dx * dx + dy * dy;
+      if (e < best) best = e;
+    }
+    if (best > worst) worst = best;
+  }
+  return Math.sqrt(worst);
+}
+/** The same, worst over every loop of `text`. */
+function textError(text, N, font, weight) {
+  let w = 0;
+  for (const l of contours(text, font, weight)) w = Math.max(w, fitError(l, N));
+  return w;
+}
+/** The fewest leaves per loop, on the doubling ladder, that hold `text` within `tol` ems. */
+function leavesFor(text, tol = 0.005, font, weight) {
+  for (let N = 16; N <= 2048; N *= 2) if (textError(text, N, font, weight) <= tol) return N;
+  return Infinity;
+}
+
+/** Leaves sheared by k (x += k·y): an affine map of the leaves, so of the whole curve. */
+function shear(s, k) {
+  const t = s.clone();
+  for (let i = 0; i < t.N; i++) t.x[i] += k * t.y[i];
+  return t;
+}
+
+/**
+ * Regular to bold, loop by loop. Blending is only defined when the two drawings
+ * have the same loops; when they do not, both come back unblended and say so.
+ */
+function weightMorph(text, t, o = {}) {
+  const a = letter(text, Object.assign({}, o, { weight: 400 }));
+  const b = letter(text, Object.assign({}, o, { weight: 800 }));
+  if (a.length !== b.length || a.some((s, i) => s.meta.hole !== b[i].meta.hole)) return { ok: false, a, b };
+  return { ok: true, list: a.map((s, i) => {
+    const m = mix(s, alignTo(s, b[i]), t);
+    m.meta = Object.assign({}, s.meta);
+    return m;
+  }) };
+}
+
+return { contours, letter, fitError, textError, leavesFor, shear, weightMorph, FAMILY, PX };
 })();
-const WI = WIDTH;
 
 
-
-
-
-
+const LT = LETTERS;
 
 // ── state ────────────────────────────────────────────────────────────────
 const opts = { leaves: false, fill: false, thick: false, spec: true, predict: false };
@@ -3951,198 +3794,129 @@ async function copyText(text) {
 
 // ── the catalogue ────────────────────────────────────────────────────────
 // Each entry: build(p) -> Shape | Shape[]; code(p) -> the call that made it.
+const LETTER_CHOICES = ['a', 'B', 'e', 'g', 'k', 'M', 'O', 'Q', 'R', 'S', 'W', '8', '&', '@', '?'];
+const FONTS = ['sans', 'serif', 'mono'];
+const pct = e => (e * 100).toFixed(e < 0.001 ? 3 : 2) + '%';
+const loopsSay = list => {
+  const holes = list.filter(s => s.meta.hole).length;
+  return `${list.length} loop${list.length > 1 ? 's' : ''}` + (holes ? `, ${holes} of them hole${holes > 1 ? 's' : ''}` : '');
+};
+// lay a row of shape groups out left to right, `gap` ems apart, each group labelled under its first loop
+function row(groups, gap, labels) {
+  const out = [];
+  let x = 0;
+  groups.forEach((g, i) => {
+    let x0 = Infinity, x1 = -Infinity;
+    for (const s of g) for (const v of s.x) { if (v < x0) x0 = v; if (v > x1) x1 = v; }
+    g.forEach((s, k) => { s.translate(x - x0, 0); if (k === 0 && labels) s.meta.label = labels[i]; out.push(s); });
+    x += (x1 - x0) + gap;
+  });
+  return out;
+}
+
 const SECTIONS = [
 {
-  id: 'width', title: 'Constant width — an odd-harmonic spectrum',
-  note: 'These are written by their <b>support function</b> h(θ): the distance from the centre to the ' +
-        'tangent line whose outward normal points at θ. The width across θ is then h(θ) + h(θ+π), and ' +
-        'that sum kills every <b>odd</b> harmonic and doubles every <b>even</b> one — so a curve has ' +
-        'constant width if and only if its support function has no even harmonics above the constant. ' +
-        'The whole theory of rollers, 20p coins and square-hole drills is one sentence about a spectrum. ' +
-        'Sampling is uniform in the normal angle, and h up to harmonic H needs <code>2·(H + 1) + 1</code> ' +
-        'leaves — the same sideband that cost the snowflakes two.',
+  id: 'loops', title: 'A letter is loops',
+  note: 'Everything else in these galleries is one closed curve, or a scene of them. A letter is a small ' +
+        'scene with rules: an <b>outline</b> for the outside of the letter, and a loop for every ' +
+        '<b>counter</b>, the enclosed white of an o, an e, a B. Each one is its own N leaves. The holes are ' +
+        'drawn in violet, and they run round the other way from the outlines, which is how a fill rule ' +
+        'tells a counter from more letter. Pick a letter and a font, and watch the spectrum strip: it ' +
+        'reads the largest loop, which is the outline.',
   entries: [
-    { name: 'constant width', note: 'One odd harmonic. <b>amp</b> is a fraction of the convexity limit rather than a length: the curve stays convex while |aₙ| &lt; R/(n²−1), so amp = 1 is exactly the cusp whatever n you picked, and a raw amplitude would mean a different thing at every harmonic. At n = 3 this is the smooth cousin of the Reuleaux triangle — same width at every angle, no corners anywhere.',
-      params: [ p('n', 3, 15, 2, 3), p('amp', 0, 1.3, .01, .9), p('phase', 0, 6.28, .05, 0), p('N', 12, 300, 1, 160) ],
-      code: v => `constantWidth(${v.N}, { n: ${v.n}, amp: ${v.amp} })\n// limit |a| < R/(n²−1) = R/${v.n * v.n - 1}`,
-      build: v => WI.constantWidth(v.N, { n: v.n, amp: v.amp, phase: v.phase }) },
+    { name: 'a letter', note: 'One character, traced. A letter with no counter (k, S, W) is one loop; a, e, R and Q are two; B and 8 are three, and g is two or three depending on whether the font draws it with one storey or two. The @ is the extreme: an outline that wraps nearly all the way round its own hole.',
+      params: [ sel('letter', LETTER_CHOICES, 'a'), sel('font', FONTS, 'sans'), p('N', 16, 512, 1, 128) ],
+      code: v => { const l = LT.letter(v.letter, { font: v.font, N: v.N }); return `letter('${v.letter}', { font: '${v.font}', N: ${v.N} })   // ${loopsSay(l)}`; },
+      build: v => LT.letter(v.letter, { font: v.font, N: v.N }) },
 
-    { name: 'two odd harmonics', note: 'Constant width is closed under addition — a sum of odd harmonics is still odd — so any number of them can be stacked and the width never moves. It is how you get a constant-width shape that does not read as "a rounded triangle", which is most of what makes the property surprising when you meet it on a coin. The two amplitudes are fractions of their own limits and they <b>add</b>: past amp + amp2 = 1 the body is no longer convex, and then it is no longer a curve of constant width either — the measured perimeter overshoots Barbier by 4% at 0.6 + 0.8.',
-      params: [ p('n', 3, 13, 2, 3), p('amp', 0, 1, .01, .55), p('n2', 3, 15, 2, 7), p('amp2', 0, 1, .01, .35), p('N', 16, 320, 1, 192) ],
-      code: v => `constantWidth(${v.N}, { n: ${v.n}, amp: ${v.amp}, n2: ${v.n2}, amp2: ${v.amp2} })`,
-      build: v => WI.constantWidth(v.N, { n: v.n, amp: v.amp, n2: v.n2, amp2: v.amp2 }) },
+    { name: 'counters', note: 'Five letters with holes. Every violet loop runs the opposite way from the white loop around it; flip one and a fill would paint the counter in.',
+      params: [ sel('font', FONTS, 'serif'), p('N', 16, 384, 1, 96) ],
+      code: v => `letter('aBeg8', { font: '${v.font}', N: ${v.N} })   // ${loopsSay(LT.letter('aBeg8', { font: v.font, N: v.N }))}`,
+      build: v => LT.letter('aBeg8', { font: v.font, N: v.N }) },
 
-    { name: 'Reuleaux polygon', note: 'The classic: circular arcs, each centred on the opposite vertex. Constant width and <b>not smooth</b> — at every vertex the curvature jumps from 1/w to 0, which is a discontinuity of infinite bandwidth. Traced rather than written as a spectrum, because that is what it is, and the corners round off with N exactly as the band limit says they must. Compare the tile above, which is the same property bought without the corners.',
-      params: [ p('sides', 3, 11, 2, 3), p('N', 12, 400, 2, 256) ],
-      code: v => `reuleaux(${v.N}, { sides: ${v.sides} })   // arcs, so: corners`,
-      build: v => WI.reuleaux(v.N, { sides: v.sides }) },
-
-    { name: 'the 20p coin', note: 'A Reuleaux heptagon, which is what the British 20p and 50p are — a shape a slot machine can measure with one pair of jaws whichever way it goes in, and can still tell apart from a circle. Seven is odd, which it has to be: an even-sided Reuleaux polygon does not exist, because the construction needs a vertex opposite every arc.',
-      params: [ p('N', 16, 400, 2, 256), p('smooth', 0, 1, 1, 0) ],
-      code: v => v.smooth ? `constantWidth(${v.N}, { n: 7, amp: 0.95 })   // the smooth version`
-                          : `reuleaux(${v.N}, { sides: 7 })   // the actual coin`,
-      build: v => v.smooth ? WI.constantWidth(v.N, { n: 7, amp: .95 }) : WI.reuleaux(v.N, { sides: 7 }) },
-
-    { name: 'one even harmonic and it is gone', note: 'The same shape with an <b>even</b> term admitted. Everything else is unchanged; the width immediately starts to vary, and by exactly <b>four times</b> that coefficient — twice for the doubling in h(θ)+h(θ+π), twice again because a width is a diameter. The even harmonics do not merely spoil the property, they <b>are</b> the width variation. Both amplitudes are fractions of their own convexity limits, and they add: keep <b>odd</b> + <b>even</b> under 1 or the body stops being convex and every identity on this page stops applying to it.',
-      params: [ p('odd', 0, .9, .01, .45), p('even', 0, .9, .01, .3), p('m', 2, 10, 2, 2), p('N', 16, 320, 1, 192) ],
-      code: v => `fromSupport(${v.N}, { terms: [\n  { n: 3, a: ${(v.odd * 100 / 8).toFixed(2)} },   // odd  → cancels in h(θ)+h(θ+π)\n  { n: ${v.m}, a: ${(v.even * 100 / (v.m * v.m - 1)).toFixed(2)} },   // even → doubles\n] })   // predicted width spread ${(4 * v.even * 100 / (v.m * v.m - 1)).toFixed(2)}`,
-      build: v => WI.fromSupport(v.N, { R: 100, terms: [
-        { n: 3, a: v.odd * 100 / 8 }, { n: v.m, a: v.even * 100 / (v.m * v.m - 1) }] }) },
-
-    { name: 'past the limit', note: 'What happens when the support function asks for something that is not a shape. The radius of curvature is ρ = h + h″, and once it goes negative the parameterisation folds: the curve grows a cusp and then crosses itself. It is still a perfectly good closed band-limited loop — the format has no complaint — it just stopped being the boundary of a convex body. Drag <b>amp</b> past 1.0 to watch it go.',
-      params: [ p('n', 3, 11, 2, 3), p('amp', .5, 2.2, .01, 1.35), p('N', 24, 400, 2, 256) ],
-      code: v => `constantWidth(${v.N}, { n: ${v.n}, amp: ${v.amp} })   // amp > 1 → ρ < 0`,
-      build: v => WI.constantWidth(v.N, { n: v.n, amp: v.amp }) },
+    { name: 'a word', wide: true,
+      note: 'Hamburgefonstiv is the word type designers test with, because it holds most of the shapes a lowercase alphabet is built from: bowls, stems, an arch, a diagonal, a tail. Every loop gets the same N, so the round letters are over-served and the joined ones are not.',
+      params: [ sel('word', ['Hamburgefonstiv', 'tvf', 'Leaf', 'Quartz'], 'Hamburgefonstiv'), sel('font', FONTS, 'sans'), p('N', 16, 384, 1, 96) ],
+      code: v => `letter('${v.word}', { font: '${v.font}', N: ${v.N} })   // ${loopsSay(LT.letter(v.word, { font: v.font, N: v.N }))}`,
+      build: v => LT.letter(v.word, { font: v.font, N: v.N }) },
   ]
 },
 {
-  id: 'machines', title: 'What they are for',
-  note: 'The reason anyone measured any of this. A support function is not only a way of writing a ' +
-        'shape — for a flat-faced follower it <b>is</b> the motion, and for a roller it is the ride ' +
-        'height. These tiles are the mechanisms, drawn from the same coefficients as the curves above.',
+  id: 'corners', title: 'Corners are the bill',
+  note: 'Type is curves and corners, and the format prices them very differently. A curve is a few ' +
+        'harmonics and holds in a few dozen leaves; a corner has no last harmonic, so the leaves round ' +
+        'it off, and doubling them only halves the miss (the menagerie measures that order). The numbers ' +
+        'under each letter are the worst distance from the traced outline to the curve, as a share of ' +
+        'the em, measured here.',
   entries: [
-    { name: 'rollers under a plank', wide: true,
-      note: 'Three constant-width rollers at different rotations, between ground and plank. The plank stays level whatever the rollers are doing, which is the whole practical content of the theorem. And the honest half: the rollers\' <b>centres</b> bob. Constant width is not constant radius, so these are excellent under a plank and useless on an axle — which is why the coin is a Reuleaux heptagon and the wheel is not.',
-      params: [ p('n', 1, 5, 1, 3), p('turn', 0, 2.1, .02, 0), p('harm', 3, 9, 2, 3), p('amp', 0, 1, .02, .9) ],
-      code: v => `rollers({ n: ${v.n}, turn: ${v.turn}, harm: ${v.harm}, amp: ${v.amp} })`,
-      build: v => WI.rollers({ n: v.n, turn: v.turn, harm: v.harm, amp: v.amp }) },
+    { name: 'three fonts, one count', wide: true,
+      note: 'The same letter in the three generic families at the same N. A serif\'s feet and a monospace\'s slab ends are more corners to pay for, so at a low count they miss by more; raise N and the three converge at the same slow rate, because a corner is a corner in any family.',
+      params: [ sel('letter', LETTER_CHOICES, 'R'), p('N', 16, 384, 1, 48) ],
+      code: v => `letter('${v.letter}', { font, N: ${v.N} })   // worst miss: ` + FONTS.map(f => `${f} ${pct(LT.textError(v.letter, v.N, f))}`).join(', '),
+      build: v => row(FONTS.map(f => LT.letter(v.letter, { font: f, N: v.N })), 0.25,
+                      FONTS.map(f => `${f} · ${pct(LT.textError(v.letter, v.N, f))}`)) },
 
-    { name: 'a rotor in a square',
-      note: 'A Reuleaux triangle turned inside a square touches all four sides at every angle — the square-hole drill. The gaps left at the corners are exactly what the drill cannot reach, and they are visible here rather than argued about.',
-      params: [ p('steps', 1, 8, 1, 4), p('smooth', 0, 1, 1, 0), p('amp', .3, 1, .02, .9) ],
-      code: v => `rotorInSquare({ steps: ${v.steps}, kind: '${v.smooth ? 'smooth' : 'reuleaux'}' })`,
-      build: v => WI.rotorInSquare({ steps: v.steps, kind: v.smooth ? 'smooth' : 'reuleaux', amp: v.amp }) },
+    { name: 'detail arrives in order', wide: true,
+      note: 'One letter at doubling N. The bowls settle first; the joins and the corners are the last to arrive, and the error column halves rather than collapses, which is the signature of a corner rather than a curve.',
+      params: [ sel('letter', LETTER_CHOICES, 'k'), sel('font', FONTS, 'serif') ],
+      code: v => `[16, 32, 64, 128, 256].map(N => letter('${v.letter}', { font: '${v.font}', N }))`,
+      build: v => row([16, 32, 64, 128, 256].map(N => LT.letter(v.letter, { font: v.font, N })), 0.25,
+                      [16, 32, 64, 128, 256].map(N => `N = ${N} · ${pct(LT.textError(v.letter, N, v.font))}`)) },
+  ]
+},
+{
+  id: 'morphs', title: 'Weight, slant, and what a blend cannot do',
+  note: 'A morph in this format is a blend of leaf arrays, and it is only defined between two drawings ' +
+        'with the same loops. Weight usually keeps them, so regular to bold is a straight line in shape ' +
+        'space. A slant is not a morph at all but an affine map, which this format applies exactly. And ' +
+        'a blend between letters with different counters has nowhere to put the hole.',
+  entries: [
+    { name: 'regular to bold', note: 'The letter at weight 400 and at 800, loop matched to loop and blended. In between is no font anyone drew, but every frame is a legal letter with the same counters. Where the two weights have different loops (some fonts close a counter when bold), the tile shows both and says so.',
+      params: [ sel('letter', LETTER_CHOICES, 'e'), sel('font', FONTS, 'sans'), p('t', 0, 1, .01, .5), p('N', 32, 384, 1, 128) ],
+      code: v => { const r = LT.weightMorph(v.letter, v.t, { font: v.font, N: v.N });
+        return r.ok ? `mix(letter('${v.letter}', 400), letter('${v.letter}', 800), ${v.t})` : `// '${v.letter}' has ${r.a.length} loops at 400 and ${r.b.length} at 800: no blend between them`; },
+      build: v => { const r = LT.weightMorph(v.letter, v.t, { font: v.font, N: v.N });
+        return r.ok ? r.list : row([r.a, r.b], 0.25, ['400', '800']); } },
 
-    { name: 'a cam is a support function',
-      note: 'For a flat-faced translating follower the lift at cam angle θ is <b>exactly</b> h(θ): the follower face is the tangent line, and how far it is pushed out is the distance to it. So designing a motion is writing a spectrum — and this is the one tile in these galleries where the band limit has a physical consequence. <b>K</b> is how many harmonics the profile keeps; the ringing you can see in the dwell is acceleration the follower actually feels.',
-      params: [ p('lift', 5, 60, 1, 34), p('dwell', .1, .8, .01, .45), p('K', 1, 24, 1, 5), p('N', 16, 320, 2, 256) ],
-      code: v => `cam(${v.N}, { lift: ${v.lift}, dwell: ${v.dwell}, K: ${v.K} })\n// needs ${2 * (v.K + 1) + 1} leaves`,
-      build: v => WI.cam(v.N, { lift: v.lift, dwell: v.dwell, K: v.K }) },
+    { name: 'a slant is exact', note: 'Shear the leaves and the curve shears with them, exactly, because the kernel sums to one at every angle: the reconstruction of the sheared leaves and the shear of the reconstructed curve agree to rounding. This is an oblique, a slanted roman; a true italic is a different drawing.',
+      params: [ sel('letter', LETTER_CHOICES, 'a'), sel('font', FONTS, 'serif'), p('slant°', -20, 20, .5, 12), p('N', 32, 384, 1, 128) ],
+      code: v => { const k = -Math.tan(v['slant°'] * Math.PI / 180), s = LT.letter(v.letter, { font: v.font, N: v.N })[0];
+        const a = LT.shear(s, k).sample(1024), b = s.sample(1024);
+        let e = 0; for (let i = 0; i < 1024; i++) e = Math.max(e, Math.abs(a.x[i] - (b.x[i] + k * b.y[i])), Math.abs(a.y[i] - b.y[i]));
+        return `letter('${v.letter}').map(s => shear(s, ${k.toFixed(3)}))   // curve vs shear of curve: ${e.toExponential(1)}`; },
+      build: v => { const k = -Math.tan(v['slant°'] * Math.PI / 180);
+        return row([LT.letter(v.letter, { font: v.font, N: v.N }), LT.letter(v.letter, { font: v.font, N: v.N }).map(s => LT.shear(s, k))], 0.3, ['upright', `${v['slant°']}°`]); } },
 
-    { name: 'the Wankel pair',
-      note: 'A two-lobe epitrochoid housing and the rotor inside it. The whole engine is an argument about width: the rotor\'s flanks have to stay in contact with a curve that is not a circle, at every angle of the turn. Move <b>turn</b> and the rotor walks its eccentric circle the way the real one does.',
-      params: [ p('turn', 0, 6.28, .05, 0), p('e', .1, .35, .005, .22), p('rotor', .5, .8, .01, .62), p('amp', .2, 1, .02, .55) ],
-      code: v => `wankel({ turn: ${v.turn}, e: ${v.e}, rotor: ${v.rotor} })`,
-      build: v => WI.wankel({ turn: v.turn, e: v.e, rotor: v.rotor, amp: v.amp }) },
+    { name: 'o into c: the hole has nowhere to go', wide: true,
+      note: 'The outlines blend as easily as any two loops. The counter is the problem: an o has one and a c does not, so there is no loop for it to become. The only blend there is shrinks it to a point and lets it vanish at the end, which is a choice the format cannot make for you, because nothing in two leaf arrays says where a hole should go.',
+      params: [ sel('font', FONTS, 'sans'), p('steps', 3, 8, 1, 5), p('N', 32, 256, 1, 96) ],
+      code: v => `mix(o.outline, c.outline, t), and o's counter scaled to nothing by t   // ${v.steps} steps`,
+      build: v => {
+        const o = LT.letter('o', { font: v.font, N: v.N }), c = LT.letter('c', { font: v.font, N: v.N });
+        const target = alignTo(o[0], c[0]), groups = [], labels = [];
+        for (let i = 0; i < v.steps; i++) {
+          const t = i / (v.steps - 1), g = [mix(o[0], target, t)];
+          if (o[1] && t < 1) {
+            const h = o[1].clone(); let cx = 0, cy = 0;
+            for (let k = 0; k < h.N; k++) { cx += h.x[k] / h.N; cy += h.y[k] / h.N; }
+            for (let k = 0; k < h.N; k++) { h.x[k] = cx + (h.x[k] - cx) * (1 - t); h.y[k] = cy + (h.y[k] - cy) * (1 - t); }
+            h.meta = Object.assign({}, o[1].meta); g.push(h);
+          }
+          groups.push(g); labels.push('t = ' + t.toFixed(2));
+        }
+        return row(groups, 0.22, labels);
+      } },
   ]
 },
 {
   id: 'evidence', title: 'Evidence',
-  note: 'Four theorems, measured on the reconstruction rather than on the construction — the width and ' +
-        'the perimeter below are taken from the drawn curve by projecting it onto 360 directions, so a ' +
-        'shape that was built to have constant width has to <b>prove</b> it after the round trip through ' +
-        'leaves.',
+  note: 'Measured when you scroll here, in this tab, with this machine\'s fonts.',
   entries: [
-    { name: 'the width, measured', wide: true,
-      note: 'Six shapes: three of constant width, three not. The width is measured off the reconstructed curve at 360 directions — nothing about the measurement knows how any of them was built — and the label carries the relative spread. The smooth ones come out at <b>2.8e-7</b>, and that figure is the <b>ruler</b> rather than the shape: a projection onto 4096 sampled points underestimates the extent by O(step²), and the same measurement at 16384 points reads 1.8e-8. The Reuleaux triangle is 1.7e-3 — four orders worse — because its corners cannot survive a band limit, and the width goes with them. Same theorem, two constructions, and only one of them is still true after the round trip through leaves.',
-      params: [ p('amp', .3, 1, .02, .9) ],
-      code: v => `[cw(3), cw(5), reuleaux(3), circle+even, ellipse, blob].map(widthProfile)`,
-      build: v => {
-        const list = [
-          ['n = 3', WI.constantWidth(256, { R: 90, n: 3, amp: v.amp })],
-          ['n = 5', WI.constantWidth(256, { R: 90, n: 5, amp: v.amp })],
-          ['Reuleaux 3', WI.reuleaux(256, { w: 180 })],
-          ['+ even 2', WI.fromSupport(256, { R: 90, terms: [{ n: 3, a: 5 }, { n: 2, a: 9 }] })],
-          ['+ even 4', WI.fromSupport(256, { R: 90, terms: [{ n: 3, a: 5 }, { n: 4, a: 2.4 }] })],
-          ['ellipse', WI.fromSupport(256, { R: 90, terms: [{ n: 2, a: 20 }] })],
-        ];
-        return list.map(([nm, s], i) => {
-          const w = WI.widthProfile(s, 180);
-          const b = s.bbox();
-          s.translate((i - 2.5) * 215 - (b.x + b.w / 2), -(b.y + b.h / 2));
-          s.meta.label = nm + '  ±' + w.rel.toExponential(0);
-          s.meta.tone = 1;
-          return s;
-        });
-      } },
-
-    { name: 'Barbier: same perimeter, different area', wide: true,
-      note: 'Every curve of constant width w has perimeter <b>πw</b>, whatever else it does — Cauchy makes the perimeter 2π·a₀, and a₀ is half the width, so no other coefficient can reach it. Measured at w = 180: π·w = 565.487, and the smooth ones come back 565.487 to six figures while the arc Reuleaux polygons land within 0.02%. The area is not so obliging — circle 25447 at the top (the most area for that width), Reuleaux triangle 22834 at the bottom, against a Blaschke–Lebesgue prediction of 22835. Same perimeter, 11% less area. Every label here is measured off the drawn curve, not quoted.',
-      params: [ p('w', 120, 220, 2, 180) ],
-      code: v => `[circle, cw(3), cw(5), cw(3)+cw(7), reuleaux(3), reuleaux(5)]\n  .map(s => measure(s))   // perimeter should be π·${v.w} = ${(Math.PI * v.w).toFixed(1)}`,
-      build: v => {
-        const R = v.w / 2;
-        const list = [
-          ['circle', WI.constantWidth(256, { R, n: 3, amp: 0 })],
-          ['n = 3', WI.constantWidth(256, { R, n: 3, amp: .9 })],
-          ['n = 5', WI.constantWidth(256, { R, n: 5, amp: .9 })],
-          ['3 + 7', WI.constantWidth(256, { R, n: 3, amp: .55, n2: 7, amp2: .35 })],
-          ['Reuleaux 3', WI.reuleaux(320, { w: v.w })],
-          ['Reuleaux 5', WI.reuleaux(320, { w: v.w })],
-        ];
-        list[5][1] = WI.reuleaux(320, { sides: 5, w: v.w });
-        return list.map(([nm, s], i) => {
-          const m = WI.measure(s);
-          const b = s.bbox();
-          s.translate((i - 2.5) * 215 - (b.x + b.w / 2), -(b.y + b.h / 2));
-          s.meta.label = nm + '  P ' + m.perimeter.toFixed(1) + '  A ' + Math.round(m.area);
-          s.meta.tone = 1;
-          return s;
-        });
-      } },
-
-    { name: 'the even harmonics ARE the width', wide: true,
-      note: 'One even coefficient, raised in equal steps, with the measured width spread under each frame. The theory says <b>4·a</b> — twice from the doubling in h(θ)+h(θ+π), twice again because a width is a diameter — and inside the convex region the measurement agrees to about 1e-11. Push it past convexity and the agreement goes, not because the theorem failed but because a projection measures the <b>convex hull</b>: at n = 6, a = 5 the prediction is 20 and the hull says 6.3, and the hull is right about the hull. The identity is a statement about convex bodies, and this chart lets you leave that set.',
-      params: [ p('m', 2, 8, 2, 2), p('top', .02, .2, .005, .1), p('steps', 3, 7, 1, 5) ],
-      code: v => `[0 … ${v.top}]·R.map(a => fromSupport(256, { terms: [{ n: 3, a: 9 }, { n: ${v.m}, a }] }))\n// predicted spread = 4a`,
-      build: v => {
-        const out = [];
-        for (let i = 0; i < v.steps; i++) {
-          const a = (90 * v.top / (v.m * v.m - 1)) * i / (v.steps - 1) * 8;
-          const s = WI.fromSupport(256, { R: 90, terms: [{ n: 3, a: 4 }, { n: v.m, a }] });
-          const w = WI.widthProfile(s, 180);
-          const b = s.bbox();
-          s.translate((i - (v.steps - 1) / 2) * 215 - (b.x + b.w / 2), -(b.y + b.h / 2));
-          s.meta.label = 'a ' + a.toFixed(1) + ' → ' + w.spread.toFixed(2);
-          s.meta.tone = 1;
-          out.push(s);
-        }
-        return out;
-      } },
-
-    { name: 'the convexity limit', wide: true,
-      note: 'The same harmonic taken past its bound. ρ = h + h″ = R + a(1−n²)cos nθ, so the shape is convex while |a| &lt; R/(n²−1) and the last frame before the cusp is amp = 1. The labels carry the smallest radius of curvature the curve reached: positive is a shape, zero is the cusp, negative is a loop that crossed itself. The format holds all of them equally well, which is the point — this is a limit of the <b>chart</b>, not of the representation.',
-      params: [ p('n', 3, 9, 2, 3), p('top', 1, 2.4, .05, 1.6), p('steps', 4, 8, 1, 6) ],
-      code: v => `[0 … ${v.top}].map(k => constantWidth(256, { n: ${v.n}, amp: k }))\n// limit at amp = 1, i.e. |a| = R/${v.n * v.n - 1}`,
-      build: v => {
-        const out = [];
-        for (let i = 0; i < v.steps; i++) {
-          const k = v.top * i / (v.steps - 1);
-          const s = WI.constantWidth(256, { R: 84, n: v.n, amp: k });
-          const b = s.bbox();
-          s.translate((i - (v.steps - 1) / 2) * 205 - (b.x + b.w / 2), -(b.y + b.h / 2));
-          s.meta.label = 'amp ' + k.toFixed(2) + '  ρ ' + s.meta.rhoMin.toFixed(1);
-          s.meta.tone = 1;
-          out.push(s);
-        }
-        return out;
-      } },
-
-    { name: 'the leaf requirement, and the corner that has none', wide: true,
-      note: 'Left of the divide: a support-function shape at rising N. It is exact — 6e-13 — the moment N reaches 2·(H+1)+1, and every leaf after that is storage. Right: the Reuleaux polygon, the same property built from arcs. Its corners have infinite bandwidth, so it never becomes exact and merely gets less wrong: the error halves each time N doubles, 5.2e-2 at N = 16 down to 1.6e-3 at 512, and its measured width spread trails it all the way down. Two shapes with the same property on paper and completely different bills.',
-      params: [ p('n', 3, 9, 2, 5) ],
-      code: v => `bandLimit(N => constantWidth(N, { n: ${v.n} }))   // exact at ${2 * (v.n + 1) + 1}\nbandLimit(N => reuleaux(N, { sides: ${v.n} }))       // never exact`,
-      build: v => {
-        const Ns = [7, 11, 2 * (v.n + 1) + 1, 48];
-        const out = [];
-        Ns.forEach((N, i) => {
-          const s = WI.constantWidth(N, { R: 80, n: v.n, amp: .9 });
-          s.translate((i - 3.5) * 190, 0);
-          s.meta.label = 'h·N ' + N; s.meta.tone = 1; s.meta.showLeaves = true;
-          out.push(s);
-        });
-        Ns.forEach((N, i) => {
-          const s = WI.reuleaux(N, { sides: v.n, w: 160 });
-          const b = s.bbox();
-          s.translate((i + 0.5) * 190 - (b.x + b.w / 2), -(b.y + b.h / 2));
-          s.meta.label = 'arc·N ' + N; s.meta.tone = 0.75; s.meta.showLeaves = true;
-          out.push(s);
-        });
-        return out;
-      } },
+    { kind: 'report', name: 'leaves per letter', wide: true,
+      note: 'The fewest leaves per loop, on the doubling ladder 16 … 2048, that hold each letter within half a percent of the em (about a pixel at text size on a large screen) in each family.' },
 
     { kind: 'paste', name: 'round trip', wide: true,
-      note: 'Paste <code>.tvf</code> here — from the <code>.tvf</code> button on any tile above, or out of the leaf editor — and it is parsed and drawn. Worth doing with a constant-width shape: take its leaves out, bring them back, and the width measurement still comes out flat, because the property was never stored separately from the geometry.' },
+      note: 'The other direction. Paste <code>.tvf</code> here — from the <code>.tvf</code> button on any tile above, or copied out of the leaf editor — and it is parsed and drawn. A letter comes back as the loops it left as: an outline and its counters, each its own block.' },
   ]
 },
 ];
@@ -4637,60 +4411,33 @@ function makeTile(entry) {
 }
 
 // ── the evidence tile ────────────────────────────────────────────────────
+// Leaves per letter, per family. Measured a row at a time between frames, because
+// each cell is a ladder of reconstructions and the whole table is a second or two.
 function report(host) {
-  const Ns = [8, 16, 32, 33, 64, 65, 128, 256];
-  const rows = Ns.map(N => {
-    const c = new Float64Array(N);
-    for (let k = 0; k < N; k++) c[k] = Math.sin(3 * k) + 0.5 * Math.cos(7 * k);
-    const M = 61, sq = new Float64Array(M);
-    const ang = new Float64Array(M);
-    for (let i = 0; i < M; i++) {
-      const phi = ((i + 0.37) / M) * TAU;
-      sq[i] = Math.tan(phi / 2);
-      ang[i] = evalAt(c, phi);
-    }
-    const slope = reconstructSlope(c, sq);
-    let e = 0;
-    for (let i = 0; i < M; i++) e = Math.max(e, Math.abs(ang[i] - slope[i]));
-    // partition of unity, angle chart, at a point that is not a node
-    let pou = 0;
-    for (let k = 0; k < N; k++) pou += kernel(1.234 - (k + 0.5) * TAU / N, N);
-    // node exactness
-    let nodeErr = 0;
-    for (let k = 0; k < N; k++) nodeErr = Math.max(nodeErr, Math.abs(evalAt(c, (k + 0.5) * TAU / N) - c[k]));
-    return { N, e, pou, nodeErr };
-  });
-
-  const fmt = x => x === 0 ? '0' : x.toExponential(1);
+  const LET = ['O', 'S', 'a', 'e', 'g', 'B', 'R', 'k', 'M', 'W', '&', '@'];
+  const fmt = n => n === Infinity ? '> 2048' : String(n);
+  const cls = n => n <= 64 ? 'ok' : n >= 512 ? 'bad' : '';
   host.innerHTML =
-    `<p>Same leaf values, reconstructed twice: once through the angle chart <code>sin(Nφ/2)/(N·tan(φ/2))</code>,
-        once through the slope chart <code>Im[(1+is)ᴺ]/(N·s·(1+s²)^⌊N/2⌋)</code> with the trig count held at zero
-        in the per-leaf loop. Both parities of N, evaluated on load:</p>
-     <table><thead><tr><th>N</th><th>angle vs slope</th><th>partition of unity − 1</th><th>node exactness (R2)</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.N}${r.N % 2 ? ' <span style="color:var(--clay)">odd</span>' : ''}</td>` +
-      `<td class="${r.e < 1e-10 ? 'ok' : 'bad'}">${fmt(r.e)}</td>` +
-      `<td class="${Math.abs(r.pou - 1) < 1e-10 ? 'ok' : 'bad'}">${fmt(Math.abs(r.pou - 1))}</td>` +
-      `<td class="${r.nodeErr < 1e-10 ? 'ok' : 'bad'}">${fmt(r.nodeErr)}</td></tr>`).join('') +
-    `</tbody></table>
-     <p class="foot"><b>The odd rows are the interesting ones.</b> The paper's N = 2^(d+1) is always even, so
-      neither the published sin/tan kernel nor the published slope form ever meets an odd N — and both are
-      wrong there in the same way, by one factor of √(1+s²). tvf.js carries the parity switch on both sides
-      (<code>tan</code> → <code>sin</code>; the exponent N/2 → ⌊N/2⌋), which is why the odd rows above read
-      like the even ones. Built without it, N = 33 misses partition of unity by ~3.2e-6 and the published
-      slope form misses the kernel by 2.7e-2.</p>
-     <p class="foot"><b>And the trig count is measured, not asserted.</b> <code>leafSlopes</code> no longer
-      converts an angle — the leaf lattice is <em>generated</em> from the ratio s = 1, the gate where the run
-      equals the rise, by algebraic halving and rational stepping. It is the dyadic cascade doing what the
-      cascade is (§2.4, §5.3), and it agrees with <code>Math.tan((k+0.5)π/N)</code> to 1e-15 through N = 2048
-      with the trig call count at zero. Available wherever π/(2N) is constructible, which is Gauss's condition
-      and contains the paper's N = 2^(d+1) by construction — the radix forced for tiling is also the radix that
-      keeps every leaf reachable by square roots. Odd N outside it (33, 65 above) still take the boundary
-      conversion the paper permits.</p>
-     <p class="foot">The horizon needed telling, though. <code>slopeDiff</code> at an infinite query slope —
-      the antipode φ = ±π, which §4.1 notes does occur on this grid — computed <code>(∞ − s_k)/(1 + ∞·s_k)</code>
-      = NaN, fell into <code>kernelSlope</code>'s own antipode branch, and returned silently wrong. Now guarded
-      on both sides, and exact to 1e-15. Each chart is transparent about the structure it linearizes and blind
-      at its own singularity: the angle chart hid the parity, the slope chart hid the horizon.</p>`;
+    `<p>The fewest leaves per loop, doubling from 16, that keep every loop of the letter within
+      <b>0.5% of the em</b> of its traced outline. The O holds in 16 in every family, because it is all
+      curve. Every other letter is priced by its sharpest feature: the cut ends of an S's stroke, the
+      k's crotch, the points of M and W, the thin strokes of the @.</p>
+     <table><thead><tr><th>letter</th>${FONTS.map(f => `<th>${f}</th>`).join('')}</tr></thead><tbody></tbody></table>
+     <p class="foot">Green is 64 or fewer, amber 512 or more. A letter's count is set by its sharpest
+      feature, not its size, and past the first few rungs each doubling only halves the miss (a serif k
+      goes ${[64, 128, 256, 512].map(N => pct(LT.textError('k', N, 'serif'))).join(', ')} from N = 64): the
+      menagerie's O(1/N) for a corner, measured on type.</p>`;
+  const body = host.querySelector('tbody');
+  let i = 0;
+  const next = () => {
+    if (i >= LET.length) return;
+    const ch = LET[i++];
+    const cells = FONTS.map(f => LT.leavesFor(ch, 0.005, f));
+    body.insertAdjacentHTML('beforeend', `<tr><td>${ch.replace('&', '&amp;')}</td>` +
+      cells.map(n => `<td class="${cls(n)}">${fmt(n)}</td>`).join('') + `</tr>`);
+    setTimeout(next, 0);
+  };
+  setTimeout(next, 0);
 }
 
 // ── lazy render ──────────────────────────────────────────────────────────

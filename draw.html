@@ -3052,12 +3052,12 @@
                 <button id="bTour" title="the tour — visit every shape in the drawing in turn, fitted to the screen, the camera arriving on a critically damped spring. Loops. Touch the camera or press Escape to stop.">tour the shapes</button>
             </div>
 
-            <!-- THE GALLERIES ARE THE COURSE BOOK. Fifteen pages under gallery/, each making one claim
+            <!-- THE GALLERIES ARE THE COURSE BOOK. Sixteen pages under gallery/, each making one claim
                    about what a band-limited loop can and cannot be, every tile live and every tile one
                    click (its edit button) from this canvas. A new tab, so the scene here is untouched. -->
             <div class="group">
                 <div class="menu-title">learn</div>
-                <div class="menu-note sub">Fifteen galleries of live shapes, in reading order, each with its spectrum drawn underneath. Any tile's edit button opens it here.</div>
+                <div class="menu-note sub">Sixteen galleries of live shapes, in reading order, each with its spectrum drawn underneath. Any tile's edit button opens it here.</div>
                 <button id="bGalleries" title="open the galleries in a new tab (gallery/)" onclick="window.open('gallery/', '_blank', 'noopener')">the galleries ↗</button>
                 <button id="bLabsPage" title="every lab in the drawer as one page (labs.html): what each does, with a link that runs it" onclick="window.open('labs.html', '_blank', 'noopener')">all the labs ↗</button>
                 <button id="bInspect" title="open the selected shapes (or all of them) in the inspector, which reads their spectrum, symmetry, width and leaf count back off the leaves">inspect the selection ↗</button>
@@ -5752,6 +5752,20 @@
                * Change the leaf count. The curve is reconstructed and re-sampled uniformly
                * in the parameter, which preserves the existing parameterization — so N down
                * then N up is a smoothing pass, not a scramble.
+               *
+               * Evaluated with `evalAt` at each new leaf position, which is exact. It used
+               * to reconstruct onto an internal grid of M = max(2048, 16·max(N, N0)) points
+               * and interpolate linearly between them, and that had a failure mode worth
+               * recording because nothing about the call site hinted at it: the query
+               * positions are (k + 1/2)·M/N, so they land ON grid indices exactly when
+               * M/(2N) is an integer, and fall between them otherwise. Upsampling 96 → 128
+               * was exact to 2e-12; 96 → 127 was off by 1.5e-2, seven orders of magnitude
+               * worse from one leaf's difference — and because M is clamped at 2048, COARSER
+               * targets were the unreliable ones, which is backwards from every intuition
+               * anyone brings to a resampling call. Exactness should not depend on an
+               * arithmetic coincidence between the argument and a constant buried in the
+               * method, so it no longer does. (The galleries' tvf.js carries the same fix;
+               * gallery/fail.html measures the old and the new side by side.)
                */
             resample(N)
             {
@@ -5759,18 +5773,12 @@
                     return this;
                 if (N < 3)
                     throw new Error('tvf: N must be at least 3');
-                const M = Math.max(2048, Math.max(N, this.N) * 16);
-                const dx = reconstruct(this.x, M),
-                    dy = reconstruct(this.y, M);
                 const nx = new Float64Array(N),
                     ny = new Float64Array(N);
                 for (let k = 0; k < N; k++) {
-                    const t = (k + 0.5) / N * M;
-                    const i0 = Math.floor(t) % M,
-                        i1 = (i0 + 1) % M,
-                        u = t - Math.floor(t);
-                    nx[k] = dx[i0] * (1 - u) + dx[i1] * u;
-                    ny[k] = dy[i0] * (1 - u) + dy[i1] * u;
+                    const phi = (k + 0.5) * TAU / N;
+                    nx[k] = evalAt(this.x, phi);
+                    ny[k] = evalAt(this.y, phi);
                 }
                 this.x = nx;
                 this.y = ny;
