@@ -166,7 +166,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -297,6 +297,35 @@ await step('tiles', async () => {
   }
 });
 
+/* Epicycles: the chain is the format, not a picture of it. All the circles of a shape's
+   leaves land on the kernel's curve to rounding, at odd and even N (the Nyquist pair); a
+   six-fold flake uses only m ≡ 1 (mod 6); the heart is degree four, so eight circles; and
+   a chain sampled at 2k + 1 leaves comes back exactly. */
+await step('epicycles', async () => {
+  const gp = await browser.newPage();
+  gp.on('pageerror', e => failures.push(`[epicycles] ${e.message}`));
+  await gp.goto(new URL('gallery/epicycles.html', base).href, { waitUntil: 'load' });
+  const r = await gp.evaluate(() => {
+    const exact = s => { const ch = EP.order(EP.coeffs(s), 'size'); let e = 0;
+      for (let q = 0; q < 97; q++) { const ph = TAU * (q + 0.31) / 97, p = EP.pen(ch, ch.length, ph);
+        e = Math.max(e, Math.hypot(p[0] - evalAt(s.x, ph), p[1] - evalAt(s.y, ph))); }
+      return e / EP.size(ch); };
+    const f = EP.fromChain(EP.randomChain(5, 7, 20, 0.7)), back = EP.coeffs(f.shape);
+    return {
+      odd: exact(star(63)), even: exact(star(64)),
+      flake: EP.present(EP.order(EP.coeffs(flake(96)), 'speed')),
+      heart: EP.present(EP.order(EP.coeffs(heart(256)), 'size'), 1e-12).length,
+      chain: Math.max(...f.chain.slice(1).map(c => { const b = back.find(x => x.m === c.m); return Math.hypot(b.re - c.re, b.im - c.im); })),
+      N: f.N, k: f.k,
+    };
+  });
+  await gp.close();
+  if (!(r.odd < 1e-12 && r.even < 1e-12)) throw new Error(`the chain misses the kernel's curve: odd ${r.odd}, even ${r.even}`);
+  if (r.flake.join() !== '1,-5,7,-11,13') throw new Error('a six-fold flake uses m = ' + r.flake.join());
+  if (r.heart !== 8) throw new Error('the heart uses ' + r.heart + ' circles, not 8');
+  if (!(r.N === 2 * r.k + 1 && r.chain < 1e-12)) throw new Error(`a chain did not come back from ${r.N} leaves: ${r.chain}`);
+});
+
 /* The inspector reads facts off the leaves. Two of its examples have answers that can be
    worked by hand: a heart is one mirror (D1, vertical axis) and fits in 9 leaves; an
    ellipse wobbles twice but is Z₁ and Z₋₁ only, so 3 leaves hold it. */
@@ -405,6 +434,36 @@ await step('gallery index', async () => {
   if (new Set(hrefs).size !== hrefs.length) throw new Error('a page has two cards');
   for (const h of hrefs) if (!galleries.includes(h)) throw new Error('card points at missing ' + h);
   if (after.join() !== 'playground.html,inspect.html') throw new Error('the cards after the course point at ' + after.join());
+});
+
+/* The papers: every Markdown file in papers/ has a card, every card's file is there, and
+   each paper renders: no math placeholder left behind, its sections headed, its TeX found
+   (typeset when the CDN answers, shown as source when it does not). A section link opens
+   the paper at that heading. */
+await step('papers', async () => {
+  const files = (await readdir(join(ROOT, 'papers'))).filter(f => f.endsWith('.md')).sort();
+  const pp = await browser.newPage({ viewport: { width: 1200, height: 900 } });
+  pp.on('pageerror', e => failures.push(`[papers] ${e.message}`));
+  await pp.goto(new URL('papers.html', base).href, { waitUntil: 'load' });
+  const listed = (await pp.evaluate(() => PAPERS.map(p => p.file.replace('papers/', '')))).sort();
+  if (listed.join() !== files.join()) throw new Error(`papers.html lists ${listed.join(', ')}; papers/ holds ${files.join(', ')}`);
+  for (const f of files) {
+    const id = f.replace(/\.md$/, '');
+    await pp.evaluate(i => { location.hash = i; }, id);
+    await pp.waitForFunction(i => document.getElementById('reader').dataset.id === i && document.querySelector('#reader .md'), id, { timeout: 10000 });
+    const r = await pp.evaluate(() => { const el = document.querySelector('#reader .md');
+      return { stray: /[\u0000-\u0002]/.test(el.innerHTML), h2: el.querySelectorAll('h2').length, math: el.querySelectorAll('.math').length,
+               index: !document.getElementById('index').hidden }; });
+    if (r.stray) throw new Error(f + ': a placeholder was left in the text');
+    if (r.h2 < 5) throw new Error(f + `: only ${r.h2} sections rendered`);
+    if (r.index) throw new Error(f + ': the index is still showing over the paper');
+    if (f !== 'tvf.md' && r.math < 100) throw new Error(f + `: only ${r.math} formulas found`);
+  }
+  await pp.goto(new URL('papers.html#tb_spectral:17.3-numerical-verification', base).href, { waitUntil: 'load' });
+  const top = await pp.waitForFunction(() => { const h = document.getElementById('17.3-numerical-verification');
+    return !!h && Math.abs(h.getBoundingClientRect().top) < 200; }, null, { timeout: 10000 }).catch(() => null);
+  await pp.close();
+  if (!top) throw new Error('a section link did not open the paper at its heading');
 });
 
 if (failures.length){

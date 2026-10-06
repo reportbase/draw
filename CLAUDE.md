@@ -16,8 +16,17 @@ publishes.
   `draw.html?lab=CODE` link that runs it. **Generated** by `npm run labs`
   (`tools/build-labs.mjs` reads the lab buttons off the live editor); after adding, renaming
   or re-describing a lab in `draw.html`, run it, or `npm test` fails.
-- `gallery/`: seventeen teaching pages, in reading order: `gallery.html` (the catalogue),
-  `bench`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
+- `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
+  specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
+  and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and
+  `tb_spectral_notes.md` (§23, preliminary). Replace a file when the owner sends a new revision;
+  don't edit them on your own account.
+- `papers.html`: the index of `papers/` and a reader for them (`#tvf` opens one, `#tvf:heading-id`
+  at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
+  fails. The renderer is its own small one, written for these files: TeX is lifted out before
+  anything else, typeset by KaTeX from cdnjs when that loads and shown as source when it does not.
+- `gallery/`: eighteen teaching pages, in reading order: `gallery.html` (the catalogue),
+  `bench`, `epicycles`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`
   (the loop), `compose` (composed), `fail` (where it breaks). Also `playground.html` (sculpt
   a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
@@ -29,21 +38,22 @@ publishes.
     `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
     a layout of their own have a section there scoped to their body class (`page-index`,
     `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`).
-  - Each page bundles its JavaScript so it runs from one file. All seventeen, and the playground, carry the **same**
+  - Each page bundles its JavaScript so it runs from one file. All eighteen, and the playground, carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
     mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
     names the page that differs.
-  - The other eight have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
-    STRESS, SPACE, CURVEMOD, SPIRAL), and no spectrum strip or predict mode. `spiral`,
+  - The other nine have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
+    STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES), and no spectrum strip or predict mode. `spiral`,
     `curves`, `space`, `fail` are *chart* pages (`body.page-chart`: a measurement and a
-    verdict line per tile); `motion` and `compose` animate (`page-chart page-motion`);
+    verdict line per tile); `motion`, `compose` and `epicycles` animate (`page-chart page-motion`; epicycles
+    carries only tvf.js, FORMAT and EPICYCLES, and its dials may be selects);
     `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`). Each
     has a section in `style.css`. Edit buttons (the shared editor link) are on `spiral`,
-    `curves`, `space`, `motion` and `compose`; the rest hold no curve to hand on.
+    `curves`, `space`, `motion`, `compose` and `epicycles`; the rest hold no curve to hand on.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 17" crumbs and "next" links in each page.
+    a page means updating it, and the "N of 18" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE
