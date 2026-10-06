@@ -188,6 +188,25 @@ try {
     if (!(r.oddDev > 1e-2)) throw new Error('the odd-N kernel in the float decoder was not caught (' + r.oddDev + ')');
   });
 
+  /* Depth where needed (TVF §2.8): entering an octave only where its residual exceeds τ of the
+     departure must hold every library shape to about τ (or to the full file's own miss, where that
+     is worse) over everything the full file holds, grow as τ shrinks, and at τ = 1e-6 come in
+     well under the full file's 518 sweeps. */
+  await step('depth where needed', async () => {
+    const r = await page.evaluate(() => runDepthWhereNeeded());
+    if (r.rows.length < 20) throw new Error('only ' + r.rows.length + ' shapes read');
+    for (const row of r.rows) {
+      let prev = 0;
+      for (const a of row.at) {
+        if (!(a.miss <= 1.5 * Math.max(a.tau, row.full.miss))) throw new Error(`${row.key} at τ ${a.tau}: miss ${a.miss} (full ${row.full.miss})`);
+        if (a.docs < prev) throw new Error(`${row.key}: fewer sweeps at a tighter τ`);
+        prev = a.docs;
+      }
+      const tight = row.at[row.at.length - 1];
+      if (!(tight.docs < row.full.docs / 2)) throw new Error(`${row.key}: ${tight.docs} sweeps at τ 1e-6 against ${row.full.docs}`);
+    }
+  });
+
   /* With everything selected, the buttons that act on a selection (align,
      group, order, style…) are enabled too, so the walk reaches them. Escape
      after each press can drop the selection, so it is taken again each time. */

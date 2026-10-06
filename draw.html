@@ -3748,10 +3748,13 @@
                     <b>Gold</b>
                     : kept, breadth as good or better. 
                     <b>Red</b>
-                    : the file changed the reading. SAVE writes the selected shape's depth file (DPT's standpoint on it); LOAD draws what the reader holds over the page, levels 0–3, blue to gold. wander/tvf-depth-test.md.
+                    : the file changed the reading. SAVE writes the selected shape's depth file (DPT's standpoint on it); LOAD draws what the reader holds over the page, levels 0–3, blue to gold. wander/tvf-depth-test.md. 
+                    <b>WHERE NEEDED</b>
+                     writes every shape again, entering an octave only where the residual it would hold exceeds τ of the departure, and reports what that saves: the full file enters all 518 sweeps whatever the shape.
                 </div>
                 <div class="group row" style="margin-top:6px;gap:8px;flex-wrap:wrap;">
                     <button id="bDepthTVF" data-code="dtv" class="res-btn" title="write every DPT shape's depth as a TVF file, read it back, score it against the known shape, and against breadth alone at the same number of values. Replaces the current page in one history frame.">depth in TVF</button>
+                    <button id="bDepthWhereNeeded" data-code="dwn" class="res-btn" title="write every DPT shape's depth again entering an octave only where the residual it would hold exceeds a tolerance τ of the departure (τ = 1e-3 … 1e-6), and compare sweeps, bytes and miss with the full file, scored where the full file reaches level 3. Touches nothing on the page.">where needed</button>
                     <button id="bSaveDepthTVF" data-code="dts" class="res-btn" title="save the selected shape's depth (read from DPT's standpoint on it, to level 3) as a .tvf: one document per sweep, addressed by #meta address">save depth .tvf</button>
                     <button id="bLoadDepthTVF" data-code="dtl" class="res-btn" title="load a depth .tvf and draw what its reader holds, as lines over the page, levels 0–3">load depth .tvf…</button>
                     <input type="file" id="fLoadDepthTVF" accept=".tvf,text/plain" hidden>
@@ -47265,6 +47268,134 @@
             + ' · sweeps per file ' + Math.min(...docs) + '–' + Math.max(...docs) + (out.ms ? ' · ' + out.ms + ' ms' : ''));
             window.__dtv = res;
         }
+        // ── DEPTH WHERE NEEDED (DWN, 6 Oct 2026): ENTER AN OCTAVE ONLY IF IT HAS SOMETHING TO HOLD ──
+        // enterRange enters every octave the range meets, to level 3, whatever the shape: 518
+        // sweeps and about 140 kB for the circle as for the most intricate outline. The format
+        // paper (§2.8) left the obvious economy open: enter an octave only where the residual it
+        // would hold, what the levels above it left, exceeds the reader's tolerance. That is what
+        // this does. The residual is read at the octave's own leaves before entering, which is
+        // exactly the row the sweep would store, so "nothing to hold" means a row of near-zeros
+        // that the file need not carry. Children are considered only under an entered octave: the
+        // reading cannot reach past a missing sweep (Surface.value stops there), so a child under
+        // a skipped parent would never be read. Kept outside DEPTH so the engine (and the
+        // inspector's copy of it) is unchanged; which octaves are entered is the writer's choice.
+        function depthEnterWhereNeeded(surf, p, lo, hi, L, tol) {
+            const D = DEPTH;
+            surf.enter([]);
+            const holds = P => {
+                for (const r of surf.sk) {
+                    const x = D.S(P, r),
+                        e = Math.abs(p(x) - surf.value(x));
+                    if (!(e <= tol))
+                        return true; // over tolerance, or not a number: enter, to be safe
+                }
+                return false;
+            };
+            let frontier = [];
+            for (let k = D.split(lo)[0]; k <= D.split(hi)[0]; k++)
+                if (holds([k])) {
+                    surf.enter([k]);
+                    frontier.push([k]);
+                }
+            for (let m = 2; m <= L; m++) {
+                const next = [];
+                for (const P of frontier)
+                    for (let k = -2; k <= 3; k++) {
+                        const Q = P.concat([k]),
+                            [a, b] = D.range(Q);
+                        if (b < lo || a > hi || !holds(Q))
+                            continue;
+                        surf.enter(Q);
+                        next.push(Q);
+                    }
+                frontier = next;
+            }
+            return surf.docs.size;
+        }
+        // Every library shape written both ways and scored the same way: the reading at level 3
+        // against the shape, on cell midpoints so no sample sits exactly on a wall between octaves
+        // (the walls are still open, §2.8), at every address where the FULL writer reaches level 3.
+        // That is the region the full file claims to hold; the economical one must hold it too, so
+        // its own entering decides nothing about where it is scored. (Scoring each writer only where
+        // it reached level 3 itself would flatter the one that enters less.)
+        const DWN_TAUS = [1e-3, 1e-4, 1e-5, 1e-6];
+        function runDepthWhereNeeded() {
+            const t0 = performance.now(),
+                D = DEPTH,
+                NP = 600,
+                rows = [];
+            const grid = [];
+            for (let i = 0; i < NP; i++)
+                grid.push(DEPTH_LO * Math.pow(DEPTH_HI / DEPTH_LO, (i + 0.5) / NP));
+            for (const spec of PRIMITIVES) {
+                if (typeof spec.pts !== 'function')
+                    continue;
+                const rd = depthReadShape(spec);
+                if (rd.why || !(rd.sMax > DEPTH_HI * 2))
+                    continue;
+                const pv = grid.map(rd.p);
+                if (pv.some(v => !isFinite(v)))
+                    continue;
+                const size = Math.max(...pv.map(v => Math.abs(v - 1))) || 1,
+                    frame = depthFrameOf(rd.C, rd.standpoint);
+                let held = null; // the grid indices the full file reaches level 3 at
+                const score = surf => {
+                    let w = 0;
+                    for (const i of held)
+                        w = Math.max(w, Math.abs(surf.value(grid[i], DEPTH_L) - pv[i]));
+                    return w / size;
+                };
+                const measure = surf => ({
+                    docs: surf.docs.size,
+                    bytes: depthToTVF(surf, frame, spec.key).length,
+                    miss: score(surf)
+                });
+                const full = D.Surface(rd.p, DTV_W);
+                D.enterRange(full, DEPTH_LO, DEPTH_HI, DEPTH_L);
+                held = [];
+                for (let i = 0; i < NP; i++) {
+                    const [ks] = D.addr(grid[i], DEPTH_L);
+                    if (ks.length === DEPTH_L && full.has(ks))
+                        held.push(i);
+                }
+                const row = {
+                    key: spec.key,
+                    held: held.length / NP,
+                    full: measure(full),
+                    at: []
+                };
+                for (const tau of DWN_TAUS) {
+                    const s = D.Surface(rd.p, DTV_W);
+                    depthEnterWhereNeeded(s, rd.p, DEPTH_LO, DEPTH_HI, DEPTH_L, tau * size);
+                    row.at.push(Object.assign({
+                        tau
+                    }, measure(s)));
+                }
+                rows.push(row);
+            }
+            return {
+                rows,
+                ms: Math.round(performance.now() - t0)
+            };
+        }
+        window.runDepthWhereNeeded = runDepthWhereNeeded;
+        function showDepthWhereNeeded(res) {
+            const R = res.rows,
+                f = v => v.toExponential(1),
+                med = a => { const b = a.slice().sort((x, y) => x - y); return b[b.length >> 1]; };
+            if (!R.length)
+                return flashStatus('depth where needed: no shape could be read');
+            const full = R.map(r => r.full);
+            const parts = DWN_TAUS.map((tau, j) => {
+                const at = R.map(r => r.at[j]);
+                return 'τ ' + f(tau) + ': ' + Math.min(...at.map(a => a.docs)) + '–' + Math.max(...at.map(a => a.docs)) + ' sweeps (median ' + med(at.map(a => a.docs))
+                + ', ' + (med(at.map(a => a.bytes)) / 1024).toFixed(0) + ' kB), worst miss ' + f(Math.max(...at.map(a => a.miss)));
+            });
+            flashStatus('depth where needed · ' + R.length + ' shapes · the full file: ' + full[0].docs + ' sweeps, ' + (med(full.map(a => a.bytes)) / 1024).toFixed(0)
+            + ' kB, miss ' + f(Math.min(...full.map(a => a.miss))) + '–' + f(Math.max(...full.map(a => a.miss)))
+            + ' · entering an octave only where its residual exceeds τ of the departure: ' + parts.join(' · ')
+            + ' · scored where the full file reaches level 3 · ' + res.ms + ' ms');
+        }
         // Save: the selected shape (or the first on the page), read from DPT's standpoint.
         function saveDepthTVF() {
             const idx = (typeof selectedIndices === 'function' ? selectedIndices() : []);
@@ -56328,6 +56459,26 @@
                         finally {
                             bDtv.disabled = false;
                             bDtv.textContent = 'depth in TVF';
+                        }
+                    }, 0);
+                });
+            const bDwn = $('bDepthWhereNeeded');
+            if (bDwn)
+                bDwn.addEventListener('click', () => {
+                    bDwn.disabled = true;
+                    bDwn.textContent = 'writing…';
+                    setTimeout(() => {
+                        try {
+                            const res = runDepthWhereNeeded();
+                            window.__dwn = res;
+                            showDepthWhereNeeded(res);
+                        }
+                        catch (e) {
+                            flashStatus('depth where needed failed: ' + e.message);
+                        }
+                        finally {
+                            bDwn.disabled = false;
+                            bDwn.textContent = 'where needed';
                         }
                     }, 0);
                 });

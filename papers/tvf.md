@@ -4,7 +4,7 @@
 
 *Revised 5 October 2026: TVF holds depth as well as breadth, with no new syntax (§2.8). Measured in the drawing tool's editor; see `wander/tvf-depth-test.md`.*
 
-*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8).*
+*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8).*
 
 This is the tight specification. It supersedes the v22.x working document,
 which accreted iteration logs, extrapolations later withdrawn, and
@@ -365,8 +365,36 @@ engine), a depth file holds a shape read from a standpoint on its outline:
   Packing leaves into one sweep spends them evenly over the reader's turn.
   Entering octaves puts a whole sweep wherever the reading is.
 - **Size:** entering every octave whatever the shape gives 518 sweeps, about
-  140 kB of text per shape. Entering only the octaves whose residual exceeds
-  the reader's tolerance would be smaller; not yet built.
+  140 kB of text per shape.
+- **Entering only where needed** (built 6 Oct, `draw.html?lab=dwn`):
+  - **The rule:** an octave is entered only if the residual it would hold,
+    read at its own leaves, exceeds τ of the departure. That residual is the
+    very row the sweep would store, so a skipped octave is a row of
+    near-zeros the file need not carry.
+  - **Children** are considered only under an entered octave, since the
+    reading cannot pass a missing sweep.
+  - **Which octaves to enter** is the writer's choice (above), so a reader
+    needs no change.
+  - **Scoring:** over the same 24 shapes, at every address where the full
+    file reaches level 3 (cell midpoints, off the walls).
+
+  | τ | sweeps (median, range) | text (median) | worst miss |
+  |---|---|---|---|
+  | every octave | 518 | 137 kB | 7.9×10⁻⁸ … 6.2×10⁻⁶ |
+  | 10⁻³ | 14 (9 … 30) | 4 kB | 9.4×10⁻⁴ |
+  | 10⁻⁴ | 31 (24 … 58) | 8 kB | 9.9×10⁻⁵ |
+  | 10⁻⁵ | 59 (43 … 111) | 16 kB | 1.0×10⁻⁵ |
+  | 10⁻⁶ | 127 (79 … 244) | 33 kB | 6.2×10⁻⁶ |
+
+  - **The miss tracks τ.** It is held to τ at the leaves the test reads,
+    and overshoots between them by half a per cent at most (1.005 τ, the
+    trapezoid at 10⁻⁵).
+  - **At τ = 10⁻⁶:** where the full file itself misses by more than 10⁻⁶
+    (egg, pill, Reuleaux, teardrop, knife), the economical file misses by
+    the same amount, to the digit, from a quarter to a half of the sweeps.
+  - **The cost of depth is set by the shape, not the range:** the circle
+    needs 129 sweeps and the egg 244, where the full writer gives every
+    shape 518.
 
 **Relation to composition.** A depth file is the depth case of the Bridge's
 composition: bridges driving bridges (Tangent Bridge, algebraic form §12.5).
@@ -375,7 +403,9 @@ measured agreement above is consistent with that; it has not been derived
 for the depth case.
 
 **Open:**
-- entering octaves only where needed;
+- entering octaves only where needed. Built (above); what is left is choosing
+  τ for a use, and whether a writer should also enter between an octave's
+  leaves when the residual peaks there;
 - a depth reader in the reference decoder. One now runs outside the drawing
   tool: the gallery's inspector (`gallery/inspect.html`) reads a depth file,
   pasted or built from its example, and puts it back on the shape level by
@@ -692,7 +722,9 @@ with `#meta address`, no new syntax; round trip to 2.3×10⁻⁷ of the departur
 at equal value count, better than breadth alone on 24 of 24 library shapes
 (18× to about 5×10⁴). A depth reader outside the drawing tool, in the
 gallery's inspector (6 Oct): level 3 within 4.8×10⁻⁶ of the departure on the
-closed-form example. Open: entering octaves only where needed, and the joins
+closed-form example. Entering octaves only where needed (6 Oct): at τ = 10⁻⁶
+of the departure, 79 to 244 sweeps (median 127, against 518) with the miss
+held to about τ, or to the full file's own miss where that is worse. Open: the joins
 at walls, where a reading sampled exactly on 2^k stops short (1.9% on the
 example).
 
