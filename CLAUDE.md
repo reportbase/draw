@@ -15,13 +15,16 @@ publishes.
 - `gallery/`: fifteen teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `sound` (heard), `motion`
-  (the loop), `compose` (composed), `fail` (where it breaks). Also
+  (the loop), `compose` (composed), `fail` (where it breaks). Also `playground.html` (sculpt
+  a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
+  library as an ES module, *generated* from the copy the pages inline: regenerate it from
+  a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
   the front page `index.html` that lists them, and `inspect.html`, which reads a shape's
   spectrum, symmetry, width and leaf count back off its leaves.
   - **Styles live in `gallery/style.css`**, shared by all fifteen pages; a page keeps only its
     fonts link. Change the look there, once. (`index.html` and `inspect.html` still carry
     their own small `<style>`.)
-  - Each page bundles its JavaScript so it runs from one file. All fifteen carry the **same**
+  - Each page bundles its JavaScript so it runs from one file. All fifteen, and the playground, carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The seven *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict

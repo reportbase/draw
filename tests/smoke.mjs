@@ -138,7 +138,7 @@ try {
    tile's edit button must produce a link that this editor opens. window.open is
    stubbed so the link can be followed here, in a page of our own. */
 const { readdir } = await import('node:fs/promises');
-const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html') && f !== 'index.html' && f !== 'inspect.html').sort();
+const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html') && !['index.html', 'inspect.html', 'playground.html'].includes(f)).sort();
 // Pages with their own tile code: the chart pages draw a measurement per tile rather than a
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
@@ -263,7 +263,7 @@ await step('gallery copies agree', async () => {
   ];
   // tvf.js itself is shared by every page, chart pages included; the rest of the bundle and
   // the tile code only by the shape pages.
-  spans.unshift(['core tvf.js', 'const TVF = (function', s => { const j = s.indexOf('})();', s.indexOf('const TVF = (function')); return j < 0 ? -1 : j + 5; }, galleries]);
+  spans.unshift(['core tvf.js', 'const TVF = (function', s => { const j = s.indexOf('})();', s.indexOf('const TVF = (function')); return j < 0 ? -1 : j + 5; }, [...galleries, 'playground.html']]);
   for (const [what, start, end, pages = shapePages] of spans) {
     const seen = new Map();
     for (const g of pages) {
@@ -281,6 +281,38 @@ await step('gallery copies agree', async () => {
   }
 });
 
+/* gallery/tvf.js is the same library as an ES module, generated from the shared copy: its
+   body must be that copy's, its exports that copy's return list, and it must import and work. */
+await step('tvf.js module', async () => {
+  const mod = await readFile(join(ROOT, 'gallery', 'tvf.js'), 'utf8');
+  const page = await readFile(join(ROOT, 'gallery', 'spiral.html'), 'utf8');
+  const i = page.indexOf('const TVF = (function () {'), j = page.indexOf('})();', i);
+  const iife = page.slice(i + 'const TVF = (function () {'.length, j);
+  const r = iife.match(/\nreturn \{([^}]*)\};\s*$/);
+  const names = r[1].split(',').map(x => x.trim()).filter(Boolean);
+  const want = iife.slice(0, r.index).replace(/^\n/, '') + '\n\nexport { ' + names.join(', ') + ' };\n';
+  if (mod !== want) throw new Error('gallery/tvf.js is not the shared copy: regenerate it from a gallery page');
+  const t = await import(new URL('../gallery/tvf.js', import.meta.url).href);
+  const s = t.circle(64, { r: 100 }), back = s.clone().resample(127).resample(64);
+  const err = Math.max(...Array.from(back.x, (v, k) => Math.abs(v - s.x[k])));
+  if (!(err < 1e-9)) throw new Error('resample 64 → 127 → 64 is off by ' + err);
+});
+
+/* The playground fills the window with a rail, the clay and the transcript; it must load,
+   take a gesture, and write it down. */
+await step('playground', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  gp.on('pageerror', e => failures.push(`[playground] ${e.message}`));
+  await gp.goto(new URL('gallery/playground.html', base).href, { waitUntil: 'load' });
+  await gp.waitForTimeout(500);
+  await gp.click('button[data-verb="smooth"]');
+  const tape = await gp.textContent('#tape');
+  const bg = await gp.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  await gp.close();
+  if (bg !== 'rgb(12, 15, 22)') throw new Error('style.css did not apply (body is ' + bg + ')');
+  if (!/s\.smooth\(/.test(tape)) throw new Error('the transcript did not record smooth: ' + tape.slice(-120));
+});
+
 /* The front page: it loads, and each of its cards points at a gallery that exists. */
 await step('gallery index', async () => {
   const gp = await browser.newPage();
@@ -292,7 +324,7 @@ await step('gallery index', async () => {
   if (hrefs.length !== galleries.length) throw new Error(`${hrefs.length} cards for ${galleries.length} pages`);
   if (new Set(hrefs).size !== hrefs.length) throw new Error('a page has two cards');
   for (const h of hrefs) if (!galleries.includes(h)) throw new Error('card points at missing ' + h);
-  if (after.join() !== 'inspect.html') throw new Error('the inspector card points at ' + after.join());
+  if (after.join() !== 'playground.html,inspect.html') throw new Error('the cards after the course point at ' + after.join());
 });
 
 if (failures.length){
