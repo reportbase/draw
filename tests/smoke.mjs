@@ -161,6 +161,33 @@ try {
     if (r.parity) throw new Error('the vectors passed the odd-N kernel at even N');
   });
 
+  /* The exact reference decoder: the same identities in ℤ[ζ], ζ = e^{iπ/2N}, where they are
+     equalities of integers. It must pass at every depth with every integer inside 2^53, the
+     float decoder must agree with it to rounding, and two planted bugs must fail it: the top
+     mode at full weight (only R2 can see that one; the partition of unity sums the top cosine
+     to zero over an even number of leaves whatever its weight), and the odd-N kernel in the
+     float decoder. */
+  await step('exact reference decoder', async () => {
+    const r = await page.evaluate(() => {
+      const res = runExactDecoder();
+      const nyq = runExactDecoder({ ds: [2, 4], nyq: 2, gramMax: 0 });
+      const keep = tvf.evalAt;
+      tvf.evalAt = (ch, phi) => { const N = ch.length; let s = 0;
+        for (let k = 0; k < N; k++) { let d = phi - (k + 0.5) * 2 * Math.PI / N; d = Math.atan2(Math.sin(d), Math.cos(d));
+          s += ch[k] * (Math.abs(d) < 1e-12 ? 1 : Math.sin(N * d / 2) / (N * Math.sin(d / 2))); }
+        return s; };
+      const odd = runExactDecoder({ ds: [2, 4], gramMax: 0 });
+      tvf.evalAt = keep;
+      return { pass: res.pass, safe: res.safe, failed: res.rows.filter(x => !x.ok).map(x => x.N), dev: Math.max(...res.rows.map(x => x.floatDev)),
+               nyqR2: nyq.rows.some(x => !x.r2), oddDev: Math.min(...odd.rows.map(x => x.floatDev)) };
+    });
+    if (!r.safe) throw new Error('an integer outgrew 2^53');
+    if (!r.pass) throw new Error('the exact decoder fails at N = ' + r.failed.join(', '));
+    if (!(r.dev < 1e-12)) throw new Error('the float decoder is off the exact one by ' + r.dev);
+    if (!r.nyqR2) throw new Error('R2 passed a kernel with the top mode at full weight');
+    if (!(r.oddDev > 1e-2)) throw new Error('the odd-N kernel in the float decoder was not caught (' + r.oddDev + ')');
+  });
+
   /* With everything selected, the buttons that act on a selection (align,
      group, order, style…) are enabled too, so the walk reaches them. Escape
      after each press can drop the selection, so it is taken again each time. */
@@ -352,6 +379,61 @@ await step('epicycles', async () => {
   if (!(r.N === 2 * r.k + 1 && r.chain < 1e-12)) throw new Error(`a chain did not come back from ${r.N} leaves: ${r.chain}`);
 });
 
+/* The two horns (where it breaks, spectral §22): on the same leaves, the interpolant overshoots
+   a jump by the format's 0.1411 of it, and the Fejér reading never rises above the step, is
+   off its own leaves on cos 3θ by 3/(N/2), and has norm 1. */
+await step('the two horns', async () => {
+  const gp = await browser.newPage();
+  gp.on('pageerror', e => failures.push(`[two horns] ${e.message}`));
+  await gp.goto(new URL('gallery/fail.html', base).href, { waitUntil: 'load' });
+  const r = await gp.evaluate(() => {
+    const N = 256, th = Array.from({ length: N }, (_, k) => (k + 0.5) * TAU / N);
+    const sq = Float64Array.from(th, t => (t < Math.PI ? 1 : -1)), c3 = Float64Array.from(th, t => Math.cos(3 * t));
+    let over = -Infinity, fmax = -Infinity, node = 0, norm = 0;
+    for (let i = 0; i <= 4000; i++) { const t = TAU * i / 4000; over = Math.max(over, evalAt(sq, t)); fmax = Math.max(fmax, fejerAt(sq, t)); }
+    for (let k = 0; k < N; k++) node = Math.max(node, Math.abs(fejerAt(c3, th[k]) - c3[k]));
+    for (let i = 0; i <= 50; i++) { const p = (i / 50) * TAU / N; let a = 0; for (const t of th) a += Math.abs(fejerKernel(p - t, N)); norm = Math.max(norm, a); }
+    return { over: (over - 1) / 2, fmax, node, norm, tile: !!document.getElementById('horns') };
+  });
+  await gp.close();
+  if (!r.tile) throw new Error('no #horns section on where it breaks');
+  if (Math.abs(r.over - 0.1411) > 0.002) throw new Error('interpolation overshoot ' + r.over + ', the paper says 0.1411');
+  if (!(r.fmax <= 1 + 1e-12)) throw new Error('the Fejér reading rose above the step: ' + r.fmax);
+  if (Math.abs(r.node - 3 / 128) > 1e-4) throw new Error('Fejér off its leaves on cos 3θ by ' + r.node + ', not 3/128');
+  if (Math.abs(r.norm - 1) > 1e-9) throw new Error('Fejér norm ' + r.norm);
+});
+
+/* The inspector reads depth (TVF §2.8): the example is written to text and read back, 518
+   sweeps, level 3 within the paper's range of the shape, the round trip through 8 digits
+   small; pasted depth text takes the same road. Its depth engine is the editor's, copied:
+   the copy must still match. */
+await step('inspector reads depth', async () => {
+  const strip = s => s.replace(/\s+/g, '');
+  const ed = await readFile(join(ROOT, 'draw.html'), 'utf8'), ins = await readFile(join(ROOT, 'gallery/inspect.html'), 'utf8');
+  const grab = (src, start) => { const i = src.indexOf(start); if (i < 0) return null; let d = 0, k = src.indexOf('{', i);
+    for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) break; } return strip(src.slice(i, k + 1)); };
+  for (const [what, start] of [['DEPTH', 'const DEPTH = (function() {'], ...['fmtSig', 'rungOfRow', 'depthToTVF', 'depthFromTVF', 'depthLearnedFacing'].map(f => [f, 'function ' + f + '(']) ])
+    if (!grab(ins, start) || grab(ins, start) !== grab(ed, start)) throw new Error(`the inspector's ${what} no longer matches the editor's`);
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[inspector depth] ${e.message}`));
+  await gp.goto(new URL('gallery/inspect.html', base).href, { waitUntil: 'load' });
+  await gp.click('#examples button:text-is("depth: a circle with two bumps")');
+  const read = () => gp.$$eval('.fact', fs => Object.fromEntries(fs.map(f => [f.querySelector('.k').textContent, f.querySelector('.v').textContent])));
+  const a = await read();
+  const text = await gp.$eval('#paste', t => t.value);
+  await gp.evaluate(() => window.inspectShapes({ name: 'x', curves: [{ x: Float64Array.of(1, 0, -1), y: Float64Array.of(0, 1, 0) }] }));
+  // 140 kB of text: set it and fire the event, as a paste does, rather than typing it in
+  await gp.$eval('#paste', (t, v) => { t.value = v; t.dispatchEvent(new Event('input')); }, text);
+  const b = await read();
+  await gp.close();
+  if (a['the file'] !== '518 sweeps of 16 values') throw new Error('depth example read as ' + a['the file']);
+  const lvl3 = parseFloat((a['against the shape'] || '').replace(/^.*misses by /, ''));
+  if (!(lvl3 > 0 && lvl3 < 1e-5)) throw new Error('level 3 misses the shape by ' + a['against the shape']);
+  const trip = parseFloat(a['round trip'] || '');
+  if (!(trip < 1e-5)) throw new Error('round trip ' + a['round trip']);
+  if (b['the file'] !== '518 sweeps of 16 values' || !/^1 at level 0/.test(b.addresses || '')) throw new Error('pasted depth text read as ' + JSON.stringify(b));
+});
+
 /* The inspector reads facts off the leaves. Two of its examples have answers that can be
    worked by hand: a heart is one mirror (D1, vertical axis) and fits in 9 leaves; an
    ellipse wobbles twice but is Z₁ and Z₋₁ only, so 3 leaves hold it. */
@@ -490,6 +572,29 @@ await step('papers', async () => {
     return !!h && Math.abs(h.getBoundingClientRect().top) < 200; }, null, { timeout: 10000 }).catch(() => null);
   await pp.close();
   if (!top) throw new Error('a section link did not open the paper at its heading');
+});
+
+/* Every link from a gallery page into a paper names a heading that exists: the reader makes
+   its ids from the heading text, so retitling a section (or a new revision of a paper)
+   would otherwise leave the galleries pointing at nothing. */
+await step('gallery links into the papers', async () => {
+  const links = new Set();
+  for (const f of (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html'))) {
+    const src = await readFile(join(ROOT, 'gallery', f), 'utf8');
+    for (const m of src.matchAll(/papers\.html#([\w.-]+:[^"'\s)]+)/g)) links.add(m[1]);
+  }
+  if (links.size < 8) throw new Error('only ' + links.size + ' paper links found in the galleries');
+  const pp = await browser.newPage();
+  const bad = [];
+  for (const l of links) {
+    const [paper, id] = l.split(':');
+    await pp.goto(new URL('papers.html#' + l, base).href, { waitUntil: 'load' });
+    const ok = await pp.waitForFunction(([p, i]) => document.getElementById('reader').dataset.id === p && document.querySelector('#reader .md')
+      && !!document.getElementById(decodeURIComponent(i)), [paper, id], { timeout: 10000 }).then(() => true).catch(() => false);
+    if (!ok) bad.push(l);
+  }
+  await pp.close();
+  if (bad.length) throw new Error('paper links that go nowhere: ' + bad.join(', '));
 });
 
 if (failures.length){

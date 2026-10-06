@@ -26,7 +26,8 @@
     <b>rotational and mirror symmetry</b>, <b>width</b>, and <b>how few leaves would hold it</b>,
     and links each finding to the gallery that explains it. Send a shape here with
     <b>inspect the selection</b> in the leaf editor's settings menu, paste <code>.tvf</code> text below,
-    or start from an example.
+    or start from an example. It also reads <b>depth</b>: a depth file (<code>#meta type:depth</code>, one sweep per
+    octave of a reading) is put back on the shape it was read from, level by level.
   </p>
 </header>
 <main>
@@ -267,6 +268,7 @@ function sizeCanvas(cv) {
 }
 function drawStage() {
   const [ctx, w, h] = sizeCanvas(stage);
+  if (depth) return drawDepthStage(ctx, w, h);
   if (!doc) return;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const a of info) for (let d = 0; d < a.px.length; d++) {
@@ -297,6 +299,7 @@ function drawStage() {
 }
 function drawSpec() {
   const [ctx, w, h] = sizeCanvas(specC);
+  if (depth) return drawDepthSpec(ctx, w, h);
   if (!doc) { capEl.textContent = ''; return; }
   const a = info[pick];
   const show = Math.min(a.M, Math.max(16, Math.ceil(a.top * 1.25) + 2));
@@ -322,6 +325,7 @@ const G = { snow: 'snowflakes.html', radio: 'radiolaria.html', width: 'width.htm
 const pct = v => v < 1e-6 ? 'exactly' : v < 1e-3 ? (v * 100).toPrecision(2) + '%' : (v * 100).toFixed(v < 0.1 ? 2 : 1) + '%';
 function fact(k, v, p) { return `<div class="fact"><div class="k">${k}</div><div class="v">${v}</div><p>${p}</p></div>`; }
 function renderFacts() {
+  if (depth) return renderDepthFacts();
   if (!doc) { factsEl.innerHTML = '<div class="empty">nothing loaded</div>'; return; }
   const a = info[pick];
   const out = [`<h2>${doc.name ? esc(doc.name) + ' · ' : ''}loop ${pick + 1} of ${info.length}</h2>`];
@@ -371,6 +375,7 @@ function renderFacts() {
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function show(d) {
+  depth = null;
   doc = d;
   info = d.curves.map(analyse);
   // start on the largest loop, which in a group is usually the body
@@ -379,10 +384,453 @@ function show(d) {
   refresh();
 }
 function refresh() {
-  document.getElementById('which').textContent = doc ? `loop ${pick + 1} of ${info.length}` : '';
+  document.getElementById('which').textContent = doc ? `loop ${pick + 1} of ${info.length}` : depth ? `depth · levels 0 … ${depth.L}` : '';
+  document.getElementById('toEditor').hidden = !!depth;
   drawStage(); drawSpec(); renderFacts();
 }
 window.inspectShapes = show;     // for the smoke test, and for poking at shapes by hand
+
+// ── DEPTH ─────────────────────────────────────────────────────────────────
+// TVF holds depth as well as breadth (the format paper, §2.8): one sweep per document,
+// `#meta type:depth`, `#meta address:@` for the reader's own sweep and `@k.j…` for every
+// octave entered, concatenated. The root carries `#meta reader:`, the standpoint and frame,
+// so the reading can be put back on the shape it was read from. Until now only the editor
+// could read one. The engine below is the editor's, copied unchanged, and the smoke test
+// fails if the copy drifts.
+// >>> copied from draw.html, unchanged: DEPTH, fmtSig, rungOfRow, depthToTVF, depthFromTVF, depthLearnedFacing
+const DEPTH = (function() {
+    const halve = t => t / (1 + Math.sqrt(1 + t * t));
+    const step = (a, b) => (a + b) / (1 - a * b);
+    function leaves(N) {
+        let u = 1,
+            m = 0;
+        while (2 ** (m + 2) < 2 * N) {
+            u = halve(u);
+            m++;
+        }
+        const two = step(u, u),
+            out = [u];
+        while (out.length < N / 2)
+            out.push(step(out[out.length - 1], two));
+        return out;
+    }
+    function split(r) {
+        let k = 0;
+        while (r > 2 ** k)
+            k++;
+        while (r <= 2 ** (k - 1))
+            k--;
+        const lo = 2 ** (k - 1),
+            hi = 2 ** k;
+        const f = k <= 0 ? (r - lo) / (hi - lo) : (1 / lo - 1 / r) / (1 / lo - 1 / hi);
+        return [k, f <= 0.5 ? 2 * f : (f < 1 ? 1 / (2 * (1 - f)) : Infinity)];
+    }
+    function join(k, rho) {
+        const f = rho <= 1 ? rho / 2 : 1 - 1 / (2 * rho);
+        const lo = 2 ** (k - 1),
+            hi = 2 ** k;
+        return k <= 0 ? lo + f * (hi - lo) : 1 / (1 / lo - f * (1 / lo - 1 / hi));
+    }
+    function S(path, r) {
+        for (let i = path.length - 1; i >= 0; i--)
+            r = join(path[i], r);
+        return r;
+    }
+    function addr(s, m) {
+        const ks = [];
+        let r = s;
+        for (let i = 0; i < m; i++) {
+            if (r === 0 || !isFinite(r))
+                break;
+            const q = split(r);
+            ks.push(q[0]);
+            r = q[1];
+        }
+        return [ks, r];
+    }
+    function Kpair(tau, N) {
+        if (tau === 0)
+            return 1;
+        if (!isFinite(tau))
+            return 0;
+        const n = Math.sqrt(1 + tau * tau);
+        let br = 1 / n,
+            bi = tau / n,
+            or = 1,
+            oi = 0,
+            e = N;
+        while (e) {
+            if (e & 1) {
+                const t = or * br - oi * bi;
+                oi = or * bi + oi * br;
+                or = t;
+            }
+            const t2 = br * br - bi * bi;
+            bi = 2 * br * bi;
+            br = t2;
+            e >>= 1;
+        }
+        return oi / (N * tau);
+    }
+    function present(r, sk, ck) {
+        const M = sk.length,
+            N = 2 * M;
+        let out = 0;
+        for (let k = 0; k < M; k++) {
+            const s = sk[k];
+            const tm = isFinite(r) ? (r - s) / (1 + r * s) : 1 / s;
+            const tp = isFinite(r) ? (r + s) / (1 - r * s) : -1 / s;
+            out += ck[k] * (Kpair(tm, N) + Kpair(tp, N));
+        }
+        return out;
+    }
+    function Surface(p, W) {
+        const sk = leaves(2 * W),
+            docs = new Map(),
+            key = P => P.join('.');
+        function value(s, upto) {
+            let tot = docs.has('') ? present(s, sk, docs.get('')) : 0,
+                r = s;
+            const P = [];
+            for (let m = 1; m <= (upto == null ? 99 : upto); m++) {
+                if (r === 0 || !isFinite(r))
+                    break;
+                const q = split(r);
+                P.push(q[0]);
+                r = q[1];
+                const d = docs.get(key(P));
+                if (!d)
+                    break;
+                tot += present(r, sk, d);
+            }
+            return tot;
+        }
+        function enter(P) {
+            docs.set(key(P), sk.map(r => {
+                const x = S(P, r);
+                return p(x) - value(x);
+            }));
+        }
+        return {
+            sk,
+            docs,
+            value,
+            enter,
+            has: P => docs.has(key(P))
+        };
+    }
+    const range = P => [S(P, 0), S(P, Infinity)];
+    function enterRange(surf, lo, hi, L) {
+        surf.enter([]);
+        let frontier = [];
+        for (let k = split(lo)[0]; k <= split(hi)[0]; k++) {
+            surf.enter([k]);
+            frontier.push([k]);
+        }
+        for (let m = 2; m <= L; m++) {
+            const next = [];
+            for (const P of frontier)
+                for (let k = -2; k <= 3; k++) {
+                    const Q = P.concat([k]),
+                        [a, b] = range(Q);
+                    if (b < lo || a > hi)
+                        continue;
+                    surf.enter(Q);
+                    next.push(Q);
+                }
+            frontier = next;
+        }
+        return surf.docs.size;
+    }
+    function misses(surf, pts, pv, L) {
+        const out = [];
+        for (let m = 0; m <= L; m++) {
+            let worst = 0;
+            for (let i = 0; i < pts.length; i++) {
+                if (m > 0) {
+                    const [ks] = addr(pts[i], m);
+                    if (ks.length !== m || !surf.has(ks))
+                        continue;
+                }
+                const e = Math.abs(surf.value(pts[i], m) - pv[i]);
+                if (e > worst)
+                    worst = e;
+            }
+            out.push(worst);
+        }
+        return out;
+    }
+    return {
+        leaves,
+        split,
+        join,
+        S,
+        addr,
+        Kpair,
+        present,
+        Surface,
+        enterRange,
+        misses,
+        range
+    };
+})();
+function fmtSig(x, digits) {
+    // §2.7: decimal preferred inside [1e-3, 1e3], scientific outside.
+    if (x === 0)
+        return '0';
+    if (!isFinite(x))
+        return String(x);
+    const abs = Math.abs(x);
+    if (abs < 1e-3 || abs >= 1e3)
+        return x.toExponential(digits - 1);
+    let s = x.toPrecision(digits);
+    if (s.indexOf('.') !== -1 && s.indexOf('e') === -1) {
+        s = s.replace(/0+$/, '').replace(/\.$/, '');
+        if (s === '' || s === '-')
+            s = '0';
+    }
+    return s;
+}
+function rungOfRow(values) {
+    // §2.2: IEEE 754 exponent of the row's dominant magnitude.
+    let peak = 0;
+    for (let i = 0; i < values.length; i++) {
+        const a = Math.abs(values[i]);
+        if (a > peak)
+            peak = a;
+    }
+    if (peak === 0)
+        return 0;
+    return Math.floor(Math.log2(peak));
+}
+function depthToTVF(surf, frame, name) {
+    const keys = [...surf.docs.keys()].sort((a, b) => (a.split('.').length - b.split('.').length) || (a < b ? -1 : a > b ? 1 : 0));
+    const out = [];
+    for (const k of keys) {
+        const vals = surf.docs.get(k),
+            L = [];
+        L.push(`TVF ${vals.length} 1 1`);
+        L.push('#meta type:depth');
+        L.push('#meta address:@' + k);
+        if (k === '') {
+            L.push('#meta leaves:corner,halve,step');
+            L.push('#meta holds:departure from the reader\'s unit circle, p(s) = h met / (2s/(1+s^2))');
+            if (frame)
+                L.push('#meta reader:' + ['x0', 'y0', 'tx', 'ty', 'cx', 'cy', 'Rm'].map(q => q + '=' + fmtSig(frame[q], 10)).join(','));
+            if (name)
+                L.push('#meta name:' + String(name).replace(/[\r\n]+/g, ' '));
+        }
+        L.push(rungOfRow(vals) + ' ' + vals.map(v => fmtSig(v, 8)).join(' '));
+        out.push(L.join('\n'));
+    }
+    return out.join('\n') + '\n';
+}
+function depthFromTVF(text) {
+    const lines = text.split(/\r?\n/),
+        docs = new Map();
+    let frame = null,
+        name = null,
+        W = null;
+    for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].trim().match(/^TVF\s+(\d+)\s+(\d+)\s+(\d+)\s*$/);
+        if (!m)
+            continue;
+        const w = +m[1];
+        if (W == null)
+            W = w;
+        else if (w !== W)
+            throw new Error('documents of different widths');
+        let addr = null,
+            type = null,
+            j = i + 1;
+        for (; j < lines.length && lines[j].trim().startsWith('#'); j++) {
+            const t = lines[j].trim();
+            if (!t.startsWith('#meta'))
+                continue;
+            const tag = t.slice(5).trim(),
+                c = tag.indexOf(':'),
+                key = tag.slice(0, c).trim(),
+                val = tag.slice(c + 1).trim();
+            if (key === 'address')
+                addr = val.replace(/^@/, '');
+            if (key === 'type')
+                type = val;
+            if (key === 'reader') {
+                frame = {};
+                for (const kv of val.split(',')) {
+                    const [a, b] = kv.split('=');
+                    frame[a] = +b;
+                }
+            }
+            if (key === 'name')
+                name = val;
+        }
+        if (type !== 'depth' || addr == null)
+            continue;
+        const parts = (lines[j] || '').trim().split(/\s+/);
+        if (parts.length < w + 1)
+            throw new Error('document @' + addr + ': expected ' + w + ' values');
+        docs.set(addr, parts.slice(1, w + 1).map(Number));
+        i = j;
+    }
+    if (!docs.size)
+        throw new Error('no depth documents found');
+    const surf = DEPTH.Surface(() => 0, W);
+    for (const [k, v] of docs)
+        surf.docs.set(k, v);
+    return {
+        surf,
+        frame,
+        name,
+        W
+    };
+}
+function depthLearnedFacing(surf, frame, upto, n) {
+    n = n || 600;
+    const pts = [],
+        nx = -frame.ty,
+        ny = frame.tx;
+    for (let i = 0; i < n; i++) {
+        const s = DEPTH_LO * Math.pow(DEPTH_HI / DEPTH_LO, i / (n - 1)),
+            p = surf.value(s, upto),
+            h = p * 2 * s / (1 + s * s),
+            v = s * h;
+        const ux = frame.x0 + h * frame.tx + v * nx,
+            uy = frame.y0 + h * frame.ty + v * ny;
+        pts.push({
+            x: frame.cx + frame.Rm * ux,
+            y: frame.cy + frame.Rm * uy
+        });
+    }
+    return pts;
+}
+// <<< end of the copied depth code
+const DEPTH_LO = 2 ** -6, DEPTH_HI = 2 ** 6, DEPTH_L = 3, DTV_W = 16;
+
+let depth = null;
+const levelOf = k => (k === '' ? 0 : k.split('.').length);
+// the departure, read on a geometric grid from home (s → 0) to the far wall (s → ∞). Cell
+// midpoints, so no sample lands exactly on a wall between octaves (2^k): there the address
+// cannot descend, and how walls join is still open in the format (§2.8).
+const depthGrid = n => Array.from({ length: n }, (_, i) => DEPTH_LO * Math.pow(DEPTH_HI / DEPTH_LO, (i + 0.5) / n));
+// The editor's scoring (DPT): level m is scored only where the reading reaches level m.
+const reaches = (surf, s, m) => { if (!m) return true; const [ks] = DEPTH.addr(s, m); return ks.length === m && surf.has(ks); };
+
+function readDepth(text, extra) {
+  const r = depthFromTVF(text);
+  const keys = [...r.surf.docs.keys()];
+  const L = keys.reduce((a, k) => Math.max(a, levelOf(k)), 0);
+  const meta = {};
+  const root = text.split(/^(?=TVF\s)/m).find(d => /#meta\s+address:\s*@\s*$/m.test(d)) || '';
+  for (const m of root.matchAll(/^#meta\s+([^:]+):\s*(.*)$/gm)) meta[m[1].trim()] = m[2].trim();
+  return Object.assign({ text, keys, L, meta }, r, extra || {});
+}
+function showDepth(d) {
+  doc = null; info = []; depth = d;
+  const g = depthGrid(400);
+  d.curves = [];
+  for (let m = 0; m <= d.L; m++) d.curves.push(g.map(s => d.surf.value(s, m)));
+  d.grid = g;
+  d.size = Math.max(...d.curves[d.L].map(v => Math.abs(v - 1)), 1e-12);
+  d.adds = [];
+  for (let m = 1; m <= d.L; m++) d.adds.push(Math.max(...d.curves[m].map((v, i) => Math.abs(v - d.curves[m - 1][i]))) / d.size);
+  if (d.frame) d.facing = Array.from({ length: d.L + 1 }, (_, m) => depthLearnedFacing(d.surf, d.frame, m, 500));
+  refresh();
+}
+window.inspectDepth = text => showDepth(readDepth(text));   // for the smoke test
+
+function drawDepthStage(ctx, w, h) {
+  const d = depth;
+  if (!d.frame) {
+    ctx.fillStyle = '#8b95ab'; ctx.font = '12px ' + getComputedStyle(document.body).fontFamily; ctx.textAlign = 'center';
+    ctx.fillText('no #meta reader: in this file, so the reading has no shape to stand on — its departure is plotted below', w / 2, h / 2);
+    return;
+  }
+  const f = d.frame, pts = [].concat(...d.facing);
+  let x0 = f.cx - f.Rm, x1 = f.cx + f.Rm, y0 = f.cy - f.Rm, y1 = f.cy + f.Rm;
+  for (const p of pts) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+  const k = Math.min((w - 40) / (x1 - x0 || 1), (h - 40) / (y1 - y0 || 1));
+  // the editor's own coordinates, y down, so a reading looks as it did where it was taken
+  const X = x => w / 2 + (x - (x0 + x1) / 2) * k, Y = y => h / 2 + (y - (y0 + y1) / 2) * k;
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(232,236,245,.22)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(X(f.cx), Y(f.cy), f.Rm * k, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  d.facing.forEach((line, m) => {
+    ctx.beginPath();
+    line.forEach((p, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, X(p.x), Y(p.y)));
+    const top = m === d.L;
+    ctx.strokeStyle = top ? '#b9a6ff' : `rgba(124,92,255,${0.18 + 0.5 * m / Math.max(1, d.L)})`;
+    ctx.lineWidth = top ? 1.8 : 1; ctx.stroke();
+  });
+  // the reader: where it stands on the shape, and its tangent
+  const sx = f.cx + f.Rm * f.x0, sy = f.cy + f.Rm * f.y0, a = 34 / k;
+  ctx.strokeStyle = '#f2c14e'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(X(sx - a * f.tx), Y(sy - a * f.ty)); ctx.lineTo(X(sx + a * f.tx), Y(sy + a * f.ty)); ctx.stroke();
+  ctx.fillStyle = '#f2c14e'; ctx.beginPath(); ctx.arc(X(sx), Y(sy), 4, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#8b95ab'; ctx.font = '11px ' + getComputedStyle(document.body).fontFamily; ctx.textAlign = 'left';
+  ctx.fillText('the reader (gold), its unit circle (dashed), the reading at levels 0 … ' + d.L + ' (violet, faint to bright)', 10, h - 10);
+}
+function drawDepthSpec(ctx, w, h) {
+  const d = depth, lo = Math.log2(DEPTH_LO), hi = Math.log2(DEPTH_HI);
+  let m0 = Infinity, m1 = -Infinity;
+  for (const c of d.curves) for (const v of c) { m0 = Math.min(m0, v - 1); m1 = Math.max(m1, v - 1); }
+  if (m1 - m0 < 1e-12) { m0 -= 1e-3; m1 += 1e-3; }
+  const X = s => 4 + (Math.log2(s) - lo) / (hi - lo) * (w - 8), Y = v => h - 14 - (v - 1 - m0) / (m1 - m0) * (h - 22);
+  ctx.strokeStyle = 'rgba(139,149,171,.16)'; ctx.lineWidth = 1;
+  for (let e = lo; e <= hi; e++) { const x = Math.round(X(2 ** e)) + .5; ctx.beginPath(); ctx.moveTo(x, 4); ctx.lineTo(x, h - 14); ctx.stroke(); }
+  d.curves.forEach((c, m) => {
+    ctx.beginPath();
+    c.forEach((v, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, X(d.grid[i]), Y(v)));
+    ctx.strokeStyle = m === d.L ? '#b9a6ff' : `rgba(124,92,255,${0.2 + 0.5 * m / Math.max(1, d.L)})`;
+    ctx.lineWidth = m === d.L ? 1.6 : 1; ctx.stroke();
+  });
+  ctx.fillStyle = '#8b95ab'; ctx.font = '10px ' + getComputedStyle(document.body).fontFamily; ctx.textBaseline = 'bottom';
+  for (const e of [lo, 0, hi]) { ctx.textAlign = e === lo ? 'left' : e === hi ? 'right' : 'center'; ctx.fillText('2' + String(e).replace('-', '⁻').replace(/\d/g, c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[c]), X(2 ** e), h); }
+  capEl.innerHTML = `the departure p(s) − 1 against the address s, from home (left) to the far wall (right), one line per level · each octave is a sweep of its own`;
+}
+function renderDepthFacts() {
+  const d = depth, byLevel = [];
+  for (const k of d.keys) { const l = levelOf(k); byLevel[l] = (byLevel[l] || 0) + 1; }
+  const sci = v => v === 0 ? '0' : v < 1e-3 ? v.toExponential(1) : (v * 100).toFixed(v < 0.1 ? 2 : 1) + '%';
+  const out = [`<h2>${d.name ? esc(d.name) + ' · ' : ''}a depth reading</h2>`];
+  out.push(fact('the file', `${d.keys.length} sweeps of ${d.W} values`,
+    `${(d.keys.length * d.W).toLocaleString()} values in all, each sweep an ordinary <code>TVF ${d.W} 1 1</code> document with <code>#meta type:depth</code>. ` +
+    `Depth needs no new syntax: the documents are concatenated, and each says where it sits with <code>#meta address</code>. ` +
+    `<a href="../papers.html#tvf:2.8-depth">The format, §2.8</a>.`));
+  out.push(fact('addresses', byLevel.map((n, l) => `${n} at level ${l}`).join(' · '),
+    `Level 0 is the reader's own sweep (<code>@</code>). Each sweep at level 1 is entered over one octave of the reading, s from 2<sup>k−1</sup> to 2<sup>k</sup> (<code>@k</code>); each at level 2 over one octave of that sweep's own reading (<code>@k.j</code>), and so on. Which octaves are entered is the writer's choice.`));
+  if (d.frame) out.push(fact('the reader', `stands at (${d.frame.x0.toFixed(3)}, ${d.frame.y0.toFixed(3)}) on its circle`,
+    `<code>#meta reader:</code> places the reading: the standpoint on the shape's unit circle (centre ${d.frame.cx.toFixed(1)}, ${d.frame.cy.toFixed(1)}, radius ${d.frame.Rm.toPrecision(4)}), and the tangent the reading runs along. What the file holds is the shape's departure from that circle, address by address: <i>p(s)</i> = the <i>h</i> met ÷ 2s/(1+s²).`));
+  else out.push(fact('the reader', '<span class="no">not given</span>', 'The root has no <code>#meta reader:</code>, so the reading can be plotted but not placed on a shape.'));
+  out.push(fact('the departure', sci(d.size), 'The largest departure of the full reading from the reader\'s unit circle, as a share of it. Everything below is measured against this.'));
+  out.push(fact('what each level adds', d.adds.map((a, i) => `level ${i + 1}: ${sci(a)}`).join(' · ') || 'nothing past the root',
+    'The largest change each level makes to the reading. A level adds only what the levels above it left, inside its own octaves, so these should fall: the coarse shape first, then the detail, wherever it is.'));
+  if (d.truth) out.push(fact('against the shape', `level ${d.L} misses by ${sci(d.truth[d.L])}`,
+    `Measured against the closed-form shape this example was read from, level by level, each level only where the reading reaches it (the editor's own scoring): ${d.truth.map((t, m) => m + ': ' + sci(t)).join(' · ')}. The format paper measures 7×10⁻⁸ to 6×10⁻⁶ at level 3 over the editor's library.`));
+  if (d.trip != null) out.push(fact('round trip', `${sci(d.trip)} through text`,
+    'Written to the file above at 8 significant digits and read back: the full reading changes by this much at most, as a share of the departure. Each value carries 8 digits, and a reading sums one sweep per level, so the rounding of a few documents adds up here.'));
+  factsEl.innerHTML = out.join('');
+}
+
+// The example: the editor's closed-form test shape (its "run 1": a unit circle with two
+// gaussian bumps, one broad and one narrow), read from (1, 0), written as a depth file and
+// read back from the text, which is what lands in the box.
+function depthExample() {
+  const DEG = Math.PI / 180, B = [[0.05, 100 * DEG, 20 * DEG], [0.01, 40 * DEG, 3 * DEG]];
+  const R = th => 1 + B.reduce((a, q) => a + q[0] * Math.exp(-(((th - q[1]) / q[2]) ** 2)), 0);
+  const sOf = th => { const r = R(th); return (1 - r * Math.cos(th)) / (r * Math.sin(th)); };
+  const thAt = s => { let lo = 1e-12, hi = Math.PI - 1e-12; for (let i = 0; i < 200; i++) { const m = 0.5 * (lo + hi); if (sOf(m) < s) lo = m; else hi = m; } return 0.5 * (lo + hi); };
+  const p = s => { const th = thAt(s); return R(th) * Math.sin(th) / (2 * s / (1 + s * s)); };
+  const surf = DEPTH.Surface(p, DTV_W);
+  DEPTH.enterRange(surf, DEPTH_LO, DEPTH_HI, DEPTH_L);
+  const frame = { x0: 1, y0: 0, tx: 0, ty: 1, cx: 0, cy: 0, Rm: 1 };
+  const text = depthToTVF(surf, frame, 'a circle with two bumps');
+  const back = readDepth(text);
+  const g = depthGrid(400), size = Math.max(...g.map(s => Math.abs(p(s) - 1)));
+  back.truth = Array.from({ length: back.L + 1 }, (_, m) =>
+    Math.max(...g.map(s => reaches(back.surf, s, m) ? Math.abs(back.surf.value(s, m) - p(s)) : 0)) / size);
+  back.trip = Math.max(...g.map(s => Math.abs(back.surf.value(s, DEPTH_L) - surf.value(s, DEPTH_L)))) / size;
+  return back;
+}
 
 // ── examples ─────────────────────────────────────────────────────────────
 // Each is sampled uniformly in its own parameter, so its spectrum is exactly what its
@@ -402,10 +850,16 @@ for (const [name, make] of Object.entries(EXAMPLES)) {
   b.addEventListener('click', () => { history.replaceState(null, '', location.pathname); show({ name, curves: [make()] }); });
   exRow.appendChild(b);
 }
+{
+  const b = document.createElement('button'); b.textContent = 'depth: a circle with two bumps';
+  b.title = 'a depth file (TVF §2.8): the shape read from a standpoint on it, every octave of the reading a sweep of its own';
+  b.addEventListener('click', () => { history.replaceState(null, '', location.pathname); const d = depthExample(); paste.value = d.text; showDepth(d); });
+  exRow.appendChild(b);
+}
 
 // ── wiring ───────────────────────────────────────────────────────────────
-document.getElementById('prev').addEventListener('click', () => { if (doc) { pick = (pick + info.length - 1) % info.length; refresh(); } });
-document.getElementById('next').addEventListener('click', () => { if (doc) { pick = (pick + 1) % info.length; refresh(); } });
+document.getElementById('prev').addEventListener('click', () => { if (doc && info.length) { pick = (pick + info.length - 1) % info.length; refresh(); } });
+document.getElementById('next').addEventListener('click', () => { if (doc && info.length) { pick = (pick + 1) % info.length; refresh(); } });
 stage.addEventListener('click', ev => {
   if (!doc || !view) return;
   const r = stage.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
@@ -416,7 +870,7 @@ stage.addEventListener('click', ev => {
 const paste = document.getElementById('paste');
 paste.addEventListener('input', () => {
   const t = paste.value.trim(); if (!t) return;
-  try { show(parseTvf(t)); } catch (e) { factsEl.innerHTML = `<div class="empty">that did not read as .tvf: ${esc(e.message)}</div>`; }
+  try { if (/^#meta\s+type:\s*depth\s*$/m.test(t)) showDepth(readDepth(t)); else show(parseTvf(t)); } catch (e) { factsEl.innerHTML = `<div class="empty">that did not read as .tvf: ${esc(e.message)}</div>`; }
 });
 // Back to the editor with the same curves, through the editor's own link.
 document.getElementById('toEditor').addEventListener('click', async () => {
@@ -438,7 +892,7 @@ document.getElementById('toEditor').addEventListener('click', async () => {
   let bin = ''; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
   window.open(new URL('../draw.html', location.href).href + '#tvf=z' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), 'tangent-draw');
 });
-let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => doc && refresh(), 150); });
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => (doc || depth) && refresh(), 150); });
 
 async function fromHash() {
   const m = (location.hash || '').match(/(?:^#|&)tvf=([^&]*)/);

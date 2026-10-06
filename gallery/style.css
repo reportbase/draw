@@ -473,3 +473,13 @@ body.page-inspect{margin:0;background:var(--bg);color:var(--ink); font-family:-a
 @media(max-width:640px){.page-papers .card{grid-template-columns:1fr}.page-papers .toc ol{columns:1}}
 .page-papers .md hr+h2{border-top:none;padding-top:0;margin-top:0}
 .page-papers .md h2,.page-papers .md h3,.page-papers .md h4{scroll-margin-top:64px}
+
+/* ── A LINK TO THE PAPER ─────────────────────────────────────────────────────
+   Where a tile or a section states a result one of the papers proves or measures, it
+   carries a small pill naming the section, linked into papers.html's reader. Small and
+   quiet on purpose: the page is the demonstration, the paper is where the argument is. */
+a.paper{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.02em;white-space:nowrap;
+  color:#b9a6ff;background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.28);border-radius:999px;
+  padding:0 7px;margin-left:2px;line-height:17px;text-decoration:none;vertical-align:1px}
+a.paper::before{content:'¶ ';opacity:.7}
+a.paper:hover{background:rgba(124,92,255,.22);color:#d9cfff}

@@ -47,6 +47,7 @@
   <a class="jump" href="#traps">traps</a>
   <a class="jump" href="#algebra">the algebra</a>
   <a class="jump" href="#limits">structural</a>
+  <a class="jump" href="#horns">two horns</a>
   <a class="jump" href="#held">what held</a>
 </div></div>
 
@@ -3784,6 +3785,23 @@ const p = (key, min, max, step, value) => ({ key, min, max, step, value });
 // The page's palette on the slate ground: INK the light contour, CLAY (the name kept) the
 // violet every gallery uses for what a tile is about, SLIP green for what holds.
 const INK = 'rgba(232,236,245,0.92)', CLAY = 'rgba(160,138,255,0.95)', GHOST = 'rgba(232,236,245,0.17)', SLIP = '#4ade80';
+const BLUE = 'rgba(94,182,255,0.95)';
+// THE OTHER HORN (spectral §22). The Fejér operator on the same N leaves: the Cesàro weights
+// 1 − |m|/(N/2) on the leaves' own discrete transform, which in space is the kernel
+// (1/N)·(1/M)·(sin(Mφ/2)/sin(φ/2))², M = N/2. A square, so never negative; its translates sum
+// to 1, so its norm is exactly 1. evalAt is the interpolating horn, from tvf.js.
+function fejerKernel(phi, N) {
+  const M = N / 2, s = Math.sin(phi / 2);
+  if (Math.abs(s) < 1e-12) return M / N;
+  const r = Math.sin(M * phi / 2) / s;
+  return r * r / (M * N);
+}
+function fejerAt(ch, phi) {
+  const N = ch.length;
+  let out = 0;
+  for (let k = 0; k < N; k++) out += ch[k] * fejerKernel(phi - (k + 0.5) * TAU / N, N);
+  return out;
+}
 
 // ── drawing helpers ──────────────────────────────────────────────────────
 function cam(items, w, h, pad) {
@@ -3923,7 +3941,8 @@ const SECTIONS = [
   id: 'band', title: 'What the band limit cannot do', kicker: 'not bugs — the price of the guarantee',
   note: 'These will never be fixed, because fixing them means giving up the property the whole format is built on. ' +
         'A band-limited curve is smooth everywhere. A corner is not smooth anywhere near itself. You can get as close ' +
-        'as you like and you will get there at <b>O(1/N)</b>, which is the slowest useful rate there is.',
+        'as you like and you will get there at <b>O(1/N)</b>, which is the slowest useful rate there is. ' +
+        '<a class="paper" href="../papers.html#tb_classical:6.3-r3-bounded-between">theorem §6.3, R3</a>',
   entries: [
     { name: 'a corner never arrives', tall: true,
       note: 'A square, sampled at N leaves and reconstructed. The corner is cut and the flats ring, and both shrink at ' +
@@ -4198,6 +4217,88 @@ const SECTIONS = [
   ]
 },
 {
+  id: 'horns', title: 'The two horns', kicker: 'exact at the leaves, or never ringing — not both',
+  note: 'The reconstruction on every page is the <b>interpolating</b> one: it passes through every leaf, and to do it ' +
+        'its kernel has to go negative between them, so at a jump it rings, and its worst-case amplification ' +
+        '(the Lebesgue constant) grows like (2/π)·ln N without bound. There is another way to read the same leaves. ' +
+        'The <b>Fejér</b> operator weights each mode by a triangle, 1 − |m|/(N/2), and its kernel is a square, so ' +
+        'never negative: it cannot ring and its norm is exactly 1 at every N. The price is the leaves themselves — it no ' +
+        'longer passes through them, and it damps every mode, even the ones the interpolant holds exactly. Same data, ' +
+        'two operators, and each one keeps what the other gives up. The spectral companion works it through: ' +
+        '<a class="paper" href="../papers.html#tb_spectral:22.1-statement">spectral §22</a>',
+  entries: [
+    { name: 'a jump, read both ways', wide: true, tall: true,
+      note: 'A square wave, +1 then −1, sampled at N leaves (the jumps fall between leaves). The interpolant (violet) ' +
+            'goes through every leaf and overshoots beside each jump by a fixed share of it, whatever N: the constant ' +
+            'the format paper measures as 0.1411, not the 0.0895 of a truncated Fourier series. The Fejér reading (blue) ' +
+            'never leaves [−1, 1] and never goes through a leaf. Drag N up: the overshoot narrows and stays exactly as tall; ' +
+            'the Fejér corner sharpens and stays exactly as soft.',
+      params: [ p('N', 8, 256, 1, 32), p('zoom', 1, 8, .5, 1) ],
+      code: v => `square wave at N = ${v.N}: evalAt (interpolation) and fejerAt (σ_d, §22) on the same ${v.N} leaves`,
+      state: v => {
+        const N = v.N, th = Array.from({ length: N }, (_, k) => (k + 0.5) * TAU / N);
+        const c = th.map(t => (t < Math.PI ? 1 : -1)), ch = Float64Array.from(c);
+        const P = 2400, xs = [], yi = [], yf = [];
+        let over = -Infinity, fmax = -Infinity, fnode = 0;
+        for (let i = 0; i <= P; i++) { const t = TAU * i / P; xs.push(t); const a = evalAt(ch, t), b = fejerAt(ch, t);
+          yi.push(a); yf.push(b); over = Math.max(over, a); fmax = Math.max(fmax, b); }
+        for (let k = 0; k < N; k++) fnode = Math.max(fnode, Math.abs(fejerAt(ch, th[k]) - c[k]));
+        return { th, c, xs, yi, yf, over: (over - 1) / 2, fmax, fnode };
+      },
+      verdict: s => `interpolation: through every leaf, overshoot ${s.over.toFixed(4)} of the jump (the paper: 0.1411) · ` +
+                    `Fejér: highest point ${s.fmax.toFixed(4)}, never above the step — and off its own leaves by up to ${s.fnode.toFixed(3)}`,
+      draw: (ctx, w, h, v, s) => {
+        // the window: the whole period at zoom 1, the jump at π at higher zoom
+        const half = Math.PI / v.zoom, lo = Math.PI - half, hi = Math.PI + half;
+        const keep = (xs, ys) => { const X = [], Y = []; xs.forEach((x, i) => { if (x >= lo && x <= hi) { X.push(x); Y.push(ys[i]); } }); return { x: X, y: Y }; };
+        const step = keep(s.xs, s.xs.map(t => (t < Math.PI ? 1 : -1)));
+        const I = keep(s.xs, s.yi), Fj = keep(s.xs, s.yf);
+        const P = plot(ctx, w, h - 6, [
+          Object.assign(step, { color: GHOST, width: 2.4 }),
+          Object.assign(Fj, { color: BLUE, width: 1.6 }),
+          Object.assign(I, { color: CLAY, width: 1.6 })], { x0: lo, x1: hi, y0: -1.45, y1: 1.45, zero: 0 });
+        ctx.fillStyle = INK;
+        s.th.forEach((t, k) => { if (t < lo || t > hi) return; ctx.beginPath(); ctx.arc(P.X(t), P.Y(s.c[k]), v.N > 96 ? 1.3 : 2.2, 0, TAU); ctx.fill(); });
+        ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(160,138,255,0.45)'; ctx.lineWidth = 1;
+        for (const y of [1 + 2 * 0.1411, -1 - 2 * 0.1411]) { ctx.beginPath(); ctx.moveTo(P.X(lo), P.Y(y)); ctx.lineTo(P.X(hi), P.Y(y)); ctx.stroke(); }
+        ctx.setLineDash([]);
+        label(ctx, 10, 14, `interpolation · overshoot ${s.over.toFixed(4)} of the jump`, CLAY);
+        label(ctx, 10, 27, `Fejér · never above ${s.fmax.toFixed(3)}`, BLUE);
+        label(ctx, 10, 40, 'the leaves, and the dashed 0.1411 line', 'rgba(139,149,171,1)');
+      } },
+
+    { name: 'a mode it already held', tall: true,
+      note: 'cos 3θ is in the band at every N here, so the interpolant holds it <b>exactly</b>: the error is rounding. ' +
+            'Fejér damps it by its triangle weight 1 − 3/(N/2), so it misses even this, by up to 3/(N/2) of the amplitude, ' +
+            'falling only as 1/N. That is the saturation: a positive kernel cannot do better than first order on anything, ' +
+            'smooth or not.',
+      params: [ p('N', 8, 256, 1, 16) ],
+      code: v => `cos 3θ at N = ${v.N}: the Fejér weight on mode 3 is 1 − 3/${v.N / 2} = ${(1 - 3 / (v.N / 2)).toFixed(4)}`,
+      state: v => {
+        const N = v.N, th = Array.from({ length: N }, (_, k) => (k + 0.5) * TAU / N), ch = Float64Array.from(th, t => Math.cos(3 * t));
+        let ei = 0, ef = 0, en = 0;
+        const P = 720, xs = [], yi = [], yf = [];
+        for (let i = 0; i <= P; i++) { const t = TAU * i / P, a = evalAt(ch, t), b = fejerAt(ch, t);
+          xs.push(t); yi.push(a); yf.push(b); ei = Math.max(ei, Math.abs(a - Math.cos(3 * t))); ef = Math.max(ef, Math.abs(b - Math.cos(3 * t))); }
+        for (let k = 0; k < N; k++) en = Math.max(en, Math.abs(fejerAt(ch, th[k]) - ch[k]));
+        return { th, ch, xs, yi, yf, ei, ef, en, bound: 3 / (N / 2) };
+      },
+      verdict: s => `interpolation off by ${s.ei.toExponential(1)} · Fejér off by ${s.ef.toFixed(4)}, at its own leaves ${s.en.toFixed(4)} (bound 3/(N/2) = ${s.bound.toFixed(4)})`,
+      bad: s => s.ef > 0.05,
+      draw: (ctx, w, h, v, s) => {
+        const P = plot(ctx, w, h - 6, [
+          { x: s.xs, y: s.xs.map(t => Math.cos(3 * t)), color: GHOST, width: 2.6 },
+          { x: s.xs, y: s.yf, color: BLUE, width: 1.6 },
+          { x: s.xs, y: s.yi, color: CLAY, width: 1.3 }], { x0: 0, x1: TAU, y0: -1.15, y1: 1.15, zero: 0 });
+        if (opts.leaves) { ctx.fillStyle = INK; s.th.forEach((t, k) => { ctx.beginPath(); ctx.arc(P.X(t), P.Y(s.ch[k]), 1.8, 0, TAU); ctx.fill(); }); }
+        label(ctx, 10, 14, 'interpolation: on the curve', CLAY);
+        label(ctx, 10, 27, `Fejér: ×${(1 - s.bound).toFixed(3)}`, BLUE);
+      } },
+
+    { name: 'the two horns, measured', kind: 'report', wide: true },
+  ]
+},
+{
   id: 'held', title: 'What did not break', kicker: 'the half that makes the rest worth reading',
   note: 'A page that only shows failures is not evidence, it is a mood. These are the claims the same harness checked ' +
         'and could not break — <b>including two I had written down as broken</b>, which were wrong for two different ' +
@@ -4283,6 +4384,37 @@ function makeTile(entry, sec) {
 
 // ── the report tiles ─────────────────────────────────────────────────────
 const REPORTS = {
+'the two horns, measured': (host) => {
+  const rows = [8, 32, 128, 512].map(N => {
+    const th = Array.from({ length: N }, (_, k) => (k + 0.5) * TAU / N);
+    let leb = 0, fn = 0, fmin = Infinity, pou = 0;
+    for (let i = 0; i <= 200; i++) {
+      const p = (i / 200) * TAU / N;
+      let a = 0, b = 0, sum = 0;
+      for (const t of th) { a += Math.abs(kernel(p - t, N)); const f = fejerKernel(p - t, N); b += Math.abs(f); sum += f; fmin = Math.min(fmin, f); }
+      leb = Math.max(leb, a); fn = Math.max(fn, b); pou = Math.max(pou, Math.abs(sum - 1));
+    }
+    const ch = Float64Array.from(th, t => Math.cos(3 * t));
+    let node = 0;
+    for (let k = 0; k < N; k++) node = Math.max(node, Math.abs(fejerAt(ch, th[k]) - ch[k]));
+    return { N, leb, fn, fmin, pou, node };
+  });
+  host.innerHTML =
+    `<p>The table of the spectral companion's §22, measured here. <b>Λ<sub>N</sub></b> is the interpolating operator's
+      norm (its Lebesgue constant); <b>‖σ‖</b> is Fejér's, read the same way.</p>
+     <table><thead><tr><th>N</th><th>Λ<sub>N</sub> (interpolation)</th><th>‖σ‖ (Fejér)</th><th>min of the Fejér kernel</th><th>Fejér: Σ − 1</th><th>Fejér off its leaves, cos 3θ</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.N}</td><td class="bad">${r.leb.toFixed(3)}</td><td class="ok">${r.fn.toFixed(5)}</td>` +
+      `<td>${r.fmin < 1e-14 ? r.fmin.toExponential(0) : r.fmin.toFixed(4)}</td><td>${r.pou.toExponential(0)}</td><td>${r.node.toFixed(4)}</td></tr>`).join('') +
+    `</tbody></table>
+     <p style="margin-top:8px">The interpolating norm climbs with ln N and never stops, which is why some continuous
+      curve exists whose interpolants diverge (Faber's theorem): the theorem's R4 is stated on a restricted class for
+      exactly this reason. The Fejér norm is 1 at every N, so by the same uniform-boundedness argument run the other
+      way, its readings converge for <em>every</em> continuous curve. It pays in the last column: it is not exact
+      even on a curve the leaves hold perfectly.</p>
+     <p class="foot">This is a choice, not a defect on either side. Every other page uses the interpolating horn, because
+      a format whose readings pass through its own leaves is the only kind where the leaves are the curve. The editor
+      can show the other one: its lab drawer has a <em>Fejér presentation</em> switch under reconstruction.</p>`;
+},
 'three curves, three convergence orders': (host) => {
   const runs = [
     ['a true corner', ST.roundedRect(100, 0.001), 'O(1/N) — halving the error costs twice the leaves, forever'],
