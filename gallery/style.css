@@ -92,15 +92,18 @@ section{padding-top:34px;scroll-margin-top:52px}
 .tile.tall canvas{height:340px}
 .tile .stage .badge{position:absolute;top:8px;right:10px;font-size:11px;letter-spacing:.09em;
   color:var(--dim);text-transform:uppercase}
-.tile .stage .save,.tile .stage .tvf,.tile .stage .edit,.tile .stage .link{position:absolute;bottom:9px;opacity:0;transition:opacity .15s;
-  padding:4px 9px;font-size:11.5px;border-radius:7px}
-.tile .stage .save{right:10px}
-.tile .stage .tvf{right:62px}
-.tile .stage .edit{right:114px;background:var(--curv);border-color:var(--curv);color:#fff}
-.tile:hover .stage .save,.tile:hover .stage .tvf,.tile:hover .stage .edit,.tile:hover .stage .link{opacity:1}
-/* touch screens have no hover, and a button you cannot see is a button you cannot find */
-@media (hover:none){.tile .stage .save,.tile .stage .tvf,.tile .stage .edit,.tile .stage .link{opacity:1}}
-.tile .stage .tvf.done,.tile .stage .save.done{background:var(--ok);border-color:var(--ok);color:#0c0f16}
+/* THE TILE'S BUTTONS SIT UNDER THE PICTURE, NOT ON IT. They used to float over the bottom
+   right of the canvas, appearing on hover, and covered whatever the shape put there; a wide
+   composition reaches the corners, and a chart puts its axis labels exactly there. A row
+   of their own costs one line of height and hides nothing, and with the picture clear of
+   them there is no reason to hide them until hover, which touch screens never had anyway. */
+.tile .tools{display:flex;justify-content:flex-end;gap:6px;margin:-4px 0 -2px}
+.tile .tools button{padding:3px 10px;font-size:11.5px;border-radius:7px}
+.tile .tools button[hidden]{display:none}
+.tile .tools:not(:has(button:not([hidden]))){display:none}   /* a chart tile with no curve to hand on */
+.tile .tools .edit{background:var(--curv);border-color:var(--curv);color:#fff}
+.tile .tools .edit:hover{background:#8d72ff}
+.tile .tools .tvf.done,.tile .tools .save.done{background:var(--ok);border-color:var(--ok);color:#0c0f16}
 
 .tile .body{padding:0 5px 4px;display:flex;flex-direction:column;gap:10px}
 .tile h3{font-size:14px;font-weight:650;margin:0;letter-spacing:-.005em}
@@ -119,7 +122,6 @@ section{padding-top:34px;scroll-margin-top:52px}
 .next{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13.5px;color:var(--ink-2)}
 
 /* ── TILE LINKS AND PREDICT MODE ── */
-.tile .stage .link{right:166px}
 .tile.flash{animation:flash 2.4s ease-out}
 @keyframes flash{0%,30%{border-color:var(--curv);box-shadow:0 0 0 2px rgba(124,92,255,.55)}100%{}}
 .tile .predict{font-size:12.5px;color:var(--ink-2);background:rgba(124,92,255,.07);border:1px dashed rgba(124,92,255,.35);
@@ -208,5 +210,3 @@ footer b{color:var(--ink-2);font-weight:600}
 .tile .verdict.bad{border-color:rgba(242,193,78,.38);background:rgba(242,193,78,.08);color:#f6d68a}
 .page-chart .tile code.src{white-space:pre-wrap}
 .page-chart .sec-head .n{font-style:italic;font-variant-numeric:normal}
-.page-chart .tile .stage .tvf{right:10px}
-.page-chart .tile .stage .edit{right:62px}

@@ -5782,8 +5782,8 @@ function makeTile(entry) {
     `<div class="dial"><label><span>${par.key}</span><span class="val" data-v="${par.key}">${par.value}</span></label>
      <input type="range" data-k="${par.key}" min="${par.min}" max="${par.max}" step="${par.step}" value="${par.value}"></div>`).join('');
   tile.innerHTML =
-    `<div class="stage"><canvas></canvas>` +
-    `<button class="edit" title="open this tile's curve in the leaf editor — it rides in the link">edit</button>` +
+    `<div class="stage"><canvas></canvas></div>` +
+    `<div class="tools"><button class="edit" title="open this tile's curve in the leaf editor — it rides in the link">edit</button>` +
     `<button class="tvf" title="copy as .tvf">.tvf</button></div>` +
     `<div class="body"><h3>${entry.name}</h3><p class="note">${entry.note}</p>` +
     `<div class="verdict"></div><code class="src"></code><div class="dials">${dials}</div></div>`;
