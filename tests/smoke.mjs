@@ -138,7 +138,7 @@ try {
    tile's edit button must produce a link that this editor opens. window.open is
    stubbed so the link can be followed here, in a page of our own. */
 const { readdir } = await import('node:fs/promises');
-const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html') && f !== 'index.html').sort();
+const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html') && f !== 'index.html' && f !== 'inspect.html').sort();
 for (const g of galleries){
   current = 'gallery/' + g;
   const gp = await browser.newPage();
@@ -204,15 +204,61 @@ await step('tile link and predict mode', async () => {
   if (score !== '2 of 2 right') throw new Error('a right answer scored ' + score);
 });
 
+/* The inspector reads facts off the leaves. Two of its examples have answers that can be
+   worked by hand: a heart is one mirror (D1, vertical axis) and fits in 9 leaves; an
+   ellipse wobbles twice but is Z₁ and Z₋₁ only, so 3 leaves hold it. */
+await step('inspector', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[inspector] ${e.message}`));
+  await gp.goto(new URL('gallery/inspect.html', base).href, { waitUntil: 'load' });
+  const read = async ex => {
+    await gp.click(`#examples button:text-is("${ex}")`);
+    return gp.$$eval('.fact', fs => Object.fromEntries(fs.map(f => [f.querySelector('.k').textContent, f.querySelector('.v').textContent])));
+  };
+  const heart = await read('heart'), ell = await read('ellipse');
+  await gp.close();
+  if (heart['symmetry group'] !== 'D1' || !/axis at 90\.0°/.test(heart.mirror) || !/could be 9$/.test(heart.leaves))
+    throw new Error('heart read as ' + JSON.stringify(heart));
+  if (ell['symmetry group'] !== 'D2' || !/could be 3$/.test(ell.leaves)) throw new Error('ellipse read as ' + JSON.stringify(ell));
+});
+
+/* THE SEVEN COPIES. Each gallery page carries the same bundled library (tvf.js through
+   tvf.format.js, ~130 KB) and the same tile code (spectrum strip, predict mode, editor
+   link), so that each opens from disk as one file. Nothing makes them stay the same but
+   this: a fix made in one page and not the others fails here, naming the odd ones out. */
+await step('gallery copies agree', async () => {
+  const spans = [
+    ['bundled library', 'const TVF = (function', s => { const j = s.indexOf('})();', s.indexOf('return { toTVF')); return j < 0 ? -1 : j + 5; }],
+    ['tile code', "// The loop a tile's strip", s => s.indexOf('async function copyText')],
+  ];
+  for (const [what, start, end] of spans) {
+    const seen = new Map();
+    for (const g of galleries) {
+      const s = await readFile(join(ROOT, 'gallery', g), 'utf8');
+      const i = s.indexOf(start), j = end(s);
+      const key = i < 0 || j < i ? '(missing)' : s.slice(i, j);
+      if (!seen.has(key)) seen.set(key, []);
+      seen.get(key).push(g);
+    }
+    if (seen.size > 1) {
+      const groups = [...seen.values()].sort((a, b) => b.length - a.length);
+      const odd = groups.slice(1).flat();
+      throw new Error(`${what} differs: ${odd.join(', ')} ${odd.length === 1 ? 'does' : 'do'} not match ${groups[0].join(', ')}`);
+    }
+  }
+});
+
 /* The front page: it loads, and each of its cards points at a gallery that exists. */
 await step('gallery index', async () => {
   const gp = await browser.newPage();
   gp.on('pageerror', e => failures.push(`[gallery/index] ${e.message}`));
   await gp.goto(new URL('gallery/index.html', base).href, { waitUntil: 'load' });
-  const hrefs = await gp.$$eval('a.card', as => as.map(a => a.getAttribute('href')));
+  const hrefs = await gp.$$eval('a.card:not(.after)', as => as.map(a => a.getAttribute('href')));
+  const after = await gp.$$eval('a.card.after', as => as.map(a => a.getAttribute('href')));
   await gp.close();
   if (hrefs.length !== galleries.length) throw new Error(`${hrefs.length} cards for ${galleries.length} pages`);
   for (const h of hrefs) if (!galleries.includes(h)) throw new Error('card points at missing ' + h);
+  if (after.join() !== 'inspect.html') throw new Error('the inspector card points at ' + after.join());
 });
 
 if (failures.length){

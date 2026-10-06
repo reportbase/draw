@@ -3059,6 +3059,7 @@
                 <div class="menu-title">learn</div>
                 <div class="menu-note sub">Seven galleries of live shapes, in reading order, each with its spectrum drawn underneath. Any tile's edit button opens it here.</div>
                 <button id="bGalleries" title="open the galleries in a new tab (gallery/)" onclick="window.open('gallery/', '_blank', 'noopener')">the galleries ↗</button>
+                <button id="bInspect" title="open the selected shapes (or all of them) in the inspector, which reads their spectrum, symmetry, width and leaf count back off the leaves">inspect the selection ↗</button>
             </div>
 
             <div class="group">
@@ -71835,6 +71836,8 @@
         //   [flags&1] u8 r, g, b, a — one fill for every curve (a is opacity, 0–255)
         //   [flags&2] varint len, then len bytes of UTF-8 — the name, which becomes the group's
         //   S × ( varint N · N zig-zag x deltas · N zig-zag y deltas ), y already pointing up
+        //   [flags&4] varint len, then len bytes of UTF-8 — the source line that made the curves,
+        //             AFTER them, so a reader that predates it stops at the curves and never knows
         //
         // It goes through pasteTvfShapes, the same door as .tvf text on the clipboard, so the
         // curves land exactly as a paste of the same shapes would: appended to whatever is on
@@ -71932,9 +71935,87 @@
                         y = ch();
                     curves.push({ x, y });
                 }
-                return { name, fill, curves };
+                let source = null;
+                if (flags & 4) {
+                    const len = uv();
+                    if (p + len > b.length)
+                        throw new Error('payload ends early');
+                    source = new TextDecoder().decode(b.subarray(p, p + len));
+                    p += len;
+                }
+                return { name, fill, curves, source };
             }
             window.decodeShapeLink = decodeShapeLink; // for the smoke test, and for poking at a link by hand
+
+            // The writer half, for the other direction: the inspector (gallery/inspect.html)
+            // reads the same payload. World coordinates already point up, so nothing flips;
+            // q is chosen from the extent so a scene in any units keeps ~1/9000 of its size.
+            async function encodeShapeLink(curves, name) {
+                const out = [],
+                    u8 = v => out.push(v & 255);
+                const uv = v => {
+                    while (v >= 128) {
+                        out.push((v % 128) | 128);
+                        v = Math.floor(v / 128);
+                    }
+                    out.push(v);
+                };
+                const zz = v => uv(v < 0 ? -2 * v - 1 : 2 * v);
+                let span = 0;
+                for (const c of curves)
+                    for (let j = 0; j < c.x.length; j++)
+                        span = Math.max(span, Math.abs(c.x[j]), Math.abs(c.y[j]));
+                const q = Math.max(1, Math.round(8192 * 0.9 / (span || 1)));
+                const nm = name ? new TextEncoder().encode(String(name).slice(0, 80)) : null;
+                u8(1);
+                uv(q);
+                uv(curves.length);
+                u8(nm ? 2 : 0);
+                if (nm) {
+                    uv(nm.length);
+                    for (const c of nm)
+                        u8(c);
+                }
+                for (const c of curves) {
+                    uv(c.x.length);
+                    for (const ch of [c.x, c.y]) {
+                        let prev = 0;
+                        for (let j = 0; j < ch.length; j++) {
+                            const v = Math.round(ch[j] * q);
+                            zz(v - prev);
+                            prev = v;
+                        }
+                    }
+                }
+                let bytes = new Uint8Array(out),
+                    kind = 'r';
+                if (typeof CompressionStream === 'function') {
+                    const cs = new CompressionStream('deflate-raw');
+                    bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(cs)).arrayBuffer());
+                    kind = 'z';
+                }
+                let bin = '';
+                for (let i = 0; i < bytes.length; i += 8192)
+                    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+                return kind + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            }
+            window.encodeShapeLink = encodeShapeLink;
+            const bInspect = document.getElementById('bInspect');
+            if (bInspect)
+                bInspect.addEventListener('click', async () => {
+                    let idx = selectedIndices();
+                    if (!idx.length)
+                        idx = state.subpaths.map((_, i) => i);
+                    const curves = idx.map(i => state.subpaths[i]).filter(sp => sp && sp.leafX && sp.leafX.length >= 3)
+                        .map(sp => ({ x: sp.leafX, y: sp.leafY }));
+                    if (!curves.length) {
+                        flashStatus('nothing to inspect — draw or select a shape first');
+                        return;
+                    }
+                    const lead = state.subpaths[idx[0]];
+                    const code = await encodeShapeLink(curves, lead && lead.gname);
+                    window.open('gallery/inspect.html#tvf=' + code, '_blank');
+                });
 
             // Re-spell the curves as .tvf text so they take the paste path. Six decimals keeps
             // every bit the quantization left.
@@ -71943,6 +72024,10 @@
                     const lines = ['TVF ' + c.x.length + ' 1 2', '#meta type:curve', '#meta closed:true', '#meta channels:xy'];
                     if (d.curves.length > 1)
                         lines.push('#meta subpath:' + (i + 1) + '/' + d.curves.length);
+                    // The source rides on the leader only: it describes the group, and the shape
+                    // browser reads a group's note off its leader (see the tooltip there).
+                    if (d.source && i === 0)
+                        lines.push('#meta note:' + d.source.replace(/\s+/g, ' ').trim());
                     if (d.fill) {
                         lines.push('#meta fill:' + d.fill.color);
                         lines.push('#meta fillOpacity:' + d.fill.opacity.toFixed(3));

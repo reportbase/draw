@@ -4102,7 +4102,10 @@ async function editorLink(list, o = {}) {
   const uv = v => { while (v >= 128) { out.push((v % 128) | 128); v = Math.floor(v / 128); } out.push(v); };
   const zz = v => uv(v < 0 ? -2 * v - 1 : 2 * v);
   const name = o.name ? new TextEncoder().encode(String(o.name).slice(0, 80)) : null;
-  u8(1); uv(Q); uv(list.length); u8((o.fill ? 1 : 0) | (name ? 2 : 0));
+  // The source line that made the curves goes AFTER them (flags&4): an editor that predates
+  // it reads the curves and stops, and one that knows it keeps it as the shape's note.
+  const source = o.source ? new TextEncoder().encode(String(o.source).replace(/\s+/g, ' ').trim().slice(0, 300)) : null;
+  u8(1); uv(Q); uv(list.length); u8((o.fill ? 1 : 0) | (name ? 2 : 0) | (source ? 4 : 0));
   if (o.fill) {
     const h = o.fill.replace('#', '');
     for (let i = 0; i < 6; i += 2) u8(parseInt(h.slice(i, i + 2), 16));
@@ -4120,6 +4123,7 @@ async function editorLink(list, o = {}) {
       }
     }
   }
+  if (source) { uv(source.length); for (const c of source) u8(c); }
   let bytes = new Uint8Array(out), kind = 'r';
   if (typeof CompressionStream === 'function') {
     const cs = new CompressionStream('deflate-raw');
@@ -5136,7 +5140,7 @@ function makeTile(entry) {
     if (!last) return;
     let href;
     try {
-      href = await editorLink(last, { name: entry.name, fill: opts.fill ? '#7c5cff' : null, fillOpacity: 0.16 });
+      href = await editorLink(last, { name: entry.name, source: entry.code(vals), fill: opts.fill ? '#7c5cff' : null, fillOpacity: 0.16 });
     } catch (err) { toast('could not encode: ' + err.message); return; }
     // A named window, so a second edit lands in the editor tab already open (the editor
     // picks the new fragment up on hashchange) rather than stacking up tabs.

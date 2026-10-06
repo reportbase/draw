@@ -12,6 +12,24 @@ publishes.
   `tvf-core.js` are not in this repo, so **this file is now the source**: edit the
   block in place.
 - `index.html`: forwards `/draw/` to `draw.html`, keeping `?lab=` and `?bucket=`.
+- `gallery/`: seven teaching pages (`gallery.html` the catalogue, then `snowflakes`,
+  `radiolaria`, `width`, `landscape`, `growth`, `assemblies`, in that reading order), the
+  front page `index.html` that lists them, and `inspect.html`, which reads a shape's
+  spectrum, symmetry, width and leaf count back off its leaves.
+  - Each gallery page is one self-contained file so it opens from disk. They all carry the
+    **same** bundled library (from `const TVF = (function` to the end of the FORMAT module)
+    and the **same** tile code (from `// The loop a tile's strip` to `async function
+    copyText`: spectrum strip, predict mode, editor link). Change one, change all seven;
+    `npm test` fails and names the page that differs.
+  - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
+    a gallery page means updating it (and the "N of 7" crumbs and "next" links in each page).
+
+## Links between the pages
+- `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE
+  SHAPE DEEP LINK" in `draw.html`. The gallery edit buttons write it, and so does the
+  inspector; the editor's "inspect the selection" writes the same payload to
+  `gallery/inspect.html#tvf=…`. New fields go after the curves, so older readers ignore them.
+- `gallery/<page>.html#tile=<slug>&<dial>=<value>` opens a tile at given settings.
 
 ## Shared with 3d: change with care
 The 3d repo copies three blocks of this file **verbatim**:

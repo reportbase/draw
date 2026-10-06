@@ -39,6 +39,7 @@ main{display:flex;flex-direction:column;gap:14px;padding-top:26px;padding-bottom
 .card{display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:center;
   background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;
   color:inherit;text-decoration:none;transition:border-color .15s,box-shadow .15s}
+.card.after{grid-template-columns:1fr;border-style:dashed;border-color:var(--line-2)}
 .card:hover,.card:focus-visible{border-color:var(--curv);box-shadow:0 2px 22px rgba(0,0,0,.35);outline:none}
 .thumb{background:var(--stage);border:1px solid var(--line);border-radius:9px;height:176px;
   display:flex;align-items:center;justify-content:center;color:var(--ink);overflow:hidden}
@@ -131,6 +132,16 @@ footer a{color:#b9a6ff}
       <div class="step"><span class="num">7</span> from specimens to scenes <span class="count">13 entries</span></div>
       <h2>Assemblies</h2>
       <p>A rose window, an orrery, a gear train, a reef: <b>hundreds of loops</b> stacked in depth, filled and toned, in a format whose whole vocabulary is a single loop. What a scene costs, and why depth is painter's order.</p>
+    </div>
+  </a>
+  <a class="card after" href="inspect.html">
+    <div class="text">
+      <div class="step">and then <span class="count">the other direction</span></div>
+      <h2>The inspector</h2>
+      <p>The seven pages go from a description to a shape. The inspector goes back: give it any closed
+      curve, including one you sculpted in the editor (<b>inspect the selection</b> in its settings menu),
+      and it reports the spectrum, the fold, the mirror and its axis, the symmetry group, the width and
+      how few leaves would hold it, each linked to the page above that explains it.</p>
     </div>
   </a>
 </main>
