@@ -135,6 +135,32 @@ try {
     if (!(e < 1e-9)) throw new Error('resample misses the curve by ' + e);
   });
 
+  /* TVF §8's three decoder test vectors, against the editor's own kernel at N = 8 … 1024:
+     the invisible mode reads zero at every leaf, the band Gram is diag(N, N/2, …, N/2, N)
+     with every band mode presented exactly, and the Lebesgue function peaks at home at the
+     closed-form sum (which must also match the published Λ_N). Then the same vectors are run
+     against two planted bugs, leaves half a leaf off and the odd-N kernel at even N, and must
+     fail: a check that cannot fail checks nothing. */
+  await step('decoder test vectors', async () => {
+    const r = await page.evaluate(() => {
+      const res = runDecoderVectors();
+      const keep = { lp: tvf.leafPositions, k: tvf.kernel };
+      tvf.leafPositions = N => Float64Array.from({ length: N }, (_, k) => k * 2 * Math.PI / N);
+      const shifted = runDecoderVectors({ ds: [2, 5] }).pass;
+      tvf.leafPositions = keep.lp;
+      tvf.kernel = (phi, N) => { phi = Math.atan2(Math.sin(phi), Math.cos(phi)); if (Math.abs(phi) < 1e-12) return 1;
+                                 return Math.sin(N * phi / 2) / (N * Math.sin(phi / 2)); };
+      const parity = runDecoderVectors({ ds: [2, 5] }).pass;
+      tvf.kernel = keep.k;
+      return { pass: res.pass, failed: res.rows.filter(x => !x.ok).map(x => x.N), lam: Object.fromEntries(res.rows.map(x => [x.N, x.home])), shifted, parity };
+    });
+    if (!r.pass) throw new Error('decoder vectors fail at N = ' + r.failed.join(', '));
+    for (const [N, want] of [[8, 1.848], [32, 2.728], [128, 3.610], [512, 4.493]])
+      if (Math.abs(r.lam[N] - want) > 6e-4) throw new Error(`Λ${N} = ${r.lam[N]}, the paper says ${want}`);
+    if (r.shifted) throw new Error('the vectors passed a decoder with its leaves half a leaf off');
+    if (r.parity) throw new Error('the vectors passed the odd-N kernel at even N');
+  });
+
   /* With everything selected, the buttons that act on a selection (align,
      group, order, style…) are enabled too, so the walk reaches them. Escape
      after each press can drop the selection, so it is taken again each time. */
