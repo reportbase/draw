@@ -12,6 +12,10 @@ publishes.
   `tvf-core.js` are not in this repo, so **this file is now the source**: edit the
   block in place.
 - `index.html`: forwards `/draw/` to `draw.html`, keeping `?lab=` and `?bucket=`.
+- `labs.html`: every lab in the drawer, by heading, with what it does and a
+  `draw.html?lab=CODE` link that runs it. **Generated** by `npm run labs`
+  (`tools/build-labs.mjs` reads the lab buttons off the live editor); after adding, renaming
+  or re-describing a lab in `draw.html`, run it, or `npm test` fails.
 - `gallery/`: fifteen teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `sound` (heard), `motion`
