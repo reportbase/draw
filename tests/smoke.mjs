@@ -138,7 +138,7 @@ try {
    tile's edit button must produce a link that this editor opens. window.open is
    stubbed so the link can be followed here, in a page of our own. */
 const { readdir } = await import('node:fs/promises');
-const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html')).sort();
+const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html') && f !== 'index.html').sort();
 for (const g of galleries){
   current = 'gallery/' + g;
   const gp = await browser.newPage();
@@ -150,6 +150,9 @@ for (const g of galleries){
     await gp.$eval('.tile .edit', b => b.click());
     await gp.waitForFunction(() => window.__links.length > 0, null, { timeout: 10000 });
     const link = await gp.evaluate(() => window.__links[0]);
+    // The spectrum strip under that tile drew, and said something.
+    const cap = await gp.$eval('.tile .spec-cap', c => c.textContent);
+    if (!/N = \d+ allows up to m = \d+/.test(cap)) throw new Error('spectrum caption: ' + cap);
     if (!link.startsWith(new URL('draw.html#tvf=', base).href)) throw new Error('edit link points at ' + link.slice(0, 80));
     // A fresh editor page each time, so the scene the button walk left behind (and its
     // saved copy) is not in the way: the link should open on a page of its own.
@@ -166,6 +169,31 @@ for (const g of galleries){
   await gp.close();
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} gallery/${g} edit → editor`);
 }
+
+/* The spectrum strip has to tell the truth, not just draw: a six-fold plate has
+   energy only at multiples of six, which is the snowflake page's first claim. */
+await step('spectrum: a plate is six-fold', async () => {
+  const gp = await browser.newPage();
+  await gp.goto(new URL('gallery/snowflakes.html', base).href, { waitUntil: 'load' });
+  const cap = await gp.evaluate(() => {
+    const t = [...document.querySelectorAll('.tile')].find(t => t.querySelector('h3')?.textContent === 'plate');
+    t.querySelector('.edit').dispatchEvent(new MouseEvent('click'));   // edit renders a lazy tile first
+    return t.querySelector('.spec-cap').textContent;
+  });
+  await gp.close();
+  if (!/only multiples of 6\b/.test(cap)) throw new Error('plate spectrum says: ' + cap);
+});
+
+/* The front page: it loads, and each of its cards points at a gallery that exists. */
+await step('gallery index', async () => {
+  const gp = await browser.newPage();
+  gp.on('pageerror', e => failures.push(`[gallery/index] ${e.message}`));
+  await gp.goto(new URL('gallery/index.html', base).href, { waitUntil: 'load' });
+  const hrefs = await gp.$$eval('a.card', as => as.map(a => a.getAttribute('href')));
+  await gp.close();
+  if (hrefs.length !== galleries.length) throw new Error(`${hrefs.length} cards for ${galleries.length} pages`);
+  for (const h of hrefs) if (!galleries.includes(h)) throw new Error('card points at missing ' + h);
+});
 
 if (failures.length){
   console.error(`\n${failures.length} failure(s):\n` + failures.map(f => '  ' + f).join('\n'));
