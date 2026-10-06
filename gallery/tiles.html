@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tvf — radiolaria</title>
+<title>tvf — tiles</title>
 <!-- FRAUNCES IS GONE WITH THE PAPER THEME. The Loop pane sets its prose in the system
      sans and nothing else, so the display serif has no job here any more; IBM Plex Mono
      stays, for source lines and the .tvf box, and falls back to the platform's own
@@ -17,21 +17,19 @@
 <body>
 
 <header>
-  <nav class="crumbs"><a href="index.html">← all galleries</a> · 4 of 17</nav>
-  <h1>tvf <em>radiolaria</em> <span class="pill">tvf.radiolaria.js</span></h1>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 13 of 17</nav>
+  <h1>tvf <em>tiles</em> <span class="pill">tvf.tiles.js</span></h1>
   <p class="lede">
-    Silica skeletons, every one of them <b>N samples of a band-limited loop</b>. The snowflake gallery
-    made one claim — rotational symmetry says <b>which</b> harmonics may be nonzero. The plankton need a
-    second: mirror symmetry says <b>what their phases are</b>. Reflect a shape onto itself and every sine
-    term vanishes; break the mirror and the same set of harmonics acquires phase, which is the entire
-    difference between <i>Navicula</i> and <i>Pleurosigma</i>.
+    Shapes that fit together to cover the plane, made Escher's way: a polygon that tiles, with each edge
+    bent exactly as the edge it meets. Every other page here treats a loop on its own. This one asks two
+    loops to <b>share an edge</b>, and finds the one thing a band-limited loop cannot do exactly.
   </p>
   <p class="sub">
-    The two are independent, and the ocean uses every combination of them, so each tile names its own.
-    Each shell is a sector profile projected onto its series and truncated at <code>K</code>, needing
-    <code>2·(f·K + 1) + 1</code> leaves and no more. The second section is where the format stops: a
-    radiolarian is a <b>lattice</b>, and a closed curve is not one — those are drawn honestly, one loop
-    per pore, with the count in the caption. Names are stylised after genera, not identifications.
+    Where three tiles meet, their angles add to 360°, so one of them has to turn a <b>corner</b>, and a
+    band-limited loop has none: it is smooth everywhere. So the neighbours agree at every leaf and drift
+    apart between them, and the gap is the seam. It never closes. How fast it shrinks as you add leaves
+    is up to the parameterization, and a curve that slows to a stop at each corner shrinks it by a
+    power of N rather than a fixed factor.
   </p>
   <p class="sub spec-help">
     Under every tile is its <b>spectrum</b>: bar <i>m</i> is how strongly the outline wobbles
@@ -49,27 +47,21 @@
   <span id="predict-score" hidden></span>
   <button id="t-spec" class="on" title="the harmonic spectrum under every tile">spectrum</button>
   <div class="spacer"></div>
-  <a class="jump" href="#shells">shells</a>
-  <a class="jump" href="#lattices">lattices</a>
+  <a class="jump" href="#tiles">tilings</a>
+  <a class="jump" href="#seam">the seam</a>
   <a class="jump" href="#evidence">evidence</a>
 </div></div>
 
 <main id="main"></main>
 
 <footer>
-  <b>tvf.radiolaria.js</b> is built on the public surface of tvf.js — <code>Shape</code>,
-  <code>mix</code>, the primitives — and on <code>tvf.shapes.js</code> for the traced parts (the beams,
-  the setae, the frustules). Nothing here reaches into the kernel.<br>
-  The shells are sampled uniformly in <b>theta</b>, not arc length: arc-length resampling of a
-  spectrally-specified contour is a nonlinear reparameterization, and tb_algebra §10.3 measures the leak
-  at up to <b>8×</b> the required leaf count — on a shape whose whole claim is that it needs exactly
-  2·(f·K + 1) + 1.<br>
-  Genera the tiles are drawn after: <i>Acanthometra</i>, <i>Heliodiscus</i>, <i>Podocyrtis</i>,
-  <i>Triactis</i>, <i>Actinomma</i>, <i>Dictyocha</i> (Radiolaria and silicoflagellates);
-  <i>Triceratium</i>, <i>Actinoptychus</i>, <i>Navicula</i>, <i>Pleurosigma</i>, <i>Cyclotella</i>,
-  <i>Asterolampra</i>, <i>Chaetoceros</i> (diatoms). Stylised after Haeckel's plates and a light
-  microscope, and not to be keyed from.
-  <div class="next">Next: <a href="width.html">Curves of constant width →</a></div>
+  <b>tvf.tiles.js</b> builds each tile from a polygon and a bent edge per pair, samples it to N leaves
+  through the public surface of tvf.js (<code>Shape</code>, <code>evalAt</code>), and measures the seam
+  with <code>evalAt</code> at matched points on partner edges, so the numbers are not sampling artefacts:
+  the seam is exactly zero at every leaf and measured between them.<br>
+  The stall is the order-m smoothstep, the same family the menagerie uses to slow a square down at its
+  corners. It does not move a single point of the tile; it only changes when the curve gets there.
+  <div class="next">Next: <a href="sound.html">Heard →</a></div>
 </footer>
 
 <script>
@@ -3291,429 +3283,177 @@ const { Shape, mix, alignTo, circle, ellipse, superellipse, rect, polygon, star,
         reconstruct, reconstructSlope, evalAt, kernel, kernelSlope, leafSlopes, TAU } = TVF;
 const SH = SHAPES, PT = PATTERNS, CO = COMPOSITES;
 const { toTVF, fromTVF } = FORMAT;
-const RADIO = (function () {
-// tvf.radiolaria.js — silica skeletons, as spectra
+const TILES = (function () {
+// tvf.tiles.js — shapes that tile the plane, and the seam they cannot close
 // ============================================================================
 //
-// THE SNOWFLAKE GALLERY MADE ONE CLAIM: rotational symmetry says WHICH harmonics
-// may be nonzero. This file needs a second one, because the things in the ocean
-// have both kinds of symmetry and in every combination:
+// Escher's recipe: start from a polygon that tiles, and bend its edges, bending
+// each edge exactly as the edge it meets is bent so the neighbours still fit.
+// Three kinds here:
 //
-//   ROTATIONAL, f-fold   →  only harmonics that are multiples of f survive.
-//                           A statement about WHICH coefficients exist.
-//   MIRROR, about an axis →  every surviving coefficient is real: the sine terms
-//                           are zero and the phases are all 0 or π.
-//                           A statement about WHAT THE PHASES ARE.
+//   square    four edges in two pairs; each pair related by a TRANSLATION
+//   hexagon   six edges in three pairs, the same rule
+//   quad      any quadrilateral; every edge bent by an ODD function about its own
+//             midpoint, so a HALF-TURN about that midpoint maps the tile onto its
+//             neighbour (Heesch's CCCC)
 //
-// The two are independent, and the plankton use every combination of them:
+// Each tile is then sampled to N leaves, and the leaves are placed so that two
+// neighbours AGREE AT EVERY LEAF: N is a multiple of the edge count, and the
+// leaves sit symmetrically on each edge, so a leaf on one edge and the matching
+// leaf on its partner are the same point of the plane. Between the leaves they
+// do not agree, because each tile's curve is reconstructed from all of its own
+// leaves, and that disagreement is the seam this page measures.
 //
-//   Actinoptychus  6-fold rotational, mirrored     — both
-//   Pleurosigma    2-fold rotational, NOT mirrored — rotational only, and the
-//                                                    sigmoid shape IS the phase
-//   Podocyrtis     no rotation, mirrored           — mirror only
-//   a rimed shell  neither                         — neither
-//
-// So `fromProfile` below takes a `mirror` flag, and when it is false it projects
-// the sine terms too. That one boolean is the whole difference between a diatom
-// that reads as drawn with a compass and one that reads as drawn by a current.
-//
-// ── WHAT THIS FILE IS NOT ───────────────────────────────────────────────────
-// These are not identifications. They are stylised after named genera, close
-// enough that a micropalaeontologist would name the genus and not close enough
-// to key a species from. The names are here because "6-fold with alternating
-// sectors" is what Actinoptychus IS, and saying so is more use than calling it
-// shape 7.
-//
-// ── AND WHERE THE FORMAT STOPS ──────────────────────────────────────────────
-// A radiolarian shell is a LATTICE: a sphere of silica with a few hundred holes
-// in it. A closed curve is not a lattice and no amount of leaves will make it
-// one. The second section draws them the honest way — the shell as one loop and
-// every pore as its own loop — and the count in each caption is the price.
-//
-// ============================================================================
+// It cannot be zero. Where three or more tiles meet, their angles add to 360°,
+// so at least one of them turns a corner there, and a band-limited loop is
+// smooth everywhere: it has no corner to turn. What can be chosen is how fast
+// the seam closes as leaves are added, and that is the parameterization: a
+// curve that STALLS at each corner (its speed falling to zero there, with m
+// derivatives) is smooth as a function of the parameter even though the picture
+// has a corner, and its seam falls like 1/N^(m+1) instead of 1/N.
 
-const { Shape, circle, ellipse, TAU } = TVF;
-const S = SHAPES;
-const PI = Math.PI;
+const { Shape, evalAt, TAU } = TVF;
 
-// ────────────────────────────────────────────────────────────────────────────
-// THE CONSTRUCTOR
-// ────────────────────────────────────────────────────────────────────────────
+const binom = (n, k) => { let r = 1; for (let i = 1; i <= k; i++) r = r * (n - k + i) / i; return r; };
+/** The order-m smoothstep: 0 → 0, 1 → 1, with m derivatives vanishing at both ends. */
+function stall(m) {
+  if (!m) return u => u;
+  const c = [];
+  for (let j = 0; j <= m; j++) c.push(binom(m + j, j) * binom(2 * m + 1, m - j) * (j % 2 ? -1 : 1));
+  return u => { let s = 0; for (let j = 0; j <= m; j++) s += c[j] * Math.pow(u, m + j + 1); return s; };
+}
+
+const HEX = Array.from({ length: 6 }, (_, k) => [Math.cos(k * TAU / 6), Math.sin(k * TAU / 6)]);
+const KINDS = {
+  square:  { P: [[0, 0], [1, 0], [1, 1], [0, 1]], rule: 'T' },
+  hexagon: { P: HEX, rule: 'T' },
+  quad:    { P: [[0, 0], [1.15, 0.12], [1.32, 1.04], [0.08, 0.92]], rule: 'C' },
+};
+const PHASE = [0.3, 1.9, 3.4, 4.6];
 
 /**
- * Project a sector profile onto its harmonic series and synthesise the shell.
- *
- * `prof(u)` is the radius across one fold, u running −0.5 … +0.5. K is how many
- * harmonics of f are kept, so the curve needs 2·(f·K + 1) + 1 leaves — the +1
- * inside is the sideband from x = r·cos θ, since the format stores coordinates
- * and not a radius.
- *
- * `mirror` (default true) projects onto cosines only, which imposes the mirror
- * symmetry — a profile that is not even is symmetrised rather than rejected.
- * Set it false and the sine terms come through: the shape keeps whatever
- * handedness the profile had, which is the only way to draw a sigmoid.
+ * A tile: its edges as functions of u in [0, 1], the exact boundary as a function
+ * of the parameter t in [0, 1) (stalled at the corners when m > 0), and how its
+ * neighbours sit (a translation per edge pair, or a half-turn per edge).
+ *   amp     how far the edges bend, as a share of an edge
+ *   wiggle  how many times they wave
+ *   m       the stall order at the corners: 0 is uniform along each edge
  */
-function fromProfile(N, o = {}) {
-  const f = Math.max(1, Math.round(o.fold == null ? 6 : o.fold));
-  const K = Math.max(1, Math.round(o.K == null ? 8 : o.K));
-  const prof = o.prof || (u => 1);
-  const R = o.r == null ? 100 : o.r;
-  const mirror = o.mirror !== false;
-  const M = 2048;
-  const c = new Float64Array(K + 1), s2 = new Float64Array(K + 1);
-  for (let m = 0; m < M; m++) {
-    const u = -0.5 + (m + 0.5) / M;
-    const v = prof(u);
-    for (let j = 0; j <= K; j++) {
-      c[j] += v * Math.cos(TAU * j * u);
-      if (!mirror) s2[j] += v * Math.sin(TAU * j * u);
+function tile(kind = 'square', o = {}) {
+  const K = KINDS[kind], P = K.P, E = P.length;
+  const amp = o.amp == null ? 0.18 : o.amp, w = o.wiggle == null ? 2 : o.wiggle, S = stall(o.m || 0);
+  const lerp = (a, b, u) => [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+  const normal = i => { const a = P[i], b = P[(i + 1) % E], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); return [dy / L, -dx / L]; };
+  const len = i => Math.hypot(P[(i + 1) % E][0] - P[i][0], P[(i + 1) % E][1] - P[i][1]);
+  const edges = new Array(E), shifts = [];
+  if (K.rule === 'T') {
+    const half = E / 2;
+    for (let i = 0; i < half; i++) {
+      const n = normal(i), L = len(i), ph = PHASE[i % 4];
+      // zero at both ends through the sin(πu) factor, so the corners stay where the polygon put them
+      const f = u => amp * L * Math.sin(Math.PI * u) * Math.sin(w * Math.PI * u + ph);
+      edges[i] = u => { const p = lerp(P[i], P[i + 1], u), d = f(u); return [p[0] + d * n[0], p[1] + d * n[1]]; };
+      const v = [P[i + half][0] - P[i + 1][0], P[i + half][1] - P[i + 1][1]];
+      edges[i + half] = u => { const p = edges[i](1 - u); return [p[0] + v[0], p[1] + v[1]]; };
+      shifts.push({ i, j: i + half, v });
+    }
+  } else {
+    for (let i = 0; i < E; i++) {
+      const n = normal(i), L = len(i), ph = PHASE[i % 4], k = Math.max(1, Math.round(w));
+      // odd about the midpoint: sin(2kπ(1 − u)) = −sin(2kπu) for any whole k
+      const f = u => amp * L * (Math.cos(ph) * Math.sin(2 * Math.PI * u) + 0.6 * Math.sin(ph) * Math.sin(2 * k * Math.PI * u));
+      edges[i] = u => { const p = lerp(P[i], P[(i + 1) % E], u), d = f(u); return [p[0] + d * n[0], p[1] + d * n[1]]; };
     }
   }
-  c[0] /= M;
-  for (let j = 1; j <= K; j++) { c[j] *= 2 / M; s2[j] *= 2 / M; }
-  const rot = o.rot == null ? -PI / 2 : o.rot;
-  const sh = Shape.fromFunction(t => {
-    const th = t * TAU;
-    const a = th - rot;
-    let r = c[0];
-    for (let j = 1; j <= K; j++) r += c[j] * Math.cos(j * f * a) + s2[j] * Math.sin(j * f * a);
-    return [R * r * Math.cos(th), R * r * Math.sin(th)];
-  }, N);
-  sh.meta = Object.assign({}, sh.meta, {
-    fold: f, K, mirror, nyquist: 2 * (f * K + 1) + 1,
-  });
-  return sh;
+  const exact = t => { t = ((t % 1) + 1) % 1; const s = t * E, e = Math.min(E - 1, Math.floor(s)); return edges[e](S(s - e)); };
+  const mid = i => lerp(P[i], P[(i + 1) % E], 0.5);
+  return { kind, E, P, rule: K.rule, edges, exact, shifts, mid, edgeLen: (P.reduce((a, _, i) => a + len(i), 0)) / E };
 }
 
-// ── profile vocabulary ──────────────────────────────────────────────────────
-function bump(u, w) {
-  const a = Math.abs(u);
-  if (a >= w || w <= 0) return 0;
-  return 0.5 * (1 + Math.cos(PI * a / w));
-}
-/** A spine: a bump raised to a power, so the tip is sharp and the base is not. */
-function spine(u, w, sharp) { return Math.pow(bump(u, w), Math.max(0.05, sharp == null ? 3 : sharp)); }
-/** A regular f-gon's own radius, vertex on the sector axis. */
-function poly(u, f) { return Math.cos(PI / f) / Math.cos((0.5 - Math.abs(u)) * TAU / f); }
-/** A square wave over the sector, rounded by whatever K you keep. */
-function sector(u, duty) { return Math.abs(u) < (duty == null ? 0.25 : duty) ? 1 : 0; }
+/** N rounded to the nearest multiple of the edge count, at least three leaves an edge. */
+const leafCount = (T, N) => Math.max(3 * T.E, Math.round(N / T.E) * T.E);
 
-// ────────────────────────────────────────────────────────────────────────────
-// RADIOLARIA
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * Acantharia. A sphere carrying twenty radial spines of strontium sulphate,
- * arranged by Müller's law — five groups of four, in fixed geometric relation.
- * In the plane you see a section through them, so the fold is a parameter and
- * twenty is what the whole animal has rather than what this circle shows.
- *
- * The spines are the interesting part spectrally: a spine is a NARROW feature,
- * narrow means high harmonics, and the harmonics are all multiples of the fold.
- * Twenty spines at K = 6 is harmonic 120, which is 243 leaves.
- */
-function acantharian(N = 320, o = {}) {
-  const f = o.fold == null ? 10 : o.fold;
-  const body = o.body == null ? 0.44 : o.body;
-  const len = o.len == null ? 0.56 : o.len;
-  const w = o.width == null ? 0.16 : o.width;
-  const sharp = o.sharp == null ? 2.6 : o.sharp;
-  return fromProfile(N, { fold: f, K: o.K == null ? 7 : o.K, r: o.r == null ? 100 : o.r,
-    prof: u => body + len * spine(u, w, sharp) });
+/** The tile as a Shape: N leaves at t = (k + ½)/N on its exact boundary. */
+function leaves(T, N) {
+  N = leafCount(T, N);
+  const x = new Float64Array(N), y = new Float64Array(N);
+  for (let k = 0; k < N; k++) { const p = T.exact((k + 0.5) / N); x[k] = p[0]; y[k] = p[1]; }
+  return new Shape(x, y);
 }
 
 /**
- * Heliodiscus. A disc with radial ribs and a thickened margin — the ribs are a
- * single high harmonic, and the margin is what stops them from reading as a
- * gear: the profile is a ribbed disc multiplied by a rim that does not vary.
+ * The seam: the worst disagreement, at corresponding points, between this tile's
+ * curve along an edge and its neighbour's curve along the partner edge, as a share
+ * of the mean edge length. Evaluated with evalAt at matched parameters, so nothing
+ * here is a sampling artefact: it is zero at every leaf and measured between them.
  */
-function heliodiscus(N = 288, o = {}) {
-  const ribs = Math.max(3, Math.round(o.ribs == null ? 14 : o.ribs));
-  const depth = o.depth == null ? 0.1 : o.depth;
-  return fromProfile(N, { fold: ribs, K: o.K == null ? 5 : o.K, r: o.r == null ? 100 : o.r,
-    prof: u => 1 - depth * (1 - bump(u, 0.42)) });
+function seam(T, s, samples = 256) {
+  const z = t => [evalAt(s.x, TAU * t), evalAt(s.y, TAU * t)];
+  const E = T.E;
+  let worst = 0;
+  const pairs = T.rule === 'T' ? T.shifts.map(({ i, j, v }) => ({ a: j, b: i, map: p => [p[0] + v[0], p[1] + v[1]] }))
+                               : Array.from({ length: E }, (_, i) => { const m = T.mid(i); return { a: i, b: i, map: p => [2 * m[0] - p[0], 2 * m[1] - p[1]] }; });
+  for (const { a, b, map } of pairs) for (let q = 0; q <= samples; q++) {
+    const u = q / samples, pa = z((a + u) / E), pb = map(z((b + 1 - u) / E));
+    worst = Math.max(worst, Math.hypot(pa[0] - pb[0], pa[1] - pb[1]));
+  }
+  return worst / T.edgeLen;
 }
 
 /**
- * Podocyrtis, and the nassellarian bell in general. NO rotational symmetry at
- * all — a cephalis, a thorax, an abdomen and three terminal feet, stacked along
- * one axis — but a clean mirror down that axis. Built at fold 1, which is the
- * degenerate case the constructor handles without a special path: one sector,
- * the whole turn, and the mirror flag doing all the symmetry there is.
+ * The tile and its neighbours, as an array of { shape, tone } around the original:
+ * a 3×3 block of lattice translates for T tiles, two rings of half-turns for C.
  */
-function bell(N = 256, o = {}) {
-  const waist = o.waist == null ? 0.34 : o.waist;
-  const feet = o.feet == null ? 0.3 : o.feet;
-  const K = o.K == null ? 14 : o.K;
-  return fromProfile(N, { fold: 1, K, r: o.r == null ? 100 : o.r, rot: -PI / 2,
-    prof: u => {
-      // a = 0 at the apex, 1 at the base. The animal is a STAIRCASE — cephalis, thorax,
-      // abdomen — with a stricture at each joint, so the profile is three smooth steps
-      // and three narrow dips rather than a ramp. A ramp draws a vase.
-      const a = Math.abs(u) * 2;
-      const step = (x, at, w) => 0.5 * (1 + Math.tanh((x - at) / w));
-      let r = 0.26 + 0.20 * step(a, 0.24, 0.045)
-                   + 0.24 * step(a, 0.50, 0.045)
-                   + 0.22 * step(a, 0.76, 0.045);
-      r -= waist * 0.5 * (bump(a - 0.24, 0.05) + bump(a - 0.50, 0.05) + bump(a - 0.76, 0.05));
-      r += feet * (bump(a - 0.88, 0.05) + 0.8 * bump(a - 1.0, 0.05));      // the terminal feet
-      return r;
-    } });
-}
-
-/**
- * Dictyocha, a silicoflagellate. A basal ring with spines at the corners and a
- * bar across it — the ring and the bar are separate loops, so the single-loop
- * version here is the ring alone; the assembled one is below.
- */
-function starRing(N = 224, o = {}) {
-  const f = Math.max(3, Math.round(o.points == null ? 4 : o.points));
-  const len = o.len == null ? 0.42 : o.len;
-  return fromProfile(N, { fold: f, K: o.K == null ? 9 : o.K, r: o.r == null ? 100 : o.r,
-    prof: u => 0.62 + len * spine(u, 0.2, 3.4) });
-}
-
-/** Triactis — three arms, blunt, on a fat body. The three-fold radiolarian. */
-function triactis(N = 224, o = {}) {
-  return fromProfile(N, { fold: 3, K: o.K == null ? 9 : o.K, r: o.r == null ? 100 : o.r,
-    prof: u => (o.body == null ? 0.5 : o.body)
-             + (o.len == null ? 0.5 : o.len) * spine(u, o.width == null ? 0.26 : o.width, 1.6) });
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// DIATOMS
-// ────────────────────────────────────────────────────────────────────────────
-
-/** Triceratium. A rounded triangle with a horn at each corner. */
-function triceratium(N = 224, o = {}) {
-  const f = Math.max(3, Math.round(o.fold == null ? 3 : o.fold));
-  const horn = o.horn == null ? 0.16 : o.horn;
-  return fromProfile(N, { fold: f, K: o.K == null ? 8 : o.K, r: o.r == null ? 100 : o.r,
-    prof: u => poly(u, f) * (1 - 0.18) + horn * spine(u, 0.13, 2.2) + 0.18 });
-}
-
-/**
- * Actinoptychus. Six sectors, alternately raised and lowered — which is a
- * six-fold shape whose ALTERNATION is three-fold, so the spectrum carries both:
- * harmonics of three from the alternation and of six from the sectors. Set
- * <b>alt</b> to zero and the threes vanish, leaving a plain six.
- */
-function actinoptychus(N = 288, o = {}) {
-  const f = Math.max(2, Math.round(o.sectors == null ? 6 : o.sectors));
-  const alt = o.alt == null ? 0.12 : o.alt;
-  const K = o.K == null ? 10 : o.K;
-  // The alternation is a HALF-fold feature, so it is built at fold f/2 with two
-  // sectors per period rather than by post-multiplying — a product would put
-  // sum-and-difference harmonics in that the shell does not have.
-  const half = Math.max(1, Math.round(f / 2));
-  return fromProfile(N, { fold: half, K, r: o.r == null ? 100 : o.r,
-    prof: u => {
-      // The sectors TILE: every angle belongs to one or the other, so there is no gap
-      // between them to read as a notch. A first draft used two narrow windows with
-      // dead space between and drew a lumpy blob rather than a valve.
-      const s1 = Math.abs(u) < 0.25 ? 1 : 0;
-      return 1 + alt * (2 * s1 - 1) + 0.02 * Math.cos(TAU * f * u / half);   // + the fine radial ribs
-    } });
-}
-
-/**
- * Navicula. The boat. Two mirrors — one down the long axis, one across it —
- * which is 2-fold rotation AND mirror, so every coefficient is real and only
- * even harmonics survive. The most spectrally boring thing in the ocean, and
- * the reference the next tile is measured against.
- */
-function navicula(N = 160, o = {}) {
-  const len = o.len == null ? 1 : o.len;
-  const w = o.width == null ? 0.34 : o.width;
-  const point = o.point == null ? 1.6 : o.point;
-  // r = 1/(1 + (1/w − 1)·|sin|^point), not 1 − (1−w)·a^point: the second one is flat
-  // near the tip and then falls, which draws a peanut with the waist in the wrong
-  // place. This one is monotone from tip to flank, which is what a lanceolate valve
-  // is. At fold 2 the sector spans π, so the profile's own angle is π·u.
-  return fromProfile(N, { fold: 2, K: o.K == null ? 10 : o.K, r: o.r == null ? 100 : o.r, rot: 0,
-    prof: u => len / (1 + (1 / Math.max(0.02, w) - 1) * Math.pow(Math.abs(Math.sin(PI * u)), point)) });
-}
-
-/**
- * Pleurosigma. The same boat with the mirror BROKEN: still 2-fold rotational —
- * turn it half a turn and it is itself — but no reflection takes it to itself,
- * and the difference is entirely in the phases. `skew` is how far the sine
- * terms are allowed in; at zero this is navicula exactly, and the S is the
- * phase of harmonic 2 turning away from zero.
- */
-function pleurosigma(N = 192, o = {}) {
-  const skew = o.skew == null ? 0.32 : o.skew;
-  const w = o.width == null ? 0.26 : o.width;
-  const point = o.point == null ? 1.5 : o.point;
-  return fromProfile(N, { fold: 2, K: o.K == null ? 12 : o.K, r: o.r == null ? 100 : o.r, rot: 0,
-    mirror: skew === 0,
-    prof: u => {
-      const base = 1 / (1 + (1 / Math.max(0.02, w) - 1) * Math.pow(Math.abs(Math.sin(PI * u)), point));
-      return base * (1 + skew * Math.sin(TAU * u));    // odd in u: pure sine, pure phase
-    } });
-}
-
-/**
- * Cyclotella. A disc whose ONLY feature is a fine crenulation at the margin —
- * a single high harmonic at low amplitude. It is the cheapest possible test of
- * whether a format can hold fine detail on a smooth body: at `striae` = 40 the
- * shape needs 163 leaves and every one of them is buying that one harmonic.
- */
-function cyclotella(N = 256, o = {}) {
-  const striae = Math.max(6, Math.round(o.striae == null ? 28 : o.striae));
-  const depth = o.depth == null ? 0.035 : o.depth;
-  return fromProfile(N, { fold: striae, K: o.K == null ? 2 : o.K, r: o.r == null ? 100 : o.r,
-    prof: u => 1 + depth * Math.cos(TAU * u) });
-}
-
-/** Asterolampra. Rays reaching most of the way to a circular margin. */
-function asterolampra(N = 288, o = {}) {
-  const rays = Math.max(4, Math.round(o.rays == null ? 9 : o.rays));
-  return fromProfile(N, { fold: rays, K: o.K == null ? 6 : o.K, r: o.r == null ? 100 : o.r,
-    prof: u => 0.94 + (o.depth == null ? 0.06 : o.depth) * (1 - 2 * bump(u, 0.3)) });
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// LATTICES AND COLONIES — many loops, because a shell full of holes is not a curve
-// ────────────────────────────────────────────────────────────────────────────
-
-function part(sh, style) { sh.meta = Object.assign({}, sh.meta, style || {}); return sh; }
-const WASH = 'rgba(124,92,255,0.16)';
-
-/**
- * A pore lattice: rings of circles laid on a shell. This is the honest drawing
- * of a radiolarian and it is 1 + Σ(ring counts) closed loops — the caption keeps
- * the count, because the whole reason the section above exists is that this is
- * what one loop is being spared.
- */
-function lattice(o = {}) {
-  const R = o.r == null ? 100 : o.r;
-  const rings = Math.max(1, Math.round(o.rings == null ? 3 : o.rings));
-  const first = Math.max(3, Math.round(o.first == null ? 6 : o.first));
-  const pore = o.pore == null ? 0.1 : o.pore;
-  const shell = o.shell || (n => circle(n, { r: R }));
-  const out = [part(shell(o.N == null ? 192 : o.N), { fill: WASH })];
-  for (let i = 0; i < rings; i++) {
-    const u = (i + 1) / (rings + 1);                  // fraction of the radius
-    const n = Math.round(first * (i + 1));            // more room further out
-    for (let k = 0; k < n; k++) {
-      const a = (k / n) * TAU + (i % 2) * PI / n;     // stagger, as a lattice does
-      out.push(part(circle(24, { r: R * pore * (0.7 + 0.5 * u),
-                                 cx: Math.cos(a) * R * u, cy: Math.sin(a) * R * u }),
-                    { tone: 0.75 }));
+function patch(T, s) {
+  const out = [];
+  if (T.rule === 'T') {
+    const [a, b] = T.shifts;
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+      const c = s.clone(); c.translate(i * a.v[0] + j * b.v[0], i * a.v[1] + j * b.v[1]);
+      out.push({ shape: c, tone: T.E === 6 ? (((i - j) % 3) + 3) % 3 : (i + j) & 1 });
+    }
+  } else {
+    // a placement is p ↦ sign·p + t; the neighbour across edge e of a placement is
+    // that placement after the half-turn about edge e's midpoint
+    const seen = new Map(), queue = [{ sg: 1, t: [0, 0], d: 0 }];
+    const key = q => q.sg + ':' + q.t[0].toFixed(6) + ',' + q.t[1].toFixed(6);
+    while (queue.length) {
+      const q = queue.shift();
+      if (seen.has(key(q))) continue;
+      seen.set(key(q), q);
+      if (q.d === 2) continue;
+      for (let e = 0; e < T.E; e++) {
+        const m = T.mid(e);
+        queue.push({ sg: -q.sg, t: [2 * q.sg * m[0] + q.t[0], 2 * q.sg * m[1] + q.t[1]], d: q.d + 1 });
+      }
+    }
+    for (const q of seen.values()) {
+      const c = s.clone();
+      for (let k = 0; k < c.N; k++) { c.x[k] = q.sg * c.x[k] + q.t[0]; c.y[k] = q.sg * c.y[k] + q.t[1]; }
+      out.push({ shape: c, tone: q.sg > 0 ? 0 : 1 });
     }
   }
   return out;
 }
 
 /**
- * Actinomma. Concentric shells joined by radial beams — and the reason it is
- * here rather than in a picture book: the shells are THE SAME LEAF ARRAY at
- * three scales. One spectrum, three numbers. Nothing is re-specified for the
- * inner ones, and the .tvf of the trio is one block plus two scale factors.
+ * The curve with its error magnified k times: exact(t) + k·(curve(t) − exact(t)),
+ * at P points, as a Shape of P leaves for drawing. A seam of a thousandth of an
+ * edge is invisible at any zoom a screen has; at ×40 it is a sliver.
  */
-function nested(o = {}) {
-  const R = o.r == null ? 104 : o.r;
-  const shells = Math.max(1, Math.round(o.shells == null ? 3 : o.shells));
-  const fall = o.fall == null ? 0.6 : o.fall;
-  const beams = Math.max(0, Math.round(o.beams == null ? 12 : o.beams));
-  const base = acantharian(o.N == null ? 256 : o.N,
-                           { fold: o.fold == null ? 9 : o.fold, r: R, len: o.len == null ? 0.3 : o.len });
-  const out = [];
-  for (let i = 0; i < shells; i++) {
-    const k = Math.pow(fall, i);
-    out.push(part(base.clone().scale(k, k, { x: 0, y: 0 }), { tone: 1 - 0.18 * i }));
+function exaggerate(T, s, k, P = 720) {
+  const x = new Float64Array(P), y = new Float64Array(P);
+  for (let q = 0; q < P; q++) {
+    const t = (q + 0.5) / P, e = T.exact(t), cx = evalAt(s.x, TAU * t), cy = evalAt(s.y, TAU * t);
+    x[q] = e[0] + k * (cx - e[0]); y[q] = e[1] + k * (cy - e[1]);
   }
-  for (let i = 0; i < beams; i++) {
-    const a = (i / beams) * TAU;
-    out.push(part(S.stadium(32, { w: R * 1.9, h: R * 0.035 }).rotate(a, { x: 0, y: 0 }), { tone: 0.5 }));
-  }
-  return out;
+  return new Shape(x, y);
 }
 
-/**
- * Dictyocha, assembled: the basal ring, the apical bar, and a spine at each
- * corner. Three kinds of part, one organism, and no way to say it in one loop.
- */
-function dictyocha(o = {}) {
-  const pts = Math.max(3, Math.round(o.points == null ? 4 : o.points));
-  const R = o.r == null ? 96 : o.r;
-  const out = [part(starRing(224, { points: pts, r: R, len: o.len == null ? 0.42 : o.len }), { fill: WASH })];
-  out.push(part(S.stadium(48, { w: R * 1.15, h: R * 0.12 }).rotate(o.bar == null ? 0.5 : o.bar, { x: 0, y: 0 }),
-                { tone: 0.8 }));
-  for (let i = 0; i < pts; i++) {
-    const a = (i / pts) * TAU - PI / 2;
-    out.push(part(circle(20, { r: R * 0.07, cx: Math.cos(a) * R * 0.96, cy: Math.sin(a) * R * 0.96 }),
-                  { tone: 0.7 }));
-  }
-  return out;
-}
-
-/**
- * Chaetoceros. A chain of frustules joined corner to corner, each with two long
- * setae — the colony is the organism, and it is drawn as one loop per part
- * because that is what it is.
- */
-function colony(o = {}) {
-  const n = Math.max(2, Math.round(o.n == null ? 5 : o.n));
-  const w = o.w == null ? 92 : o.w;
-  const h = o.h == null ? 62 : o.h;
-  const seta = o.seta == null ? 120 : o.seta;
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const cx = (i - (n - 1) / 2) * w * 1.06;
-    out.push(part(S.squircle(64, { n: 3.2, rx: w / 2, ry: h / 2 }).translate(cx, 0), { fill: WASH }));
-    // The setae leave from the two ends of the frustule and splay AWAY from each other.
-    // Built along +x, turned, then carried to the corner: the right one goes up-right,
-    // the left one up-left. (+y is down, so up is a negative angle.)
-    const ang = o.angle == null ? 0.85 : o.angle;
-    for (const s of [-1, 1]) {
-      const a = s > 0 ? -ang : (PI + ang);
-      out.push(part(S.taper(S.stadium(40, { w: seta, h: h * 0.11 }), 0.85)
-                     .translate(seta / 2, 0).rotate(a, { x: 0, y: 0 })
-                     .translate(cx + s * w * 0.42, -h * 0.3), { tone: 0.6 }));
-    }
-  }
-  return out;
-}
-
-/**
- * A plankton haul. Different genera at different sizes and turns, the way they
- * arrive in a net — and the point of the tile is that they are all the same
- * three lines of code with different coefficients.
- */
-function haul(o = {}) {
-  const n = Math.max(1, Math.round(o.n == null ? 8 : o.n));
-  let sd = (o.seed == null ? 4 : o.seed) * 7561 + 1319;
-  const rnd = () => (sd = (sd * 9301 + 49297) % 233280) / 233280;
-  const cols = Math.ceil(Math.sqrt(n)), gap = o.gap == null ? 250 : o.gap;
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const R = 82 * (0.62 + 0.5 * rnd()), k = rnd();
-    const s = k < 0.2 ? acantharian(320, { r: R, fold: 6 + Math.round(rnd() * 10) })
-            : k < 0.36 ? heliodiscus(288, { r: R, ribs: 8 + Math.round(rnd() * 14) })
-            : k < 0.5 ? triceratium(224, { r: R, fold: 3 + Math.round(rnd() * 2) })
-            : k < 0.62 ? actinoptychus(288, { r: R, sectors: 6 })
-            : k < 0.74 ? navicula(160, { r: R, width: 0.2 + 0.3 * rnd() })
-            : k < 0.84 ? pleurosigma(192, { r: R, skew: 0.2 + 0.3 * rnd() })
-            : k < 0.93 ? cyclotella(256, { r: R, striae: 16 + Math.round(rnd() * 24) })
-            : bell(256, { r: R });
-    s.rotate(rnd() * TAU, { x: 0, y: 0 });
-    s.translate(((i % cols) - (cols - 1) / 2) * gap,
-                (Math.floor(i / cols) - (Math.ceil(n / cols) - 1) / 2) * gap);
-    s.meta.tone = 0.6 + 0.4 * rnd();
-    out.push(s);
-  }
-  return out;
-}
-
-return { fromProfile, bump, spine, poly, sector,
-         acantharian, heliodiscus, bell, starRing, triactis,
-         triceratium, actinoptychus, navicula, pleurosigma, cyclotella, asterolampra,
-         lattice, nested, dictyocha, colony, haul };
-
+return { tile, leaves, leafCount, seam, patch, exaggerate, stall, KINDS };
 })();
-const RA = RADIO;
+const TL = TILES;
+
 
 
 
@@ -4001,170 +3741,105 @@ async function copyText(text) {
 
 // ── the catalogue ────────────────────────────────────────────────────────
 // Each entry: build(p) -> Shape | Shape[]; code(p) -> the call that made it.
+const KIND_NAMES = ['square', 'hexagon', 'quad'];
+const TONES = ['rgba(124,92,255,0.20)', 'rgba(94,182,255,0.16)', 'rgba(74,222,128,0.13)'];
+const pct = e => (e * 100 >= 0.01 ? (e * 100).toFixed(e * 100 >= 1 ? 1 : 3) + '%' : e.toExponential(1) + ' of an edge');
+// lay a row of shape groups out left to right, `gap` apart, each labelled under its first shape
+function row(groups, gap, labels) {
+  const out = [];
+  let x = 0;
+  groups.forEach((g, i) => {
+    let x0 = Infinity, x1 = -Infinity;
+    for (const s of g) for (const v of s.x) { if (v < x0) x0 = v; if (v > x1) x1 = v; }
+    g.forEach((s, k) => { s.translate(x - x0, 0); if (k === 0 && labels) s.meta.label = labels[i]; out.push(s); });
+    x += (x1 - x0) + gap;
+  });
+  return out;
+}
+// a tile's neighbourhood, each copy filled by its colour class so the seams show as slivers
+function field(kind, v) {
+  const T = TL.tile(kind, { amp: v.amp, wiggle: v.wiggle, m: v.stall }), s = TL.leaves(T, v.N);
+  return TL.patch(T, s).map(({ shape, tone }) => { shape.meta.fill = TONES[tone]; return shape; });
+}
+const fieldCode = (kind, v) => {
+  const T = TL.tile(kind, { amp: v.amp, wiggle: v.wiggle, m: v.stall }), s = TL.leaves(T, v.N);
+  return `tile('${kind}', { amp: ${v.amp}, wiggle: ${v.wiggle}, stall: ${v.stall}, N: ${s.N} })   // seam: ${pct(TL.seam(T, s))}`;
+};
+
 const SECTIONS = [
 {
-  id: 'shells', title: 'One loop — the two symmetries',
-  note: 'Rotational symmetry says <b>which</b> harmonics may be nonzero: f-fold forces every coefficient ' +
-        'that is not a multiple of f to zero, exactly. Mirror symmetry says <b>what their phases are</b>: ' +
-        'reflect a shape onto itself and every sine term vanishes, leaving the coefficients real. The two ' +
-        'are independent, and the plankton use every combination — which is why each tile below names ' +
-        'its own. Each is written as a sector profile, projected onto its series and truncated at ' +
-        '<b>K</b>, so it needs <code>2·(f·K + 1) + 1</code> leaves and no more.',
+  id: 'tiles', title: 'Three ways to tile',
+  note: 'Escher\'s recipe. Take a polygon that tiles, and bend its edges, each one exactly as the edge it ' +
+        'meets: a square or a hexagon whose opposite edges are the same curve <b>translated</b>, or any ' +
+        'quadrilateral whose edges are each symmetric under a <b>half-turn</b> about their own midpoint. ' +
+        'Then sample the tile to N leaves, placed so that every leaf on one edge is the same point as a ' +
+        'leaf on its partner. Neighbours agree at every leaf, and between leaves they drift apart, because ' +
+        'each tile\'s curve is rebuilt from all of its own leaves. That drift is the <b>seam</b>, measured ' +
+        'in the source line as a share of an edge; with <b>stall</b> at 0 it is a few percent, and you can ' +
+        'see it as slivers where the fills overlap.',
   entries: [
-    { name: 'acantharian', note: 'Twenty radial spines of strontium sulphate, arranged by Müller\'s law — five groups of four in fixed geometric relation. The spines are the spectrally interesting part: narrow means high harmonics, and every harmonic is a multiple of the fold, so twenty spines at K = 6 is harmonic 120 and 243 leaves. <b>Rotational, mirrored.</b>',
-      params: [ p('fold', 3, 20, 1, 10), p('len', .1, .9, .01, .56), p('width', .05, .4, .005, .16), p('sharp', .5, 6, .1, 2.6), p('K', 2, 14, 1, 7), p('N', 24, 520, 2, 320) ],
-      code: v => `acantharian(${v.N}, { fold: ${v.fold}, len: ${v.len}, width: ${v.width},\n  sharp: ${v.sharp}, K: ${v.K} })   // needs ${2 * (v.fold * v.K + 1) + 1} leaves`,
-      build: v => RA.acantharian(v.N, { fold: v.fold, len: v.len, width: v.width, sharp: v.sharp, K: v.K }) },
+    { name: 'square, by translation', wide: true,
+      note: 'Four edges in two pairs: the top is the bottom moved up, the left is the right moved across. Every copy is the same leaf array shifted, so the tiling is exact at the leaves by construction.',
+      params: [ p('amp', 0, .3, .01, .18), p('wiggle', 1, 4, .5, 2), p('stall', 0, 3, 1, 0), p('N', 24, 480, 4, 96) ],
+      code: v => fieldCode('square', v), build: v => field('square', v) },
 
-    { name: 'heliodiscus', note: 'A disc with radial ribs and a thickened margin. The ribs are a single high harmonic and the margin is what keeps them from reading as a gear — the profile is a ribbed disc times a rim that does not vary. <b>Rotational, mirrored.</b>',
-      params: [ p('ribs', 4, 30, 1, 14), p('depth', 0, .35, .005, .1), p('K', 1, 10, 1, 5), p('N', 24, 420, 2, 288) ],
-      code: v => `heliodiscus(${v.N}, { ribs: ${v.ribs}, depth: ${v.depth}, K: ${v.K} })`,
-      build: v => RA.heliodiscus(v.N, { ribs: v.ribs, depth: v.depth, K: v.K }) },
+    { name: 'hexagon, by translation', wide: true,
+      note: 'Six edges in three pairs, the honeycomb\'s rule, and the one where only three tiles meet at a corner: the fewest a tiling can have, and still enough to force a corner.',
+      params: [ p('amp', 0, .3, .01, .16), p('wiggle', 1, 4, .5, 2), p('stall', 0, 3, 1, 0), p('N', 24, 480, 6, 96) ],
+      code: v => fieldCode('hexagon', v), build: v => field('hexagon', v) },
 
-    { name: 'nassellarian bell', note: 'Podocyrtis, and the bell in general: a cephalis, a thorax, an abdomen and three terminal feet stacked along one axis. <b>No rotational symmetry at all</b> — built at fold 1, which is the degenerate case the constructor takes without a special path — and a clean mirror down the axis doing every bit of the symmetry there is.',
-      params: [ p('waist', 0, .6, .01, .34), p('feet', 0, .6, .01, .3), p('K', 4, 30, 1, 14), p('N', 24, 400, 2, 256) ],
-      code: v => `bell(${v.N}, { waist: ${v.waist}, feet: ${v.feet}, K: ${v.K} })   // fold 1: mirror only`,
-      build: v => RA.bell(v.N, { waist: v.waist, feet: v.feet, K: v.K }) },
-
-    { name: 'triactis', note: 'Three blunt arms on a fat body. Three-fold is not a lesser six-fold — it is a different set of allowed harmonics, and the only thing that changes in the call is the number.',
-      params: [ p('body', .2, .8, .01, .5), p('len', .1, .8, .01, .5), p('width', .1, .45, .01, .26), p('K', 3, 16, 1, 9), p('N', 24, 360, 2, 224) ],
-      code: v => `triactis(${v.N}, { body: ${v.body}, len: ${v.len}, width: ${v.width}, K: ${v.K} })`,
-      build: v => RA.triactis(v.N, { body: v.body, len: v.len, width: v.width, K: v.K }) },
-
-    { name: 'triceratium', note: 'The diatom every textbook opens with: a rounded triangle with a horn at each corner. The polygon radius is exact in the profile, so the corner rounding you see is the truncation at K and nothing else. <b>Rotational, mirrored.</b>',
-      params: [ p('fold', 3, 8, 1, 3), p('horn', 0, .4, .01, .16), p('K', 2, 18, 1, 8), p('N', 20, 360, 2, 224) ],
-      code: v => `triceratium(${v.N}, { fold: ${v.fold}, horn: ${v.horn}, K: ${v.K} })`,
-      build: v => RA.triceratium(v.N, { fold: v.fold, horn: v.horn, K: v.K }) },
-
-    { name: 'actinoptychus', note: 'Six sectors, alternately raised and lowered — a six-fold valve whose <b>alternation</b> is three-fold, so it is built at fold 3 with two sectors per period rather than by multiplying two patterns together, which would add sum-and-difference harmonics the shell does not have. And an honest limit: on the real diatom the alternation is in <b>elevation</b>, not radius. A radius function describes a boundary, not a surface, so all it can show of that is a small step in the margin — which is why this tile is subtle where the micrograph is dramatic. The wobble along each sector is the truncation ringing at the six steps, not decoration.',
-      params: [ p('sectors', 4, 12, 2, 6), p('alt', 0, .3, .005, .12), p('K', 3, 20, 1, 10), p('N', 24, 420, 2, 288) ],
-      code: v => `actinoptychus(${v.N}, { sectors: ${v.sectors}, alt: ${v.alt}, K: ${v.K} })`,
-      build: v => RA.actinoptychus(v.N, { sectors: v.sectors, alt: v.alt, K: v.K }) },
-
-    { name: 'navicula', note: 'The boat. Two mirrors — one down the long axis, one across it — so it is 2-fold rotational <b>and</b> mirrored: only even harmonics, every one of them real. The most spectrally boring thing in the ocean, and the reference the next tile is measured against.',
-      params: [ p('width', .08, .8, .01, .34), p('point', .6, 4, .05, 1.6), p('K', 3, 20, 1, 10), p('N', 16, 300, 2, 160) ],
-      code: v => `navicula(${v.N}, { width: ${v.width}, point: ${v.point}, K: ${v.K} })`,
-      build: v => RA.navicula(v.N, { width: v.width, point: v.point, K: v.K }) },
-
-    { name: 'pleurosigma', note: 'The same boat with the mirror <b>broken</b>. Still 2-fold rotational — turn it half a turn and it is itself — but no reflection takes it to itself, and the entire difference lives in the phases. At <b>skew</b> = 0 this is navicula exactly; every step above it is the phase of harmonic 2 turning away from zero, and the S is what that looks like.',
-      params: [ p('skew', 0, .7, .01, .32), p('width', .08, .6, .01, .26), p('point', .6, 4, .05, 1.5), p('K', 4, 24, 1, 12), p('N', 20, 340, 2, 192) ],
-      code: v => `pleurosigma(${v.N}, { skew: ${v.skew}, width: ${v.width},\n  point: ${v.point}, K: ${v.K} })   // mirror: false`,
-      build: v => RA.pleurosigma(v.N, { skew: v.skew, width: v.width, point: v.point, K: v.K }) },
-
-    { name: 'cyclotella', note: 'A disc whose only feature is a fine crenulation at the margin: one high harmonic at low amplitude. The cheapest possible test of whether a format can hold fine detail on a smooth body — at 40 striae it needs 163 leaves and every one of them is buying that single harmonic.',
-      params: [ p('striae', 6, 60, 1, 28), p('depth', 0, .12, .002, .035), p('K', 1, 4, 1, 2), p('N', 24, 400, 2, 256) ],
-      code: v => `cyclotella(${v.N}, { striae: ${v.striae}, depth: ${v.depth} })   // needs ${2 * (v.striae * v.K + 1) + 1}`,
-      build: v => RA.cyclotella(v.N, { striae: v.striae, depth: v.depth, K: v.K }) },
-
-    { name: 'asterolampra', note: 'Rays reaching most of the way to a circular margin — the inverse of heliodiscus, in the sense that the feature is the <b>gap</b> between rays rather than the rays. Same series either way; only the sign of the coefficient changed.',
-      params: [ p('rays', 4, 24, 1, 9), p('depth', 0, .25, .005, .06), p('K', 2, 14, 1, 6), p('N', 24, 420, 2, 288) ],
-      code: v => `asterolampra(${v.N}, { rays: ${v.rays}, depth: ${v.depth}, K: ${v.K} })`,
-      build: v => RA.asterolampra(v.N, { rays: v.rays, depth: v.depth, K: v.K }) },
+    { name: 'any quadrilateral, by half-turns', wide: true,
+      note: 'Every quadrilateral tiles the plane by half-turns about its edge midpoints. Bend each edge by a curve that is odd about its midpoint and it still does: the half-turn carries each edge onto itself, reversed. The two colours are the two orientations.',
+      params: [ p('amp', 0, .3, .01, .12), p('wiggle', 1, 4, 1, 2), p('stall', 0, 3, 1, 0), p('N', 24, 480, 4, 96) ],
+      code: v => fieldCode('quad', v), build: v => field('quad', v) },
   ]
 },
 {
-  id: 'lattices', title: 'Many loops — a shell full of holes is not a curve',
-  note: 'A radiolarian shell is a <b>lattice</b>: silica with a few hundred holes in it. A closed curve is ' +
-        'not a lattice and no leaf count will make it one. So these are drawn the honest way — the shell ' +
-        'as one loop and every pore as its own — and the loop count in each caption is exactly what the ' +
-        'section above is buying its way out of.',
+  id: 'seam', title: 'The seam, and the price of closing it',
+  note: 'The seam cannot be zero. Where three or more tiles meet, their angles add to 360°, so at least one ' +
+        'of them turns a <b>corner</b> there, and a band-limited loop is smooth everywhere: it has no corner ' +
+        'to turn. So no band-limited loop tiles the plane exactly. What can be chosen is how fast the seam ' +
+        'closes as leaves are added, and that is the parameterization. Spaced evenly along each edge, the ' +
+        'corner costs what a corner always costs here: double the leaves, halve the seam. Make the curve ' +
+        '<b>stall</b> at each corner, its speed falling to zero with m derivatives, and the corner is smooth ' +
+        'as a function of the parameter even though the picture still has one: each doubling then cuts the ' +
+        'seam by 2<sup>m+1</sup>. The menagerie and the spiral found the same trick on other curves.',
   entries: [
-    { name: 'pore lattice',
-      note: 'Rings of pores on a shell, staggered the way a lattice staggers. Watch the loop count in the source line as you add rings: this is the price of drawing what is actually there.',
-      params: [ p('rings', 1, 6, 1, 3), p('first', 3, 14, 1, 6), p('pore', .04, .2, .005, .1) ],
-      code: v => `lattice({ rings: ${v.rings}, first: ${v.first}, pore: ${v.pore} })\n// ${1 + Array.from({length: v.rings}, (_, i) => Math.round(v.first * (i + 1))).reduce((a, b) => a + b, 0)} loops`,
-      build: v => RA.lattice({ rings: v.rings, first: v.first, pore: v.pore }) },
+    { name: 'the seam, magnified', wide: true,
+      note: 'Four square tiles meeting at one corner, each drawn as the exact tile plus <b>k</b> times its error, so a seam far too thin to see becomes slivers you can. The slivers are thickest at the corners, which is where the seam comes from. Raise the stall and they shrink at the same N. (The magnified outlines are drawn through 720 points, which is what the spectrum strip reports; the tiles themselves have N.)',
+      params: [ p('k', 1, 60, 1, 10), p('stall', 0, 3, 1, 0), p('N', 24, 384, 4, 96) ],
+      code: v => { const T = TL.tile('square', { m: v.stall }), s = TL.leaves(T, v.N);
+        return `exact + ${v.k}·(curve − exact), four tiles at a corner   // seam: ${pct(TL.seam(T, s))}`; },
+      build: v => {
+        const T = TL.tile('square', { m: v.stall }), s = TL.leaves(T, v.N), [a, b] = T.shifts;
+        return [[0, 0], [1, 0], [0, 1], [1, 1]].map(([i, j], n) => {
+          const g = TL.exaggerate(T, s, v.k);
+          g.translate(i * a.v[0] + j * b.v[0], i * a.v[1] + j * b.v[1]);
+          g.meta.fill = TONES[(i + j) & 1];
+          return g;
+        });
+      } },
 
-    { name: 'actinomma — nested shells',
-      note: 'Concentric shells joined by radial beams. The reason it is here rather than in a picture book: the shells are <b>the same leaf array at three scales</b>. One spectrum, three numbers, nothing re-specified for the inner ones — which is a property of storing a shape as samples of a loop rather than as a drawing.',
-      params: [ p('shells', 1, 5, 1, 3), p('fall', .35, .85, .01, .6), p('beams', 0, 24, 1, 12), p('fold', 4, 16, 1, 9) ],
-      code: v => `nested({ shells: ${v.shells}, fall: ${v.fall}, beams: ${v.beams}, fold: ${v.fold} })`,
-      build: v => RA.nested({ shells: v.shells, fall: v.fall, beams: v.beams, fold: v.fold }) },
-
-    { name: 'dictyocha',
-      note: 'A silicoflagellate, assembled: the basal ring, the apical bar across it, and a knob at each corner. Three kinds of part, one organism, and no way at all to say it in one loop — the bar crosses the interior, which a boundary cannot do.',
-      params: [ p('points', 3, 8, 1, 4), p('len', .2, .7, .01, .42), p('bar', 0, 3.14, .05, .5) ],
-      code: v => `dictyocha({ points: ${v.points}, len: ${v.len}, bar: ${v.bar} })`,
-      build: v => RA.dictyocha({ points: v.points, len: v.len, bar: v.bar }) },
-
-    { name: 'chaetoceros — a colony', wide: true,
-      note: 'A chain of frustules joined corner to corner, each carrying two long setae. The colony <b>is</b> the organism, and it is drawn as one loop per part because that is what it is.',
-      params: [ p('n', 2, 9, 1, 5), p('seta', 60, 220, 2, 120), p('angle', .2, 1.4, .02, .85), p('h', 30, 100, 2, 62) ],
-      code: v => `colony({ n: ${v.n}, seta: ${v.seta}, angle: ${v.angle}, h: ${v.h} })`,
-      build: v => RA.colony({ n: v.n, seta: v.seta, angle: v.angle, h: v.h }) },
-
-    { name: 'a plankton haul', wide: true,
-      note: 'Eight genera at different sizes and turns, the way they come up in a net. The point of the tile is that they are the same three lines of code with different coefficients — the taxonomy is entirely in the numbers.',
-      params: [ p('n', 2, 12, 1, 8), p('seed', 1, 60, 1, 4), p('gap', 170, 340, 5, 250) ],
-      code: v => `haul({ n: ${v.n}, seed: ${v.seed}, gap: ${v.gap} })`,
-      build: v => RA.haul({ n: v.n, seed: v.seed, gap: v.gap }) },
+    { name: 'the bill, by stall', wide: true,
+      note: 'One tile at doubling N, its seam under each. With no stall the seam halves per doubling; with stall m it falls 2<sup>m+1</sup> times per doubling once N is large enough. At the smallest counts a strong stall is <em>worse</em> than none: it crowds the leaves into the corners and starves the middle of every edge.',
+      params: [ sel('kind', KIND_NAMES, 'hexagon'), p('stall', 0, 3, 1, 2) ],
+      code: v => `[24, 48, 96, 192, 384].map(N => tile('${v.kind}', { stall: ${v.stall}, N }))`,
+      build: v => {
+        const T = TL.tile(v.kind, { m: v.stall }), Ns = [24, 48, 96, 192, 384];
+        const shapes = Ns.map(N => TL.leaves(T, N));
+        return row(shapes.map(s => [s]), 0.35, shapes.map(s => `N = ${s.N} · ${pct(TL.seam(T, s))}`));
+      } },
   ]
 },
 {
   id: 'evidence', title: 'Evidence',
-  note: 'The two claims at the top, made visible rather than asserted — and one honest limit. A shell is a ' +
-        'good witness for the same reason a snowflake is: its symmetry is a statement about the spectrum, ' +
-        'so an error in the spectrum shows up as something you can <b>count</b>.',
+  note: 'Measured when you scroll here, in this tab.',
   entries: [
-    { name: 'which harmonics: the fold', wide: true,
-      note: 'One profile at six folds. Nothing about the construction changes — the series is multiples of f instead of multiples of six — which is what "the symmetry is which harmonics are allowed" means once you can move it. Measured off the reconstruction: the strongest permitted harmonic beats the strongest forbidden one by about <b>10¹⁴</b>, which is machine zero and not "small".',
-      params: [ p('len', .1, .9, .01, .5), p('K', 2, 12, 1, 6) ],
-      code: v => `[3,4,5,6,8,12].map(f => acantharian(320, { fold: f, len: ${v.len}, K: ${v.K} }))`,
-      build: v => [3, 4, 5, 6, 8, 12].map((f, i) => {
-        const s = RA.acantharian(320, { fold: f, len: v.len, K: v.K, r: 90 });
-        s.translate((i - 2.5) * 215, 0);
-        s.meta.label = f + '-fold'; s.meta.tone = 1;
-        return s;
-      }) },
-
-    { name: 'what phases: the mirror', wide: true,
-      note: 'Navicula on the left, at skew 0 — mirrored, so every coefficient is real and the sine terms measure 3e-14 against a cosine term of 15.5. Then the same shell with the mirror let go, one step at a time. The outline changes and the <b>set</b> of harmonics does not: 2, 4, 6, 8, 10, 12 at skew 0 and 2, 4, 6, 8, 10, 12 at skew 0.6 — measured — and every bit of the S is phase. Mirror symmetry is not a different shape family, it is a corner of the same one.',
-      params: [ p('steps', 3, 8, 1, 6), p('top', .1, .7, .02, .45), p('width', .1, .5, .01, .26) ],
-      code: v => `[0 … ${v.top}].map(k => pleurosigma(192, { skew: k, width: ${v.width} }))`,
-      build: v => {
-        const out = [];
-        for (let i = 0; i < v.steps; i++) {
-          const k = v.top * i / (v.steps - 1);
-          const s = RA.pleurosigma(192, { skew: k, width: v.width, r: 92 });
-          s.translate((i - (v.steps - 1) / 2) * 215, 0);
-          s.meta.label = 'skew ' + k.toFixed(2); s.meta.tone = 1;
-          out.push(s);
-        }
-        return out;
-      } },
-
-    { name: 'a spine is expensive', wide: true,
-      note: 'The same twelve-spined shell at rising N, leaves marked. A spine is a narrow feature, narrow is a high harmonic, and the harmonics are all multiples of twelve — so this aliases early, and into a <b>different animal</b>. At N = 8 it is a circle. At 16 it comes back <b>four</b>-spined. At 24 it is a circle again — every multiple of twelve lands on the zeros of the sample grid and cancels. At 48 the twelve are back but at a quarter of their amplitude, 1.35 against 5.78, and only at 2·(f·K+1)+1 is it the animal you asked for, to 6e-13.',
-      params: [ p('fold', 4, 16, 1, 12), p('sharp', .5, 6, .1, 3), p('K', 2, 8, 1, 4) ],
-      code: v => `bandLimit(N => acantharian(N, { fold: ${v.fold}, sharp: ${v.sharp}, K: ${v.K} }))\n// exact at ${2 * (v.fold * v.K + 1) + 1}`,
-      build: v => PT.bandLimit(N => RA.acantharian(N, { fold: v.fold, sharp: v.sharp, K: v.K, r: 90 }),
-                               { Ns: [8, 16, 24, 48, 96, 2 * (v.fold * v.K + 1) + 1], gap: 225 }) },
-
-    { name: 'nesting is one spectrum and a scale', wide: true,
-      note: 'Five shells from <b>one</b> leaf array. The kernel is linear and sums to one, so scaling the leaves scales the whole reconstructed curve exactly — no resampling, no drift, and the inner shell is not a smaller drawing but the same drawing at a smaller number. It is why a radiolarian with four concentric lattices costs one shape and four floats.',
-      params: [ p('shells', 2, 6, 1, 5), p('fall', .4, .85, .01, .68), p('fold', 4, 16, 1, 9) ],
-      code: v => `const base = acantharian(256, { fold: ${v.fold} });\n[0..${v.shells - 1}].map(i => base.clone().scale(${v.fall} ** i))`,
-      build: v => {
-        const base = RA.acantharian(256, { fold: v.fold, r: 96, len: .4 });
-        const out = [];
-        for (let i = 0; i < v.shells; i++) {
-          const k = Math.pow(v.fall, i);
-          const s = base.clone().scale(k, k, { x: 0, y: 0 });
-          s.meta.tone = 1 - 0.12 * i;
-          out.push(s);
-        }
-        return out;
-      } },
-
-    { name: 'the taxonomy is a straight line', wide: true,
-      note: 'Triceratium blended into navicula, leaf by leaf. Both are legal spectra and so is everything between them, which is the sense in which a shape library like this one is a <b>space</b> and not a list — the intermediates are not renderings of a morph, they are shells you could have specified directly.',
-      params: [ p('steps', 3, 9, 1, 6) ],
-      code: v => `morphStrip(triceratium(256), navicula(256), { steps: ${v.steps} })`,
-      build: v => PT.morphStrip(RA.triceratium(256, { r: 92 }), RA.navicula(256, { r: 96, width: .3 }),
-                                { steps: v.steps, gap: 215 }) },
+    { kind: 'report', name: 'the seam against N and the stall', wide: true,
+      note: 'The square tile at its defaults, at each stall and a doubling ladder of N, with the factor the seam falls by at the last doubling.' },
 
     { kind: 'paste', name: 'round trip', wide: true,
-      note: 'The other direction. Paste <code>.tvf</code> here — from the <code>.tvf</code> button on any tile above, or copied out of the leaf editor — and it is parsed and drawn. Every shell on this page comes back through it unchanged, because a shell <b>is</b> its leaf array and nothing on the way out is inferred.' },
+      note: 'The other direction. Paste <code>.tvf</code> here — from the <code>.tvf</code> button on any tile above, or copied out of the leaf editor — and it is parsed and drawn. A tiling comes back as its copies, each its own block, and each the same leaf array moved.' },
   ]
 },
 ];
@@ -4659,60 +4334,32 @@ function makeTile(entry) {
 }
 
 // ── the evidence tile ────────────────────────────────────────────────────
+// The seam of the square tile, for each stall order across a doubling ladder of N,
+// a row at a time so the page stays responsive while it measures.
 function report(host) {
-  const Ns = [8, 16, 32, 33, 64, 65, 128, 256];
-  const rows = Ns.map(N => {
-    const c = new Float64Array(N);
-    for (let k = 0; k < N; k++) c[k] = Math.sin(3 * k) + 0.5 * Math.cos(7 * k);
-    const M = 61, sq = new Float64Array(M);
-    const ang = new Float64Array(M);
-    for (let i = 0; i < M; i++) {
-      const phi = ((i + 0.37) / M) * TAU;
-      sq[i] = Math.tan(phi / 2);
-      ang[i] = evalAt(c, phi);
-    }
-    const slope = reconstructSlope(c, sq);
-    let e = 0;
-    for (let i = 0; i < M; i++) e = Math.max(e, Math.abs(ang[i] - slope[i]));
-    // partition of unity, angle chart, at a point that is not a node
-    let pou = 0;
-    for (let k = 0; k < N; k++) pou += kernel(1.234 - (k + 0.5) * TAU / N, N);
-    // node exactness
-    let nodeErr = 0;
-    for (let k = 0; k < N; k++) nodeErr = Math.max(nodeErr, Math.abs(evalAt(c, (k + 0.5) * TAU / N) - c[k]));
-    return { N, e, pou, nodeErr };
-  });
-
-  const fmt = x => x === 0 ? '0' : x.toExponential(1);
+  const Ns = [32, 64, 128, 256, 512], ms = [0, 1, 2, 3];
+  const f = e => e.toExponential(2);
   host.innerHTML =
-    `<p>Same leaf values, reconstructed twice: once through the angle chart <code>sin(Nφ/2)/(N·tan(φ/2))</code>,
-        once through the slope chart <code>Im[(1+is)ᴺ]/(N·s·(1+s²)^⌊N/2⌋)</code> with the trig count held at zero
-        in the per-leaf loop. Both parities of N, evaluated on load:</p>
-     <table><thead><tr><th>N</th><th>angle vs slope</th><th>partition of unity − 1</th><th>node exactness (R2)</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.N}${r.N % 2 ? ' <span style="color:var(--clay)">odd</span>' : ''}</td>` +
-      `<td class="${r.e < 1e-10 ? 'ok' : 'bad'}">${fmt(r.e)}</td>` +
-      `<td class="${Math.abs(r.pou - 1) < 1e-10 ? 'ok' : 'bad'}">${fmt(Math.abs(r.pou - 1))}</td>` +
-      `<td class="${r.nodeErr < 1e-10 ? 'ok' : 'bad'}">${fmt(r.nodeErr)}</td></tr>`).join('') +
-    `</tbody></table>
-     <p class="foot"><b>The odd rows are the interesting ones.</b> The paper's N = 2^(d+1) is always even, so
-      neither the published sin/tan kernel nor the published slope form ever meets an odd N — and both are
-      wrong there in the same way, by one factor of √(1+s²). tvf.js carries the parity switch on both sides
-      (<code>tan</code> → <code>sin</code>; the exponent N/2 → ⌊N/2⌋), which is why the odd rows above read
-      like the even ones. Built without it, N = 33 misses partition of unity by ~3.2e-6 and the published
-      slope form misses the kernel by 2.7e-2.</p>
-     <p class="foot"><b>And the trig count is measured, not asserted.</b> <code>leafSlopes</code> no longer
-      converts an angle — the leaf lattice is <em>generated</em> from the ratio s = 1, the gate where the run
-      equals the rise, by algebraic halving and rational stepping. It is the dyadic cascade doing what the
-      cascade is (§2.4, §5.3), and it agrees with <code>Math.tan((k+0.5)π/N)</code> to 1e-15 through N = 2048
-      with the trig call count at zero. Available wherever π/(2N) is constructible, which is Gauss's condition
-      and contains the paper's N = 2^(d+1) by construction — the radix forced for tiling is also the radix that
-      keeps every leaf reachable by square roots. Odd N outside it (33, 65 above) still take the boundary
-      conversion the paper permits.</p>
-     <p class="foot">The horizon needed telling, though. <code>slopeDiff</code> at an infinite query slope —
-      the antipode φ = ±π, which §4.1 notes does occur on this grid — computed <code>(∞ − s_k)/(1 + ∞·s_k)</code>
-      = NaN, fell into <code>kernelSlope</code>'s own antipode branch, and returned silently wrong. Now guarded
-      on both sides, and exact to 1e-15. Each chart is transparent about the structure it linearizes and blind
-      at its own singularity: the angle chart hid the parity, the slope chart hid the horizon.</p>`;
+    `<p>The worst disagreement between neighbouring square tiles at corresponding points, as a share of an
+      edge, with the factor it falls by at the last doubling. A corner priced at <b>1/N</b> falls by 2 per
+      doubling; stalled with m derivatives, by <b>2<sup>m+1</sup></b>.</p>
+     <table><thead><tr><th>stall</th>${Ns.map(N => `<th>N = ${N}</th>`).join('')}<th>falls by</th><th>expected</th></tr></thead><tbody></tbody></table>
+     <p class="foot">No row reaches zero, and none can: a band-limited loop has no corner, and a tiling needs one
+      wherever three tiles meet. The stall does not change that; it changes the price, from a fixed
+      fraction per doubling to a fixed power of N. Green where the measured factor is within 15% of the
+      expected one.</p>`;
+  const body = host.querySelector('tbody');
+  let i = 0;
+  const next = () => {
+    if (i >= ms.length) return;
+    const m = ms[i++], T = TL.tile('square', { m });
+    const e = Ns.map(N => TL.seam(T, TL.leaves(T, N)));
+    const got = e[e.length - 2] / e[e.length - 1], want = Math.pow(2, m + 1);
+    body.insertAdjacentHTML('beforeend', `<tr><td>${m}</td>${e.map(x => `<td>${f(x)}</td>`).join('')}` +
+      `<td class="${Math.abs(got / want - 1) < 0.15 ? 'ok' : 'bad'}">${got.toFixed(1)}×</td><td>${want}×</td></tr>`);
+    setTimeout(next, 0);
+  };
+  setTimeout(next, 0);
 }
 
 // ── lazy render ──────────────────────────────────────────────────────────
