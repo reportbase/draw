@@ -4,7 +4,7 @@
 
 *Revised 5 October 2026: TVF holds depth as well as breadth, with no new syntax (§2.8). Measured in the drawing tool's editor; see `wander/tvf-depth-test.md`.*
 
-*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). The exact-rational reference decoder they were specified alongside is still open.*
+*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8).*
 
 This is the tight specification. It supersedes the v22.x working document,
 which accreted iteration logs, extrapolations later withdrawn, and
@@ -592,6 +592,56 @@ planted and both fail by O(1), not by a drift:
 - **The odd-N kernel used at even N:** the home sum reads 2.287 at N = 8,
   against 1.848.
 
+**The exact reference decoder (6 October 2026).** It needs no rational
+arithmetic at all, only integers, because N is a power of two.
+
+**The ring.** Put ζ = e^{iπ/2N}. Then:
+- ζ^{2N} = −1, and x^{2N} + 1 is the cyclotomic polynomial of order 4N,
+  irreducible over ℚ;
+- so 1, ζ, …, ζ^{2N−1} are linearly independent, and an element of ℤ[ζ] is
+  zero exactly when its 2N integer coefficients are.
+
+**The lattice.** Every angle the format uses is a power of ζ:
+- the leaves θ_k = (2k+1)π/N are ζ^{2(2k+1)};
+- their half-angles are ζ^{2k+1};
+- home and the other midpoints are ζ^{4j}.
+
+**The kernel.** It is a trigonometric polynomial,
+2N·K_N(φ) = 2 + Σ_{m<N/2} 2·2cos mφ + 2cos(Nφ/2), with 2cos(eπ/2N) = ζ^e + ζ^{−e}.
+So at a lattice angle it is a vector of small integers: no division, no
+square root, no transcendental. Each identity is then an equality of integer
+vectors.
+
+Run in the drawing tool (`draw.html?lab=exa`, and a smoke-test step) at
+N = 8 … 1024. Every integer stays inside 2^53, so ordinary JavaScript numbers
+hold them exactly:
+
+| check | as an identity in ℤ[ζ] | result |
+|---|---|---|
+| R2 | 2N·K(θ_j − θ_k) = 2N·δ_jk, every pair | exact, N = 8 … 1024 |
+| partition of unity | Σ_k 2N·K(φ − θ_k) = 2N at a leaf, at home and at both quarter points (a shift by one leaf covers every other lattice angle) | exact, N = 8 … 1024 |
+| (i) invisible mode | ζ^{N(2k+1)} + ζ^{−N(2k+1)} = 0 at every leaf; nonzero at every even node | exact, N = 8 … 1024 |
+| (ii) band Gram | Σ_k b_i b_j = diag(N, N/2, …, N/2, N), each basis value scaled into ℤ[ζ] (2, 2cos, 2i·sin) | exact, N = 8 … 256 |
+| (iii) home sum | N·K(−θ_k)·sin(θ_k/2) = (−1)^k cos(θ_k/2) at every leaf, so Σ_k \|K(−θ_k)\| = (2/N)·Σ 1/τ_k term by term | exact, N = 8 … 1024 |
+
+**The oracle.** Seeded integer leaf data in [−1000, 1000] is decoded exactly
+at nineteen lattice angles per N:
+- each result is real (the element equals its own conjugate, v_e = −v_{2N−e});
+- at the leaves it is the data;
+- read once in float and compared, the float decoder (`tvf.evalAt`) agrees
+  with it to 7×10⁻¹⁴ of the data scale or better, at every N.
+
+**What it caught, and what it could not see.** Two planted bugs:
+- **The odd-N kernel in the float decoder:** off the exact one by 0.12.
+- **The top mode at full weight** (cos(Nφ/2) counted twice): R2 fails.
+
+The partition of unity and the home identity both pass that second bug, and
+rightly. On an even number of odd nodes the top cosine sums to zero, and it
+is zero at every leaf seen from home, so its weight is invisible to both.
+Only R2, which looks at one kernel at a time, sees it. Of the four
+interpolation identities, R2 is the one a decoder's Nyquist handling must be
+tested against.
+
 ---
 
 ## 9. Status
@@ -621,8 +671,9 @@ contour; closed-contour band floor (K ≥ 4).
   Λ_N.
 - **Do they catch bugs?** Yes: a half-leaf shift and a wrong-parity kernel
   each fail them by O(1).
-- **Still open:** the exact-rational reference decoder, which would hold them
-  to the last bit.
+- **Then exact:** the exact reference decoder holds them to the last bit,
+  with R2 and the partition of unity, as equalities in ℤ[ζ] (N = 8 … 1024;
+  the Gram to 256). The float decoder agrees with it to 7×10⁻¹⁴.
 
 **Depth (§2.8), measured 5 Oct 2026:** depth held in concatenated TVF documents
 with `#meta address`, no new syntax; round trip to 2.3×10⁻⁷ of the departure;
@@ -637,9 +688,7 @@ conventions.
 
 **Open:** real captured-data round-trip on photos and audio (synthetic only so
 far); regularization above 5% noise; production GPU shaders; the full 16-bit
-N×L cascade sweep; more tokenizer-efficient text encodings; the exact-rational
-reference decoder (specified in §8; the three test vectors it was specified
-with are now built and run in float64, see below); benchmark of the log-magnitude/band-byte kernel arithmetic against
+N×L cascade sweep; more tokenizer-efficient text encodings; benchmark of the log-magnitude/band-byte kernel arithmetic against
 the trig path (OI-10's implementation gate — no speed claim until run).
 
 ---

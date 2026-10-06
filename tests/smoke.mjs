@@ -161,6 +161,33 @@ try {
     if (r.parity) throw new Error('the vectors passed the odd-N kernel at even N');
   });
 
+  /* The exact reference decoder: the same identities in ℤ[ζ], ζ = e^{iπ/2N}, where they are
+     equalities of integers. It must pass at every depth with every integer inside 2^53, the
+     float decoder must agree with it to rounding, and two planted bugs must fail it: the top
+     mode at full weight (only R2 can see that one; the partition of unity sums the top cosine
+     to zero over an even number of leaves whatever its weight), and the odd-N kernel in the
+     float decoder. */
+  await step('exact reference decoder', async () => {
+    const r = await page.evaluate(() => {
+      const res = runExactDecoder();
+      const nyq = runExactDecoder({ ds: [2, 4], nyq: 2, gramMax: 0 });
+      const keep = tvf.evalAt;
+      tvf.evalAt = (ch, phi) => { const N = ch.length; let s = 0;
+        for (let k = 0; k < N; k++) { let d = phi - (k + 0.5) * 2 * Math.PI / N; d = Math.atan2(Math.sin(d), Math.cos(d));
+          s += ch[k] * (Math.abs(d) < 1e-12 ? 1 : Math.sin(N * d / 2) / (N * Math.sin(d / 2))); }
+        return s; };
+      const odd = runExactDecoder({ ds: [2, 4], gramMax: 0 });
+      tvf.evalAt = keep;
+      return { pass: res.pass, safe: res.safe, failed: res.rows.filter(x => !x.ok).map(x => x.N), dev: Math.max(...res.rows.map(x => x.floatDev)),
+               nyqR2: nyq.rows.some(x => !x.r2), oddDev: Math.min(...odd.rows.map(x => x.floatDev)) };
+    });
+    if (!r.safe) throw new Error('an integer outgrew 2^53');
+    if (!r.pass) throw new Error('the exact decoder fails at N = ' + r.failed.join(', '));
+    if (!(r.dev < 1e-12)) throw new Error('the float decoder is off the exact one by ' + r.dev);
+    if (!r.nyqR2) throw new Error('R2 passed a kernel with the top mode at full weight');
+    if (!(r.oddDev > 1e-2)) throw new Error('the odd-N kernel in the float decoder was not caught (' + r.oddDev + ')');
+  });
+
   /* With everything selected, the buttons that act on a selection (align,
      group, order, style…) are enabled too, so the walk reaches them. Escape
      after each press can drop the selection, so it is taken again each time. */
