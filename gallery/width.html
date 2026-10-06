@@ -98,14 +98,14 @@ section{padding-top:34px;scroll-margin-top:52px}
 .tile.tall canvas{height:340px}
 .tile .stage .badge{position:absolute;top:8px;right:10px;font-size:11px;letter-spacing:.09em;
   color:var(--dim);text-transform:uppercase}
-.tile .stage .save,.tile .stage .tvf,.tile .stage .edit{position:absolute;bottom:9px;opacity:0;transition:opacity .15s;
+.tile .stage .save,.tile .stage .tvf,.tile .stage .edit,.tile .stage .link{position:absolute;bottom:9px;opacity:0;transition:opacity .15s;
   padding:4px 9px;font-size:11.5px;border-radius:7px}
 .tile .stage .save{right:10px}
 .tile .stage .tvf{right:62px}
 .tile .stage .edit{right:114px;background:var(--curv);border-color:var(--curv);color:#fff}
-.tile:hover .stage .save,.tile:hover .stage .tvf,.tile:hover .stage .edit{opacity:1}
+.tile:hover .stage .save,.tile:hover .stage .tvf,.tile:hover .stage .edit,.tile:hover .stage .link{opacity:1}
 /* touch screens have no hover, and a button you cannot see is a button you cannot find */
-@media (hover:none){.tile .stage .save,.tile .stage .tvf,.tile .stage .edit{opacity:1}}
+@media (hover:none){.tile .stage .save,.tile .stage .tvf,.tile .stage .edit,.tile .stage .link{opacity:1}}
 .tile .stage .tvf.done,.tile .stage .save.done{background:var(--ok);border-color:var(--ok);color:#0c0f16}
 
 .tile .body{padding:0 5px 4px;display:flex;flex-direction:column;gap:10px}
@@ -123,6 +123,24 @@ section{padding-top:34px;scroll-margin-top:52px}
 .crumbs a,.next a{color:#b9a6ff;text-decoration:none}
 .crumbs a:hover,.next a:hover{text-decoration:underline}
 .next{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13.5px;color:var(--ink-2)}
+
+/* ── TILE LINKS AND PREDICT MODE ── */
+.tile .stage .link{right:166px}
+.tile.flash{animation:flash 2.4s ease-out}
+@keyframes flash{0%,30%{border-color:var(--curv);box-shadow:0 0 0 2px rgba(124,92,255,.55)}100%{}}
+.tile .predict{font-size:12.5px;color:var(--ink-2);background:rgba(124,92,255,.07);border:1px dashed rgba(124,92,255,.35);
+  border-radius:8px;padding:9px 11px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.tile .predict[hidden]{display:none}
+.tile .predict .q{flex-basis:100%;color:var(--ink);font-weight:600}
+.tile .predict label{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.tile .predict input[type=number]{width:62px;font:inherit;font-size:12.5px;color:var(--ink);background:#10151f;
+  border:1px solid var(--line-2);border-radius:6px;padding:3px 6px}
+.tile .predict .hint-in{color:var(--dim);font-size:11.5px}
+.tile .predict .hint{display:block;font-weight:400;color:var(--dim);font-size:11.5px;margin-top:2px}
+.tile .predict .reveal{margin-left:auto;background:var(--curv);border-color:var(--curv);color:#fff;padding:4px 12px}
+.tile .spec-cap .ok{color:var(--ok);font-weight:700}
+.tile .spec-cap .no{color:var(--bad);font-weight:700}
+#predict-score{font-size:11px;color:var(--A);letter-spacing:.09em;text-transform:uppercase;font-variant-numeric:tabular-nums}
 
 /* ── SPECTRUM STRIP ── under every live tile; see drawSpectrum */
 .tile canvas.spec{height:64px;border-radius:0;margin:-2px 0 -6px}
@@ -216,6 +234,8 @@ footer b{color:var(--ink-2);font-weight:600}
   <button id="t-leaves">leaves</button>
   <button id="t-fill">fill</button>
   <button id="t-thick">heavy line</button>
+  <button id="t-predict" title="hide each spectrum until you have guessed it">predict</button>
+  <span id="predict-score" hidden></span>
   <button id="t-spec" class="on" title="the harmonic spectrum under every tile">spectrum</button>
   <div class="spacer"></div>
   <a class="jump" href="#width">constant width</a>
@@ -3832,7 +3852,7 @@ const WI = WIDTH;
 
 
 // ── state ────────────────────────────────────────────────────────────────
-const opts = { leaves: false, fill: false, thick: false, spec: true };
+const opts = { leaves: false, fill: false, thick: false, spec: true, predict: false };
 
 // ── clipboard ────────────────────────────────────────────────────────────
 // navigator.clipboard needs a secure context, and this page is meant to open
@@ -3848,6 +3868,64 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.remove('on'), 2100);
 }
+// The loop a tile's strip (and its prediction) is about: the largest, by leaf extents.
+// Not s.bbox(): bbox reconstructs the smooth curve, which on a tile of eight 2048-leaf
+// terrains is most of a second, and the leaves rank sizes just as well.
+function largestLoop(loops) {
+  let pick = loops[0], area = -1;
+  for (const s of loops) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let j = 0; j < s.N; j++) {
+      const x = s.x[j], y = s.y[j];
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    if ((x1 - x0) * (y1 - y0) > area) { area = (x1 - x0) * (y1 - y0); pick = s; }
+  }
+  return pick;
+}
+
+// ── predict first ────────────────────────────────────────────────────────
+// PEOPLE REMEMBER WHAT THEY GOT WRONG. Reading "only multiples of six" under a snowflake
+// is agreeing with a sentence; saying "every one" first and being shown the gaps is
+// learning it. So in predict mode each strip starts hidden behind two questions that
+// every tile on every page can ask, because the strip computes both answers anyway:
+// which harmonics will be there (all of them, or only multiples of some f), and where
+// they stop. Move a dial and the strip hides again, since the answer may have changed
+// and guessing again is the whole exercise.
+//
+// "WHERE THEY STOP" IS MARKED CLOSE, NOT EXACT. Nobody reads 84 off a dendrite; reading
+// "about 80, not 20 and not 'all the way'" off it is the skill, so within a tenth (or 2)
+// counts. A loop with harmonics to the leaf count's limit is answered by any guess in
+// its top tenth, or by leaving the box at "all the way up".
+const predictScore = { right: 0, total: 0 };
+let predictEpoch = 0;
+function slugOf(name) {
+  return String(name).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+function predictTruth(list) {
+  const loops = list.filter(s => s && s.N >= 3);
+  return loops.length ? loopSpectrum(largestLoop(loops)) : null;
+}
+function judgePrediction(sp, foldGuess, topGuess) {
+  const fold = sp.live.length ? sp.fold : 0;
+  const foldOk = fold === 0 ? true : foldGuess === (fold > 1 ? fold : 1);
+  const allWay = sp.live.length && sp.top >= sp.M;
+  let topOk;
+  if (topGuess == null) topOk = allWay;
+  else if (allWay) topOk = topGuess >= 0.9 * sp.M;
+  else topOk = Math.abs(topGuess - sp.top) <= Math.max(2, 0.1 * sp.top);
+  const foldSay = fold === 0 ? 'nothing but the round body'
+                : fold > 1 ? `only multiples of ${fold}` : 'every harmonic, no gaps';
+  const topSay = !sp.live.length ? 'it stops at m = 0' : allWay ? 'they run all the way up' : `the last is m = ${sp.top}`;
+  return { foldOk, topOk, foldSay, topSay };
+}
+function updateScore() {
+  const el = document.getElementById('predict-score');
+  if (!el) return;
+  el.hidden = !opts.predict;
+  el.textContent = predictScore.total ? `${predictScore.right} of ${predictScore.total} right` : 'predict, then reveal';
+}
+
 // ── the spectrum strip ───────────────────────────────────────────────────
 // EVERY PAGE HERE ARGUES ABOUT A SPECTRUM AND, UNTIL NOW, NONE OF THEM DREW ONE. "Every
 // harmonic that is not a multiple of six is exactly zero" is a claim you had to take on
@@ -3907,18 +3985,7 @@ function drawSpectrum(canvas, cap, list) {
   if (!on) return;
   const loops = list.filter(s => s && s.N >= 3);
   if (!loops.length) { cap.textContent = ''; return; }
-  let pick = loops[0], area = -1;
-  // Leaf extents, not s.bbox(): bbox reconstructs the smooth curve, which on a tile of
-  // eight 2048-leaf terrains is most of a second, and the leaves rank sizes just as well.
-  for (const s of loops) {
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (let j = 0; j < s.N; j++) {
-      const x = s.x[j], y = s.y[j];
-      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
-    }
-    if ((x1 - x0) * (y1 - y0) > area) { area = (x1 - x0) * (y1 - y0); pick = s; }
-  }
-  const sp = loopSpectrum(pick);
+  const sp = loopSpectrum(largestLoop(loops));
 
   // Show up to a little past the last live harmonic, so the empty run after it is on
   // screen — that silence is the band limit — but never past the fold.
@@ -4532,17 +4599,89 @@ function makeTile(entry) {
 
   tile.innerHTML =
     `<div class="stage"><canvas></canvas>` +
+    `<button class="link" title="copy a link to this tile at these settings">link</button>` +
     `<button class="edit" title="open in the leaf editor — the curves ride in the link">edit</button>` +
     `<button class="tvf" title="copy as .tvf — paste straight into the leaf editor">.tvf</button>` +
     `<button class="save" title="copy the svg markup \u2014 paste straight into the leaf editor. Alt-click to save it as a file instead.">svg</button></div>` +
     `<div class="body"><h3>${entry.name}</h3><p class="note">${entry.note}</p>` +
-    `<canvas class="spec" title="bar m: how strongly the outline wobbles m times per lap (log scale)"></canvas><div class="spec-cap"></div>` +
+    `<canvas class="spec" title="bar m: how strongly the outline wobbles m times per lap (log scale)"></canvas><div class="spec-cap"></div><div class="predict" hidden></div>` +
     `<code class="src"></code><div class="dials">${dials}</div></div>`;
 
   const canvas = tile.querySelector('canvas');
   const src = tile.querySelector('code.src');
   const spec = tile.querySelector('canvas.spec'), specCap = tile.querySelector('.spec-cap');
   let last = null;
+  const slug = slugOf(entry.name);
+  tile.dataset.slug = slug;
+  const quiz = tile.querySelector('.predict'), noteEl = tile.querySelector('.body .note');
+  let revealed = false, seenEpoch = predictEpoch, verdict = '';
+
+  // The strip, or the question that stands in front of it.
+  const showSpectrum = () => {
+    if (seenEpoch !== predictEpoch) { seenEpoch = predictEpoch; revealed = false; verdict = ''; }
+    const asking = opts.predict && !revealed;
+    quiz.hidden = !asking;
+    // The note often says the answer in words ("every harmonic here is a multiple of
+    // six"), so it waits behind the question too.
+    if (noteEl) noteEl.style.display = asking ? 'none' : '';
+    if (asking) { spec.style.display = specCap.style.display = 'none'; return; }
+    drawSpectrum(spec, specCap, last);
+    if (opts.predict && verdict) {
+      if (!opts.spec) { specCap.style.display = ''; specCap.innerHTML = ''; }
+      specCap.innerHTML = verdict + (specCap.innerHTML ? '<br>' + specCap.innerHTML : '');
+    }
+  };
+  quiz.innerHTML =
+    `<div class="q">Before you look: which harmonics will the strip show?
+       <span class="hint">The description is hidden until you reveal.</span></div>
+     <label><input type="radio" name="f-${slug}" value="all" checked> every one</label>
+     <label><input type="radio" name="f-${slug}" value="some"> only multiples of
+       <input type="number" class="pf" min="2" max="64" step="1" placeholder="f"></label>
+     <label class="top">and the last one is m ≈ <input type="number" class="pt" min="0" step="1" placeholder="?"> <span class="hint-in">blank: no end</span></label>
+     <button class="reveal">reveal</button>`;
+  quiz.querySelector('.pf').addEventListener('focus', () => { quiz.querySelector('input[value=some]').checked = true; });
+  quiz.querySelector('.reveal').addEventListener('click', () => {
+    const sp = last && predictTruth(last);
+    if (!sp) return;
+    const some = quiz.querySelector('input[value=some]').checked;
+    const f = parseInt(quiz.querySelector('.pf').value, 10);
+    const tRaw = quiz.querySelector('.pt').value.trim();
+    const j = judgePrediction(sp, some ? (f > 1 ? f : NaN) : 1, tRaw === '' ? null : +tRaw);
+    const mark = ok => ok ? '<span class="ok">✓</span>' : '<span class="no">✗</span>';
+    verdict = `${mark(j.foldOk)} ${j.foldSay} · ${mark(j.topOk)} ${j.topSay}`;
+    predictScore.total += 2; predictScore.right += (j.foldOk ? 1 : 0) + (j.topOk ? 1 : 0);
+    updateScore();
+    revealed = true;
+    showSpectrum();
+  });
+
+  // ── this tile's address ── #tile=<slug>&<dial>=<value>… — the URL follows the last
+  // tile you touched, so the address bar is always a link to what you are looking at.
+  const linkParams = () => {
+    const q = new URLSearchParams({ tile: slug });
+    for (const par of entry.params) q.set(par.key, vals[par.key]);
+    return q.toString();
+  };
+  let remT;
+  const remember = () => {
+    clearTimeout(remT);
+    remT = setTimeout(() => { try { window.history.replaceState(null, '', '#' + linkParams()); } catch (_) {} }, 250);
+  };
+  const setDial = (par, raw) => {
+    const el = tile.querySelector(`[data-k="${par.key}"]`);
+    if (!el) return;
+    if (par.options) {
+      if (!par.options.includes(raw)) return;
+      el.value = raw; vals[par.key] = raw;
+    } else {
+      const v = parseFloat(raw);
+      if (!isFinite(v)) return;
+      el.value = String(Math.min(par.max, Math.max(par.min, v)));   // the input snaps it to step
+      vals[par.key] = parseFloat(el.value);
+      const out = tile.querySelector(`[data-v="${par.key}"]`);
+      if (out) out.textContent = vals[par.key];
+    }
+  };
 
   const render = () => {
     let list;
@@ -4558,7 +4697,7 @@ function makeTile(entry) {
       canvas.style.height = Math.round(Math.max(240, Math.min(620, want))) + 'px';
     }
     draw(canvas, last);
-    drawSpectrum(spec, specCap, last);
+    showSpectrum();
     src.textContent = entry.code(vals);
   };
 
@@ -4568,7 +4707,9 @@ function makeTile(entry) {
       vals[k] = parseFloat(inp.value);
       const out = tile.querySelector(`[data-v="${k}"]`);
       if (out) out.textContent = vals[k];
+      revealed = false; verdict = '';
       render();
+      remember();
     });
   });
   tile.querySelectorAll('select').forEach(s => {
@@ -4580,7 +4721,9 @@ function makeTile(entry) {
         if (m) { m.value = preset.m; vals.m = preset.m; tile.querySelector('[data-v="m"]').textContent = preset.m; }
         if (n1) { n1.value = preset.n1; vals.n1 = preset.n1; tile.querySelector('[data-v="n1"]').textContent = preset.n1; }
       }
+      revealed = false; verdict = '';
       render();
+      remember();
     });
   });
 
@@ -4658,7 +4801,14 @@ function makeTile(entry) {
       : 'clipboard refused \u2014 alt-click to save the file instead');
   });
 
-  tiles.push({ tile, render });
+  tile.querySelector('.link').addEventListener('click', async (ev) => {
+    const url = location.href.split('#')[0] + '#' + linkParams();
+    const ok = await copyText(url);
+    try { window.history.replaceState(null, '', '#' + linkParams()); } catch (_) {}
+    toast(ok ? 'link to this tile, at these settings, on the clipboard' : url);
+  });
+  const apply = q => { for (const par of entry.params) if (q.has(par.key)) setDial(par, q.get(par.key)); revealed = false; };
+  tiles.push({ tile, render, slug, apply });
   return tile;
 }
 
@@ -4760,7 +4910,14 @@ function toggle(id, key) {
 toggle('t-leaves', 'leaves');
 toggle('t-fill', 'fill');
 toggle('t-thick', 'thick');
+// Registered before toggle()'s own listener, so the tiles it re-renders see the new epoch
+// and put their question back up.
+document.getElementById('t-predict').addEventListener('click', () => {
+  predictEpoch++; predictScore.right = predictScore.total = 0;
+});
 toggle('t-spec', 'spec');
+toggle('t-predict', 'predict');
+document.getElementById('t-predict').addEventListener('click', updateScore);
 
 document.querySelector('.bar .spacer').insertAdjacentHTML('beforebegin',
   `<span class="count">${total} entries</span>`);
@@ -4771,6 +4928,27 @@ window.addEventListener('resize', () => {
   clearTimeout(rt);
   rt = setTimeout(() => { for (const t of tiles) if (t.done) t.render(); }, 160);
 });
+
+// ── tile links ───────────────────────────────────────────────────────────
+// A tile at a setting is the unit of explanation here ("the dendrite at N = 12 is a
+// circle"), so it gets an address: #tile=<slug>&K=3&N=12. Opening one sets the dials,
+// paints the tile, brings it into view and marks it. Dials not named keep their defaults;
+// values outside a dial's range are clamped; an unknown tile says so and does nothing.
+function openTileLink() {
+  let q;
+  try { q = new URLSearchParams(location.hash.replace(/^#/, '')); } catch (_) { return; }
+  const slug = q.get('tile');
+  if (!slug) return;
+  const t = tiles.find(x => x.slug === slug);
+  if (!t) { toast('no tile called “' + slug + '” on this page'); return; }
+  t.apply(q);
+  t.done = true;
+  t.render();
+  t.tile.scrollIntoView({ block: 'center' });
+  t.tile.classList.remove('flash'); void t.tile.offsetWidth; t.tile.classList.add('flash');
+}
+window.addEventListener('hashchange', openTileLink);
+setTimeout(openTileLink, 0);
 
 </script>
 </body>

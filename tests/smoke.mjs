@@ -184,6 +184,26 @@ await step('spectrum: a plate is six-fold', async () => {
   if (!/only multiples of 6\b/.test(cap)) throw new Error('plate spectrum says: ' + cap);
 });
 
+/* A tile link sets the dials it names (clamping what is out of range) and the strip
+   follows; predict mode hides the strip behind a question and scores the answer. */
+await step('tile link and predict mode', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[tile link] ${e.message}`));
+  await gp.goto(new URL('gallery/snowflakes.html#tile=stellar-dendrite&K=4&N=999', base).href, { waitUntil: 'load' });
+  await gp.waitForTimeout(600);
+  const r = await gp.$eval('[data-slug="stellar-dendrite"]', t => [t.querySelector('[data-v=K]').textContent,
+    t.querySelector('[data-v=N]').textContent, t.querySelector('.spec-cap').textContent]);
+  if (r[0] !== '4' || r[1] !== '420' || !/nothing above m = 24\b/.test(r[2])) throw new Error('link gave ' + r.join(' | '));
+  await gp.click('#t-predict');
+  const t = gp.locator('[data-slug="plate"]');
+  await t.scrollIntoViewIfNeeded();
+  if (await t.locator('.predict').isHidden()) throw new Error('predict mode did not ask');
+  await t.locator('.pf').fill('6'); await t.locator('.pt').fill('48'); await t.locator('.reveal').click();
+  const score = await gp.textContent('#predict-score');
+  await gp.close();
+  if (score !== '2 of 2 right') throw new Error('a right answer scored ' + score);
+});
+
 /* The front page: it loads, and each of its cards points at a gallery that exists. */
 await step('gallery index', async () => {
   const gp = await browser.newPage();
