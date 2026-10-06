@@ -112,6 +112,25 @@ try {
     await page.mouse.dblclick(520, 180);
   });
 
+  /* The editor's own tvf.resample must land each new leaf exactly on the curve. It used to
+     interpolate on an internal grid, exact only when the target count happened to divide it:
+     96 → 128 was exact and 96 → 127 was not. Checked against evaluating the curve directly. */
+  await step('tvf.resample is exact', async () => {
+    const e = await page.evaluate(() => {
+      const s = tvf.blob(96, { seed: 3 });
+      let worst = 0;
+      for (const N of [127, 63, 200]) {
+        const r = s.clone().resample(N);
+        for (let k = 0; k < N; k++) {
+          const phi = (k + 0.5) * 2 * Math.PI / N;
+          worst = Math.max(worst, Math.abs(r.x[k] - tvf.evalAt(s.x, phi)), Math.abs(r.y[k] - tvf.evalAt(s.y, phi)));
+        }
+      }
+      return worst;
+    });
+    if (!(e < 1e-9)) throw new Error('resample misses the curve by ' + e);
+  });
+
   /* With everything selected, the buttons that act on a selection (align,
      group, order, style…) are enabled too, so the walk reaches them. Escape
      after each press can drop the selection, so it is taken again each time. */
