@@ -12,202 +12,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-/* ── THE CATALOGUE ─────────────────────────────────────────────────────────
-   Restyled onto the Loop pane's system: the dark slate ground, the panel cards
-   at 14px radius, the system sans for prose, uppercase letter-spaced headings
-   for anything that names a group, tabular numerals for anything measured, and
-   violet for everything you can push. Same page, same behaviour — the tokens
-   below and the two canvas colours are the whole of the change. */
-html{
-  /* NATIVE CONTROLS FOLLOW THE PAGE. accent-color paints the FILLED half of a range
-     and nothing else — the empty half, the select's popup, the scrollbars and the
-     focus rings all come from the UA's light default, which on this ground read as
-     three bright white bars per card. One declaration turns the whole set over. */
-  color-scheme: dark;
-}
-:root{
-  --bg:#0c0f16; --panel:#141926; --stage:#0e131d;
-  --ink:#e8ecf5; --ink-2:#c3ccdf; --dim:#8b95ab; --line:#1e2637; --line-2:#2a3348;
-  --curv:#7c5cff; --A:#f2c14e; --ok:#4ade80; --bad:#ef4444; --mob:#ffb547;
-  --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
-  margin:0; background:var(--bg); color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  font-size:13px; -webkit-font-smoothing:antialiased;
-}
-
-/* ── MASTHEAD ── */
-header{max-width:1360px;margin:0 auto;padding:26px 20px 4px}
-h1{font-size:20px;font-weight:650;margin:0 0 2px;letter-spacing:-.01em}
-h1 em{font-style:normal;font-weight:650;color:var(--curv)}
-.pill{display:inline-block;font-size:11px;color:var(--curv);border:1px solid rgba(124,92,255,.4);
-  border-radius:999px;padding:1px 9px;margin-left:6px;vertical-align:middle}
-header p.lede{max-width:78ch;margin:12px 0 0;color:var(--dim);font-size:13.5px;line-height:1.55}
-header p.lede b{color:var(--ink-2);font-weight:600}
-header p.sub{margin:8px 0 0;font-size:12.5px;color:var(--dim);line-height:1.6;max-width:78ch}
-header code, footer code, .sec-note code{font-family:var(--mono);font-size:.92em;color:var(--ink-2)}
-
-/* ── STICKY BAR ── */
-.bar{position:sticky;top:0;z-index:50;margin-top:18px;
-  background:rgba(12,15,22,.9);backdrop-filter:blur(9px);
-  border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.bar-in{max-width:1360px;margin:0 auto;padding:9px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.bar .spacer{flex:1}
-.bar .count{font-size:11px;color:var(--dim);letter-spacing:.09em;text-transform:uppercase}
-
-button,select{
-  font:inherit;font-size:12.5px;color:var(--ink);
-  background:#1c2333;border:1px solid var(--line-2);border-radius:8px;
-  padding:6px 12px;cursor:pointer;transition:background .13s,color .13s,border-color .13s;
-  white-space:nowrap;
-}
-button:hover,select:hover{background:#232c42}
-button.on{background:var(--curv);border-color:var(--curv);color:#fff}
-button.ghost{background:transparent;color:var(--dim)}
-button.ghost:hover{background:#1c2333;color:var(--ink)}
-a.jump{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);
-  text-decoration:none;padding:5px 7px;border-bottom:1px solid transparent}
-a.jump:hover{color:var(--curv);border-bottom-color:var(--curv)}
-
-/* ── SECTIONS ── */
-main{max-width:1360px;margin:0 auto;padding:0 20px 100px}
-section{padding-top:34px;scroll-margin-top:52px}
-.sec-head{display:flex;align-items:center;gap:14px;margin-bottom:8px}
-.sec-head h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);
-  margin:0;font-weight:650}
-.sec-head .rule{flex:1;height:1px;background:var(--line)}
-.sec-head .n{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
-.sec-note{font-size:12.5px;color:var(--dim);line-height:1.6;max-width:86ch;margin:0 0 18px}
-.sec-note b{color:var(--ink-2);font-weight:600}
-
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
-
-/* ── TILE = CARD ── */
-.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;
-  padding:10px;display:flex;flex-direction:column;gap:12px;
-  transition:border-color .16s,box-shadow .16s}
-.tile:hover{border-color:var(--line-2);box-shadow:0 2px 22px rgba(0,0,0,.35)}
-.tile.wide{grid-column:1 / -1}
-.tile .stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.tile canvas{display:block;width:100%;height:236px;border-radius:8px}
-.tile.wide canvas{height:300px}
-.tile.tall canvas{height:340px}
-.tile .stage .badge{position:absolute;top:8px;right:10px;font-size:11px;letter-spacing:.09em;
-  color:var(--dim);text-transform:uppercase}
-.tile .stage .save,.tile .stage .tvf,.tile .stage .edit,.tile .stage .link{position:absolute;bottom:9px;opacity:0;transition:opacity .15s;
-  padding:4px 9px;font-size:11.5px;border-radius:7px}
-.tile .stage .save{right:10px}
-.tile .stage .tvf{right:62px}
-.tile .stage .edit{right:114px;background:var(--curv);border-color:var(--curv);color:#fff}
-.tile:hover .stage .save,.tile:hover .stage .tvf,.tile:hover .stage .edit,.tile:hover .stage .link{opacity:1}
-/* touch screens have no hover, and a button you cannot see is a button you cannot find */
-@media (hover:none){.tile .stage .save,.tile .stage .tvf,.tile .stage .edit,.tile .stage .link{opacity:1}}
-.tile .stage .tvf.done,.tile .stage .save.done{background:var(--ok);border-color:var(--ok);color:#0c0f16}
-
-.tile .body{padding:0 5px 4px;display:flex;flex-direction:column;gap:10px}
-.tile h3{font-size:14px;font-weight:650;margin:0;letter-spacing:-.005em}
-.tile .note{font-size:12.5px;line-height:1.55;color:var(--dim);margin:-4px 0 0}
-.tile code.src{
-  display:block;font-family:var(--mono);font-size:11.5px;color:#b9a6ff;
-  background:rgba(124,92,255,.10);border:1px solid rgba(124,92,255,.22);border-radius:8px;
-  padding:7px 10px;line-height:1.55;overflow-x:auto;white-space:pre;cursor:copy}
-.tile code.src:hover{background:rgba(124,92,255,.17)}
-.tile code.src.copied{color:var(--ok);border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.10)}
-
-/* ── THE COURSE ── where this page sits among the seven; gallery/index.html is the front */
-.crumbs{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
-.crumbs a,.next a{color:#b9a6ff;text-decoration:none}
-.crumbs a:hover,.next a:hover{text-decoration:underline}
-.next{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13.5px;color:var(--ink-2)}
-
-/* ── TILE LINKS AND PREDICT MODE ── */
-.tile .stage .link{right:166px}
-.tile.flash{animation:flash 2.4s ease-out}
-@keyframes flash{0%,30%{border-color:var(--curv);box-shadow:0 0 0 2px rgba(124,92,255,.55)}100%{}}
-.tile .predict{font-size:12.5px;color:var(--ink-2);background:rgba(124,92,255,.07);border:1px dashed rgba(124,92,255,.35);
-  border-radius:8px;padding:9px 11px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
-.tile .predict[hidden]{display:none}
-.tile .predict .q{flex-basis:100%;color:var(--ink);font-weight:600}
-.tile .predict label{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-.tile .predict input[type=number]{width:62px;font:inherit;font-size:12.5px;color:var(--ink);background:#10151f;
-  border:1px solid var(--line-2);border-radius:6px;padding:3px 6px}
-.tile .predict .hint-in{color:var(--dim);font-size:11.5px}
-.tile .predict .hint{display:block;font-weight:400;color:var(--dim);font-size:11.5px;margin-top:2px}
-.tile .predict .reveal{margin-left:auto;background:var(--curv);border-color:var(--curv);color:#fff;padding:4px 12px}
-.tile .spec-cap .ok{color:var(--ok);font-weight:700}
-.tile .spec-cap .no{color:var(--bad);font-weight:700}
-#predict-score{font-size:11px;color:var(--A);letter-spacing:.09em;text-transform:uppercase;font-variant-numeric:tabular-nums}
-
-/* ── SPECTRUM STRIP ── under every live tile; see drawSpectrum */
-.tile canvas.spec{height:64px;border-radius:0;margin:-2px 0 -6px}
-.tile .spec-cap{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums;line-height:1.4}
-.tile .spec-cap b{color:#b9a6ff;font-weight:600}
-
-/* ── ROUND-TRIP TILE ── */
-.pastebox{width:100%;min-height:84px;resize:vertical;font-family:var(--mono);font-size:11.5px;
-  line-height:1.5;color:var(--ink-2);background:#10151f;
-  border:1px solid var(--line-2);border-radius:8px;padding:8px 10px}
-.pastebox::placeholder{color:#5c6680}
-.paste-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.paste-row .stat{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
-.paste-row .stat b{color:var(--ok);font-weight:600}
-.paste-row .stat i{color:var(--bad);font-style:normal;font-weight:600}
-
-/* ── TOAST ── */
-#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(14px);
-  background:var(--panel);color:var(--ink);border:1px solid var(--line-2);
-  font-size:12.5px;padding:9px 15px;border-radius:9px;opacity:0;pointer-events:none;
-  transition:opacity .18s,transform .18s;z-index:900;max-width:80vw;
-  box-shadow:0 6px 26px rgba(0,0,0,.5)}
-#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-
-/* ── DIALS = the pane's .ctl ── */
-.dials{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:2px 16px}
-.dial label{display:flex;justify-content:space-between;align-items:baseline;
-  font-size:12.5px;color:var(--ink-2);margin-bottom:3px}
-.dial .val{color:var(--A);font-variant-numeric:tabular-nums;font-weight:600}
-/* AMBER, NOT VIOLET, AND THE REASON IS THE GROOVE. accent-color paints the filled half;
-   the unfilled half is the UA's, and Chromium picks it to contrast with the accent — a
-   violet accent gets a near-white groove, an amber one gets a recessed charcoal groove.
-   Measured on the Loop pane itself, which has both: its three amber twist sliders sit
-   quietly, its violet spread slider draws a white bar. One slider on a pane is a
-   flourish; five per card across forty cards is a page of white bars. So the dials take
-   the amber, which they were already labelled in — the value and its slider now agree. */
-input[type=range]{width:100%;accent-color:var(--A);height:19px;cursor:ew-resize;display:block;margin:0}
-.dial select{width:100%;padding:4px 8px;font-size:12.5px}
-
-/* ── REPORT TILE ── */
-.report{padding:2px 5px 4px;font-size:12.5px;line-height:1.6;color:var(--dim)}
-.report table{border-collapse:collapse;width:100%;margin:10px 0 4px;font-size:13px}
-.report th{text-align:right;font-weight:400;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--dim);border-bottom:1px solid var(--line-2);padding:4px 8px 6px}
-.report th:first-child,.report td:first-child{text-align:left}
-.report td{padding:4px 8px;border-bottom:1px solid #1c2333;font-variant-numeric:tabular-nums;
-  text-align:right;color:var(--ink-2)}
-.report tr:last-child td{border-bottom:none}
-.report td.ok{color:var(--ok);font-weight:600}
-.report td.bad{color:var(--bad);font-weight:700}
-.report p{margin:0 0 4px}
-.report p.foot{font-size:12px;margin-top:12px;line-height:1.6;border-top:1px solid #1c2333;padding-top:12px}
-
-footer{max-width:1360px;margin:0 auto;padding:22px 20px 60px;
-  border-top:1px solid var(--line);font-size:12.5px;color:var(--dim);line-height:1.6}
-footer b{color:var(--ink-2);font-weight:600}
-
-@media(max-width:640px){
-  header{padding:20px 14px 4px} main{padding:0 14px 70px} .bar-in{padding:8px 14px}
-  .grid{grid-template-columns:1fr}
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
-  <nav class="crumbs"><a href="index.html">← all galleries</a> · 3 of 7</nav>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 4 of 15</nav>
   <h1>tvf <em>radiolaria</em> <span class="pill">tvf.radiolaria.js</span></h1>
   <p class="lede">
     Silica skeletons, every one of them <b>N samples of a band-limited loop</b>. The snowflake gallery
@@ -847,18 +657,28 @@ class Shape {
    * Change the leaf count. The curve is reconstructed and re-sampled uniformly
    * in the parameter, which preserves the existing parameterization — so N down
    * then N up is a smoothing pass, not a scramble.
+   *
+   * Evaluated with `evalAt` at each new leaf position, which is exact. It used
+   * to reconstruct onto an internal grid of M = max(2048, 16·max(N, N0)) points
+   * and interpolate linearly between them, and that had a failure mode worth
+   * recording because nothing about the call site hinted at it: the query
+   * positions are (k + 1/2)·M/N, so they land ON grid indices exactly when
+   * M/(2N) is an integer, and fall between them otherwise. Upsampling 96 → 128
+   * was exact to 2e-12; 96 → 127 was off by 1.5e-2, seven orders of magnitude
+   * worse from one leaf's difference — and because M is clamped at 2048, COARSER
+   * targets were the unreliable ones, which is backwards from every intuition
+   * anyone brings to a resampling call. Exactness should not depend on an
+   * arithmetic coincidence between the argument and a constant buried in the
+   * method, so it no longer does.
    */
   resample(N) {
     if (N === this.N) return this;
     if (N < 3) throw new Error('tvf: N must be at least 3');
-    const M = Math.max(2048, Math.max(N, this.N) * 16);
-    const dx = reconstruct(this.x, M), dy = reconstruct(this.y, M);
     const nx = new Float64Array(N), ny = new Float64Array(N);
     for (let k = 0; k < N; k++) {
-      const t = (k + 0.5) / N * M;
-      const i0 = Math.floor(t) % M, i1 = (i0 + 1) % M, u = t - Math.floor(t);
-      nx[k] = dx[i0] * (1 - u) + dx[i1] * u;
-      ny[k] = dy[i0] * (1 - u) + dy[i1] * u;
+      const phi = (k + 0.5) * TAU / N;
+      nx[k] = evalAt(this.x, phi);
+      ny[k] = evalAt(this.y, phi);
     }
     this.x = nx; this.y = ny;
     return this;
@@ -4624,8 +4444,8 @@ function makeTile(entry) {
   ).join('');
 
   tile.innerHTML =
-    `<div class="stage"><canvas></canvas>` +
-    `<button class="link" title="copy a link to this tile at these settings">link</button>` +
+    `<div class="stage"><canvas></canvas></div>` +
+    `<div class="tools"><button class="link" title="copy a link to this tile at these settings">link</button>` +
     `<button class="edit" title="open in the leaf editor — the curves ride in the link">edit</button>` +
     `<button class="tvf" title="copy as .tvf — paste straight into the leaf editor">.tvf</button>` +
     `<button class="save" title="copy the svg markup \u2014 paste straight into the leaf editor. Alt-click to save it as a file instead.">svg</button></div>` +

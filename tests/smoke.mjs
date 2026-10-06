@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SETTLE_MS = Number(process.env.SETTLE_MS || 400);    // time each action gets to run
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
+const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript',
                 '.json': 'application/json', '.svg': 'image/svg+xml' };
 
 /* Buttons the walk does not press: they touch the clipboard (cut, paste), call
@@ -138,7 +138,13 @@ try {
    tile's edit button must produce a link that this editor opens. window.open is
    stubbed so the link can be followed here, in a page of our own. */
 const { readdir } = await import('node:fs/promises');
-const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html') && f !== 'index.html' && f !== 'inspect.html').sort();
+const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html') && !['index.html', 'inspect.html', 'playground.html'].includes(f)).sort();
+// Pages with their own tile code: the chart pages draw a measurement per tile rather than a
+// list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
+// composed animate. No spectrum strip on any of them. Everything else is a shape page.
+const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html']);
+const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of galleries){
   current = 'gallery/' + g;
   const gp = await browser.newPage();
@@ -147,12 +153,36 @@ for (const g of galleries){
   const before = failures.length;
   try {
     await gp.goto(new URL('gallery/' + g, base).href, { waitUntil: 'load' });
-    await gp.$eval('.tile .edit', b => b.click());
+    // styled by gallery/style.css: the slate ground, not the browser's white
+    const bg = await gp.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    if (bg !== 'rgb(12, 15, 22)') throw new Error('style.css did not apply (body is ' + bg + ')');
+    // A chart page draws (and decides which tiles hold a curve) as tiles scroll in, and
+    // every measurement on it runs in the tab; scroll it all past, so they all run here,
+    // and catch any report that threw.
+    if (CHART_PAGES.has(g)) {
+      const threw = await gp.evaluate(async () => {
+        for (const t of document.querySelectorAll('.tile, .step')) { t.scrollIntoView(); await new Promise(r => setTimeout(r, 120)); }
+        await new Promise(r => setTimeout(r, 1500));
+        return [...document.querySelectorAll('.tile, .step')].filter(t => /this measurement threw|^error:/.test(
+          (t.querySelector('.report')?.textContent || '') + (t.querySelector('code.src')?.textContent || ''))).map(t => t.querySelector('h3, h2')?.textContent);
+      });
+      if (threw.length) throw new Error('measurements failed: ' + threw.join('; '));
+    }
+    const edit = await gp.$('.tile .edit:not([hidden])');
+    if (!edit) {   // where it breaks, the bench and heard hand no curve on: no edit buttons
+      if (!CHART_PAGES.has(g)) throw new Error('no edit button');
+      await gp.close();
+      console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} gallery/${g} (no curves to edit)`);
+      continue;
+    }
+    await edit.evaluate(b => b.click());
     await gp.waitForFunction(() => window.__links.length > 0, null, { timeout: 10000 });
     const link = await gp.evaluate(() => window.__links[0]);
     // The spectrum strip under that tile drew, and said something.
-    const cap = await gp.$eval('.tile .spec-cap', c => c.textContent);
-    if (!/N = \d+ allows up to m = \d+/.test(cap)) throw new Error('spectrum caption: ' + cap);
+    if (!CHART_PAGES.has(g)) {
+      const cap = await gp.$eval('.tile .spec-cap', c => c.textContent);
+      if (!/N = \d+ allows up to m = \d+/.test(cap)) throw new Error('spectrum caption: ' + cap);
+    }
     if (!link.startsWith(new URL('draw.html#tvf=', base).href)) throw new Error('edit link points at ' + link.slice(0, 80));
     // A fresh editor page each time, so the scene the button walk left behind (and its
     // saved copy) is not in the way: the link should open on a page of its own.
@@ -222,18 +252,21 @@ await step('inspector', async () => {
   if (ell['symmetry group'] !== 'D2' || !/could be 3$/.test(ell.leaves)) throw new Error('ellipse read as ' + JSON.stringify(ell));
 });
 
-/* THE SEVEN COPIES. Each gallery page carries the same bundled library (tvf.js through
-   tvf.format.js, ~130 KB) and the same tile code (spectrum strip, predict mode, editor
-   link), so that each opens from disk as one file. Nothing makes them stay the same but
+/* THE COPIES. Each gallery page carries tvf.js, and each shape page also the same bundle
+   after it (through tvf.format.js, ~130 KB) and the same tile code (spectrum strip, predict
+   mode, editor link), so that each opens from disk as one file. Nothing makes them stay the same but
    this: a fix made in one page and not the others fails here, naming the odd ones out. */
 await step('gallery copies agree', async () => {
   const spans = [
     ['bundled library', 'const TVF = (function', s => { const j = s.indexOf('})();', s.indexOf('return { toTVF')); return j < 0 ? -1 : j + 5; }],
     ['tile code', "// The loop a tile's strip", s => s.indexOf('async function copyText')],
   ];
-  for (const [what, start, end] of spans) {
+  // tvf.js itself is shared by every page, chart pages included; the rest of the bundle and
+  // the tile code only by the shape pages.
+  spans.unshift(['core tvf.js', 'const TVF = (function', s => { const j = s.indexOf('})();', s.indexOf('const TVF = (function')); return j < 0 ? -1 : j + 5; }, [...galleries, 'playground.html']]);
+  for (const [what, start, end, pages = shapePages] of spans) {
     const seen = new Map();
-    for (const g of galleries) {
+    for (const g of pages) {
       const s = await readFile(join(ROOT, 'gallery', g), 'utf8');
       const i = s.indexOf(start), j = end(s);
       const key = i < 0 || j < i ? '(missing)' : s.slice(i, j);
@@ -248,6 +281,38 @@ await step('gallery copies agree', async () => {
   }
 });
 
+/* gallery/tvf.js is the same library as an ES module, generated from the shared copy: its
+   body must be that copy's, its exports that copy's return list, and it must import and work. */
+await step('tvf.js module', async () => {
+  const mod = await readFile(join(ROOT, 'gallery', 'tvf.js'), 'utf8');
+  const page = await readFile(join(ROOT, 'gallery', 'spiral.html'), 'utf8');
+  const i = page.indexOf('const TVF = (function () {'), j = page.indexOf('})();', i);
+  const iife = page.slice(i + 'const TVF = (function () {'.length, j);
+  const r = iife.match(/\nreturn \{([^}]*)\};\s*$/);
+  const names = r[1].split(',').map(x => x.trim()).filter(Boolean);
+  const want = iife.slice(0, r.index).replace(/^\n/, '') + '\n\nexport { ' + names.join(', ') + ' };\n';
+  if (mod !== want) throw new Error('gallery/tvf.js is not the shared copy: regenerate it from a gallery page');
+  const t = await import(new URL('../gallery/tvf.js', import.meta.url).href);
+  const s = t.circle(64, { r: 100 }), back = s.clone().resample(127).resample(64);
+  const err = Math.max(...Array.from(back.x, (v, k) => Math.abs(v - s.x[k])));
+  if (!(err < 1e-9)) throw new Error('resample 64 → 127 → 64 is off by ' + err);
+});
+
+/* The playground fills the window with a rail, the clay and the transcript; it must load,
+   take a gesture, and write it down. */
+await step('playground', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  gp.on('pageerror', e => failures.push(`[playground] ${e.message}`));
+  await gp.goto(new URL('gallery/playground.html', base).href, { waitUntil: 'load' });
+  await gp.waitForTimeout(500);
+  await gp.click('button[data-verb="smooth"]');
+  const tape = await gp.textContent('#tape');
+  const bg = await gp.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  await gp.close();
+  if (bg !== 'rgb(12, 15, 22)') throw new Error('style.css did not apply (body is ' + bg + ')');
+  if (!/s\.smooth\(/.test(tape)) throw new Error('the transcript did not record smooth: ' + tape.slice(-120));
+});
+
 /* The front page: it loads, and each of its cards points at a gallery that exists. */
 await step('gallery index', async () => {
   const gp = await browser.newPage();
@@ -257,8 +322,9 @@ await step('gallery index', async () => {
   const after = await gp.$$eval('a.card.after', as => as.map(a => a.getAttribute('href')));
   await gp.close();
   if (hrefs.length !== galleries.length) throw new Error(`${hrefs.length} cards for ${galleries.length} pages`);
+  if (new Set(hrefs).size !== hrefs.length) throw new Error('a page has two cards');
   for (const h of hrefs) if (!galleries.includes(h)) throw new Error('card points at missing ' + h);
-  if (after.join() !== 'inspect.html') throw new Error('the inspector card points at ' + after.join());
+  if (after.join() !== 'playground.html,inspect.html') throw new Error('the cards after the course point at ' + after.join());
 });
 
 if (failures.length){

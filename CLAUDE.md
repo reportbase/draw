@@ -12,17 +12,33 @@ publishes.
   `tvf-core.js` are not in this repo, so **this file is now the source**: edit the
   block in place.
 - `index.html`: forwards `/draw/` to `draw.html`, keeping `?lab=` and `?bucket=`.
-- `gallery/`: seven teaching pages (`gallery.html` the catalogue, then `snowflakes`,
-  `radiolaria`, `width`, `landscape`, `growth`, `assemblies`, in that reading order), the
-  front page `index.html` that lists them, and `inspect.html`, which reads a shape's
+- `gallery/`: fifteen teaching pages, in reading order: `gallery.html` (the catalogue),
+  `bench`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
+  menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `sound` (heard), `motion`
+  (the loop), `compose` (composed), `fail` (where it breaks). Also `playground.html` (sculpt
+  a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
+  library as an ES module, *generated* from the copy the pages inline: regenerate it from
+  a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
+  the front page `index.html` that lists them, and `inspect.html`, which reads a shape's
   spectrum, symmetry, width and leaf count back off its leaves.
-  - Each gallery page is one self-contained file so it opens from disk. They all carry the
-    **same** bundled library (from `const TVF = (function` to the end of the FORMAT module)
-    and the **same** tile code (from `// The loop a tile's strip` to `async function
-    copyText`: spectrum strip, predict mode, editor link). Change one, change all seven;
-    `npm test` fails and names the page that differs.
+  - **Styles live in `gallery/style.css`**, shared by all fifteen pages; a page keeps only its
+    fonts link. Change the look there, once. (`index.html` and `inspect.html` still carry
+    their own small `<style>`.)
+  - Each page bundles its JavaScript so it runs from one file. All fifteen, and the playground, carry the **same**
+    `tvf.js` (`const TVF = (function` … `})();`). The seven *shape* pages (gallery,
+    snowflakes, radiolaria, width, landscape, growth, assemblies) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
+    (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
+    mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
+    names the page that differs.
+  - The other eight have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
+    STRESS, SPACE, CURVEMOD, SPIRAL), and no spectrum strip or predict mode. `spiral`,
+    `curves`, `space`, `fail` are *chart* pages (`body.page-chart`: a measurement and a
+    verdict line per tile); `motion` and `compose` animate (`page-chart page-motion`);
+    `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`). Each
+    has a section in `style.css`. Edit buttons (the shared editor link) are on `spiral`,
+    `curves`, `space`, `motion` and `compose`; the rest hold no curve to hand on.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a gallery page means updating it (and the "N of 7" crumbs and "next" links in each page).
+    a page means updating it, and the "N of 15" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE
