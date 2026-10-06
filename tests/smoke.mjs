@@ -17,6 +17,10 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SETTLE_MS = Number(process.env.SETTLE_MS || 400);    // time each action gets to run
+// QUICK=1 (npm run test:quick) is the everyday run: the editor walk and every fast
+// single-page check, but only two gallery pages walked (one shape page, one chart page)
+// instead of all of them, and no regeneration of labs.html. CI runs the full set.
+const QUICK = !!process.env.QUICK;
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript',
                 '.json': 'application/json', '.svg': 'image/svg+xml' };
 
@@ -164,7 +168,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
                              'bench.html', 'sound.html', 'motion.html', 'compose.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
-for (const g of galleries){
+for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
   const gp = await browser.newPage();
   gp.on('pageerror', e => failures.push(`[gallery/${g}] ${e.message}`));
@@ -374,7 +378,7 @@ await step('playground', async () => {
 
 /* labs.html is generated from the lab drawer (tools/build-labs.mjs). Regenerate it here and
    compare: a lab added, renamed or re-described in draw.html without \`npm run labs\` fails. */
-await step('labs.html matches the drawer', async () => {
+if (!QUICK) await step('labs.html matches the drawer', async () => {
   const { readLabs, render } = await import('../tools/build-labs.mjs');
   const want = render(await readLabs(base));
   const have = await readFile(join(ROOT, 'labs.html'), 'utf8');
