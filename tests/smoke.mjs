@@ -166,7 +166,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -295,6 +295,35 @@ await step('tiles', async () => {
     if (!(a > 0)) throw new Error(`stall ${m}: the seam measured zero, which a band-limited tile cannot reach`);
     if (Math.abs(ratio / want - 1) > 0.15) throw new Error(`stall ${m}: the seam falls ${ratio.toFixed(2)}× per doubling, expected ${want}×`);
   }
+});
+
+/* Epicycles: the chain is the format, not a picture of it. All the circles of a shape's
+   leaves land on the kernel's curve to rounding, at odd and even N (the Nyquist pair); a
+   six-fold flake uses only m ≡ 1 (mod 6); the heart is degree four, so eight circles; and
+   a chain sampled at 2k + 1 leaves comes back exactly. */
+await step('epicycles', async () => {
+  const gp = await browser.newPage();
+  gp.on('pageerror', e => failures.push(`[epicycles] ${e.message}`));
+  await gp.goto(new URL('gallery/epicycles.html', base).href, { waitUntil: 'load' });
+  const r = await gp.evaluate(() => {
+    const exact = s => { const ch = EP.order(EP.coeffs(s), 'size'); let e = 0;
+      for (let q = 0; q < 97; q++) { const ph = TAU * (q + 0.31) / 97, p = EP.pen(ch, ch.length, ph);
+        e = Math.max(e, Math.hypot(p[0] - evalAt(s.x, ph), p[1] - evalAt(s.y, ph))); }
+      return e / EP.size(ch); };
+    const f = EP.fromChain(EP.randomChain(5, 7, 20, 0.7)), back = EP.coeffs(f.shape);
+    return {
+      odd: exact(star(63)), even: exact(star(64)),
+      flake: EP.present(EP.order(EP.coeffs(flake(96)), 'speed')),
+      heart: EP.present(EP.order(EP.coeffs(heart(256)), 'size'), 1e-12).length,
+      chain: Math.max(...f.chain.slice(1).map(c => { const b = back.find(x => x.m === c.m); return Math.hypot(b.re - c.re, b.im - c.im); })),
+      N: f.N, k: f.k,
+    };
+  });
+  await gp.close();
+  if (!(r.odd < 1e-12 && r.even < 1e-12)) throw new Error(`the chain misses the kernel's curve: odd ${r.odd}, even ${r.even}`);
+  if (r.flake.join() !== '1,-5,7,-11,13') throw new Error('a six-fold flake uses m = ' + r.flake.join());
+  if (r.heart !== 8) throw new Error('the heart uses ' + r.heart + ' circles, not 8');
+  if (!(r.N === 2 * r.k + 1 && r.chain < 1e-12)) throw new Error(`a chain did not come back from ${r.N} leaves: ${r.chain}`);
 });
 
 /* The inspector reads facts off the leaves. Two of its examples have answers that can be
