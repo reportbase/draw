@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tvf — where it breaks</title>
+<title>tvf — composed</title>
 <!-- FRAUNCES IS GONE WITH THE PAPER THEME. The Loop pane sets its prose in the system
      sans and nothing else, so the display serif has no job here any more; IBM Plex Mono
      stays, for source lines and the .tvf box, and falls back to the platform's own
@@ -14,51 +14,54 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
-<body class="page-chart">
+<body class="page-chart page-motion">
 
 <header>
-  <nav class="crumbs"><a href="index.html">← all galleries</a> · 15 of 15</nav>
-  <h1>tvf <em>where it breaks</em> <span class="pill">tvf.stress.js</span></h1>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 14 of 15</nav>
+  <h1>tvf <em>composed</em> <span class="pill">tvf.compose.js</span></h1>
   <p class="lede">
-    The other five pages are the case for the format. This one is the case against it, and it is
-    the more useful page, because <b>every number on it was measured in your tab when you scrolled
-    past</b> — nothing here is a remembered result from a run I did earlier. A failure worth showing
-    is a failure you can reproduce; a failure worth trusting is one the same harness would have
-    reported clean if it had come out clean.
+    A bridge reconstructs a bounded curve from N atom readings. Nothing in that sentence says the
+    readings have to be <em>constants</em>. Point them at the output of another bridge and they
+    become bounded periodic signals — which is exactly what the second bridge guarantees they are.
+    <b>Bridges driving bridges.</b> Every shape on this page is several signals at once, and the
+    rule that assembles them is printed under each one.
   </p>
   <p class="sub">
-    Four kinds of thing are on this page, and they are not the same kind. There is <b>a real bug</b>
-    — found while building this, now fixed, kept reproducible so you can watch it happen. There are
-    <b>consequences of the band limit</b>, which are not bugs and will never be fixed because they
-    are the price of the guarantee. There are <b>traps</b>, which pass the test you would think to
-    write and fail the one that matters. And there are <b>structural limits</b> that no amount of
-    implementation effort touches. At the bottom is the half of the bargain that makes the rest
-    credible: the things that did <em>not</em> break, including two I had written down as broken and
-    which turn out not to be.
+    P(θ, t) = Ψ[ ℓ + δ<sub>O</sub>(t) + Σ<sub>k</sub> w<sub>k</sub>·δ<sub>C</sub>(t) ](θ) &nbsp;—&nbsp;
+    rest atoms ℓ, a <b>global</b> driver displacing every atom alike, <b>local</b> drivers owning a
+    windowed neighbourhood. This is not the tensor product: the (θ,t) surface costs N<sub>S</sub>·N<sub>O</sub>
+    atoms, this costs N<sub>S</sub> + N<sub>O</sub>, and it buys the articulated subclass — a shape with joints,
+    which is nearly everything anyone actually animates. The bill for that is at the bottom, both
+    derived and measured.
   </p>
 </header>
 
 <div class="bar"><div class="bar-in">
+  <button id="t-play" class="on">pause</button>
+  <div class="speed"><span>speed</span><input type="range" id="t-speed" min="0.05" max="2" step="0.05" value="0.3"></div>
   <button id="t-leaves">leaves</button>
-  <button id="t-exag" class="on">exaggerate error</button>
+  <button id="t-rest">rest shape</button>
+  <button id="t-trail">trail</button>
   <div class="spacer"></div>
-  <a class="jump" href="#cliff">the bug</a>
-  <a class="jump" href="#band">the band limit</a>
-  <a class="jump" href="#traps">traps</a>
-  <a class="jump" href="#algebra">the algebra</a>
-  <a class="jump" href="#limits">structural</a>
-  <a class="jump" href="#held">what held</a>
+  <a class="jump" href="#joints">joints</a>
+  <a class="jump" href="#stacks">stacks</a>
+  <a class="jump" href="#band">band arithmetic</a>
+  <a class="jump" href="#evidence">the bill</a>
 </div></div>
 
 <main id="main"></main>
 
 <footer>
-  <b>tvf.stress.js</b> is the harness. Each failure is a function that returns measured numbers, so
-  the page reports rather than asserts, and <code>node stresstest.mjs</code> runs the same functions
-  with assertions on top.<br>
-  The old <code>resample()</code> is kept in the harness as <code>lerpResample()</code> — not out of
-  sentiment, but because a bug you can no longer reproduce is a bug you have to take on faith.
-  <div class="next">That is the last of them. <a href="index.html">Back to all galleries</a>, or open the <a href="../draw.html">leaf editor</a>.</div>
+  <b>tvf.compose.js</b> is the paper's §12.5 with nothing between it and the screen. <code>Driver</code>
+  is a two-channel signal read against its own mean — the DC part decides where a joint <em>sits</em>,
+  the AC part decides how it <em>travels</em>, and without that split every driver you add shoves the
+  shape somewhere else. <code>window()</code> decides which atoms a driver owns.
+  <code>compose()</code> adds them at the leaf level, before any reconstruction happens, which is why
+  the output is an ordinary closed curve and the <b>.tvf</b> button on every tile works.<br>
+  The one number worth taking away: <b>amplification adds, it does not compound</b>. A global driver
+  is not amplified at all by the bridge it drives, because the coefficient it would have carried is
+  Σ<sub>k</sub>K(θ−θ<sub>k</sub>), and the partition of unity makes that exactly 1.
+  <div class="next">Next: <a href="fail.html">Where it breaks →</a></div>
 </footer>
 
 <script>
@@ -3394,376 +3397,6 @@ function mulberry(a) {
 return { Driver, window, compose, budget, probe, spectrum, bandOf, modulate, warp, stack, unstack };
 
 })();
-const STRESS = (function () {
-// tvf.stress.js — the measurement harness for the failure gallery
-// ============================================================================
-//
-// Every claim on `fail.html` is a number this file produced, in the reader's own
-// tab, on load. Nothing here is a fixture and nothing is remembered from a run I
-// did earlier — a page that prints a failure it did not just reproduce is a page
-// asking to be believed rather than checked.
-//
-// The rule I tried to hold to while writing it: a failure is only worth showing
-// if it can be measured, and it is only worth showing HONESTLY if the same
-// harness is willing to report the cases that did not fail. `didNotBreak()` at
-// the bottom is that half of the bargain, and it includes two things I had
-// written down as broken which turn out not to be.
-//
-// ============================================================================
-
-const { Shape, circle, polygon, star, mix, alignTo, evalAt, reconstruct,
-         reconstructSlope, kernel, TAU } = TVF;
-
-// ────────────────────────────────────────────────────────────────────────────
-// 1. THE RESAMPLE CLIFF — a real bug, now fixed, kept reproducible
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * `resample()` as it was: reconstruct onto an internal grid, then interpolate
- * linearly between grid points.
- *
- * Kept here on purpose. The bug is not that linear interpolation is inaccurate —
- * everyone knows it is. The bug is that the new leaf positions are
- * (k + 1/2)·M/N, so they land exactly ON grid indices when M/(2N) is an integer
- * and between them otherwise, which makes the accuracy of a resampling call
- * depend on an arithmetic coincidence between the argument you passed and a
- * constant buried in the method. And because M is clamped at 2048, the coarser
- * targets are the unreliable ones.
- */
-function lerpResample(shape, N) {
-  const M = Math.max(2048, Math.max(N, shape.N) * 16);
-  const dx = reconstruct(shape.x, M), dy = reconstruct(shape.y, M);
-  const nx = new Float64Array(N), ny = new Float64Array(N);
-  for (let k = 0; k < N; k++) {
-    const t = (k + 0.5) / N * M;
-    const i0 = Math.floor(t) % M, i1 = (i0 + 1) % M, u = t - Math.floor(t);
-    nx[k] = dx[i0] * (1 - u) + dx[i1] * u;
-    ny[k] = dy[i0] * (1 - u) + dy[i1] * u;
-  }
-  const s = new Shape(nx, ny);
-  s.meta.gridM = M;
-  s.meta.landsOnGrid = (M / (2 * N)) % 1 === 0;
-  return s;
-}
-
-/** A test shape with real energy near its Nyquist limit — where it shows. */
-function ripple(N = 96, h = 40, amp = 8, r = 100) {
-  const x = new Float64Array(N), y = new Float64Array(N);
-  for (let k = 0; k < N; k++) {
-    const t = (k + 0.5) * TAU / N, rr = r + amp * Math.cos(h * t);
-    x[k] = rr * Math.cos(t); y[k] = rr * Math.sin(t);
-  }
-  return new Shape(x, y);
-}
-
-/** Sup distance between two shapes' reconstructed curves, on a common grid. */
-function curveDeviation(a, b, Q = 4096) {
-  const ax = reconstruct(a.x, Q), ay = reconstruct(a.y, Q);
-  const bx = reconstruct(b.x, Q), by = reconstruct(b.y, Q);
-  let m = 0;
-  for (let i = 0; i < Q; i++) m = Math.max(m, Math.hypot(ax[i] - bx[i], ay[i] - by[i]));
-  return m;
-}
-
-/**
- * The cliff, across a run of target leaf counts. Upsampling cannot lose
- * information — the band is already there — so every row should read as machine
- * zero, and under the old code most of them do not.
- */
-function resampleCliff(o = {}) {
-  const src = o.shape || ripple(o.N0 || 96, o.h || 40);
-  const targets = o.targets || [100, 112, 120, 126, 127, 128, 129, 160, 192, 256];
-  return targets.map(N => {
-    const old = lerpResample(src, N);
-    const now = src.clone().resample(N);
-    return { N, gridM: old.meta.gridM, ratio: old.meta.gridM / (2 * N),
-             landsOnGrid: old.meta.landsOnGrid,
-             before: curveDeviation(src, old, o.Q || 4096),
-             after: curveDeviation(src, now, o.Q || 4096) };
-  });
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// 2. WHAT A BAND LIMIT CANNOT DO
-// ────────────────────────────────────────────────────────────────────────────
-
-/** An exact rounded rectangle, parameterized by arc length. rad → 0 is a corner. */
-function roundedRect(half = 100, rad = 25) {
-  const a = half - rad, straight = 2 * a, arc = Math.PI / 2 * rad;
-  const per = 4 * straight + 4 * arc;
-  const cx = [a, -a, -a, a], cy = [a, a, -a, -a];
-  return { per, rad, half, at(u) {
-    let s = ((u % 1) + 1) % 1 * per;
-    for (let q = 0; q < 4; q++) {
-      if (s < straight) {
-        if (q === 0) return [half, -a + s];
-        if (q === 1) return [a - s, half];
-        if (q === 2) return [-half, a - s];
-        return [-a + s, -half];
-      }
-      s -= straight;
-      if (s < arc) { const th = s / rad + q * Math.PI / 2;
-        return [cx[q] + rad * Math.cos(th), cy[q] + rad * Math.sin(th)]; }
-      s -= arc;
-    }
-    return [half, -a];
-  }};
-}
-
-/**
- * Distance from a point to a parametric curve: coarse scan, then a golden-section
- * refine. The refine is not fussiness — a pure scan floors out at half the sample
- * spacing, and that floor is indistinguishable from a convergence plateau, which
- * is exactly the wrong thing to be unable to distinguish on this page.
- */
-function distTo(curve, x, y, P = 4000) {
-  let b = Infinity, bu = 0;
-  for (let j = 0; j < P; j++) {
-    const p = curve.at(j / P), d = Math.hypot(x - p[0], y - p[1]);
-    if (d < b) { b = d; bu = j / P; }
-  }
-  const f = u => { const p = curve.at(((u % 1) + 1) % 1); return Math.hypot(x - p[0], y - p[1]); };
-  let lo = bu - 1 / P, hi = bu + 1 / P;
-  const g = (Math.sqrt(5) - 1) / 2;
-  let c = hi - g * (hi - lo), d2 = lo + g * (hi - lo);
-  for (let i = 0; i < 48; i++) {
-    if (f(c) < f(d2)) { hi = d2; d2 = c; c = hi - g * (hi - lo); }
-    else { lo = c; c = d2; d2 = lo + g * (hi - lo); }
-  }
-  return Math.min(b, f((lo + hi) / 2));
-}
-
-/** sup distance from the reconstruction to the exact curve, over an N ladder. */
-function convergence(curve, o = {}) {
-  const rungs = o.rungs || [32, 64, 128, 256];
-  const out = [];
-  let prev = null;
-  for (const N of rungs) {
-    const S = Shape.fromFunction(t => curve.at(t), N);
-    const d = S.sample(N * (o.dense || 12));
-    let m = 0;
-    for (let i = 0; i < d.x.length; i++) m = Math.max(m, distTo(curve, d.x[i], d.y[i], o.P || 3000));
-    out.push({ N, err: m, ratio: prev == null ? null : prev / m });
-    prev = m;
-  }
-  return out;
-}
-
-/** A curve already inside the band: exact at every rung, nothing to converge to. */
-function bandLimitedCurve(h = 3, amp = 10, r = 100) {
-  return { at(u) { const th = u * TAU, rr = r + amp * Math.cos(h * th);
-    return [rr * Math.cos(th), rr * Math.sin(th)]; } };
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// 3. TRAPS THAT PASS THE OBVIOUS TEST
-// ────────────────────────────────────────────────────────────────────────────
-
-/** The even-N kernel, as you would write it if you did not check the parity. */
-function evenKernel(phi, N) {
-  if (Math.abs(phi) < 1e-12) return 1;
-  const t = Math.tan(phi / 2);
-  if (Math.abs(t) < 1e-15) return 0;
-  return Math.sin(N * phi / 2) / (N * t);
-}
-
-/**
- * The trap. At odd N the even kernel is still EXACTLY 1 at its own node and 0 at
- * every other — so the test everybody writes ("does the curve pass through its
- * data?") passes to machine precision — while the partition of unity, which is
- * the property that actually keeps the reconstruction affine, is gone entirely.
- */
-function parityTrap(o = {}) {
-  const rungs = o.rungs || [16, 17, 32, 33, 64, 65];
-  return rungs.map(N => {
-    const probe = (K) => {
-      let node = 0, pou = 0;
-      for (let k = 0; k < N; k++) for (let j = 0; j < N; j++)
-        node = Math.max(node, Math.abs(K((k - j) * TAU / N, N) - (k === j ? 1 : 0)));
-      for (let i = 0; i < (o.M || 1500); i++) {
-        const phi = i / (o.M || 1500) * TAU;
-        let s = 0;
-        for (let k = 0; k < N; k++) s += K(phi - (k + 0.5) * TAU / N, N);
-        pou = Math.max(pou, Math.abs(s - 1));
-      }
-      return { node, pou };
-    };
-    return { N, odd: N % 2 === 1, naive: probe(evenKernel), library: probe(kernel) };
-  });
-}
-
-/**
- * Does the curve still bound a region? Counts crossings on a dense polyline, and
- * reports alongside it the three numbers the library will hand you regardless —
- * because the failure is not that the answers are wrong, it is that they arrive
- * with no indication that the question stopped making sense.
- */
-function simplicity(shape, o = {}) {
-  const M = o.M || 700;
-  const d = shape.sample(M);
-  const cross = (a, b, c, dd, e, f, g, h) => {
-    const o1 = (p, q, r, s, t, u) => Math.sign((s - q) * (t - r) - (u - s) * (r - p));
-    return o1(a, b, c, dd, e, f) !== o1(a, b, c, dd, g, h) &&
-           o1(e, f, g, h, a, b) !== o1(e, f, g, h, c, dd);
-  };
-  let n = 0;
-  for (let i = 0; i < M; i++) for (let j = i + 2; j < M; j++) {
-    if (i === 0 && j === M - 1) continue;
-    if (cross(d.x[i], d.y[i], d.x[(i + 1) % M], d.y[(i + 1) % M],
-              d.x[j], d.y[j], d.x[(j + 1) % M], d.y[(j + 1) % M])) n++;
-  }
-  const c = shape.centroid();
-  return { crossings: n, simple: n === 0, area: shape.area(1024), length: shape.length(1024),
-           containsCentroid: shape.contains(c.x, c.y, 512) };
-}
-
-/** Blending two shapes with and without a correspondence. */
-function morphCollapse(a, b, o = {}) {
-  const t = o.t == null ? 0.5 : o.t;
-  const ref = (Math.abs(a.area(1024)) + Math.abs(b.area(1024))) / 2;
-  const raw = mix(a, b, t), al = mix(a, alignTo(a, b), t);
-  return { ref, rawArea: Math.abs(raw.area(1024)), alignedArea: Math.abs(al.area(1024)),
-           rawFrac: Math.abs(raw.area(1024)) / ref, alignedFrac: Math.abs(al.area(1024)) / ref,
-           raw, aligned: al };
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// 4. THE ALGEBRA'S EXCEPTIONS
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * Everything in the group algebra C[Z_N] is a circulant, and a circulant commutes
- * with the cyclic shift. So `roll ∘ op` and `op ∘ roll` agreeing is not a nicety —
- * it is the test for membership. Three operators fail it, each for its own reason,
- * and all three are useful enough to keep.
- */
-function equivariance(o = {}) {
-  const base = o.shape || (() => { const s = circle(64, { r: 100 });
-    return s.noise(9, { seed: 3 }); })();
-  const off = o.roll == null ? 7 : o.roll;
-  const cmp = (p, q) => { let m = 0;
-    for (let i = 0; i < p.N; i++) m = Math.max(m, Math.hypot(p.x[i] - q.x[i], p.y[i] - q.y[i]));
-    return m; };
-  const ops = [
-    ['smooth(0.5, 2)',   s => s.smooth(0.5, 2),      'a circulant: a weighted sum of neighbours'],
-    ['lowpass(0.4)',     s => s.lowpass(0.4),        'a circulant: diagonal in the Fourier basis'],
-    ['inflate(12)',      s => s.inflate(12),         'built from circulants and a normalization'],
-    ['rotate(0.7)',      s => s.rotate(0.7),         'acts on the plane, not on the index'],
-    ['noise(6, seed 2)', s => s.noise(6, { seed: 2 }), 'the seed is pinned to the INDEX, not the position'],
-    ['reparameterize()', s => s.reparameterize(),    'genuinely outside: it rewrites the parameter itself'],
-    ['reverse()',        s => s.reverse(),           'dihedral, not cyclic — it commutes with the shift INVERTED'],
-  ];
-  return ops.map(([name, op, why]) => ({
-    name, why, gap: cmp(op(base.clone().roll(off)), op(base.clone()).roll(off)),
-  }));
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// 5. STRUCTURAL LIMITS
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * Leaves sit at (k + 1/2)·2π/N — a COSET of μ_N, not a subgroup. Refining from N
- * to jN keeps the old positions exactly when j is ODD, and shares nothing at all
- * when j is even. Which is a genuinely awkward fact: doubling is the refinement
- * every level-of-detail scheme wants, and doubling is the one that throws all the
- * old samples away.
- */
-function cosetNesting(o = {}) {
-  const pairs = o.pairs || [[8, 16], [8, 24], [16, 32], [16, 48], [16, 80], [12, 36], [32, 64]];
-  return pairs.map(([a, b]) => {
-    const A = Array.from({ length: a }, (_, k) => (k + 0.5) / a);
-    const B = Array.from({ length: b }, (_, k) => (k + 0.5) / b);
-    let shared = 0;
-    for (const u of A) if (B.some(v => Math.abs(u - v) < 1e-12)) shared++;
-    return { a, b, factor: b / a, shared, all: shared === a };
-  });
-}
-
-/** Leaves are uniform in the PARAMETER. Nothing promises they are useful. */
-function leafSpend(shape) {
-  const segs = [];
-  for (let k = 0; k < shape.N; k++) {
-    const j = (k + 1) % shape.N;
-    segs.push(Math.hypot(shape.x[j] - shape.x[k], shape.y[j] - shape.y[k]));
-  }
-  const mean = segs.reduce((a, c) => a + c, 0) / segs.length;
-  const sd = Math.sqrt(segs.reduce((a, c) => a + (c - mean) ** 2, 0) / segs.length);
-  return { segs, mean, cov: sd / mean, min: Math.min(...segs), max: Math.max(...segs),
-           spread: Math.max(...segs) / Math.min(...segs) };
-}
-
-/** Dense evaluation is O(N·M). No transform, no early exit, no free lunch. */
-function throughput(o = {}) {
-  const rungs = o.rungs || [32, 128, 512];
-  const M = o.M || 2048, reps = o.reps || 8;
-  // Warm up EVERY rung before timing any of them. Without this the first rung
-  // pays for JIT compilation and comes out faster than the second, which reads
-  // as a refutation of the very claim the table is making.
-  const shapes = rungs.map(N => circle(N, { r: 100 }).noise(6, { seed: 1 }));
-  for (const s of shapes) for (let i = 0; i < 3; i++) s.sample(M);
-  return rungs.map((N, i) => {
-    const s = shapes[i];
-    const t0 = (globalThis.performance || Date).now();
-    for (let r = 0; r < reps; r++) s.sample(M);
-    const ms = ((globalThis.performance || Date).now() - t0) / reps;
-    return { N, M, ms, mptps: M / ms / 1000, kernelCalls: N * M };
-  });
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// 6. THE OTHER HALF OF THE BARGAIN
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * Things I expected to break, or had written down as broken, and which do not.
- *
- * Two of these were my own claims. `resample()` had a real bug, but not the one I
- * had recorded — I had it down as "linear interpolation, so even exact doubling
- * is inexact", and doubling was in fact the case it got right. And I had the
- * slope chart down as disagreeing with the angle chart; it agrees to 1e-12
- * straight through the antipode, and the disagreement was in my test.
- */
-function didNotBreak(o = {}) {
-  const out = [];
-
-  // Λ grows like (2/π)ln N. It is the thing that would make all of this
-  // unusable if it grew any faster, and it does not.
-  const lam = N => { let m = 0;
-    for (let i = 0; i < 2048; i++) { const phi = i / 2048 * TAU; let s = 0;
-      for (let k = 0; k < N; k++) s += Math.abs(kernel(phi - (k + 0.5) * TAU / N, N));
-      m = Math.max(m, s); }
-    return m; };
-  const rows = (o.lamRungs || [16, 64, 256, 1024]).map(N =>
-    ({ N, lam: lam(N), model: 2 / Math.PI * Math.log(N) + 1 }));
-  out.push({ claim: 'amplification stays logarithmic', rows,
-    verdict: `Λ = ${rows[rows.length - 1].lam.toFixed(2)} at N = ${rows[rows.length - 1].N}` });
-
-  // The slope chart against the angle chart, including through the antipode
-  // where tan(φ/2) overflows to 1.6e16.
-  const s = circle(64, { r: 100 }).noise(9, { seed: 4 });
-  let worst = 0, worstPhi = 0;
-  for (let i = 0; i < 997; i++) {
-    const phi = (i + 0.3) / 997 * TAU;
-    const w = ((phi + Math.PI) % TAU + TAU) % TAU - Math.PI;
-    const a = evalAt(s.x, phi), b = reconstructSlope(s.x, [Math.tan(w / 2)])[0];
-    if (Math.abs(a - b) > worst) { worst = Math.abs(a - b); worstPhi = phi; }
-  }
-  out.push({ claim: 'the slope chart agrees with the angle chart', worst, worstPhi,
-    verdict: `sup |angle − slope| = ${worst.toExponential(2)} over 997 queries` });
-
-  // Upsampling, after the fix.
-  const src = ripple(96, 40);
-  const cliff = [100, 127, 128, 256].map(N => ({ N, err: curveDeviation(src, src.clone().resample(N)) }));
-  out.push({ claim: 'resample() is exact at every target now', rows: cliff,
-    verdict: `worst ${Math.max(...cliff.map(c => c.err)).toExponential(2)} across coarse and fine targets` });
-
-  return out;
-}
-
-return { lerpResample, ripple, curveDeviation, resampleCliff, roundedRect, distTo, convergence, bandLimitedCurve, evenKernel, parityTrap, simplicity, morphCollapse, equivariance, cosetNesting, leafSpend, throughput, didNotBreak };
-
-})();
 const { Shape, mix, alignTo, circle, ellipse, superellipse, rect, polygon, star, blob, rose,
         reconstruct, reconstructSlope, evalAt, kernel, kernelSlope, leafSlopes, TAU } = TVF;
 const SH = SHAPES, PT = PATTERNS;
@@ -3771,7 +3404,6 @@ const { toTVF, fromTVF } = FORMAT;
 const { Track, keyframes, rig, seam } = MOTION;
 const { waveform, coefficients, periodicWave, cycle, magnitudes, rawBuffer } = SOUND;
 const { Driver, window: win, compose, budget, probe, spectrum, bandOf, modulate, warp, stack, unstack } = COMPOSE;
-const ST = STRESS;
 
 
 
@@ -3779,436 +3411,430 @@ const ST = STRESS;
 
 
 
-const opts = { leaves: false, exag: true };
-const p = (key, min, max, step, value) => ({ key, min, max, step, value });
-// The page's palette on the slate ground: INK the light contour, CLAY (the name kept) the
-// violet every gallery uses for what a tile is about, SLIP green for what holds.
-const INK = 'rgba(232,236,245,0.92)', CLAY = 'rgba(160,138,255,0.95)', GHOST = 'rgba(232,236,245,0.17)', SLIP = '#4ade80';
 
-// ── drawing helpers ──────────────────────────────────────────────────────
-function cam(items, w, h, pad) {
+const opts = { playing: true, speed: 0.3, leaves: false, rest: false, trail: false };
+let clock = 0, lastT = performance.now();
+
+const toastEl = document.createElement('div'); toastEl.id = 'toast'; document.body.appendChild(toastEl);
+let toastTimer;
+function toast(m) { toastEl.textContent = m; toastEl.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('on'), 2000); }
+// ── the editor link ──────────────────────────────────────────────────────
+// The leaf editor reads draw.html#tvf=<payload> and pastes the curves it carries, the
+// same as .tvf text on the clipboard. Its comment block (search "THE SHAPE DEEP LINK")
+// is the spec; this is the writer half, and the two must agree byte for byte.
+//
+// IN THE FRAGMENT, so no server ever sees it and the length can never be refused with
+// a 414. It is still kept small, because links get pasted into messages: coordinates
+// are normalized the way toTVF does it (the whole list fitted into ±0.9 together, y
+// flipped up), quantized to 1/8192, delta-coded, zig-zag varint-packed, deflated when
+// CompressionStream exists, and written in base64url, which needs no escaping.
+//
+// Served from the draw site this page lives one folder below the editor, so a relative
+// link finds the editor that shipped with it (a local server, a fork's own Pages); opened
+// from disk there is nothing relative to find, and the published editor is the answer.
+const EDITOR_URL = /^https?:$/.test(location.protocol)
+  ? new URL('../draw.html', location.href).href
+  : 'https://reportbase.github.io/draw/draw.html';
+async function editorLink(list, o = {}) {
+  const Q = 8192, box = 0.9;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const pts of items) for (let i = 0; i < pts.x.length; i++) {
-    if (pts.x[i] < x0) x0 = pts.x[i]; if (pts.x[i] > x1) x1 = pts.x[i];
-    if (pts.y[i] < y0) y0 = pts.y[i]; if (pts.y[i] > y1) y1 = pts.y[i];
+  for (const s of list) {
+    const b = s.bbox();
+    x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+    x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
   }
-  const bw = x1 - x0 || 1, bh = y1 - y0 || 1;
-  const k = Math.min((w - 2 * pad) / bw, (h - 2 * pad) / bh);
-  return { k, ox: w / 2 - (x0 + bw / 2) * k, oy: h / 2 + (y0 + bh / 2) * k,
-           X: x => w / 2 + (x - (x0 + bw / 2)) * k, Y: y => h / 2 - (y - (y0 + bh / 2)) * k };
-}
-function strokePts(ctx, c, pts, style, width, dash) {
-  ctx.beginPath();
-  for (let i = 0; i <= pts.x.length; i++) {
-    const j = i % pts.x.length;
-    const X = c.X(pts.x[j]), Y = c.Y(pts.y[j]);
-    i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const half = Math.max((x1 - x0) / 2, (y1 - y0) / 2);
+  const k = half > 1e-12 ? box / half : 1;
+
+  const out = [];
+  const u8 = v => out.push(v & 255);
+  const uv = v => { while (v >= 128) { out.push((v % 128) | 128); v = Math.floor(v / 128); } out.push(v); };
+  const zz = v => uv(v < 0 ? -2 * v - 1 : 2 * v);
+  const name = o.name ? new TextEncoder().encode(String(o.name).slice(0, 80)) : null;
+  // The source line that made the curves goes AFTER them (flags&4): an editor that predates
+  // it reads the curves and stops, and one that knows it keeps it as the shape's note.
+  const source = o.source ? new TextEncoder().encode(String(o.source).replace(/\s+/g, ' ').trim().slice(0, 300)) : null;
+  u8(1); uv(Q); uv(list.length); u8((o.fill ? 1 : 0) | (name ? 2 : 0) | (source ? 4 : 0));
+  if (o.fill) {
+    const h = o.fill.replace('#', '');
+    for (let i = 0; i < 6; i += 2) u8(parseInt(h.slice(i, i + 2), 16));
+    u8(Math.round(255 * (o.fillOpacity == null ? 1 : o.fillOpacity)));
   }
-  ctx.setLineDash(dash || []); ctx.strokeStyle = style; ctx.lineWidth = width || 1.3;
-  ctx.lineJoin = 'round'; ctx.stroke(); ctx.setLineDash([]);
-}
-function dots(ctx, c, pts, style, r) {
-  ctx.fillStyle = style;
-  for (let i = 0; i < pts.x.length; i++) {
-    ctx.beginPath(); ctx.arc(c.X(pts.x[i]), c.Y(pts.y[i]), r || 1.8, 0, TAU); ctx.fill();
+  if (name) { uv(name.length); for (const c of name) u8(c); }
+  for (const s of list) {
+    const N = s.N;
+    uv(N);
+    for (const [arr, c0, sgn] of [[s.x, cx, 1], [s.y, cy, -1]]) {
+      let prev = 0;
+      for (let j = 0; j < N; j++) {
+        const v = Math.round(sgn * (arr[j] - c0) * k * Q);
+        zz(v - prev); prev = v;
+      }
+    }
   }
-}
-function label(ctx, x, y, text, style, align) {
-  ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace'; ctx.fillStyle = style || 'rgba(139,149,171,1)';
-  ctx.textAlign = align || 'left'; ctx.fillText(text, x, y);
-}
-// a plain x/y line plot, used wherever the failure is in a number rather than a picture
-function plot(ctx, w, h, series, o = {}) {
-  const pad = o.pad || 26;
-  let x0 = o.x0, x1 = o.x1, y0 = o.y0, y1 = o.y1;
-  if (x0 == null) { x0 = Infinity; x1 = -Infinity; y0 = Infinity; y1 = -Infinity;
-    for (const s of series) for (let i = 0; i < s.x.length; i++) {
-      x0 = Math.min(x0, s.x[i]); x1 = Math.max(x1, s.x[i]);
-      y0 = Math.min(y0, s.y[i]); y1 = Math.max(y1, s.y[i]); } }
-  const X = v => pad + (v - x0) / ((x1 - x0) || 1) * (w - pad - 8);
-  const Y = v => h - pad + 4 - (v - y0) / ((y1 - y0) || 1) * (h - pad - 14);
-  ctx.strokeStyle = 'rgba(232,236,245,0.14)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(X(x0), Y(o.zero == null ? y0 : o.zero)); ctx.lineTo(X(x1), Y(o.zero == null ? y0 : o.zero)); ctx.stroke();
-  if (o.guide != null) { ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(232,236,245,0.25)';
-    ctx.beginPath(); ctx.moveTo(X(x0), Y(o.guide)); ctx.lineTo(X(x1), Y(o.guide)); ctx.stroke(); ctx.setLineDash([]); }
-  for (const s of series) {
-    ctx.beginPath();
-    for (let i = 0; i < s.x.length; i++) { const px = X(s.x[i]), py = Y(s.y[i]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
-    ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 1.4; ctx.stroke();
-    if (s.name) label(ctx, X(x1) - 2, Y(s.y[s.y.length - 1]) - 5, s.name, s.color, 'right');
+  if (source) { uv(source.length); for (const c of source) u8(c); }
+  let bytes = new Uint8Array(out), kind = 'r';
+  if (typeof CompressionStream === 'function') {
+    const cs = new CompressionStream('deflate-raw');
+    bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(cs)).arrayBuffer());
+    kind = 'z';
   }
-  return { X, Y };
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return EDITOR_URL + '#tvf=' + kind + b64;
 }
 
-// ── the catalogue of failures ────────────────────────────────────────────
+async function copyText(text) {
+  try { if (navigator.clipboard && globalThis.isSecureContext) { await navigator.clipboard.writeText(text); return true; } } catch (e) {}
+  const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly','');
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0'; document.body.appendChild(ta);
+  ta.select(); ta.setSelectionRange(0, text.length);
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta); return ok;
+}
+const p = (key, min, max, step, value) => ({ key, min, max, step, value });
+const ghost = s => { s.meta.tone = 0.16; s.meta.dash = true; return s; };
+
+// ── the catalogue ────────────────────────────────────────────────────────
 const SECTIONS = [
 {
-  id: 'cliff', title: 'A real bug', kicker: 'found while building this page',
-  note: 'Upsampling a shape cannot lose information — the band is already there, and the new leaves are just the ' +
-        'same curve read at more places. So every row of this should be machine zero. Under the old ' +
-        '<code>resample()</code> most of them were not, and <b>which ones were depended on whether the target leaf ' +
-        'count happened to divide a constant buried inside the method</b>.',
+  id: 'joints', title: 'Joints',
+  note: 'A driver is a closed curve read on the time circle. A <b>global</b> driver displaces every spatial atom ' +
+        'alike; a <b>local</b> driver displaces only the atoms its window owns. The window is drawn under each tile ' +
+        'as the bridge actually sees it — <b>R(θ) = Σ w<sub>k</sub>K(θ−θ<sub>k</sub>)</b>, reconstructed, not as the ' +
+        'weights you typed. That curve is also the factor the driver contributes to the amplification, which is why ' +
+        'it is worth looking at.',
   entries: [
-    { name: 'seven orders of magnitude from one leaf', wide: true, tall: true,
-      note: 'The old implementation reconstructed onto an internal grid of M = max(2048, 16·max(N, N₀)) points and ' +
-            'interpolated linearly between them. The new leaf positions are (k + ½)·M/N, so they land <em>on</em> grid ' +
-            'indices exactly when M/(2N) is a whole number, and between them otherwise. Drag the target across 127 → 128 ' +
-            'and watch the error fall off a cliff. Note which side is the good one: because M is clamped at 2048, ' +
-            '<b>the coarse targets were the broken ones</b>, which is backwards from every intuition you would bring to ' +
-            'a resampling call.',
-      params: [ p('target N', 100, 260, 1, 127), p('source h', 8, 44, 1, 40) ],
-      code: v => `ripple(96, h = ${v['source h']}).resample(${v['target N']})\n  internal grid M = ${Math.max(2048, Math.max(v['target N'], 96) * 16)},  M/(2N) = ${(Math.max(2048, Math.max(v['target N'], 96) * 16) / (2 * v['target N'])).toFixed(3)}`,
-      state: v => {
-        const src = ST.ripple(96, v['source h'], 8);
-        const old = ST.lerpResample(src, v['target N']);
-        const now = src.clone().resample(v['target N']);
-        return { src, old, now, before: ST.curveDeviation(src, old, 1024), after: ST.curveDeviation(src, now, 1024),
-                 lands: old.meta.landsOnGrid };
-      },
-      verdict: s => s.lands
-        ? `M/(2N) is a whole number — the queries land on grid points, so the old code was accidentally exact: ${s.before.toExponential(2)}`
-        : `old ${s.before.toExponential(2)} · new ${s.after.toExponential(2)} — ten orders of magnitude apart, but in absolute terms ${s.before.toFixed(4)} units on a radius of 100. A precision bug, not a visible one. What makes it worth fixing is that it is a cliff, and that it is on the wrong side.`,
-      bad: s => !s.lands,
-      draw: (ctx, w, h, v, s) => {
-        const A = s.src.sample(1400), B = s.old.sample(1400);
-        const c = cam([A], w, h * 0.62, 26);
-        strokePts(ctx, c, A, INK, 1.6);
-        // The deviation is ~0.015 units on a radius of 100 — a fifth of a pixel at
-        // this size, which is the honest scale of the bug and completely invisible.
-        // So it is scaled to a fixed on-screen size and the factor is printed,
-        // rather than picked to look alarming.
-        const g = opts.exag ? Math.min(4000, 7 / Math.max(s.before, 1e-13)) : 1;
-        const E = { x: new Float64Array(1400), y: new Float64Array(1400) };
-        for (let i = 0; i < 1400; i++) { E.x[i] = A.x[i] + (B.x[i] - A.x[i]) * g; E.y[i] = A.y[i] + (B.y[i] - A.y[i]) * g; }
-        strokePts(ctx, c, E, s.lands ? 'rgba(74,222,128,0.9)' : CLAY, 1.2, [3, 2]);
-        label(ctx, 10, 14, 'true curve', INK);
-        label(ctx, 10, 27, opts.exag
-          ? `old resample(), deviation ×${g < 10 ? g.toFixed(1) : Math.round(g).toLocaleString()}`
-          : 'old resample(), true scale — invisible, which is the point', s.lands ? SLIP : CLAY);
-        // deviation against every target in the run, so the cliff is a shape and not an anecdote
-        const rows = CLIFF_ROWS();
-        const py = h * 0.66;
-        ctx.save(); ctx.translate(0, py);
-        const ser = [{ x: rows.map(r => r.N), y: rows.map(r => Math.log10(Math.max(r.before, 1e-13))), color: CLAY },
-                     { x: rows.map(r => r.N), y: rows.map(r => Math.log10(Math.max(r.after, 1e-13))), color: SLIP }];
-        const P = plot(ctx, w, h - py, ser, { y0: -13, y1: -1 });
-        for (const e of [-2, -6, -10]) { ctx.strokeStyle = 'rgba(232,236,245,0.08)';
-          ctx.beginPath(); ctx.moveTo(26, P.Y(e)); ctx.lineTo(w - 8, P.Y(e)); ctx.stroke();
-          label(ctx, 3, P.Y(e) + 3, `1e${e}`, 'rgba(139,149,171,0.9)'); }
-        // series labels go where the lines actually are and the axis is not
-        label(ctx, w * 0.42, P.Y(-2) - 7, 'old resample()', CLAY);
-        label(ctx, w * 0.42, P.Y(-11.6) - 7, 'fixed', SLIP);
-        label(ctx, w - 6, h - py - 4, 'sup deviation vs target leaf count', 'rgba(139,149,171,1)', 'right');
-        ctx.strokeStyle = 'rgba(232,236,245,0.35)'; ctx.setLineDash([2, 3]);
-        ctx.beginPath(); ctx.moveTo(P.X(v['target N']), 10); ctx.lineTo(P.X(v['target N']), h - py - 18); ctx.stroke(); ctx.setLineDash([]);
-        ctx.restore();
-      },
-      report: (host) => {
-        const rows = CLIFF_ROWS();
-        host.innerHTML =
-          `<p>Every one of these is an <em>upsample or equal</em>, so every one should be machine zero.</p>
-           <table><thead><tr><th>target N</th><th>grid M</th><th>M/(2N)</th><th>old resample()</th><th>fixed</th></tr></thead><tbody>` +
-          rows.map(r => `<tr><td>${r.N}</td><td>${r.gridM}</td><td>${r.ratio.toFixed(3)}${r.landsOnGrid ? ' ✓' : ''}</td>` +
-            `<td class="${r.landsOnGrid ? 'ok' : 'bad'}">${r.before.toExponential(2)}</td>` +
-            `<td class="ok">${r.after.toExponential(2)}</td></tr>`).join('') +
-          `</tbody></table>
-           <p class="foot">The fix is to call <code>evalAt</code> at each new leaf position instead of interpolating a
-            grid — three lines shorter than what it replaced. The remaining ~3e-12 is the honest floor: <code>evalAt</code>
-            sums N kernel terms, and that costs a few digits. What it is not is a function of whether your argument
-            divides 2048.</p>`;
-      } },
+    { name: 'one global driver', kind: 'shape',
+      note: 'The plainest case. One orbit displaces every atom by the same vector, so the shape travels and does not deform. ' +
+            'It is read as <b>δ(t) = Ψ(t) − a</b> against its own mean, which is why the loop is centred on the rest shape ' +
+            'rather than parked off to one side of it.',
+      params: [ p('N_O', 5, 48, 1, 16), p('rx', 0, 120, 2, 62), p('ry', 0, 120, 2, 26), p('h', 1, 4, 1, 1) ],
+      code: v => `compose({ rest: pebble(96),\n  globals: [{ driver: Driver.orbit(${v['N_O']}, { rx: ${v.rx}, ry: ${v.ry}, h: ${v.h} }) }] })`,
+      build: v => {
+        const rest = SH.pebble(96, { r: 92, seed: 3 });
+        const P = compose({ rest, globals: [{ driver: Driver.orbit(v['N_O'], { rx: v.rx, ry: v.ry, h: v.h }) }] });
+        return withPath(P, v['N_O']); } },
+
+    { name: 'a windowed joint', kind: 'shape',
+      note: 'The same driver, but owned by a neighbourhood. Everything outside the support is exactly the rest shape — ' +
+            'the window is 0 there and 0 times anything is 0. Widen it toward the whole turn and the local driver becomes ' +
+            'the global one; that is the same rule, not a second one.',
+      params: [ p('at', 0, 1, .01, .25), p('width', .05, 1, .01, .3), p('reach', 0, 90, 2, 46), p('N_C', 5, 48, 1, 24) ],
+      code: v => `locals: [{ driver: Driver.orbit(${v['N_C']}, { rx: ${v.reach}, ry: ${(v.reach*0.4)|0} }),\n           w: window(96, { at: ${v.at}, width: ${v.width} }) }]`,
+      strip: 'mass',
+      build: v => {
+        const rest = SH.pebble(96, { r: 96, seed: 7 });
+        const w = win(96, { at: v.at, width: v.width });
+        const P = compose({ rest, locals: [{ driver: Driver.orbit(v['N_C'], { rx: v.reach, ry: v.reach * 0.4, phase: 0.6 }), w }] });
+        P.window = w; return P; } },
+
+    { name: 'three joints, one body', kind: 'shape',
+      note: 'Three local drivers at three places, each with its own leaf count and its own phase. They are added at the ' +
+            'atom level before anything is reconstructed, so the result is one closed curve with one leaf set — not three ' +
+            'shapes overlaid, and not a rig that has to be baked.',
+      params: [ p('reach', 0, 90, 2, 52), p('width', .08, .5, .01, .26), p('spin', 0, 1, 1, 0), p('seed', 1, 30, 1, 7) ],
+      code: v => `locals: [0.15, 0.48, 0.81].map((at, i) =>\n  ({ driver: Driver.noise(18 + 3*i, { seed: i+1 }), w: window(96, { at, width: ${v.width} }) }))`,
+      strip: 'mass',
+      build: v => {
+        const rest = SH.amoeba(96, { seed: v.seed, r: 92 });
+        const spots = [0.15, 0.48, 0.81];
+        const ws = spots.map(at => win(96, { at, width: v.width }));
+        const P = compose({ rest, locals: spots.map((at, i) => ({
+          driver: Driver.noise(18 + 3 * i, { seed: i * 5 + 2, amp: v.reach, detail: 0.35 }).roll(i / 3),
+          w: ws[i] })),
+          globals: v.spin ? [{ driver: Driver.orbit(12, { rx: 26, ry: 26 }) }] : [] });
+        P.window = ws; return P; } },
+
+    { name: 'a heart drives a pebble', kind: 'shape', wide: true,
+      note: 'The point of the whole page, in one line. <code>Driver.fromShape(heart(48))</code> is not a conversion — ' +
+            'a catalogue shape already <em>is</em> N bounded readings on a circle, which is the definition of a driver. ' +
+            'So the trajectory of the joint is a shape from the catalogue, and you can see it traced beside the body.',
+      params: [ p('scale', .1, 1.2, .02, .82), p('at', 0, 1, .01, .3), p('width', .08, 1, .01, .46), p('which', 0, 4, 1, 0) ],
+      code: v => `const path = Driver.fromShape(${['heart','star','rose','gear','leaf'][v.which]}(48), { scale: ${v.scale} });\ncompose({ rest: pebble(96), locals: [{ driver: path, w: window(96, { at: ${v.at}, width: ${v.width} }) }] })`,
+      strip: 'mass',
+      build: v => {
+        const src = [SH.heart(48, { r: 100 }), star(48, { r: 100, points: 5, inner: .45 }),
+                     rose(48, { r: 100, petals: 3 }), SH.gear(48, { teeth: 6, depth: .22, r: 100 }),
+                     SH.leaf(48, { len: 200, width: 90 })][v.which];
+        const rest = SH.pebble(96, { r: 90, seed: 2 });
+        const w = win(96, { at: v.at, width: v.width });
+        const P = compose({ rest, locals: [{ driver: Driver.fromShape(src, { scale: v.scale }), w }] });
+        P.window = w; return withPath(P, 0); } },
+
+    { name: 'a bulge, not a shove', kind: 'shape',
+      note: 'A <b>radial</b> driver pushes each owned atom along its own outward direction instead of in a fixed one. ' +
+            'Same rule, different basis — and the difference on screen is between a limb that swings and a lung that breathes.',
+      params: [ p('at', 0, 1, .01, .5), p('width', .08, .8, .01, .38), p('amp', 0, 90, 2, 58), p('N_C', 4, 32, 1, 12) ],
+      code: v => `radial: [{ driver: Driver.orbit(${v['N_C']}, { rx: ${v.amp} }),\n           w: window(96, { at: ${v.at}, width: ${v.width} }) }]`,
+      strip: 'mass',
+      build: v => {
+        const rest = circle(96, { r: 92 });
+        const w = win(96, { at: v.at, width: v.width });
+        const P = compose({ rest, radial: [{ driver: Driver.orbit(v['N_C'], { rx: v.amp }), w }] });
+        P.window = w; return P; } },
+
+    { name: 'a driver made of drivers', kind: 'shape',
+      note: 'Nothing stops the trajectory itself from being composed. Here the joint follows a curve that is a circle ' +
+            'plus a windowed wobble — a bridge, driven, then used as a driver. The cost is still a sum, and the ' +
+            'amplification is still additive, because at no point did anything form a product grid.',
+      params: [ p('depth', 0, 1, .02, .55), p('reach', 10, 90, 2, 54), p('lobes', 2, 9, 1, 5) ],
+      code: v => `const inner = compose({ rest: circle(48), radial: [{ driver: Driver.orbit(${v.lobes*4}, { rx: ${v.depth} }) }] });\nconst path  = Driver.fromShape(inner(0.25));   // a driven bridge, used as a driver`,
+      build: v => {
+        const inner = compose({ rest: circle(48, { r: 1 }),
+          radial: [{ driver: Driver.harmonic(v.lobes * 4, [{ h: v.lobes, amp: v.depth }]) }] });
+        const path = Driver.fromShape(inner(0.25), { scale: v.reach });
+        const rest = SH.pebble(96, { r: 90, seed: 11 });
+        const w = win(96, { at: 0.2, width: 0.42 });
+        const P = compose({ rest, locals: [{ driver: path, w }] });
+        P.window = w; return withPath(P, 0); } },
   ]
 },
 {
-  id: 'band', title: 'What the band limit cannot do', kicker: 'not bugs — the price of the guarantee',
-  note: 'These will never be fixed, because fixing them means giving up the property the whole format is built on. ' +
-        'A band-limited curve is smooth everywhere. A corner is not smooth anywhere near itself. You can get as close ' +
-        'as you like and you will get there at <b>O(1/N)</b>, which is the slowest useful rate there is.',
+  id: 'stacks', title: 'Stacks',
+  note: 'Several signals on <em>one</em> contour. Addition keeps the wider band and nothing else — so band-separated ' +
+        'layers superpose without blurring into one another, and each is still recoverable from the sum. That is not ' +
+        'a property of the drawing; it is a property of the circle, and the last tile in this section proves it by ' +
+        'pulling each layer back out.',
   entries: [
-    { name: 'a corner never arrives', tall: true,
-      note: 'A square, sampled at N leaves and reconstructed. The corner is cut and the flats ring, and both shrink at ' +
-            'exactly the same rate: <b>halving the error costs twice the leaves, forever</b>. Watch the corner region, ' +
-            'not the outline — at N = 256 the outline looks perfect and the corner is still 0.5 units off a 200-unit square.',
-      params: [ p('N', 16, 256, 1, 48), p('fillet', 0, 40, 1, 0), p('zoom', 1, 8, .5, 3) ],
-      code: v => v.fillet > 0
-        ? `roundedRect(100, rad = ${v.fillet}) sampled at N = ${v.N}    → O(1/N²)`
-        : `a true corner sampled at N = ${v.N}    → O(1/N), forever`,
-      state: v => {
-        const curve = ST.roundedRect(100, Math.max(0.001, v.fillet));
-        const S = Shape.fromFunction(t => curve.at(t), v.N);
-        const d = S.sample(Math.max(900, v.N * 8));
-        let err = 0;
-        for (let i = 0; i < d.x.length; i += 2) err = Math.max(err, ST.distTo(curve, d.x[i], d.y[i], 900));
-        return { curve, S, d, err };
-      },
-      verdict: s => `worst distance to the exact curve: ${s.err.toFixed(4)} units on a 200-unit square`,
-      bad: s => s.err > 0.05,
-      draw: (ctx, w, h, v, s) => {
-        // exact curve
-        const P = 1400, ex = { x: new Float64Array(P), y: new Float64Array(P) };
-        for (let i = 0; i < P; i++) { const q = s.curve.at(i / P); ex.x[i] = q[0]; ex.y[i] = q[1]; }
-        const c = cam([ex], w, h * 0.55, 20);
-        strokePts(ctx, c, ex, GHOST, 1.2);
-        strokePts(ctx, c, s.d, INK, 1.3);
-        if (opts.leaves) dots(ctx, c, s.S, CLAY, v.N > 120 ? 1 : 1.7);
-        label(ctx, 10, 14, 'exact', 'rgba(139,149,171,1)');
-        label(ctx, 10, 27, `reconstruction, N = ${v.N}`, INK);
-        // the corner, magnified
-        const zy = h * 0.57, zh = h - zy - 4;
-        ctx.save(); ctx.beginPath(); ctx.rect(0, zy, w, zh); ctx.clip();
-        ctx.strokeStyle = 'rgba(232,236,245,0.1)'; ctx.strokeRect(0.5, zy + 0.5, w - 1, zh - 1);
-        const z = v.zoom * 6, cxp = w / 2, cyp = zy + zh / 2;
-        const M = (X, Y) => [cxp + (X - 100) * z, cyp - (Y - 100) * z];
-        ctx.beginPath();
-        for (let i = 0; i < P; i++) { const q = M(ex.x[i], ex.y[i]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
-        ctx.closePath(); ctx.strokeStyle = GHOST; ctx.lineWidth = 1.2; ctx.stroke();
-        ctx.beginPath();
-        for (let i = 0; i < s.d.x.length; i++) { const q = M(s.d.x[i], s.d.y[i]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
-        ctx.closePath(); ctx.strokeStyle = CLAY; ctx.lineWidth = 1.4; ctx.stroke();
-        // the exact corner, and the gap the reconstruction leaves at it
-        const q = M(100, 100);
-        ctx.strokeStyle = 'rgba(232,236,245,0.5)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(q[0] - 5, q[1]); ctx.lineTo(q[0] + 5, q[1]);
-        ctx.moveTo(q[0], q[1] - 5); ctx.lineTo(q[0], q[1] + 5); ctx.stroke();
-        let near = Infinity, nx = 0, ny = 0;
-        for (let i = 0; i < s.d.x.length; i++) { const dd = Math.hypot(s.d.x[i] - 100, s.d.y[i] - 100);
-          if (dd < near) { near = dd; nx = s.d.x[i]; ny = s.d.y[i]; } }
-        const r2 = M(nx, ny);
-        ctx.strokeStyle = CLAY; ctx.setLineDash([2, 2]);
-        ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(r2[0], r2[1]); ctx.stroke(); ctx.setLineDash([]);
-        ctx.restore();
-        label(ctx, 6, zy + 13, `the corner at ×${(v.zoom * 6).toFixed(0)} — the gap is ${near.toFixed(3)} units`, 'rgba(139,149,171,1)');
-      } },
+    { name: 'three bands, one outline', kind: 'shape', wide: true,
+      note: 'A slow lobing, a medium ripple and a fine crenellation, summed onto the radius. Drag any amplitude to zero ' +
+            'and only that layer leaves — the others do not move by a pixel, because their harmonics never touched.',
+      params: [ p('h1', 1, 6, 1, 3), p('a1', 0, 40, 1, 22), p('h2', 6, 16, 1, 11), p('a2', 0, 20, 1, 9),
+                p('h3', 17, 40, 1, 27), p('a3', 0, 10, .5, 3.5) ],
+      code: v => `stack(128, [{ h: ${v.h1}, amp: ${v.a1} }, { h: ${v.h2}, amp: ${v.a2} }, { h: ${v.h3}, amp: ${v.a3} }])\n  → radius,  and each layer is still separable from the sum`,
+      strip: 'spectrum',
+      build: v => {
+        const N = 128;
+        const layers = [{ h: v.h1, amp: v.a1 }, { h: v.h2, amp: v.a2 }, { h: v.h3, amp: v.a3, phase: 0.4 }];
+        const P = (t) => {
+          const rr = stack(N, layers.map(L => ({ ...L, phase: (L.phase || 0) + t * TAU * (L.h === v.h1 ? 1 : L.h === v.h2 ? -1 : 2) / L.h })));
+          const X = new Float64Array(N), Y = new Float64Array(N);
+          for (let k = 0; k < N; k++) { const th = (k + 0.5) * TAU / N, r = 96 + rr[k]; X[k] = r * Math.cos(th); Y[k] = r * Math.sin(th); }
+          return [new Shape(X, Y)];
+        };
+        P.channel = () => stack(N, layers);
+        P.NS = N; return P; } },
 
-    { name: 'three curves, three convergence orders', kind: 'report', wide: true },
+    { name: 'a body and its surface', kind: 'shape',
+      note: 'The low band is driven by a joint; the high band is a fixed texture riding on top of it. They occupy ' +
+            'different harmonics of the same 128 atoms, so the texture does not smear when the body moves and the body ' +
+            'does not lose its shape when the texture is loud.',
+      params: [ p('joint', 0, 80, 2, 46), p('texture', 0, 12, .5, 5), p('h', 12, 40, 1, 23), p('width', .1, .9, .02, .44) ],
+      code: v => `rest = circle(128).radius += stack(128, [{ h: ${v.h}, amp: ${v.texture} }])\nlocals: [{ driver: Driver.orbit(20, { rx: ${v.joint} }), w: window(128, { width: ${v.width} }) }]`,
+      strip: 'spectrum',
+      build: v => {
+        const N = 128, tex = stack(N, [{ h: v.h, amp: v.texture }]);
+        const X = new Float64Array(N), Y = new Float64Array(N);
+        for (let k = 0; k < N; k++) { const th = (k + 0.5) * TAU / N, r = 92 + tex[k]; X[k] = r * Math.cos(th); Y[k] = r * Math.sin(th); }
+        const rest = new Shape(X, Y);
+        const w = win(N, { at: 0.12, width: v.width });
+        const P = compose({ rest, locals: [{ driver: Driver.orbit(20, { rx: v.joint, ry: v.joint * .5, phase: .4 }), w }] });
+        P.window = w; P.channel = () => tex; return P; } },
+
+    { name: 'many bodies, one clock', kind: 'shape', wide: true,
+      note: 'A ring of composed shapes sharing a single global driver and each carrying its own local one, phase-rolled ' +
+            'around the ring. One clock, one global signal, N local signals — the total atom count is a sum over all of it.',
+      params: [ p('count', 3, 14, 1, 8), p('r', 90, 240, 5, 165), p('reach', 0, 60, 2, 34), p('breathe', 0, 40, 2, 18) ],
+      code: v => `const O = Driver.orbit(16, { rx: ${v.breathe} });          // shared\nring.map((_, i) => compose({ rest, globals: [{ driver: O }],\n  locals: [{ driver: C.roll(i / ${v.count}), w }] }))`,
+      build: v => {
+        const O = Driver.orbit(16, { rx: v.breathe, ry: v.breathe });
+        const C = Driver.orbit(20, { rx: v.reach, ry: v.reach * .5 });
+        const w = win(64, { at: 0.5, width: 0.4 });
+        const parts = Array.from({ length: v.count }, (_, i) => {
+          const rest = SH.pebble(64, { r: 42, seed: i + 3 });
+          return compose({ rest, globals: [{ driver: O }], locals: [{ driver: C.roll(i / v.count), w }] });
+        });
+        const P = (t) => parts.map((f, i) => {
+          const a = i / v.count * TAU;
+          return f(t).translate(v.r * Math.cos(a), v.r * Math.sin(a));
+        });
+        P.NS = 64; return P; } },
   ]
 },
 {
-  id: 'traps', title: 'Traps', kicker: 'they pass the test you would think to write',
-  note: 'The dangerous failures are not the loud ones. Each of these three passes an obvious, reasonable check with ' +
-        'full marks, and fails a different one that turns out to be the one that mattered.',
+  id: 'band', title: 'Band arithmetic',
+  note: 'The three ways of combining signals cost three different things, and the prices are exact. <b>Adding</b> takes ' +
+        'the wider band. <b>Multiplying</b> takes the <em>sum</em> of the bands — so a product needs room the operands ' +
+        'did not, and if the grid has not got it the excess folds back as an alias rather than being dropped. ' +
+        '<b>Reparameterizing</b> is free to the amplification (§10.2, it is a conjugation) and costs band (§10.3). ' +
+        'Every tile here prints its own bill.',
   entries: [
-    { name: 'the parity trap', tall: true,
-      note: 'The even-N kernel is sin(Nφ/2)/(N·tan(φ/2)). Use it at an odd N and it is <b>still exactly 1 at its own ' +
-            'node and 0 at every other</b> — so "does the curve pass through its data?" passes to 1e-15, which is the ' +
-            'check anyone writes first. Meanwhile Σ K(φ − θₖ) is no longer 1. It is no longer anything: it swings ' +
-            'between 0 and 2 across the turn. The reconstruction stops being an average of the atoms and there is not ' +
-            'one wrong data point to find.',
-      params: [ p('N', 8, 48, 1, 17) ],
-      code: v => `Σ K_even(φ − θₖ) over the turn,  N = ${v.N} (${v.N % 2 ? 'odd' : 'even'})`,
-      state: v => {
-        const N = v.N | 0, M = 900;
-        const naive = { x: new Float64Array(M), y: new Float64Array(M) };
-        const lib = { x: new Float64Array(M), y: new Float64Array(M) };
-        let node = 0, pou = 0;
-        for (let i = 0; i < M; i++) {
-          const phi = i / (M - 1) * TAU;
-          let a = 0, b = 0;
-          for (let k = 0; k < N; k++) { a += ST.evenKernel(phi - (k + 0.5) * TAU / N, N); b += kernel(phi - (k + 0.5) * TAU / N, N); }
-          naive.x[i] = phi; naive.y[i] = a; lib.x[i] = phi; lib.y[i] = b;
-          pou = Math.max(pou, Math.abs(a - 1));
-        }
-        for (let k = 0; k < N; k++) for (let j = 0; j < N; j++)
-          node = Math.max(node, Math.abs(ST.evenKernel((k - j) * TAU / N, N) - (k === j ? 1 : 0)));
-        return { naive, lib, node, pou, N };
-      },
-      verdict: s => `node exactness ${s.node.toExponential(1)} — perfect.  sup |Σ K − 1| = ${s.pou.toExponential(2)}${s.N % 2 ? ' — the property that matters is simply gone' : ' — fine, N is even'}`,
-      bad: s => s.pou > 1e-6,
-      draw: (ctx, w, h, v, s) => {
-        plot(ctx, w, h - 4, [
-          { x: Array.from(s.lib.x), y: Array.from(s.lib.y), color: SLIP, name: 'library kernel' },
-          { x: Array.from(s.naive.x), y: Array.from(s.naive.y), color: s.N % 2 ? CLAY : SLIP, name: 'even kernel' },
-        ], { y0: -0.4, y1: 2.2, guide: 1 });
-        label(ctx, 6, 14, 'Σ K(φ − θₖ)  — the dashed line is 1', 'rgba(139,149,171,1)');
-      } },
+    { name: 'add vs multiply', kind: 'shape', wide: true,
+      note: 'The same two signals, both ways. Left is <code>a + b</code> and occupies max(h<sub>a</sub>, h<sub>b</sub>). ' +
+            'Right is <code>a · b</code> and occupies h<sub>a</sub> + h<sub>b</sub>. Push the two harmonics up until ' +
+            'the sum crosses Nyquist and watch the right-hand shape acquire detail <em>that is not in either operand</em> — ' +
+            'that is the fold, not a rendering artefact.',
+      params: [ p('N', 12, 96, 2, 32), p('ha', 1, 20, 1, 5), p('hb', 1, 20, 1, 9) ],
+      code: v => `modulate(stack(${v.N}, [{ h: ${v.ha} }]), stack(${v.N}, [{ h: ${v.hb} }]))\n  needs h = ${v.ha + v.hb},  Nyquist = ${Math.floor(v.N / 2)}`,
+      strip: 'bandbill',
+      build: v => {
+        const N = v.N | 0;
+        const A = stack(N, [{ h: v.ha, amp: 1 }]), B = stack(N, [{ h: v.hb, amp: 1 }]);
+        const sum = Float64Array.from(A, (x, i) => x + B[i]);
+        const prod = modulate(A, B);
+        const mk = (ch, amp, dx) => {
+          const X = new Float64Array(N), Y = new Float64Array(N);
+          for (let k = 0; k < N; k++) { const th = (k + .5) * TAU / N, r = 92 + amp * ch[k]; X[k] = r * Math.cos(th) + dx; Y[k] = r * Math.sin(th); }
+          return new Shape(X, Y);
+        };
+        const P = () => { const L = mk(sum, 16, -125), R = mk(prod, 32, 125);
+          L.meta.label = `a + b   band ${bandOf(sum)}`;
+          R.meta.label = `a · b   band ${bandOf(prod)}${prod.aliased ? ' — FOLDED' : ''}`;
+          if (prod.aliased) R.meta.tone = 1;
+          return [L, R]; };
+        P.bill = prod; P.NS = N; return P; } },
 
-    { name: 'still closed, no longer simple',
-      note: 'Push a contour inward past its own thickness and it crosses itself. The library does not notice, and it ' +
-            'is not being careless — <b>nothing in the definition of a band-limited closed curve says the map has to be ' +
-            'injective</b>. What is worth staring at is the bottom row: area, length and point-in-shape all come back ' +
-            'with confident numbers for a curve that no longer bounds a region.',
-      params: [ p('inflate', -80, 20, 1, -58), p('seed', 1, 24, 1, 5) ],
-      code: v => `pebble(96, { seed: ${v.seed} }).inflate(${v.inflate})`,
-      state: v => {
-        const s = SH.pebble(96, { r: 100, seed: v.seed }).inflate(v.inflate);
-        return Object.assign({ shape: s }, ST.simplicity(s, { M: 460 }));
-      },
-      verdict: s => s.crossings === 0
-        ? `simple — ${s.crossings} self-crossings`
-        : `${s.crossings} self-crossing${s.crossings > 1 ? 's' : ''}, and area / length / contains() all answered anyway`,
-      bad: s => s.crossings > 0,
-      draw: (ctx, w, h, v, s) => {
-        const d = s.shape.sample(900);
-        const c = cam([d], w, h - 30, 22);
-        strokePts(ctx, c, d, s.crossings ? CLAY : INK, 1.4);
-        if (opts.leaves) dots(ctx, c, s.shape, 'rgba(124,92,255,0.55)', 1.4);
-        const cc = s.shape.centroid();
-        ctx.fillStyle = s.containsCentroid ? SLIP : CLAY;
-        ctx.beginPath(); ctx.arc(c.X(cc.x), c.Y(cc.y), 3, 0, TAU); ctx.fill();
-        label(ctx, 10, h - 20, `area ${s.area.toFixed(0)}   length ${s.length.toFixed(0)}   contains(centroid) ${s.containsCentroid}`,
-          'rgba(195,204,223,0.9)');
-        label(ctx, 10, h - 8, s.crossings ? 'every one of those was computed on a curve that crosses itself' : 'simple, for now',
-          s.crossings ? CLAY : 'rgba(139,149,171,1)');
-      } },
+    { name: 'reparameterize', kind: 'shape',
+      note: 'θ′ = θ + a·w(θ). <b>The outline does not move</b> — that is not a bug in the tile, it is the claim: a ' +
+            'reparameterization visits the same set of points in a different order, so it is a conjugation (§10.2) and the ' +
+            'amplification is untouched. The <em>leaves</em> are drawn here because they are the only thing that moves. ' +
+            'What it does cost is band: the ratio underneath is measured on this shape, and an aggressive warp runs to about 8×.',
+      params: [ p('amp', 0, .5, .01, .22), p('h', 1, 8, 1, 2), p('which', 0, 3, 1, 0) ],
+      code: v => `warp(shape, t => sin(${v.h}·2πt) / 2π, ${v.amp})   // θ′ = θ + a·w(θ)`,
+      strip: 'warpbill',
+      build: v => {
+        const base = [SH.pebble(96, { r: 96, seed: 3 }), SH.squircle(96, { n: 4, rx: 92, ry: 92 }),
+                      SH.heart(96, { r: 96 }), star(96, { r: 96, points: 6, inner: .55 })][v.which];
+        const P = (t) => {
+          const s = warp(base, u => Math.sin(v.h * TAU * u + t * TAU) / TAU, v.amp);
+          s.meta.dots = true;                     // the outline is stationary; the atoms are not
+          P.last = s; return [s];
+        };
+        P.base = base; P.NS = 96; return P; } },
 
-    { name: 'a morph with no correspondence',
-      note: 'Two shapes, the same leaf count, blended leaf by leaf. If their parameterizations do not agree the ' +
-            'midpoint is not a shape between them — it is a knot, and the area collapses to a fraction of either end. ' +
-            '<code>alignTo</code> rolls one to the other\'s best match and fixes it, which is worth knowing is a ' +
-            '<em>separate step you have to remember</em>, not something the blend does for you.',
-      params: [ p('t', 0, 1, .01, .5), p('offset', 0, 48, 1, 23), p('seed', 2, 20, 1, 9) ],
-      code: v => `mix(a, b, ${v.t})            // b is rolled ${v.offset} leaves out of phase\nmix(a, alignTo(a, b), ${v.t})`,
-      state: v => {
-        const a = SH.pebble(64, { r: 100, seed: 3 });
-        const b = SH.pebble(64, { r: 100, seed: v.seed }).roll(v.offset);
-        const m = ST.morphCollapse(a, b, { t: v.t });
-        return Object.assign({ a, b }, m);
-      },
-      verdict: s => `midpoint area — without alignTo ${(s.rawFrac * 100).toFixed(1)}% of the endpoints' mean, with it ${(s.alignedFrac * 100).toFixed(1)}%`,
-      bad: s => s.rawFrac < 0.75,
-      draw: (ctx, w, h, v, s) => {
-        const L = s.raw.clone().translate(-115, 0), R = s.aligned.clone().translate(115, 0);
-        const dl = L.sample(700), dr = R.sample(700);
-        const c = cam([dl, dr], w, h - 18, 20);
-        strokePts(ctx, c, s.a.clone().translate(-115, 0).sample(500), GHOST, 1);
-        strokePts(ctx, c, s.b.clone().translate(-115, 0).sample(500), GHOST, 1);
-        strokePts(ctx, c, dl, CLAY, 1.5);
-        strokePts(ctx, c, s.a.clone().translate(115, 0).sample(500), GHOST, 1);
-        strokePts(ctx, c, s.b.clone().translate(115, 0).sample(500), GHOST, 1);
-        strokePts(ctx, c, dr, INK, 1.5);
-        label(ctx, c.X(-115), h - 5, 'mix()', CLAY, 'center');
-        label(ctx, c.X(115), h - 5, 'mix() after alignTo()', INK, 'center');
-      } },
+    { name: 'the layers come back out', kind: 'report', wide: true },
   ]
 },
 {
-  id: 'algebra', title: 'The algebra has exactly three exceptions', kicker: 'and all three are worth keeping',
-  note: 'Everything in the group algebra <b>C[Z<sub>N</sub>]</b> is a circulant, and a circulant commutes with the ' +
-        'cyclic shift. So <code>roll ∘ op</code> against <code>op ∘ roll</code> is not a nice property to have — it is ' +
-        'the membership test. Four operators pass it to 1e-11. Three do not, each for a different and instructive reason.',
-  entries: [
-    { name: 'which operators commute with the shift', wide: true, kind: 'report' },
-    { name: 'what a broken one looks like',
-      note: 'The two orders drawn on top of each other. For an operator inside the algebra they are the same curve to ' +
-            'floating point. For <code>noise</code> they are not remotely, because the seed is pinned to the leaf ' +
-            '<em>index</em> — roll the shape and every leaf gets a different random number than it had.',
-      params: [ p('which', 0, 6, 1, 4), p('roll', 1, 31, 1, 7) ],
-      code: v => `${['smooth(0.5,2)','lowpass(0.4)','inflate(12)','rotate(0.7)','noise(6,{seed:2})','reparameterize()','reverse()'][v.which]}:  roll∘op  vs  op∘roll`,
-      state: v => {
-        const base = circle(64, { r: 100 }).noise(9, { seed: 3 });
-        const ops = [s => s.smooth(0.5, 2), s => s.lowpass(0.4), s => s.inflate(12), s => s.rotate(0.7),
-                     s => s.noise(6, { seed: 2 }), s => s.reparameterize(), s => s.reverse()];
-        const names = ['smooth', 'lowpass', 'inflate', 'rotate', 'noise', 'reparameterize', 'reverse'];
-        const op = ops[v.which];
-        const A = op(base.clone().roll(v.roll)), B = op(base.clone()).roll(v.roll);
-        let gap = 0;
-        for (let i = 0; i < A.N; i++) gap = Math.max(gap, Math.hypot(A.x[i] - B.x[i], A.y[i] - B.y[i]));
-        return { A, B, gap, name: names[v.which] };
-      },
-      verdict: s => s.gap < 1e-9
-        ? `${s.name}: the two orders agree to ${s.gap.toExponential(2)} — a circulant, inside the algebra`
-        : `${s.name}: the two orders differ by ${s.gap.toFixed(2)} units — outside the algebra`,
-      bad: s => s.gap > 1e-9,
-      draw: (ctx, w, h, v, s) => {
-        const a = s.A.sample(700), b = s.B.sample(700);
-        const c = cam([a, b], w, h - 16, 22);
-        strokePts(ctx, c, a, INK, 1.4);
-        strokePts(ctx, c, b, s.gap > 1e-9 ? CLAY : SLIP, 1.3, [4, 4]);
-        label(ctx, 10, 14, 'roll then op', INK);
-        label(ctx, 10, 27, 'op then roll', s.gap > 1e-9 ? CLAY : SLIP);
-      } },
-  ]
-},
-{
-  id: 'limits', title: 'Structural limits', kicker: 'no implementation effort touches these',
-  note: 'Three facts about the leaf set itself. None of them is a defect in the code, and none of them goes away if ' +
-        'you write the code better.',
-  entries: [
-    { name: 'refinement works on odd factors only', tall: true,
-      note: 'Leaves sit at (k + ½)·2π/N — a <b>coset</b> of μ<sub>N</sub>, not a subgroup. Going from N to jN keeps ' +
-            'every old position when j is odd, and keeps <em>none of them</em> when j is even. Which is exactly the ' +
-            'wrong way round: doubling is the refinement every level-of-detail scheme in graphics is built on, and ' +
-            'doubling is the one that throws all your existing samples away.',
-      params: [ p('N', 4, 20, 1, 8), p('factor', 2, 7, 1, 2) ],
-      code: v => `leafPositions(${v.N})  ∩  leafPositions(${v.N * v.factor})   // ×${v.factor}`,
-      state: v => {
-        const r = ST.cosetNesting({ pairs: [[v.N, v.N * v.factor]] })[0];
-        return r;
-      },
-      verdict: s => s.shared === 0
-        ? `×${s.factor}: ${s.shared} of ${s.a} positions survive — every sample has to be recomputed`
-        : `×${s.factor}: all ${s.shared} of ${s.a} positions survive — the old samples are still valid`,
-      bad: s => s.shared === 0,
-      draw: (ctx, w, h, v, s) => {
-        const cx = w / 2, cy = h / 2 - 4, R = Math.min(w, h) * 0.31;
-        for (const [rad, N, col, wd] of [[R, s.a, INK, 4.4], [R * 0.72, s.b, CLAY, 3]]) {
-          ctx.strokeStyle = 'rgba(232,236,245,0.13)'; ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.arc(cx, cy, rad, 0, TAU); ctx.stroke();
-          ctx.fillStyle = col;
-          for (let k = 0; k < N; k++) { const a = (k + 0.5) / N * TAU - Math.PI / 2;
-            ctx.beginPath(); ctx.arc(cx + rad * Math.cos(a), cy + rad * Math.sin(a), wd / 2, 0, TAU); ctx.fill(); }
-        }
-        // spokes where a position is shared
-        ctx.strokeStyle = SLIP; ctx.lineWidth = 1.4;
-        for (let k = 0; k < s.a; k++) {
-          const u = (k + 0.5) / s.a;
-          let hit = false;
-          for (let j = 0; j < s.b; j++) if (Math.abs((j + 0.5) / s.b - u) < 1e-12) hit = true;
-          if (!hit) continue;
-          const a = u * TAU - Math.PI / 2;
-          ctx.beginPath(); ctx.moveTo(cx + R * 0.72 * Math.cos(a), cy + R * 0.72 * Math.sin(a));
-          ctx.lineTo(cx + R * Math.cos(a), cy + R * Math.sin(a)); ctx.stroke();
-        }
-        label(ctx, 10, 14, `outer: N = ${s.a}`, INK);
-        label(ctx, 10, 27, `inner: N = ${s.b}`, CLAY);
-        label(ctx, 10, 40, s.shared ? `${s.shared} shared, drawn as spokes` : 'nothing shared', s.shared ? SLIP : CLAY);
-      } },
-
-    { name: 'leaves are uniform in the parameter, not in the shape',
-      note: 'Nothing promises the leaves land anywhere useful. A long thin shape spends the same number on the ' +
-            'blunt end as on the fine tip, and the ratio between its longest and shortest gap can run into the ' +
-            'hundreds. <code>reparameterize()</code> fixes it — and, per the section above, is one of the three ' +
-            'operators that leaves the algebra to do so. <b>That is the trade, stated exactly.</b>',
-      params: [ p('which', 0, 3, 1, 1), p('N', 24, 128, 1, 64), p('fix', 0, 1, 1, 0) ],
-      code: v => `${['circle(N)','leaf(N, { len: 300, width: 40 })','crescent(N, { thin: 0.75 })','star(N, { points: 5 })'][v.which]}${v.fix ? '.reparameterize()' : ''}`,
-      state: v => {
-        const mk = [() => circle(v.N, { r: 100 }), () => SH.leaf(v.N, { len: 300, width: 40 }),
-                    () => SH.crescent(v.N, { r: 110, thin: .75 }), () => star(v.N, { r: 110, points: 5, inner: .45 })][v.which]();
-        if (v.fix) mk.reparameterize();
-        return Object.assign({ shape: mk }, ST.leafSpend(mk));
-      },
-      verdict: s => `longest gap / shortest gap = ${s.spread.toFixed(1)}×   (CoV ${s.cov.toFixed(3)})`,
-      bad: s => s.spread > 3,
-      draw: (ctx, w, h, v, s) => {
-        const d = s.shape.sample(900);
-        const c = cam([d], w, h * 0.7, 20);
-        strokePts(ctx, c, d, INK, 1.3);
-        dots(ctx, c, s.shape, CLAY, 2);
-        // the gaps as a strip, so the starvation is a shape rather than a statistic
-        const y0 = h - 26, mx = Math.max(...s.segs);
-        for (let k = 0; k < s.segs.length; k++) {
-          const x = 6 + k / s.segs.length * (w - 12), hh = s.segs[k] / mx * 20;
-          ctx.fillStyle = s.segs[k] < s.mean * 0.3 ? CLAY : 'rgba(232,236,245,0.35)';
-          ctx.fillRect(x, y0 - hh, Math.max(1, (w - 12) / s.segs.length - 0.6), hh);
-        }
-        label(ctx, 6, h - 4, 'gap between consecutive leaves, in order', 'rgba(139,149,171,1)');
-      } },
-
-    { name: 'the cost is O(N·M), with no transform to hide behind', kind: 'report' },
-  ]
-},
-{
-  id: 'held', title: 'What did not break', kicker: 'the half that makes the rest worth reading',
-  note: 'A page that only shows failures is not evidence, it is a mood. These are the claims the same harness checked ' +
-        'and could not break — <b>including two I had written down as broken</b>, which were wrong for two different ' +
-        'and slightly embarrassing reasons.',
-  entries: [ { kind: 'report', name: 'the claims that held', wide: true } ]
+  id: 'evidence', title: 'The bill',
+  note: 'Two claims, both checkable, both checked here on load. <b>The cost is a sum, not a product.</b> ' +
+        '<b>The amplification adds and does not compound</b> — and the closed form is confirmed by building the ' +
+        'sign-extremal data and running it through the ordinary <code>compose()</code> path, which must agree to ' +
+        'machine zero or the formula is wrong.',
+  entries: [ { kind: 'report', name: 'what composition costs', wide: true, big: true } ]
 },
 ];
 
-// memoized because the cliff table is drawn every frame and computed once
-let _cliff = null;
-const CLIFF_ROWS = () => (_cliff || (_cliff = ST.resampleCliff({ Q: 2048 })));
+// a driver's own trajectory, drawn faintly beside the body
+function withPath(P, n) { P.showPath = true; return P; }
+
+// ── rendering ────────────────────────────────────────────────────────────
+function toneStroke(t) { return `rgba(232,236,245,${(0.3 + 0.7 * (t == null ? 1 : t)).toFixed(3)})`; }
+function frame(list, w, h, pad) {
+  const b = PT.bounds(list, 128);
+  const k = Math.min((w - 2 * pad) / (b.w || 1), (h - 2 * pad) / (b.h || 1));
+  return { k, ox: w / 2 - (b.x + b.w / 2) * k, oy: h / 2 - (b.y + b.h / 2) * k };
+}
+function draw(canvas, list, fixedFrame) {
+  const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
+  const w = canvas.clientWidth || 340, h = canvas.clientHeight || 268;
+  if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (opts.trail) { ctx.fillStyle = 'rgba(14,19,29,0.13)'; ctx.fillRect(0, 0, w, h); }
+  else ctx.clearRect(0, 0, w, h);
+  const labels = list.some(s => s.meta && s.meta.label);
+  const f = fixedFrame || frame(list, w, h - (labels ? 16 : 0), 24);
+  ctx.save();
+  ctx.translate(f.ox, f.oy - (labels ? 8 : 0)); ctx.scale(f.k, f.k);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const s of list) {
+    ctx.beginPath(); s.trace(ctx, Math.max(160, s.N * 4));
+    ctx.lineWidth = 1.35 / f.k;
+    ctx.setLineDash(s.meta && s.meta.dash ? [5 / f.k, 5 / f.k] : []);
+    ctx.strokeStyle = s.meta && s.meta.clay ? 'rgba(160,138,255,0.85)' : toneStroke(s.meta && s.meta.tone);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  ctx.restore();
+  if (opts.leaves || list.some(s => s.meta && s.meta.dots)) {
+    ctx.fillStyle = '#a08aff';
+    for (const s of list) { if (s.meta && s.meta.dash) continue;
+      if (!opts.leaves && !(s.meta && s.meta.dots)) continue;
+      for (let i = 0; i < s.N; i++) {
+        ctx.beginPath();
+        ctx.arc(f.ox + s.x[i] * f.k, f.oy - (labels ? 8 : 0) + s.y[i] * f.k, s.N > 120 ? 1 : 1.7, 0, TAU);
+        ctx.fill();
+      } }
+  }
+  if (labels) {
+    ctx.font = '9.5px "IBM Plex Mono", monospace'; ctx.fillStyle = 'rgba(195,204,223,0.8)'; ctx.textAlign = 'center';
+    for (const s of list) { if (!s.meta || !s.meta.label) continue;
+      const bb = s.bbox(96); ctx.fillText(s.meta.label, f.ox + (bb.x + bb.w / 2) * f.k, h - 5); }
+  }
+  return f;
+}
+
+// ── the strips ───────────────────────────────────────────────────────────
+function stripSetup(cv, h) {
+  const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
+  const w = cv.clientWidth || 300;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+// R(θ): the window as the bridge sees it, over the weights you typed
+function drawMass(cv, wins) {
+  const list = Array.isArray(wins) ? wins : [wins];
+  const { ctx, w, h } = stripSetup(cv, 54);
+  const y0 = h - 10, span = h - 20;
+  ctx.strokeStyle = 'rgba(232,236,245,0.16)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(w, y0); ctx.stroke();
+  for (const W of list) {
+    // the typed weights, as bars
+    ctx.fillStyle = 'rgba(232,236,245,0.13)';
+    for (let k = 0; k < W.length; k++) { if (!W[k]) continue;
+      const x = (k + 0.5) / W.length * w; ctx.fillRect(x - 0.7, y0 - span * W[k], 1.4, span * W[k]); }
+    // R(θ), reconstructed
+    ctx.beginPath();
+    for (let i = 0; i <= w; i++) { const y = y0 - span * W.mass(i / w); i ? ctx.lineTo(i, y) : ctx.moveTo(i, y); }
+    ctx.strokeStyle = 'rgba(160,138,255,0.85)'; ctx.lineWidth = 1.3; ctx.stroke();
+  }
+  ctx.font = '9px "IBM Plex Mono", monospace'; ctx.fillStyle = 'rgba(139,149,171,1)'; ctx.textAlign = 'left';
+  const sup = Math.max(...list.map(W => W.supMass(512)));
+  ctx.fillText(`R(θ) = Σ w·K   sup |R| = ${sup.toFixed(4)}${list[0].kind === 'box' ? '  ← box: self-inflated' : ''}`, 2, 10);
+}
+// the occupied harmonics of a channel
+function drawSpectrum(cv, values) {
+  const { ctx, w, h } = stripSetup(cv, 54);
+  const s = spectrum(values);
+  let pk = 0; for (const v of s) pk = Math.max(pk, v);
+  const y0 = h - 10, span = h - 20, n = s.length;
+  ctx.strokeStyle = 'rgba(232,236,245,0.16)'; ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(w, y0); ctx.stroke();
+  for (let m = 1; m < n; m++) {
+    const x = m / (n - 1) * (w - 6) + 3, hh = pk ? span * s[m] / pk : 0;
+    ctx.fillStyle = s[m] > pk * 0.02 ? 'rgba(160,138,255,0.85)' : 'rgba(232,236,245,0.18)';
+    ctx.fillRect(x - 1.1, y0 - hh, 2.2, hh);
+  }
+  ctx.font = '9px "IBM Plex Mono", monospace'; ctx.fillStyle = 'rgba(139,149,171,1)'; ctx.textAlign = 'left';
+  ctx.fillText(`occupied to h = ${bandOf(values, 1e-3)}   Nyquist = ${n - 1}`, 2, 10);
+}
+function drawBandBill(cv, prod) {
+  const { ctx, w, h } = stripSetup(cv, 30);
+  ctx.font = '10px "IBM Plex Mono", monospace'; ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(195,204,223,1)';
+  ctx.fillText(`add → band ${Math.max(prod.bandA, prod.bandB)}     multiply → band ${prod.bandA} + ${prod.bandB} = ${prod.needs}`, 2, 12);
+  ctx.fillStyle = prod.aliased ? '#a08aff' : '#4ade80';
+  ctx.fillText(prod.aliased
+    ? `Nyquist ${prod.nyquist} — ${prod.needs - prod.nyquist} harmonics fold back to h = ${Math.abs(prod.needs - 2 * prod.nyquist)}`
+    : `Nyquist ${prod.nyquist} — room to spare, nothing folds`, 2, 25);
+}
+function drawWarpBill(cv, shape) {
+  const { ctx, w, h } = stripSetup(cv, 30);
+  if (!shape || !shape.meta) return;
+  const a = shape.meta.bandBefore, b = shape.meta.bandAfter;
+  ctx.font = '10px "IBM Plex Mono", monospace'; ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(195,204,223,1)';
+  ctx.fillText(`band ${a} → ${b}   (×${a ? (b / a).toFixed(2) : '—'})`, 2, 12);
+  ctx.fillStyle = '#4ade80';
+  ctx.fillText(`Λ unchanged — a reparameterization is a conjugation (§10.2)`, 2, 25);
+}
 
 // ── build ────────────────────────────────────────────────────────────────
 const main = document.getElementById('main');
@@ -4216,20 +3842,22 @@ const tiles = [];
 for (const sec of SECTIONS) {
   const el = document.createElement('section');
   el.id = sec.id;
-  el.innerHTML = `<div class="sec-head"><h2>${sec.title}</h2><div class="rule"></div><span class="n">${sec.kicker || ''}</span></div>`
+  el.innerHTML = `<div class="sec-head"><h2>${sec.title}</h2><div class="rule"></div><span class="n">${sec.entries.length}</span></div>`
                + `<p class="sec-note">${sec.note}</p><div class="grid"></div>`;
   const grid = el.querySelector('.grid');
-  for (const e of sec.entries) grid.appendChild(makeTile(e, sec));
+  for (const e of sec.entries) grid.appendChild(makeTile(e));
   main.appendChild(el);
 }
 
-function makeTile(entry, sec) {
+function makeTile(entry) {
   const tile = document.createElement('div');
-  tile.className = 'tile' + (entry.wide ? ' wide' : '') + (entry.tall ? ' tall' : '');
+  tile.className = 'tile' + (entry.wide ? ' wide' : '');
 
-  if (entry.kind === 'report' && !entry.draw) {
+  if (entry.kind === 'report') {
     tile.innerHTML = `<div class="body"><h3>${entry.name}</h3></div><div class="report">measuring…</div>`;
-    tiles.push({ tile, once: () => REPORTS[entry.name](tile.querySelector('.report')) });
+    tiles.push({ tile, report: true, render() {
+      (entry.big ? theBill : theLayers)(tile.querySelector('.report'));
+    } });
     return tile;
   }
 
@@ -4241,163 +3869,231 @@ function makeTile(entry, sec) {
 
   tile.innerHTML =
     `<div class="stage"><canvas></canvas></div>` +
+    `<div class="tools"><button class="edit" title="open this frame in the leaf editor — it rides in the link">edit</button>` +
+    `<button class="tvf" title="copy this frame as .tvf">.tvf</button></div>` +
     `<div class="body"><h3>${entry.name}</h3><p class="note">${entry.note}</p>` +
-    `<div class="verdict"></div><code class="src"></code><div class="dials">${dials}</div></div>` +
-    (entry.report ? `<div class="report">measuring…</div>` : '');
+    `<code class="src"></code>` +
+    `<div class="phase">
+       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="rgba(232,236,245,0.26)" stroke-width="1.2"/>
+         <circle class="dot" cx="12" cy="3" r="2.4" fill="#a08aff"/></svg>
+       <input type="range" class="scrub" min="0" max="1" step="0.001" value="0">
+       <span class="t">0.000</span></div>` +
+    (entry.strip ? `<canvas class="aux"></canvas>` : '') +
+    `<div class="dials">${dials}</div></div>`;
 
   const canvas = tile.querySelector('.stage canvas');
+  const aux = tile.querySelector('canvas.aux');
   const src = tile.querySelector('code.src');
-  const vEl = tile.querySelector('.verdict');
-  let st = null;
+  const scrub = tile.querySelector('.scrub');
+  const tOut = tile.querySelector('.t');
+  const dot = tile.querySelector('.dot');
+  let P = null, frozen = null, lastList = null, fixed = null;
 
-  const paint = () => {
-    try { st = entry.state(vals); } catch (e) { src.textContent = 'error: ' + e.message; return; }
-    src.textContent = entry.code(vals);
-    const bad = entry.bad ? entry.bad(st) : false;
-    vEl.textContent = entry.verdict(st);
-    vEl.className = 'verdict ' + (bad ? 'bad' : 'ok');
-    const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
+  const refit = () => {
+    if (!P) { fixed = null; return; }
     const w = canvas.clientWidth || 340, h = canvas.clientHeight || 268;
-    if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-    try { entry.draw(ctx, w, h, vals, st); } catch (e) { label(ctx, 10, 20, 'draw error: ' + e.message, CLAY); }
+    try {
+      const probeList = [];
+      for (let i = 0; i < 12; i++) { const out = render(i / 12); out.forEach(s => probeList.push(s)); }
+      fixed = frame(probeList, w, h, 24); fixed.w = w; fixed.h = h;
+    } catch (e) { fixed = null; }
+  };
+  // one frame's worth of shapes: the composed body, plus the optional ghosts
+  const render = (t) => {
+    const out = P(t);
+    const list = Array.isArray(out) ? out.slice() : [out];
+    if (opts.rest && P.rest) list.unshift(ghost(P.rest.clone()));
+    if (P.showPath) {
+      const d = (P.locals && P.locals[0] || P.globals && P.globals[0]);
+      if (d) {
+        const c = P.rest ? P.rest.centroid() : { x: 0, y: 0 };
+        const g = new Shape(Array.from(d.driver.x, v => v - d.driver.ax + c.x), Array.from(d.driver.y, v => v - d.driver.ay + c.y));
+        g.meta.dash = true; g.meta.clay = true; g.meta.driverPath = true; list.push(g);
+      }
+    }
+    return list;
+  };
+  const rebuild = () => {
+    try { P = entry.build(vals); } catch (e) { src.textContent = 'error: ' + e.message; P = null; return; }
+    src.textContent = entry.code(vals);
+    refit();
+  };
+  rebuild();
+
+  const paint = (t) => {
+    if (!P) return;
+    const cw = canvas.clientWidth || 340, chh = canvas.clientHeight || 268;
+    if (!fixed || fixed.w !== cw || fixed.h !== chh) refit();
+    let list;
+    try { list = render(t); } catch (e) { return; }
+    lastList = list.filter(s => !(s.meta && s.meta.dash));
+    draw(canvas, list, fixed);
+    tOut.textContent = t.toFixed(3);
+    scrub.value = String(t);
+    const a = t * TAU - Math.PI / 2;
+    dot.setAttribute('cx', (12 + 9 * Math.cos(a)).toFixed(2));
+    dot.setAttribute('cy', (12 + 9 * Math.sin(a)).toFixed(2));
+    if (aux) {
+      if (entry.strip === 'mass' && P.window) drawMass(aux, P.window);
+      else if (entry.strip === 'spectrum' && P.channel) drawSpectrum(aux, P.channel());
+      else if (entry.strip === 'bandbill' && P.bill) drawBandBill(aux, P.bill);
+      else if (entry.strip === 'warpbill') drawWarpBill(aux, P.last);
+    }
   };
 
   tile.querySelectorAll('input[type=range][data-k]').forEach(inp => {
     inp.addEventListener('input', () => {
       vals[inp.dataset.k] = parseFloat(inp.value);
       tile.querySelector(`[data-v="${inp.dataset.k}"]`).textContent = vals[inp.dataset.k];
-      paint();
+      rebuild(); paint(frozen == null ? clock : frozen);
     });
   });
+  scrub.addEventListener('input', () => { frozen = parseFloat(scrub.value); paint(frozen); });
+  scrub.addEventListener('dblclick', () => { frozen = null; });
   src.addEventListener('click', () => {
     navigator.clipboard && navigator.clipboard.writeText(src.textContent);
     src.classList.add('copied'); setTimeout(() => src.classList.remove('copied'), 700);
   });
+  // the frame on screen, as .tvf does, but opened in the editor instead of copied
+  tile.querySelector('.edit').addEventListener('click', async () => {
+    if (!lastList || !lastList.length) return;
+    const at = (frozen == null ? clock : frozen).toFixed(3);
+    const href = await editorLink(lastList, { name: entry.name + ' @ t=' + at, source: entry.code(vals) });
+    window.open(href, 'tangent-draw');
+  });
+  tile.querySelector('.tvf').addEventListener('click', async (ev) => {
+    if (!lastList) return;
+    const btn = ev.currentTarget;
+    const at = (frozen == null ? clock : frozen).toFixed(3);
+    const ok = await copyText(toTVF(lastList, { source: 'tvf.composed — ' + entry.name + ' @ t=' + at }));
+    btn.classList.toggle('done', ok); btn.textContent = ok ? 'copied' : 'select+⌘C';
+    setTimeout(() => { btn.classList.remove('done'); btn.textContent = '.tvf'; }, 1200);
+    toast(ok ? `composed frame at t = ${at} on the clipboard` : 'clipboard refused');
+  });
 
-  tiles.push({ tile, paint, once: entry.report ? () => entry.report(tile.querySelector('.report')) : null });
+  tiles.push({ tile, paint, get frozen() { return frozen; }, live: false });
   return tile;
 }
 
-// ── the report tiles ─────────────────────────────────────────────────────
-const REPORTS = {
-'three curves, three convergence orders': (host) => {
-  const runs = [
-    ['a true corner', ST.roundedRect(100, 0.001), 'O(1/N) — halving the error costs twice the leaves, forever'],
-    ['the same square, fillet radius 25', ST.roundedRect(100, 25), 'O(1/N²) — one smooth derivative is worth a whole order'],
-  ].map(([n, c, why]) => ({ n, why, rows: ST.convergence(c, { rungs: [32, 64, 128, 256], dense: 6, P: 1200 }) }));
-  const band = ST.convergence(ST.bandLimitedCurve(3), { rungs: [16, 32, 64], dense: 6, P: 1200 });
+// ── report: the layers come back out ─────────────────────────────────────
+function theLayers(host) {
+  const N = 128;
+  const layers = [{ h: 3, amp: 22 }, { h: 11, amp: 9 }, { h: 27, amp: 3.5, phase: 0.4 }];
+  const sum = stack(N, layers);
+  const rows = layers.map(L => {
+    const got = unstack(sum, L.h), want = stack(N, [L]);
+    let e = 0; for (let i = 0; i < N; i++) e = Math.max(e, Math.abs(got[i] - want[i]));
+    return { h: L.h, amp: L.amp, err: e };
+  });
+  // and the same thing after a product has folded into the grid
+  const tight = modulate(stack(24, [{ h: 5, amp: 1 }]), stack(24, [{ h: 9, amp: 1 }]));
   host.innerHTML =
-    `<p>Distance from the reconstruction to the exact curve, at four leaf counts. The <b>ratio</b> column is the
-      previous row over this one: 2 means O(1/N), 4 means O(1/N²).</p>
-     <table><thead><tr><th>curve</th><th>N = 32</th><th>64</th><th>128</th><th>256</th><th>ratio</th></tr></thead><tbody>` +
-    runs.map(r => `<tr><td>${r.n}</td>` + r.rows.map(x => `<td>${x.err.toFixed(4)}</td>`).join('') +
-      `<td class="${r.rows[3].ratio > 3 ? 'ok' : 'bad'}">${r.rows.slice(1).map(x => x.ratio.toFixed(2)).join(', ')}</td></tr>`).join('') +
-    `<tr><td>r = 100 + 10 cos 3θ (already in band)</td><td colspan="4" class="ok">` +
-    band.map(b => `N=${b.N}: ${b.err.toExponential(1)}`).join('   ') + `</td><td class="ok">exact</td></tr>` +
+    `<p>Three bands summed onto 128 atoms, then pulled back out one at a time. The recovery is not
+      approximate — disjoint harmonics do not interact, so the sum carries all three at once and each
+      is exactly where it was put.</p>
+     <table><thead><tr><th>layer</th><th>amplitude</th><th>recovered, sup error</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>h = ${r.h}</td><td>${r.amp}</td><td class="ok">${r.err.toExponential(1)}</td></tr>`).join('') +
     `</tbody></table>
-     <p style="margin-top:8px">${runs.map(r => `<b>${r.n}</b> — ${r.why}`).join('<br>')}</p>
-     <p class="foot">The third row is the one to keep in mind when reading the first two: this is not a format that
-      approximates badly, it is a format that <em>represents exactly</em> anything already inside its band and pays a
-      convergence rate for everything else. The question a shape asks is not "how accurate is this?" but "am I in the
-      band, and if not, how far outside?"<br><br>
-      A note on how these were measured: the distance from a sample point to the exact curve is a coarse scan followed
-      by a golden-section refine. Without the refine, the numbers floor out at half the scan spacing — and a measurement
-      floor is indistinguishable from a convergence plateau, which on this page is exactly the wrong thing to be unable
-      to tell apart. The first version of this table plateaued at 0.063 and I nearly believed it.</p>`;
-},
+     <p style="margin-top:10px"><b>And what it looks like when the room runs out.</b> h=5 times h=9 needs
+      h=${tight.needs}. On 24 atoms Nyquist is ${tight.nyquist}, so the product cannot be represented and the excess does not
+      vanish — it folds to |${tight.needs} − 2·${tight.nyquist}| = <span style="color:#f6d68a">h = ${bandOf(tight)}</span>, which is the band actually
+      measured in the result. Aliasing is not noise; it is the arithmetic being honest about a grid that
+      was too coarse for the operation asked of it.</p>
+     <p class="foot">This is why addition is the cheap operation and multiplication is the expensive one, and
+      why the library never multiplies two channels behind your back.</p>`;
+}
 
-'which operators commute with the shift': (host) => {
-  const rows = ST.equivariance();
+// ── report: the bill ─────────────────────────────────────────────────────
+function theBill(host) {
+  const rest = SH.pebble(96, { r: 100, seed: 3 });
+  const P = compose({
+    rest,
+    globals: [{ driver: Driver.orbit(16, { rx: 25, ry: 25 }) }],
+    locals: [{ driver: Driver.orbit(24, { rx: 45, ry: 12, phase: 0.7 }), w: win(96, { at: 0.25, width: 0.3 }) },
+             { driver: Driver.noise(20, { seed: 5, amp: 35 }), w: win(96, { at: 0.7, width: 0.22 }) }],
+  });
+  const cost = P.cost();
+  const b = budget(P, 360);
+  const pr = probe(P, { M: 120 });
+  const wins = [['raised cosine', win(96, { at: .25, width: .3, shape: 'raised' })],
+                ['gaussian', win(96, { at: .25, width: .3, shape: 'gauss' })],
+                ['box', win(96, { at: .25, width: .3, shape: 'box' })]];
+  const fmt = x => x.toFixed(4);
+
   host.innerHTML =
-    `<table><thead><tr><th>operator</th><th>‖roll∘op − op∘roll‖</th><th>why</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.name}</td><td class="${r.gap < 1e-9 ? 'ok' : 'bad'}">${r.gap === 0 ? '0' : r.gap.toExponential(2)}</td>` +
-      `<td style="color:var(--dim)">${r.why}</td></tr>`).join('') +
+    `<p><b>The cost is a sum.</b> One 96-atom body, a 16-atom global driver and two local drivers of 24 and 20.
+      Composition spends <span style="color:var(--ok)">${cost.parts.join(' + ')} = ${cost.sum}</span> atoms.
+      The (θ,t) product grid that would hold the same articulation independently costs
+      <span style="color:#f6d68a">${cost.parts.join(' × ')} = ${cost.product.toLocaleString()}</span> —
+      ${Math.round(cost.product / cost.sum).toLocaleString()}× more, for a generality nobody asked for.</p>
+
+     <p style="margin-top:10px"><b>The amplification adds.</b> Term by term, in closed form:</p>
+     <table><thead><tr><th>term</th><th>leaves</th><th>Λ</th><th>window mass sup|R|</th><th>contribution</th></tr></thead><tbody>
+       <tr><td>spatial bridge Λ<sub>NS</sub></td><td>96</td><td>${fmt(b.spatial)}</td><td>—</td><td>${fmt(b.spatial)}</td></tr>` +
+    b.terms.map(t => `<tr><td>${t.kind} driver</td><td>${t.N}</td><td>${fmt(t.lam)}</td>` +
+      `<td>${t.mass === 1 ? '1 — <em>partition of unity</em>' : fmt(t.mass)}</td><td>${fmt(t.lam * t.mass)}</td></tr>`).join('') +
     `</tbody></table>
-     <p style="margin-top:9px"><b>None of the three is a mistake.</b> <code>reverse</code> is dihedral rather than
-      cyclic — it commutes with the shift <em>inverted</em>, which is a perfectly good structure that simply is not this
-      one. <code>noise</code> pins its seed to the leaf index so that a given seed reproduces exactly, and the cost of
-      that reproducibility is that it is not a function of position. <code>reparameterize</code> rewrites the parameter
-      itself, so it is not a matrix in this basis at all — it is the one operator here that changes what the leaves
-      <em>mean</em> rather than what they hold.</p>
-     <p class="foot">The reason to run this test rather than reason about it: three of the four that pass could
-      plausibly have failed. <code>inflate</code> normalizes by a computed normal, <code>smooth</code> is iterated, and
-      <code>lowpass</code> round-trips through a transform. Each of those is a place an index could quietly leak in.</p>`;
-},
+     <p style="margin-top:8px">Sum of the sups: <span style="color:var(--ok)">${fmt(b.additive)}</span>.
+      Sup of the sum, over the (θ,t) grid: <span style="color:var(--ok)">${fmt(b.sup)}</span> — slightly lower,
+      because the pieces do not peak at the same place. The naive bound that <em>multiplies</em> the stages, which is
+      what you would write down if you assumed a driver were amplified by the bridge it drives, gives
+      <span style="color:#f6d68a">${fmt(b.compounding)}</span> — ${(b.compounding / b.sup).toFixed(1)}× too pessimistic here,
+      and exponentially so as drivers are added.</p>
 
-'the cost is O(N·M), with no transform to hide behind': (host) => {
-  const rows = ST.throughput({ rungs: [32, 128, 512], M: 2048, reps: 6 });
-  host.innerHTML =
-    `<p>Dense evaluation of a closed curve, 2048 points, in this tab just now.</p>
-     <table><thead><tr><th>N</th><th>ms</th><th>points/s</th><th>kernel evaluations</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.N}</td><td>${r.ms.toFixed(2)}</td><td>${(r.mptps).toFixed(2)} M</td><td>${(r.kernelCalls / 1e6).toFixed(2)} M</td></tr>`).join('') +
+     <p style="margin-top:10px"><b>Measured, not just derived.</b> The composition is linear in its data, so the
+      worst case is attained by data equal to the <em>sign</em> of the coefficients. Building exactly that and running it
+      through the ordinary <code>compose()</code> path gives
+      <span style="color:var(--ok)">${fmt(pr.worst)}</span> against the closed form's ${fmt(b.sup)} —
+      ratio <span style="color:var(--ok)">${(pr.worst / b.sup).toFixed(12)}</span>, at θ = ${pr.at.theta.toFixed(3)}, t = ${pr.at.t.toFixed(3)}.
+      That is not a sanity check that passed; it is the same number computed two ways that could easily have disagreed.</p>
+
+     <p style="margin-top:10px"><b>The one place a window can charge you extra.</b> A window is only worth its designed
+      mass if the leaf grid can resolve it. A box window is a discontinuity in the weights, and it self-inflates by the
+      Gibbs factor:</p>
+     <table><thead><tr><th>window</th><th>designed peak</th><th>sup |R(θ)|</th><th>inflation</th></tr></thead><tbody>` +
+    wins.map(([n, w]) => { const s = w.supMass(), pk = w.peak(); const bad = s / pk > 1.05;
+      return `<tr><td>${n}</td><td>${pk.toFixed(4)}</td><td>${s.toFixed(4)}</td><td class="${bad ? 'bad' : 'ok'}">×${(s / pk).toFixed(4)}</td></tr>`; }).join('') +
     `</tbody></table>
-     <p style="margin-top:8px">Every query point sums all N kernel terms. There is no FFT here and no early exit,
-      because the kernel is not compactly supported — <b>every leaf contributes to every point</b>, which is precisely
-      the property that makes the partition of unity work and the amplification bounded. A cubic Bézier evaluates in a
-      fixed handful of operations regardless of how many segments the path has, and on raw dense-evaluation throughput
-      it will beat this by two orders of magnitude and always will.</p>
-     <p class="foot">The honest framing: this is fast enough to be interactive at the sizes on these pages and it is
-      not a rasterization pipeline. Where the cost model turns around is when you want a value at <em>one</em>
-      parameter rather than a dense sweep — the paper's argument about iterating over K rather than N — because then
-      the Bézier has to find its segment first and this does not.</p>`;
-},
+     <p class="foot">≈1.13 is the pointwise Gibbs constant, and the box window lands on it — the taper is not a
+      cosmetic choice. Everything above is computed in this tab when the tile scrolls into view; reload and the
+      numbers are the same, because none of it is sampled or seeded from the clock.</p>`;
+}
 
-'the claims that held': (host) => {
-  const d = ST.didNotBreak();
-  const lam = d[0].rows;
-  host.innerHTML =
-    `<p><b>1. Amplification stays logarithmic.</b> Λ<sub>N</sub> is what a bounded error in the atoms can become in the
-      reconstruction. If it grew like √N none of this would be usable at the sizes people want.</p>
-     <table><thead><tr><th>N</th><th>Λ measured</th><th>(2/π)·ln N + 1</th></tr></thead><tbody>` +
-    lam.map(r => `<tr><td>${r.N}</td><td class="ok">${r.lam.toFixed(4)}</td><td>${r.model.toFixed(4)}</td></tr>`).join('') +
-    `</tbody></table>
-     <p style="margin-top:6px">Sixty-four times the leaves buys about 2.6× the amplification. That is the good case,
-      and it is the reason the rest of the library gets to be simple.</p>
-
-     <p style="margin-top:12px"><b>2. The slope chart agrees with the angle chart.</b>
-      ${d[1].verdict}, including straight through the antipode where tan(φ/2) overflows to 1.6e16.
-      <span class="wrong">I had this recorded as a disagreement of about 10².</span> It was not: <code>reconstructSlope</code>
-      takes an array of queries and returns an array, I passed it a scalar, and it handed back an empty
-      <code>Float64Array</code> that my comparison happily coerced. The library was right and the test was wrong, which
-      is the most common way to find a bug that is not there.</p>
-
-     <p style="margin-top:12px"><b>3. <code>resample()</code> is exact at every target.</b> ${d[2].verdict}.
-      <span class="wrong">I had this recorded as "linear interpolation, so even exact doubling is inexact".</span>
-      There <em>was</em> a real bug — the one at the top of this page — but doubling was specifically the case it got
-      right, because doubling is what makes the query positions land on grid indices. The note in my own backlog would
-      have sent someone to check the one target that worked.</p>
-
-     <p class="foot">Both corrections point the same way. A remembered failure is worth about as much as a remembered
-      measurement, which is to say: re-run it. That is the entire reason this page computes rather than quotes, and
-      the reason the harness is willing to print a clean result — a probe that can only report failure is not a probe,
-      it is a decoration.</p>`;
-},
-};
-
-// ── paint on scroll ──────────────────────────────────────────────────────
+// ── clock ────────────────────────────────────────────────────────────────
 const io = new IntersectionObserver(ents => {
   for (const e of ents) {
-    if (!e.isIntersecting) continue;
     const rec = tiles.find(t => t.tile === e.target);
-    if (!rec || rec.done) continue;
-    rec.done = true;
-    setTimeout(() => { if (rec.paint) rec.paint(); if (rec.once) rec.once(); }, 20);
+    if (!rec) continue;
+    rec.live = e.isIntersecting;
+    if (e.isIntersecting && rec.report && !rec.done) { rec.done = true; setTimeout(() => rec.render(), 30); }
   }
-}, { rootMargin: '220px' });
+}, { rootMargin: '160px' });
 for (const t of tiles) io.observe(t.tile);
 
-// ── controls ─────────────────────────────────────────────────────────────
-for (const [id, key] of [['t-leaves', 'leaves'], ['t-exag', 'exag']]) {
-  const btn = document.getElementById(id);
-  btn.addEventListener('click', () => {
-    opts[key] = !opts[key]; btn.classList.toggle('on', opts[key]);
-    for (const t of tiles) if (t.paint && t.done) t.paint();
-  });
+function tick(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  if (opts.playing) clock = (clock + dt * opts.speed) % 1;
+  for (const t of tiles) {
+    if (!t.live || !t.paint) continue;
+    t.paint(t.frozen == null ? clock : t.frozen);
+  }
+  requestAnimationFrame(tick);
 }
-globalThis.addEventListener('resize', () => { for (const t of tiles) if (t.paint && t.done) t.paint(); });
+requestAnimationFrame(tick);
+
+// ── controls ─────────────────────────────────────────────────────────────
+const playBtn = document.getElementById('t-play');
+playBtn.addEventListener('click', () => {
+  opts.playing = !opts.playing;
+  playBtn.textContent = opts.playing ? 'pause' : 'play';
+  playBtn.classList.toggle('on', opts.playing);
+});
+document.getElementById('t-speed').addEventListener('input', e => { opts.speed = parseFloat(e.target.value); });
+for (const [id, key] of [['t-leaves', 'leaves'], ['t-rest', 'rest'], ['t-trail', 'trail']]) {
+  const btn = document.getElementById(id);
+  btn.addEventListener('click', () => { opts[key] = !opts[key]; btn.classList.toggle('on', opts[key]); });
+}
+globalThis.addEventListener('keydown', e => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); playBtn.click(); } });
 
 </script>
 </body>

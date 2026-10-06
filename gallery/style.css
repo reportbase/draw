@@ -213,3 +213,52 @@ footer b{color:var(--ink-2);font-weight:600}
 /* a number the page is pointing at as wrong: the amber of a failing verdict, underlined */
 .page-chart .wrong{color:#f6d68a;border-bottom:1px dotted rgba(242,193,78,.55)}
 .page-chart .sec-head .n{font-style:italic;font-variant-numeric:normal}
+
+/* ── ANIMATED PAGES ── (the loop, composed) every tile runs; the scrub control is a ring,
+   because the domain is a circle, and composed adds a strip under some tiles */
+.page-motion .phase{display:flex;align-items:center;gap:9px}
+.page-motion .phase svg{width:26px;height:26px;flex:none}
+.page-motion .phase input[type=range]{flex:1}
+.page-motion .phase .t{font-size:11.5px;color:var(--A);font-weight:600;font-variant-numeric:tabular-nums;width:46px;text-align:right}
+.bar .speed,.bar .vol{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--dim)}
+.bar .speed input,.bar .vol input{width:96px}
+.tile canvas.aux{height:54px;margin:-2px 0 2px}
+.tile canvas.wt{height:44px}
+
+/* ── HEARD ── (sound) click a tile to play it; the one sounding keeps a lit rim, because on a
+   page about audio the thing that must never be ambiguous is which one you are hearing */
+#gate{position:fixed;inset:0;z-index:800;background:rgba(12,15,22,.86);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;cursor:pointer}
+#gate div{text-align:center}
+#gate b{font-size:22px;font-weight:650;display:block;margin-bottom:8px;color:var(--ink)}
+#gate span{font-size:12.5px;color:var(--dim)}
+.page-sound .tile{cursor:pointer}
+.page-sound .tile.wide{cursor:default}
+.page-sound .tile > canvas{display:block;width:100%;height:auto;background:var(--stage);border:1px solid var(--line);border-radius:8px}
+.page-sound .tile.playing{border-color:var(--curv);box-shadow:0 0 0 1px var(--curv),0 2px 22px rgba(124,92,255,.28)}
+.page-sound .tile .meta{font-size:11.5px;color:var(--dim);display:flex;gap:12px;flex-wrap:wrap}
+.page-sound .tile .meta b{color:var(--A);font-weight:600;font-variant-numeric:tabular-nums}
+.page-sound .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ── THE BENCH ── not tiles but numbered steps, read in order: each a panel with its picture,
+   its controls and a readout line of the numbers as they happen */
+.page-bench .step{padding-top:40px;scroll-margin-top:54px}
+.page-bench .step-head{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.page-bench .step-head .num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;
+  border-radius:50%;background:rgba(124,92,255,.16);color:#b9a6ff;font-weight:650;font-size:13px}
+.page-bench .step-head h2{font-size:16px;font-weight:650;margin:0;letter-spacing:-.005em}
+.page-bench .step-head .rule{flex:1;height:1px;background:var(--line)}
+.page-bench .step > p.say{font-size:13px;color:var(--dim);line-height:1.6;max-width:84ch;margin:0 0 16px 40px}
+.page-bench .step > p.say b{color:var(--ink-2);font-weight:600}
+.page-bench .step > p.say em{color:#b9a6ff;font-style:normal}
+.page-bench .panel{margin-left:40px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px}
+.page-bench .panel canvas{display:block;width:100%;background:var(--stage);border:1px solid var(--line);border-radius:8px}
+.page-bench .ctl{padding:12px 4px 2px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 18px;align-items:end}
+.page-bench .toggle{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-2)}
+.page-bench .read{border-top:1px solid var(--line);margin-top:10px;padding:10px 4px 2px;font-size:12px;color:var(--dim);line-height:1.7}
+.page-bench .read b{color:var(--ink-2);font-weight:600}
+.page-bench .read .ok{color:var(--ok);font-weight:600;font-variant-numeric:tabular-nums}
+.page-bench .read .bad{color:#f6d68a;font-weight:600;font-variant-numeric:tabular-nums}
+.page-bench .after{font-size:12.5px;color:var(--dim);line-height:1.6;max-width:84ch;margin:14px 0 0 40px}
+.page-bench .after b{color:var(--ink-2);font-weight:600}
+@media(max-width:640px){.page-bench .step > p.say,.page-bench .panel,.page-bench .after{margin-left:0}}

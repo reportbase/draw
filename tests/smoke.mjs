@@ -139,9 +139,11 @@ try {
    stubbed so the link can be followed here, in a page of our own. */
 const { readdir } = await import('node:fs/promises');
 const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html') && f !== 'index.html' && f !== 'inspect.html').sort();
-// Chart pages (the spiral) draw a measurement per tile rather than a list of loops: no
-// spectrum strip, and their own tile code. Everything else here is a shape page.
-const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html']);
+// Pages with their own tile code: the chart pages draw a measurement per tile rather than a
+// list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
+// composed animate. No spectrum strip on any of them. Everything else is a shape page.
+const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of galleries){
   current = 'gallery/' + g;
@@ -159,15 +161,15 @@ for (const g of galleries){
     // and catch any report that threw.
     if (CHART_PAGES.has(g)) {
       const threw = await gp.evaluate(async () => {
-        for (const t of document.querySelectorAll('.tile')) { t.scrollIntoView(); await new Promise(r => setTimeout(r, 120)); }
+        for (const t of document.querySelectorAll('.tile, .step')) { t.scrollIntoView(); await new Promise(r => setTimeout(r, 120)); }
         await new Promise(r => setTimeout(r, 1500));
-        return [...document.querySelectorAll('.tile')].filter(t => /this measurement threw|^error:/.test(
-          (t.querySelector('.report')?.textContent || '') + (t.querySelector('code.src')?.textContent || ''))).map(t => t.querySelector('h3').textContent);
+        return [...document.querySelectorAll('.tile, .step')].filter(t => /this measurement threw|^error:/.test(
+          (t.querySelector('.report')?.textContent || '') + (t.querySelector('code.src')?.textContent || ''))).map(t => t.querySelector('h3, h2')?.textContent);
       });
       if (threw.length) throw new Error('measurements failed: ' + threw.join('; '));
     }
     const edit = await gp.$('.tile .edit:not([hidden])');
-    if (!edit) {   // where it breaks hands no curve on, and has no edit buttons
+    if (!edit) {   // where it breaks, the bench and heard hand no curve on: no edit buttons
       if (!CHART_PAGES.has(g)) throw new Error('no edit button');
       await gp.close();
       console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} gallery/${g} (no curves to edit)`);

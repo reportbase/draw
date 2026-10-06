@@ -12,27 +12,30 @@ publishes.
   `tvf-core.js` are not in this repo, so **this file is now the source**: edit the
   block in place.
 - `index.html`: forwards `/draw/` to `draw.html`, keeping `?lab=` and `?bucket=`.
-- `gallery/`: eleven teaching pages, in reading order: `gallery.html` (the catalogue),
-  `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the menagerie),
-  `landscape`, `spiral`, `growth`, `assemblies`, `fail` (where it breaks). Also
+- `gallery/`: fifteen teaching pages, in reading order: `gallery.html` (the catalogue),
+  `bench`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
+  menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `sound` (heard), `motion`
+  (the loop), `compose` (composed), `fail` (where it breaks). Also
   the front page `index.html` that lists them, and `inspect.html`, which reads a shape's
   spectrum, symmetry, width and leaf count back off its leaves.
-  - **Styles live in `gallery/style.css`**, shared by all eleven pages; a page keeps only its
+  - **Styles live in `gallery/style.css`**, shared by all fifteen pages; a page keeps only its
     fonts link. Change the look there, once. (`index.html` and `inspect.html` still carry
     their own small `<style>`.)
-  - Each page bundles its JavaScript so it runs from one file. All eleven carry the **same**
+  - Each page bundles its JavaScript so it runs from one file. All fifteen carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The seven *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
     mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
     names the page that differs.
-  - `spiral`, `curves`, `space` and `fail` are *chart* pages (`body.page-chart`): each tile
-    draws a measurement with a verdict line, from the page's own tile code and its own extra
-    modules (MOTION, SOUND, COMPOSE, STRESS, SPACE, CURVEMOD, SPIRAL). They have no spectrum
-    strip or predict mode, but share the stylesheet and `tvf.js`, and all but `fail` (whose
-    tiles hold no curve) have edit buttons that use the shared editor link.
+  - The other eight have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
+    STRESS, SPACE, CURVEMOD, SPIRAL), and no spectrum strip or predict mode. `spiral`,
+    `curves`, `space`, `fail` are *chart* pages (`body.page-chart`: a measurement and a
+    verdict line per tile); `motion` and `compose` animate (`page-chart page-motion`);
+    `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`). Each
+    has a section in `style.css`. Edit buttons (the shared editor link) are on `spiral`,
+    `curves`, `space`, `motion` and `compose`; the rest hold no curve to hand on.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 11" crumbs and "next" links in each page.
+    a page means updating it, and the "N of 15" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE
