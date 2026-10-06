@@ -16,21 +16,21 @@ publishes.
   `draw.html?lab=CODE` link that runs it. **Generated** by `npm run labs`
   (`tools/build-labs.mjs` reads the lab buttons off the live editor); after adding, renaming
   or re-describing a lab in `draw.html`, run it, or `npm test` fails.
-- `gallery/`: sixteen teaching pages, in reading order: `gallery.html` (the catalogue),
+- `gallery/`: seventeen teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
-  menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `sound` (heard), `motion`
+  menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`
   (the loop), `compose` (composed), `fail` (where it breaks). Also `playground.html` (sculpt
   a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
   library as an ES module, *generated* from the copy the pages inline: regenerate it from
   a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
   the front page `index.html` that lists them, and `inspect.html`, which reads a shape's
   spectrum, symmetry, width and leaf count back off its leaves.
-  - **Styles live in `gallery/style.css`**, shared by all sixteen pages; a page keeps only its
+  - **Styles live in `gallery/style.css`**, shared by all seventeen pages; a page keeps only its
     fonts link. Change the look there, once. (`index.html` and `inspect.html` still carry
     their own small `<style>`.)
-  - Each page bundles its JavaScript so it runs from one file. All sixteen, and the playground, carry the **same**
-    `tvf.js` (`const TVF = (function` … `})();`). The eight *shape* pages (gallery,
-    snowflakes, radiolaria, width, landscape, growth, assemblies, letters) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
+  - Each page bundles its JavaScript so it runs from one file. All seventeen, and the playground, carry the **same**
+    `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
+    snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
     mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
     names the page that differs.
@@ -42,7 +42,7 @@ publishes.
     has a section in `style.css`. Edit buttons (the shared editor link) are on `spiral`,
     `curves`, `space`, `motion` and `compose`; the rest hold no curve to hand on.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 16" crumbs and "next" links in each page.
+    a page means updating it, and the "N of 17" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE

@@ -274,6 +274,25 @@ await step('letters', async () => {
   if (!(r.shear < 1e-12)) throw new Error('a slant is off by ' + r.shear);
 });
 
+/* Tiles: the seam between neighbouring tiles never closes, and the parameterization sets
+   how fast it shrinks. Uniform along each edge it halves per doubling of N (a corner's
+   1/N); stalled at the corners with m = 2 derivatives it falls about 2^3 = 8 times. */
+await step('tiles', async () => {
+  const gp = await browser.newPage();
+  gp.on('pageerror', e => failures.push(`[tiles] ${e.message}`));
+  await gp.goto(new URL('gallery/tiles.html', base).href, { waitUntil: 'load' });
+  const r = await gp.evaluate(() => [0, 2].map(m => {
+    const T = TL.tile('square', { m }), a = TL.seam(T, TL.leaves(T, 256)), b = TL.seam(T, TL.leaves(T, 512));
+    return { m, a, b, ratio: a / b };
+  }));
+  await gp.close();
+  for (const { m, a, ratio } of r) {
+    const want = Math.pow(2, m + 1);
+    if (!(a > 0)) throw new Error(`stall ${m}: the seam measured zero, which a band-limited tile cannot reach`);
+    if (Math.abs(ratio / want - 1) > 0.15) throw new Error(`stall ${m}: the seam falls ${ratio.toFixed(2)}× per doubling, expected ${want}×`);
+  }
+});
+
 /* The inspector reads facts off the leaves. Two of its examples have answers that can be
    worked by hand: a heart is one mirror (D1, vertical axis) and fits in 9 leaves; an
    ellipse wobbles twice but is Z₁ and Z₋₁ only, so 3 leaves hold it. */
