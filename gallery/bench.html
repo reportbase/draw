@@ -2799,7 +2799,7 @@ const STEPS = [
   id: 's1', title: 'One kernel',
   say: `Here is the entire object. One function of one angle, with one leaf count in it. It is
         <b>1 at its own node</b> and <em>exactly 0 at every other node</em> — the marks on the axis —
-        and it is something else in between, which is the only interesting part.`,
+        and it is something else in between, which is the only interesting part. <a class="paper" href="../papers.html#tb_classical:4.2-kernel-properties">theorem §4.2</a>`,
   params: [['N', 4, 64, 1, 12]],
   h: 250,
   draw(cv, v, read) {
@@ -2834,7 +2834,7 @@ const STEPS = [
   id: 's2', title: 'Switch them on one at a time',
   say: `Now put a copy at every leaf and add them up. The faint curves are the copies; the heavy one is
         the running sum. Bring them on one at a time and watch the sum <b>flatten onto 1</b> — not
-        approximately, and not as a limit. <em>At the last one it is 1 everywhere.</em>`,
+        approximately, and not as a limit. <em>At the last one it is 1 everywhere.</em> <a class="paper" href="../papers.html#tb_classical:4.2-kernel-properties">theorem, Lemma 4.3a</a>`,
   params: [['N', 6, 48, 1, 16], ['on', 1, 48, 1, 1]],
   h: 250,
   draw(cv, v, read) {
