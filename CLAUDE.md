@@ -25,9 +25,10 @@ publishes.
   a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
   the front page `index.html` that lists them, and `inspect.html`, which reads a shape's
   spectrum, symmetry, width and leaf count back off its leaves.
-  - **Styles live in `gallery/style.css`**, shared by all seventeen pages; a page keeps only its
-    fonts link. Change the look there, once. (`index.html` and `inspect.html` still carry
-    their own small `<style>`.)
+  - **Styles live in `gallery/style.css`**, shared by every page in `gallery/` (and by
+    `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
+    a layout of their own have a section there scoped to their body class (`page-index`,
+    `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`).
   - Each page bundles its JavaScript so it runs from one file. All seventeen, and the playground, carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
@@ -77,8 +78,11 @@ row of y leaf values) is read by 3d too. Change it compatibly.
 ## Testing
 - `npm test` runs `tests/smoke.mjs`: it loads the page in headless Chromium, drags
   on the canvas, draws, selects everything, presses every enabled toolbar button,
-  and fails on any uncaught error. Run it before every PR, and add checks for new
-  behaviour.
+  and fails on any uncaught error; then it walks every gallery page and runs the
+  gallery, inspector, playground and labs checks. About three minutes. Run it before
+  every PR (CI runs it too), and add checks for new behaviour.
+- `npm run test:quick` is the everyday run, about half the time: the same editor walk and
+  single-page checks, but only two gallery pages walked and no labs.html regeneration.
 - The page has fallbacks if the CDNs (Google Fonts, the path-data polyfill) are
   blocked, so it runs in a sandbox as is.
 

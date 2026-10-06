@@ -2943,7 +2943,10 @@ function drawTile(cv, shape, coef, o = {}) {
   const H = o.h || 150, { c, w, h } = fit(cv, H);
   const A = w * 0.30, B = w * 0.40, C = w - A - B;
   // shape
-  const b = shape.bbox(220), s = Math.min(A * 0.62, h * 0.62) / (Math.max(b.w, b.h) / 2 || 1);
+  // The shape's HALF-extent is what this scales, so it gets a share of half the panel: it
+  // used to be 62% of the panel's whole width, which drew a circle 124% as wide as its
+  // room and cut it off at the tile's left edge.
+  const b = shape.bbox(220), s = Math.min(A, h) * 0.42 / (Math.max(b.w, b.h) / 2 || 1);
   const cx = A / 2, cy = h / 2, d = shape.sample(600);
   c.beginPath();
   for (let i = 0; i < d.x.length; i++) {

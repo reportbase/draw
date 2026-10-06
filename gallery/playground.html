@@ -1505,10 +1505,12 @@ function drawSpectrum() {
   for (let i = 0; i < H; i++) {
     const m = Math.log10(1 + 9 * mags[i] / peak);
     const bh = Math.max(1, m * (specCv.height - 8));
-    sctx.fillStyle = i === 0 ? 'rgba(232,236,245,0.30)' : `rgba(160,138,255,${0.30 + 0.55 * m})`;
+    // The galleries' strip colours (pale body, violet harmonics), and never fainter than 60%:
+    // at 30% the small bars vanished into the slate, which is where the detail lives.
+    sctx.fillStyle = i === 0 ? 'rgba(195,204,223,0.70)' : `rgba(124,92,255,${0.60 + 0.40 * m})`;
     sctx.fillRect(i * w, specCv.height - bh, Math.max(1.5, w - 1.6), bh);
   }
-  sctx.fillStyle = 'rgba(232,236,245,0.22)';
+  sctx.fillStyle = 'rgba(232,236,245,0.32)';
   sctx.fillRect(0, specCv.height - 1, specCv.width, 1);
 }
 
