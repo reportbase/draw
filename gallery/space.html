@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tvf — the spiral</title>
+<title>tvf — shape space</title>
 <!-- FRAUNCES IS GONE WITH THE PAPER THEME. The Loop pane sets its prose in the system
      sans and nothing else, so the display serif has no job here any more; IBM Plex Mono
      stays, for source lines and the .tvf box, and falls back to the platform's own
@@ -17,53 +17,51 @@
 <body class="page-chart">
 
 <header>
-  <nav class="crumbs"><a href="index.html">← all galleries</a> · 8 of 11</nav>
-  <h1>tvf <em>the spiral</em> <span class="pill">tvf.spiral.js</span></h1>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 5 of 11</nav>
+  <h1>tvf <em>shape space</em> <span class="pill">tvf.space.js</span></h1>
   <p class="lede">
-    A logarithmic spiral is r = e<sup>bθ</sup> — the curve of pure self-similarity, where advancing one
-    turn multiplies the radius by a constant, at every angle, exactly. It is also <b>not a closed
-    curve</b>, which makes it the most awkward thing you can hand a format built on closed curves,
-    and the most informative, because of precisely <em>where</em> it breaks.
+    A shape with N leaves is 2N numbers, so a shape is a <b>point</b>, a family of shapes is a
+    <b>cloud of points</b>, and everything linear algebra knows about clouds applies: a mean, a
+    covariance, principal axes, a Gaussian to draw new members from. The catalogue's
+    <code>morph</code> is the segment between two points. This page is the whole space they live in.
   </p>
   <p class="sub">
-    The observer has two ladders and this curve needs both. The <b>resolution ladder</b> lives on the
-    circle — angle, harmonics, the dyadic depth d = log₂N. The <b>value-scale ladder</b> lives on the
-    logarithm — ⌊log₂|x|⌋, Mellin rather than a multiresolution nesting, and the papers are careful
-    that these are not the same ladder. A log spiral lies along both: its angle is periodic and its
-    radius is not, and log r is <em>linear</em> in θ. Force it into one turn and you are asking a
-    circle to hold a ramp, which is a sawtooth, which has a jump — and the reconstruction then does
-    not converge at all. <b>Not slowly. Not at O(1/N). To a fixed error, forever.</b> Put the growth
-    on the ladder that was built for it and the circle keeps what is left, which turns out to be
-    perfectly ordinary.
+    The question I built it to answer was whether the leaf basis is a good place to do statistics.
+    <b>It turns out the question is malformed</b>, and finding that out was worth more than an
+    answer. PCA is invariant under any orthogonal change of coordinates and the DFT is unitary, so
+    the eigenvalues from leaf values and the eigenvalues from Fourier coefficients are <em>the same
+    numbers</em> — measured below at 4×10⁻¹⁵. No representation choice at that level can matter.
+    What does matter is <b>alignment</b>, and one of the four things you have to align is unique to
+    a closed curve on a circle. The last section is where the linear model runs out, which it does
+    for a reason worth seeing.
   </p>
 </header>
 
 <div class="bar"><div class="bar-in">
+  <button id="t-pop" class="on">population</button>
+  <button id="t-mean" class="on">mean</button>
   <button id="t-leaves">leaves</button>
-  <button id="t-exact" class="on">exact curve</button>
   <div class="spacer"></div>
-  <a class="jump" href="#open">not closed</a>
-  <a class="jump" href="#ramp">a ramp on a circle</a>
-  <a class="jump" href="#factor">factor it</a>
-  <a class="jump" href="#perturb">perturbing it</a>
-  <a class="jump" href="#shell">or close it</a>
-  <a class="jump" href="#ladder">the observer's log</a>
+  <a class="jump" href="#cloud">the cloud</a>
+  <a class="jump" href="#walk">walking</a>
+  <a class="jump" href="#basis">the basis</a>
+  <a class="jump" href="#curved">where it breaks</a>
+  <a class="jump" href="#evidence">evidence</a>
 </div></div>
 
 <main id="main"></main>
 
 <footer>
-  <b>tvf.spiral.js</b> is the spiral, its closed forms, the factorization, and the two Gibbs
-  constants measured side by side — because this project has been loose about which one it meant and
-  they differ by more than half again.<br>
-  <b>The number to carry off:</b> a spiral forced into one turn has a sup error of exactly half its
-  radial gap, at every N. Factored into e<sup>bθ</sup>·f(θ) it costs <b>N + 1 numbers</b> and is exact at
-  turn 20, where the radius has grown by 5×10¹⁶.
-  <div class="next">Next: <a href="growth.html">Differential growth →</a></div>
+  <b>tvf.space.js</b> is Procrustes alignment, PCA through the M×M Gram matrix, and a Jacobi
+  eigensolver — no dependencies, because a page about closed curves should not have to load a
+  linear algebra library to draw its own principal axes. Every mode is itself an ordinary
+  <code>Shape</code>, so an eigenshape pastes into the leaf editor like anything else.<br>
+  <b>The one number to take away:</b> leaf-basis and Fourier-basis PCA agree to 4×10⁻¹⁵, so
+  the representation is not the variable — the alignment is.
+  <div class="next">Next: <a href="curves.html">The menagerie →</a></div>
 </footer>
 
 <script>
-const PAGE = "spiral";
 // ── BUNDLED ────────────────────────────────────────────────────────────────
 // tvf.js, tvf.shapes.js and tvf.patterns.js, inlined so this file opens from
 // disk. The modules are the source of truth; this is a build artifact. Each one
@@ -1844,12 +1842,7 @@ const shapes = {
   warp, taper, lean, bend, unite,
 };
 
-return {
-  shapes, polar, harmonic, superformula, gear, trochoid,
-  leaf, petal, teardrop, egg, kidney, pebble, radialUnion, cloud, splat, amoeba,
-  stadium, lens, crescent, heart, roundedStar, squircle, shield,
-  warp, taper, lean, bend, unite,
-};
+return shapes;
 
 })();
 const PATTERNS = (function () {
@@ -2261,11 +2254,7 @@ const patterns = {
   bounds,
 };
 
-return {
-  patterns, morphStrip, morphGrid, rosette, phyllotaxis, tiling, packing, chain,
-  spectralLadder, detailLadder, bandLimit, contours, interference, nyquistPair,
-  bounds,
-};
+return patterns;
 
 })();
 const FORMAT = (function () {
@@ -3772,10 +3761,7 @@ function didNotBreak(o = {}) {
   return out;
 }
 
-return { lerpResample, ripple, curveDeviation, resampleCliff,
-         roundedRect, distTo, convergence, bandLimitedCurve,
-         evenKernel, parityTrap, simplicity, morphCollapse,
-         equivariance, cosetNesting, leafSpend, throughput, didNotBreak };
+return { lerpResample, ripple, curveDeviation, resampleCliff, roundedRect, distTo, convergence, bandLimitedCurve, evenKernel, parityTrap, simplicity, morphCollapse, equivariance, cosetNesting, leafSpend, throughput, didNotBreak };
 
 })();
 const SPACE = (function () {
@@ -4253,928 +4239,7 @@ function mulberry(a) {
   };
 }
 
-return { population, procrustes, meanShape, pca, jacobi, realDFT,
-         basisInvariance, cost, curvature, generalization, validity, crossings,
-         centroidOf, normOf, bestAngle, mulberry };
-
-})();
-const CURVEMOD = (function () {
-// tvf.curves.js — the classical menagerie, sorted by band
-// ============================================================================
-//
-// Every named curve in the plane arrives with a parameterization attached, and
-// that parameterization decides something the picture does not: whether the
-// curve is EXACTLY a tvf, or only approximated by one.
-//
-// The rule is short. If x(t) and y(t) are finite trigonometric sums, the curve
-// lives inside the band and an N-leaf tvf reproduces it to machine zero for any
-// N above twice its top harmonic. If they are analytic but not finite, the error
-// falls faster than any power of 1/N. If they carry a singularity — a square
-// root, a fractional power, a corner — you pay a fixed convergence order forever.
-//
-//     import { CURVES, bandOf, tier } from './tvf.curves.js';
-//     tier(CURVES.astroid)   // 'exact', band 3
-//
-// ----------------------------------------------------------------------------
-// THE THING WORTH KNOWING
-//
-// The band is a property of the PARAMETERIZATION, not of how smooth the picture
-// looks. The astroid has four cusps and band 3 — machine-exact at sixteen
-// leaves. A square has four corners and no finite band at all. Both have a
-// tangent that jumps; what separates them is that the astroid's parameterization
-// SLOWS TO A STOP at each cusp, so x(t) and y(t) stay analytic through it, while
-// the square's arc-length parameterization goes round the corner at full speed.
-//
-// Which suggests the obvious experiment, and it works: slow the square down at
-// its corners and it starts converging. Each derivative you force to vanish
-// there buys exactly one order — the error ratio per doubling of N goes 2.00,
-// 4.00, 8.00, 16.00, so m vanishing derivatives give O(1/N^(m+1)) and arc length
-// is just the m = 0 row. `A corner costs O(1/N)` is really `arc length costs
-// O(1/N) at a corner`, and the corner was never the whole story.
-//
-// ============================================================================
-
-const { Shape, TAU } = TVF;
-
-// ────────────────────────────────────────────────────────────────────────────
-// THE MENAGERIE
-// ────────────────────────────────────────────────────────────────────────────
-// Each entry: `at(t)` over t in [0,1), plus a note on why it lands where it does.
-// Normalized to roughly unit radius so they can share a frame.
-
-const C = (a) => Math.cos(a), S = (a) => Math.sin(a);
-const polar = (rf) => (t) => { const a = t * TAU, r = rf(a); return [r * C(a), r * S(a)]; };
-
-const CURVES = {
-  circle: { at: polar(() => 1), band: 1,
-    why: 'one harmonic. The band limit\'s fixed point — nothing to approximate.' },
-
-  ellipse: { at: t => { const a = t * TAU; return [C(a), 0.6 * S(a)]; }, band: 1,
-    why: 'still one harmonic: an ellipse is a circle in different units, and units are not frequency.' },
-
-  cardioid: { at: polar(a => (1 + C(a)) / 2), band: 2,
-    why: 'r = 1 + cos θ, and r·cos θ expands to cos θ + (1 + cos 2θ)/2 — the product with the ' +
-         'unit vector shifts each harmonic by one and stops there.' },
-
-  limacon: { at: polar(a => (1 + 2 * C(a)) / 3), band: 2,
-    why: 'the cardioid\'s family. The inner loop costs nothing in band — self-intersection is not ' +
-         'a frequency, it is a fact about the image.' },
-
-  nephroid: { at: t => { const a = t * TAU; return [(3 * C(a) - C(3 * a)) / 4, (3 * S(a) - S(3 * a)) / 4]; }, band: 3,
-    why: 'written as a two-term sum from the start. Two cusps, and they cost nothing.' },
-
-  astroid: { at: t => { const a = t * TAU; return [C(a) ** 3, S(a) ** 3]; }, band: 3,
-    why: 'THE surprise. cos³ = (3cos + cos3)/4, so the astroid is three harmonics — machine-exact ' +
-         'at sixteen leaves, with four cusps. A cusp is where the parameterization stops, not where ' +
-         'the band breaks.' },
-
-  deltoid: { at: t => { const a = t * TAU; return [(2 * C(a) + C(2 * a)) / 3, (2 * S(a) - S(2 * a)) / 3]; }, band: 2,
-    why: 'three cusps in two harmonics. The cheapest cusped curve there is.' },
-
-  rose5: { at: polar(a => C(5 * a)), band: 6,
-    why: 'r = cos(kθ) gives harmonics k±1 after the product — band k+1, so a fifty-petal rose is ' +
-         'still only band 51.' },
-
-  epitrochoid: { at: t => { const a = t * TAU, R = 3, r = 1, d = 1.2;
-      return [((R + r) * C(a) - d * C((R + r) / r * a)) / 5, ((R + r) * S(a) - d * S((R + r) / r * a)) / 5]; }, band: 4,
-    why: 'two harmonics by construction — a circle rolling on a circle is literally an epicycle sum.' },
-
-  lissajous: { at: t => { const a = t * TAU; return [S(3 * a), S(2 * a + 0.7)]; }, band: 3,
-    why: 'a harmonic per axis. Lissajous figures are the band limit\'s native handwriting.' },
-
-  gerono: { at: t => { const a = t * TAU; return [C(a), S(2 * a) / 2]; }, band: 2,
-    why: 'the figure-eight that IS a finite sum — unlike Bernoulli\'s, which is not. Two curves that ' +
-         'look alike and sit in different tiers.' },
-
-  piriform: { at: t => { const a = t * TAU; return [(1 + S(a)) / 2, C(a) * (1 + S(a)) / 2]; }, band: 2,
-    why: 'a product of two harmonics is a sum of two harmonics. Multiplication adds bands, and ' +
-         '1 + 1 = 2.' },
-
-  bicorn: { at: t => { const a = t * TAU, s = S(a); return [C(a), s * s * (2 + s) / (3 + s * s)]; }, band: 17,
-    why: 'a rational function of sin — analytic everywhere, so its coefficients decay geometrically. ' +
-         'Not finite, but exact for any practical N.' },
-
-  cassini: { at: t => { const a = t * TAU, b = 1.1, c = 1;
-      const u = b ** 4 - c ** 4 * S(2 * a) ** 2;
-      const r = Math.sqrt(Math.max(0, c * c * C(2 * a) + Math.sqrt(Math.max(0, u))));
-      return [r * C(a), r * S(a)]; }, band: 49,
-    why: 'a square root that never reaches zero, so the curve stays analytic and the decay stays ' +
-         'geometric. Push b below c and the ovals split — and the band goes with it.' },
-
-  lemniscatePolar: { at: t => { const a = t * TAU, c = C(2 * a), r = c > 0 ? Math.sqrt(c) : 0;
-      return [r * C(a), r * S(a)]; }, band: Infinity,
-    why: 'Bernoulli\'s, in polar form: r = sqrt(cos 2θ). The square root DOES reach zero — at the ' +
-         'node, where the curve crosses itself — and a square root at zero is not analytic. ' +
-         'Algebraic tier, and slow: O(1/N^0.5).' },
-
-  lemniscateRational: { at: t => { const a = t * TAU, s = S(a), c = C(a), d = 1 + s * s;
-      return [c / d, s * c / d]; }, band: 24,
-    why: 'THE SAME CURVE. Both parameterizations satisfy (x²+y²)² = x²−y² to 6e-16, so they draw ' +
-         'the same set of points — but this one is a ratio of trigonometric polynomials with a ' +
-         'denominator that never vanishes, so it is analytic and lands in the spectral tier. ' +
-         'A curve does not have a band. A PARAMETERIZED curve has a band.' },
-
-  superellipse: { at: t => { const a = t * TAU, c = C(a), s = S(a);
-      return [Math.sign(c) * Math.abs(c) ** 0.5, Math.sign(s) * Math.abs(s) ** 0.5]; }, band: Infinity,
-    why: '|cos|^p with fractional p. The absolute value is the singularity; the shape being smooth ' +
-         'to the eye is irrelevant.' },
-
-  square: { at: t => { const u = ((t % 1) + 1) % 1 * 4, q = Math.floor(u) % 4, f = u - Math.floor(u);
-      const P = [[-1, -1], [1, -1], [1, 1], [-1, 1]], A = P[q], B = P[(q + 1) % 4];
-      return [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f]; }, band: Infinity,
-    why: 'four corners taken at full speed. O(1/N) — unless you slow down at them, which is the ' +
-         'section below.' },
-};
-
-// ────────────────────────────────────────────────────────────────────────────
-// MEASURING
-// ────────────────────────────────────────────────────────────────────────────
-
-/** Harmonic magnitudes of a channel on the midpoint grid. */
-function spectrum(v) {
-  const N = v.length, top = Math.floor(N / 2), out = new Float64Array(top + 1);
-  for (let m = 0; m <= top; m++) {
-    let re = 0, im = 0;
-    for (let k = 0; k < N; k++) {
-      const a = TAU * m * (k + 0.5) / N;
-      re += v[k] * Math.cos(a); im -= v[k] * Math.sin(a);
-    }
-    out[m] = Math.hypot(re, im) / N * (m === 0 || (N % 2 === 0 && m === top) ? 1 : 2);
-  }
-  return out;
-}
-
-/** Highest harmonic above `tol` of the peak, measured on a fine sampling. */
-function measureBand(curve, o = {}) {
-  const N = o.N || 512, tol = o.tol == null ? 1e-9 : o.tol;
-  const s = Shape.fromFunction(t => curve.at(t), N);
-  const top = Math.floor(N / 2);
-  let hi = 0;
-  for (const ch of [s.x, s.y]) {
-    const sp = spectrum(ch);
-    let peak = 0; for (const v of sp) peak = Math.max(peak, v);
-    for (let m = top; m >= 0; m--) if (sp[m] > peak * tol) { hi = Math.max(hi, m); break; }
-  }
-  return hi;
-}
-
-/**
- * Geometric error: the furthest the reconstruction strays from the exact curve,
- * as a fraction of the curve's own radius.
- *
- * The nearest-point search is a coarse scan followed by a golden-section refine,
- * and the refine is not optional. A pure scan bottoms out at half the sample
- * spacing, and that floor is indistinguishable from a convergence plateau — the
- * first version of this function reported 2.6e-3 for a CIRCLE, which is exact,
- * and flattened the stall ladder below into a straight line. I had already
- * written this warning into `tvf.stress.js` and then reimplemented the bug here,
- * which is its own small lesson about where measurement code goes wrong.
- */
-function geomError(curve, N, o = {}) {
-  const S = Shape.fromFunction(t => curve.at(t), N);
-  const d = S.sample(N * (o.dense || 8));
-  const P = o.P || 2000;
-  const at = u => curve.at(((u % 1) + 1) % 1);
-  let worst = 0, scale = 0;
-  const pts = new Float64Array(2 * P);
-  for (let j = 0; j < P; j++) { const p = at(j / P); pts[2 * j] = p[0]; pts[2 * j + 1] = p[1];
-    scale = Math.max(scale, Math.hypot(p[0], p[1])); }
-  const g = (Math.sqrt(5) - 1) / 2;
-  for (let i = 0; i < d.x.length; i += (o.stride || 1)) {
-    const qx = d.x[i], qy = d.y[i];
-    let best = Infinity, bu = 0;
-    for (let j = 0; j < P; j++) {
-      const dd = Math.hypot(qx - pts[2 * j], qy - pts[2 * j + 1]);
-      if (dd < best) { best = dd; bu = j / P; }
-    }
-    const f = u => { const p = at(u); return Math.hypot(qx - p[0], qy - p[1]); };
-    let lo = bu - 1 / P, hi = bu + 1 / P;
-    let c = hi - g * (hi - lo), e = lo + g * (hi - lo);
-    for (let it = 0; it < 40; it++) {
-      if (f(c) < f(e)) { hi = e; e = c; c = hi - g * (hi - lo); }
-      else { lo = c; c = e; e = lo + g * (hi - lo); }
-    }
-    worst = Math.max(worst, Math.min(best, f((lo + hi) / 2)));
-  }
-  return worst / (scale || 1);
-}
-
-/**
- * Parameter-matched error: the tvf's point at t against the curve's point at t.
- *
- * Used for the exactness question, where it is the right question — "does an
- * N-leaf tvf reproduce this parameterized curve" — and where it floors at 1e-14
- * rather than at the nearest-point search's 1e-11. `geomError` is the right tool
- * for the other question, "how far off is the picture", and is what the
- * convergence ladders use.
- */
-function paramError(curve, N, o = {}) {
-  const S = Shape.fromFunction(t => curve.at(t), N);
-  const Q = o.Q || 2048, d = S.sample(Q);
-  let m = 0, scale = 0;
-  for (let i = 0; i < Q; i++) {
-    const p = curve.at(i / Q);
-    m = Math.max(m, Math.hypot(d.x[i] - p[0], d.y[i] - p[1]));
-    scale = Math.max(scale, Math.hypot(p[0], p[1]));
-  }
-  return m / (scale || 1);
-}
-
-/** The error ladder and the order it implies. */
-function order(curve, o = {}) {
-  const rungs = o.rungs || [32, 64, 128, 256];
-  const rows = [];
-  let prev = null;
-  for (const N of rungs) {
-    const e = geomError(curve, N, o);
-    rows.push({ N, err: e, ratio: prev == null ? null : prev / e });
-    prev = e;
-  }
-  return rows;
-}
-
-/**
- * Which tier a curve sits in, decided by measurement rather than by the label
- * carried in the table above.
- *
- *   exact     — a finite trigonometric sum: machine zero once N clears the band
- *   spectral  — analytic: no finite band, but the error falls faster than any power
- *   algebraic — a singularity: a fixed convergence order, forever
- */
-function tier(curve, o = {}) {
-  // The discriminator between a finite sum and a merely-analytic curve is whether
-  // the spectrum TERMINATES or DECAYS, and one tolerance cannot tell those apart:
-  // measured at 1e-9 the bicorn reads band 17, which looks finite. Read it again
-  // at 1e-13 and it is 24 — the coefficients were still falling. A finite sum
-  // gives the same answer at both tolerances because there is nothing above the
-  // band except rounding.
-  const band = measureBand(curve, { tol: 1e-9 });
-  const deep = measureBand(curve, { tol: 1e-13 });
-  const terminates = deep <= band + 1;
-
-  const rungs = o.rungs || [32, 64, 128, 256];
-  const errs = rungs.map(N => paramError(curve, N));
-  const rows = rungs.map((N, i) => ({ N, err: errs[i], ratio: i ? errs[i - 1] / errs[i] : null }));
-  const ratios = rows.slice(1).map(r => r.ratio);
-
-  if (terminates && isFinite(band)) {
-    const N = Math.min(256, Math.max(32, 4 * band));
-    const err = paramError(curve, N);
-    if (err < 1e-11) return { tier: 'exact', band, deep, N, err, rows, ratios };
-  }
-  // A ratio that holds steady is a power law; one that keeps climbing is
-  // geometric decay, which is what analytic-but-not-finite looks like.
-  const steady = ratios.every(r => r < 4) && Math.abs(ratios[ratios.length - 1] - ratios[0]) < 0.5;
-  return { tier: steady ? 'algebraic' : 'spectral', band, deep, rows, ratios,
-           err: rows[rows.length - 1].err,
-           power: steady ? Math.log2(ratios[ratios.length - 1]) : null };
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// CUSPS, CORNERS, AND STALLING
-// ────────────────────────────────────────────────────────────────────────────
-
-/** Parameter speed |d/dt (x,y)| — the quantity that separates a cusp from a corner. */
-function speedAt(curve, t, h = 1e-6) {
-  const a = curve.at(t - h), b = curve.at(t + h);
-  return Math.hypot(b[0] - a[0], b[1] - a[1]) / (2 * h);
-}
-
-/**
- * A warp of [0,1) onto itself that stalls at every k-th of a turn, with `m`
- * derivatives forced to vanish there. m = 0 is plain arc length.
- *
- * These are the standard smoothstep polynomials, which is not a coincidence:
- * smoothstep of order m is precisely the polynomial whose first m derivatives
- * vanish at both ends, and "vanish at both ends" is the entire requirement.
- */
-function stall(m, k = 4) {
-  return (u) => {
-    const s = ((u % 1) + 1) % 1 * k, i = Math.floor(s), f = s - i;
-    let g;
-    if (m <= 0) g = f;
-    else if (m === 1) g = f * f * (3 - 2 * f);
-    else if (m === 2) g = f * f * f * (10 - 15 * f + 6 * f * f);
-    else g = f ** 4 * (35 - 84 * f + 70 * f * f - 20 * f ** 3);
-    return (i + g) / k;
-  };
-}
-
-/** A curve reparameterized by a warp. Same set of points, different schedule. */
-function reparam(curve, warp) {
-  return { at: t => curve.at(warp(t)), warp };
-}
-
-/**
- * The finding. A square, reparameterized to stall at its corners with m
- * vanishing derivatives, converges at O(1/N^(m+1)) — measured error ratios per
- * doubling of 2.00, 4.00, 8.00, 16.00 for m = 0, 1, 2, 3, so the exponent is
- * read off as log2 of the ratio and lands on the integers rather than near them.
- */
-function stallLadder(o = {}) {
-  const base = o.curve || CURVES.square;
-  const k = o.k || 4;
-  return [0, 1, 2, 3].map(m => {
-    const c = m === 0 ? base : reparam(base, stall(m, k));
-    const rows = order(c, { rungs: o.rungs || [32, 64, 128, 256], P: o.P || 1600, stride: o.stride || 2 });
-    const ratios = rows.slice(1).map(r => r.ratio);
-    return { m, rows, ratios, expected: Math.pow(2, m + 1),
-             corner: speedAt(c, 0.0000001) };
-  });
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// TROCHOIDS, AND WHEN THEY CLOSE
-// ────────────────────────────────────────────────────────────────────────────
-
-const gcd = (a, b) => (b ? gcd(b, a % b) : Math.abs(a));
-
-/**
- * A circle of radius r rolling inside (`inside`) or outside a circle of radius
- * R, with the pen at distance d from its centre.
- *
- * The part everyone gets wrong once: **it does not close in one turn.** The
- * pen's angular rate relative to the rolling circle is (R∓r)/r, and the figure
- * closes only after q turns, where that ratio is p/q in lowest terms. Draw one
- * turn of a q>1 trochoid and you get an open arc that the format will dutifully
- * close for you with a chord — and the band, measured over the wrong interval,
- * comes back as garbage.
- */
-function trochoid(R, r, d, o = {}) {
-  const inside = o.inside !== false;
-  const num = inside ? R - r : R + r;
-  const g = gcd(num, r) || 1;
-  const turns = r / g;
-  const k = num / r;
-  const scale = 1 / (Math.abs(num) + Math.abs(d) || 1);
-  return {
-    R, r, d, inside, turns, ratio: `${num / g}/${r / g}`,
-    at: t => { const a = t * TAU * turns;
-      return inside
-        ? [(num * Math.cos(a) + d * Math.cos(k * a)) * scale, (num * Math.sin(a) - d * Math.sin(k * a)) * scale]
-        : [(num * Math.cos(a) - d * Math.cos(k * a)) * scale, (num * Math.sin(a) - d * Math.sin(k * a)) * scale];
-    },
-    /** The same pen, run for the wrong number of turns — for the tile that shows why it matters. */
-    partial: (turnsWanted) => ({ at: t => { const a = t * TAU * turnsWanted;
-      return inside
-        ? [(num * Math.cos(a) + d * Math.cos(k * a)) * scale, (num * Math.sin(a) - d * Math.sin(k * a)) * scale]
-        : [(num * Math.cos(a) - d * Math.cos(k * a)) * scale, (num * Math.sin(a) - d * Math.sin(k * a)) * scale]; } }),
-  };
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// MODULAR PATTERNS ON THE LEAF CIRCLE
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * The times table: N points on a circle, each joined to its m-fold multiple.
- *
- * This is the one everybody has seen as a curiosity, and on THIS circle it is
- * not a curiosity. The leaves sit at odd multiples of π/N, and the map
- * θ ↦ mθ at m = 2 is exactly the doubling map G of the cascade — the two-to-one
- * fold that takes a depth-d leaf to a depth-(d−1) one and that the FFT's
- * decimation-in-frequency butterfly pairs j with j + N/2 to compute. So the
- * chords of the ×2 table are the cascade's own fibres, drawn.
- *
- * The envelope is a cardioid, and that is not a coincidence either: it is the
- * caustic of the map, and the cardioid is band 2 — the ×m table's envelope is an
- * epicycloid with m−1 cusps, and every one of those is inside the band.
- */
-function timesTable(N, m, o = {}) {
-  const useLeaves = o.leaves !== false;
-  const pos = (k) => { const a = useLeaves ? (k + 0.5) * TAU / N : k * TAU / N;
-    return [Math.cos(a), Math.sin(a)]; };
-  const lines = [];
-  for (let k = 0; k < N; k++) {
-    const j = ((k * m) % N + N) % N;
-    lines.push([pos(k), pos(j)]);
-  }
-  return { N, m, lines, cusps: Math.abs(m - 1),
-           envelope: { at: t => { const a = t * TAU, n = Math.abs(m - 1);
-             // the epicycloid with n cusps, scaled to sit inside the unit circle
-             const s = 1 / (n + 2);
-             return [s * ((n + 1) * Math.cos(a) - Math.cos((n + 1) * a)),
-                     s * ((n + 1) * Math.sin(a) - Math.sin((n + 1) * a))]; } } };
-}
-
-/**
- * The star polygon {N/k}: step k at a time around N points and see what closes.
- * It traces N/gcd(N,k) points before returning, so it is one closed path exactly
- * when k is coprime to N — the same coprimality that decides which powers
- * generate the cyclic group, drawn as a shape.
- */
-function starPolygon(N, k, o = {}) {
-  const g = gcd(N, k) || 1, len = N / g;
-  const paths = [];
-  const useLeaves = o.leaves !== false;
-  const pos = (i) => { const a = (useLeaves ? (i + 0.5) : i) * TAU / N; return [Math.cos(a), Math.sin(a)]; };
-  for (let start = 0; start < g; start++) {
-    const pts = [];
-    let i = start;
-    for (let s = 0; s < len; s++) { pts.push(pos(i)); i = (i + k) % N; }
-    paths.push(pts);
-  }
-  return { N, k, gcd: g, components: g, length: len, coprime: g === 1, paths };
-}
-
-/** Which k are coprime to N — the generators, and the totient as a count. */
-function totient(N) {
-  const ks = [];
-  for (let k = 1; k < N; k++) if (gcd(N, k) === 1) ks.push(k);
-  return { N, ks, phi: ks.length };
-}
-
-/**
- * Where each leaf lands under θ ↦ 2θ. On the leaf grid this is exactly two-to-one
- * — leaf j and leaf j + N/2 share an image — which is the cascade's fold and the
- * FFT butterfly's pairing, and the reason the resolution ladder is radix 2.
- */
-function doublingMap(N) {
-  const out = [];
-  for (let j = 0; j < N; j++) {
-    const th = (j + 0.5) * TAU / N;
-    let img = (2 * th) % TAU;
-    // which depth-(N/2) leaf is it?
-    const idx = Math.round((img / TAU) * (N / 2) - 0.5);
-    const exact = Math.abs(((idx + 0.5) * TAU / (N / 2)) % TAU - img);
-    out.push({ j, theta: th, image: img, target: ((idx % (N / 2)) + N / 2) % (N / 2), residual: Math.min(exact, TAU - exact) });
-  }
-  const pairs = [];
-  for (let j = 0; j < N / 2; j++) pairs.push([j, j + N / 2, out[j].target === out[j + N / 2].target]);
-  return { N, map: out, pairs, allPaired: pairs.every(p => p[2]),
-           worstResidual: Math.max(...out.map(o => o.residual)) };
-}
-
-return { CURVES, spectrum, measureBand, geomError, paramError, order, tier,
-         speedAt, stall, reparam, stallLadder,
-         trochoid, timesTable, starPolygon, totient, doublingMap, gcd };
-
-})();
-const SPIRAL = (function () {
-// tvf.spiral.js — the logarithmic spiral, and the seam it sits on
-// ============================================================================
-//
-// A logarithmic spiral is r = e^{bθ}. It is the curve of pure self-similarity:
-// advancing one turn multiplies the radius by a constant g = e^{2πb}, at every
-// angle, exactly. It is also **not a closed curve**, which makes it the single
-// most awkward object you can hand a format built on closed curves — and the
-// most informative, because of *where* it breaks.
-//
-//     import { logSpiral, factor, shell } from './tvf.spiral.js';
-//
-// ----------------------------------------------------------------------------
-// THE OBSERVER HAS TWO LADDERS AND THIS CURVE NEEDS BOTH
-//
-// The framework's resolution ladder lives on the circle: angle, Fourier modes,
-// the dyadic depth d = log2 N, the multiresolution nesting. Its value-scale
-// ladder lives on the logarithm: floor(log2|x|), Mellin-harmonic rather than an
-// MRA, and the papers are careful to say the two are not the same ladder.
-//
-// A logarithmic spiral is precisely the curve that lies along BOTH. Its angle is
-// periodic and its radius is not; log r is linear in θ. So:
-//
-//   * Take one turn and close it, and log r is a LINEAR RAMP on a circle, which
-//     is a sawtooth, which has a jump. The reconstruction does not converge at
-//     all — not slowly, not at O(1/N), but to a fixed error, forever. Measured:
-//     sup error = exactly half the radial gap at the wrap, to four digits, at
-//     every N from 32 to 256.
-//
-//   * Factor the growth out instead — write r(θ) = e^{bθ}·f(θ) with f periodic —
-//     and the format holds f exactly. N leaves plus ONE scalar then reproduce
-//     every turn, forever: measured 4e-14 relative at turn 20, where the radius
-//     has grown by a factor of 5e16.
-//
-// That is the whole lesson. The spiral is not hard for this format; the *wrap*
-// is. Put the growth on the scale ladder where it belongs and the circle keeps
-// what is left, which is a perfectly ordinary periodic function.
-//
-// ============================================================================
-
-const { Shape, reconstruct, kernel, evalAt, TAU } = TVF;
-
-const PHI = (1 + Math.sqrt(5)) / 2;
-/** The golden spiral: the radius multiplies by φ every quarter turn. */
-const GOLDEN_B = Math.log(PHI) / (Math.PI / 2);        // 0.3063489...
-const PSI1 = 2 / Math.PI;
-
-/** Pitch angle: the constant angle between the tangent and the radius. */
-const pitchOf = (b) => Math.atan(1 / b) * 180 / Math.PI;
-const bOfPitch = (deg) => 1 / Math.tan(deg * Math.PI / 180);
-/** Growth per turn. */
-const growthOf = (b) => Math.exp(b * TAU);
-
-/**
- * The spiral itself, over `turns` turns, normalized so the outer end sits at
- * radius 1. Open by construction — `at(0)` and `at(1)` are different points, and
- * that is not a defect to be fixed but the fact the page is about.
- */
-function logSpiral(b, o = {}) {
-  const turns = o.turns == null ? 1 : o.turns;
-  const T = TAU * turns, g = Math.exp(b * T);
-  return {
-    b, turns, T, growth: growthOf(b), pitch: pitchOf(b), closed: false,
-    at: t => { const a = ((t % 1) + 1) % 1 * T, r = Math.exp(b * a) / g;
-      return [r * Math.cos(a), r * Math.sin(a)]; },
-    /** The radial gap the wrap has to jump, as a fraction of the outer radius. */
-    gap: 1 - 1 / g,
-    /**
-     * The error a closed-curve reconstruction cannot get below, in closed form.
-     * A cardinal interpolant passes through the midpoint of a jump, so the sup
-     * error is half the gap — which is why raising N does nothing at all.
-     */
-    floor: (1 - 1 / g) / 2,
-  };
-}
-
-/** log r sampled over one turn: a linear ramp, i.e. a sawtooth. */
-function logRadius(N, b) {
-  const v = new Float64Array(N);
-  for (let k = 0; k < N; k++) v[k] = b * (k + 0.5) * TAU / N;
-  return v;
-}
-
-/** Harmonic magnitudes on the midpoint grid. */
-function spectrum(v) {
-  const N = v.length, top = Math.floor(N / 2), out = new Float64Array(top + 1);
-  for (let m = 0; m <= top; m++) {
-    let re = 0, im = 0;
-    for (let k = 0; k < N; k++) {
-      const a = TAU * m * (k + 0.5) / N;
-      re += v[k] * Math.cos(a); im -= v[k] * Math.sin(a);
-    }
-    out[m] = Math.hypot(re, im) / N * (m === 0 || (N % 2 === 0 && m === top) ? 1 : 2);
-  }
-  return out;
-}
-
-/** The 1/n signature of a sawtooth: c1/cn should be n. */
-function sawtoothDecay(N, b, ns = [2, 4, 8, 16]) {
-  const sp = spectrum(logRadius(N, b));
-  return ns.map(n => ({ n, ratio: sp[1] / sp[n], want: n }));
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// THE TWO GIBBS CONSTANTS
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * A jump does not merely converge slowly — the overshoot beside it converges to
- * a positive constant. Two different constants, and this project has been loose
- * about which one it meant, so both are measured here by the same code.
- *
- *   PROJECTION (truncated Fourier series):  +8.949% of the jump — the classical
- *   Wilbraham–Gibbs constant.
- *
- *   INTERPOLATION (the cardinal kernel, which is what this format actually
- *   does):  +14.10% of the jump. Larger, and it is the one that applies here.
- *
- * Quoted as a fraction of the HALF-jump they read 17.90% and 28.21%, which is
- * where the confusion comes from: 0.08949 is per jump, and a step from −1 to +1
- * has a jump of 2.
- */
-function gibbs(N, o = {}) {
-  const dense = o.dense || 32;
-  const v = new Float64Array(N);
-  for (let k = 0; k < N; k++) v[k] = ((k + 0.5) / N) < 0.5 ? -1 : 1;
-  const di = reconstruct(v, N * dense);
-  let interp = 0; for (const q of di) interp = Math.max(interp, q);
-
-  const M = Math.floor(N / 2), Q = N * dense;
-  let trunc = 0;
-  for (let i = 0; i < Q; i++) {
-    const th = i / Q * TAU;
-    let s = 0;
-    for (let n = 1; n <= M; n += 2) s += Math.sin(n * (th - Math.PI)) * 4 / (Math.PI * n);
-    trunc = Math.max(trunc, s);
-  }
-  return { N,
-    interpolation: { peak: interp, ofHalfJump: interp - 1, ofJump: (interp - 1) / 2 },
-    truncation:    { peak: trunc,  ofHalfJump: trunc - 1,  ofJump: (trunc - 1) / 2 },
-    classical: 0.0894898722 };
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// THE FIX: FACTOR THE GROWTH OUT
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * r(θ) = e^{bθ} · f(θ), with f periodic and band-limited.
- *
- * `f` is stored as N leaf values and the growth as one number. Together they
- * reproduce the curve at ANY turn, exactly — the growth is applied analytically
- * rather than sampled, so nothing about turn 20 is harder than turn 0.
- *
- * This is the value-scale ladder and the resolution ladder doing their own jobs:
- * the exponential carries scale, the leaves carry shape, and neither is asked to
- * represent the other.
- */
-function factor(b, ffn, N = 64) {
-  const f = new Float64Array(N);
-  for (let k = 0; k < N; k++) f[k] = ffn((k + 0.5) * TAU / N);
-  const evalF = (a) => { let s = 0;
-    for (let k = 0; k < N; k++) s += f[k] * kernel(a - (k + 0.5) * TAU / N, N);
-    return s; };
-  return {
-    b, N, f, growth: growthOf(b), cost: N + 1,
-    /** The periodic factor alone, as a closed curve — an ordinary tvf shape. */
-    shape: () => { const x = new Float64Array(N), y = new Float64Array(N);
-      for (let k = 0; k < N; k++) { const a = (k + 0.5) * TAU / N;
-        x[k] = f[k] * Math.cos(a); y[k] = f[k] * Math.sin(a); }
-      return new Shape(x, y); },
-    /** The full curve on turn `turn`, from the stored leaves plus the scalar. */
-    atTurn: (turn, t) => { const a = ((t % 1) + 1) % 1 * TAU, A = a + turn * TAU;
-      const r = Math.exp(b * A) * evalF(a);
-      return [r * Math.cos(A), r * Math.sin(A)]; },
-    /** How well that matches the truth, relatively, on a given turn. */
-    checkTurn: (turn, ffnTrue, Q = 2048) => { let worst = 0;
-      for (let i = 0; i < Q; i++) { const t = i / Q, a = t * TAU, A = a + turn * TAU;
-        const got = Math.exp(b * A) * evalF(a);
-        const want = Math.exp(b * A) * ffnTrue(A);
-        worst = Math.max(worst, Math.abs(got - want) / Math.abs(want || 1)); }
-      return worst; },
-  };
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// OR CLOSE IT HONESTLY
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * A shell: out along r = e^{bθ}/g, a radial cap, back along the inner wall
- * k·e^{bθ}/g, another cap. Genuinely closed, four corners, and therefore back in
- * the ordinary algebraic tier at O(1/N).
- *
- * The corners are placed on the quarters ON PURPOSE, so that the menagerie's
- * stall trick — `reparam(shell, stall(m, 4))` — lands on them. Stall somewhere
- * else and it buys nothing, which is worth seeing rather than being told.
- */
-function shell(b, turns = 2, wall = 0.6) {
-  const T = TAU * turns, g = Math.exp(b * T);
-  const rOut = a => Math.exp(b * a) / g, rIn = a => wall * Math.exp(b * a) / g;
-  return { b, turns, wall, corners: 4, closed: true,
-    at: t => { const u = ((t % 1) + 1) % 1, s = u * 4, q = Math.floor(s), f = s - q;
-      if (q === 0) { const a = f * T; return [rOut(a) * Math.cos(a), rOut(a) * Math.sin(a)]; }
-      if (q === 1) { const r = rOut(T) + (rIn(T) - rOut(T)) * f; return [r * Math.cos(T), r * Math.sin(T)]; }
-      if (q === 2) { const a = (1 - f) * T; return [rIn(a) * Math.cos(a), rIn(a) * Math.sin(a)]; }
-      const r = rIn(0) + (rOut(0) - rIn(0)) * f; return [r, 0]; } };
-}
-
-/** How far the curve is from actually closing — should be zero for a shell. */
-function closureGap(curve, cuts = [0, 0.25, 0.5, 0.75]) {
-  let worst = 0;
-  for (const u of cuts) {
-    const a = curve.at(u - 1e-9), b = curve.at(u + 1e-9);
-    worst = Math.max(worst, Math.hypot(a[0] - b[0], a[1] - b[1]));
-  }
-  return worst;
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// MEASURING
-// ────────────────────────────────────────────────────────────────────────────
-
-/** Parameter-matched sup error, relative to the curve's own radius. */
-function paramError(curve, N, o = {}) {
-  const S = Shape.fromFunction(t => curve.at(t), N);
-  const Q = o.Q || 2048, d = S.sample(Q);
-  let m = 0, scale = 0;
-  for (let i = 0; i < Q; i++) {
-    const p = curve.at(i / Q);
-    m = Math.max(m, Math.hypot(d.x[i] - p[0], d.y[i] - p[1]));
-    scale = Math.max(scale, Math.hypot(p[0], p[1]));
-  }
-  return m / (scale || 1);
-}
-
-/** The error ladder and the order it implies. */
-function ladder(curve, rungs = [32, 64, 128, 256, 512]) {
-  const errs = rungs.map(N => paramError(curve, N));
-  return rungs.map((N, i) => ({ N, err: errs[i], ratio: i ? errs[i - 1] / errs[i] : null }));
-}
-
-/** Error against pitch: as the spiral tightens toward a circle, the gap closes. */
-function pitchSweep(pitches = [89, 85, 80, 76, 72.97, 68, 60], N = 256) {
-  return pitches.map(deg => { const b = bOfPitch(deg), sp = logSpiral(b);
-    return { pitch: deg, b, growth: sp.growth, gap: sp.gap, floor: sp.floor,
-             measured: paramError(sp, N) }; });
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// THE OBSERVER'S OWN LOGARITHM
-// ────────────────────────────────────────────────────────────────────────────
-
-/** The Lebesgue constant, measured. */
-function lambdaOf(N, M = 2048) {
-  let m = 0;
-  for (let i = 0; i < M; i++) {
-    const phi = i / M * TAU;
-    let s = 0;
-    for (let k = 0; k < N; k++) s += Math.abs(kernel(phi - (k + 0.5) * TAU / N, N));
-    m = Math.max(m, s);
-  }
-  return m;
-}
-
-/**
- * The resolution ladder, drawn as a spiral: one turn per octave of N.
- *
- * This is not decoration. The amplification is Λ_N ≈ ψ1·ln N, so it grows by
- * ψ1·ln 2 = 0.4413 per doubling — the SAME amount every rung. On a spiral where
- * one turn is one octave, "the same cost every rung" is "the same angular
- * sector every turn", and the logarithm that makes the law look like a law is
- * the same logarithm that makes the spiral a spiral.
- */
-function rungSpiral(dMin = 3, dMax = 12) {
-  const rungs = [];
-  for (let d = dMin; d <= dMax; d++) {
-    const N = 1 << d, lam = lambdaOf(N, 1024);
-    rungs.push({ d, N, lambda: lam, model: PSI1 * Math.log(N),
-                 increment: rungs.length ? lam - rungs[rungs.length - 1].lambda : null });
-  }
-  const incs = rungs.slice(1).map(r => r.increment);
-  return { rungs, perRung: PSI1 * Math.LN2,
-           meanIncrement: incs.reduce((a, c) => a + c, 0) / incs.length,
-           /** Turn t of the ladder spiral, one turn per octave. */
-           at: (t) => { const u = ((t % 1) + 1) % 1, d = dMin + u * (dMax - dMin);
-             const a = u * TAU * (dMax - dMin), r = Math.pow(2, d) / Math.pow(2, dMax);
-             return [r * Math.cos(a), r * Math.sin(a)]; } };
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// WHAT THE OBSERVER ACTUALLY SEES
-// ────────────────────────────────────────────────────────────────────────────
-//
-// (R5): the observer never invokes a global functional, holds only the K leaves
-// in view, and never has N. Put that beside a logarithmic spiral and the page
-// above reads differently than it was first written.
-//
-// A logarithmic spiral is HOMOGENEOUS: r = e^{bθ} is invariant under θ → θ + Δ
-// combined with a scale of e^{bΔ}, for ANY Δ, not merely a whole turn. So the
-// local configuration around every leaf — its neighbours, measured in units of
-// its own radius — is the same configuration. An observer that holds ratios
-// holds a constant, forever, and there is nothing in its readings that could
-// tell it how far it has walked. Measured below at 2e-14 after twenty turns,
-// across a radius that has grown by 5e16.
-//
-// Which relocates the failure. The non-convergence measured at the top of this
-// module is not a property of the spiral. It is the price of ASSUMING CLOSURE,
-// and closure is a global fact — precisely the kind (R5) says the observer never
-// has. `closureDamage` splits the error by where it sits: away from the wrap the
-// closed assumption converges perfectly ordinarily at O(1/K), and all of the
-// damage is concentrated at the one place a walker never reaches.
-
-/**
- * The neighbourhood of leaf k, in units of its own radius, rotated so that leaf
- * k sits on the +x axis. This is what a scale-blind, frame-free observer holds.
- */
-function localConfig(b, k, o = {}) {
-  const N = o.N || 24, span = o.span == null ? 3 : o.span;
-  const P = (j) => { const a = j * TAU / N, r = Math.exp(b * a); return [r * Math.cos(a), r * Math.sin(a)]; };
-  const p = P(k), R = Math.hypot(p[0], p[1]), th = Math.atan2(p[1], p[0]);
-  const c = Math.cos(-th), s = Math.sin(-th);
-  const out = [];
-  for (let j = -span; j <= span; j++) {
-    const q = P(k + j);
-    out.push([(q[0] * c - q[1] * s) / R, (q[0] * s + q[1] * c) / R]);
-  }
-  out.radius = R;
-  return out;
-}
-
-/**
- * How different the observer's reading is at leaf k from its reading at leaf 0.
- * For a logarithmic spiral this is zero at every k — not just at whole turns.
- */
-function homogeneity(b, ks = [1, 24, 48, 120, 480], o = {}) {
-  const base = localConfig(b, 0, o);
-  return ks.map(k => {
-    const c = localConfig(b, k, o);
-    let worst = 0;
-    for (let i = 0; i < base.length; i++)
-      worst = Math.max(worst, Math.hypot(c[i][0] - base[i][0], c[i][1] - base[i][1]));
-    return { k, turns: k / (o.N || 24), radius: c.radius, diff: worst };
-  });
-}
-
-/**
- * Where the cost of assuming closure actually lands.
- *
- * The observer takes K readings along one turn and treats them as a closed leaf
- * set. Away from the wrap that assumption is ordinary and converges at O(1/K).
- * Within a fraction `near` of a turn of the wrap it does not converge at all.
- * The observer walking onward never visits the wrap, so it never meets the part
- * that fails.
- */
-function closureDamage(b, K, o = {}) {
-  const near = o.near == null ? 0.15 : o.near, Q = o.Q || 2000;
-  const g = growthOf(b);
-  const x = new Float64Array(K), y = new Float64Array(K);
-  for (let k = 0; k < K; k++) { const a = (k + 0.5) * TAU / K, r = Math.exp(b * a) / g;
-    x[k] = r * Math.cos(a); y[k] = r * Math.sin(a); }
-  const S = new Shape(x, y);
-  let interior = 0, wrap = 0;
-  const profile = [];
-  for (let i = 0; i < Q; i++) {
-    const t = i / Q, a = t * TAU, r = Math.exp(b * a) / g;
-    const e = Math.hypot(evalAt(S.x, a) - r * Math.cos(a), evalAt(S.y, a) - r * Math.sin(a));
-    profile.push(e);
-    (Math.min(t, 1 - t) > near ? (interior = Math.max(interior, e)) : (wrap = Math.max(wrap, e)));
-  }
-  return { K, near, interior, wrap, profile, shape: S };
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// PERTURBING A SPIRAL
-// ────────────────────────────────────────────────────────────────────────────
-//
-// There turn out to be exactly two things you can do to a logarithmic spiral,
-// and they have opposite fates.
-//
-// MULTIPLICATIVE, periodic — r = e^{bθ}·f(θ). This is the factored form already,
-// so it is free: the cost stays N + 1 at any amplitude and any band, and the
-// perturbation scales WITH the curve, so it is permanent. A ribbed shell keeps
-// its ribs at every size.
-//
-// ADDITIVE — r = e^{bθ} + p(θ). The spiral outgrows it. The perturbation's size
-// relative to the local radius decays as e^{-2πbk} per turn, which gives additive
-// detail a HALF-LIFE: 0.360 turns on the golden spiral. After ten turns a bump
-// that started at 30% of the radius is at 1.3e-9 of it.
-//
-// And a third thing that looks like a third thing and is not: perturbing the
-// PITCH. A zero-mean periodic wobble ε(θ) on b gives r = exp(∫(b+ε)) =
-// e^{bθ}·e^{∫ε}, which is a multiplicative f. Verified to 7e-16. A nonzero mean
-// just changes b. So there is no separate pitch mode.
-//
-// What this buys the observer is the sharp part. A PERIODIC perturbation gives it
-// an angular coordinate and never a total: it can say where it is IN a turn and
-// nothing at all about WHICH turn — leaf k and leaf k+N still read identically to
-// machine zero. Only a ONE-OFF event yields a turn count, once, and only if the
-// observer remembers it. Homogeneity is the absence of landmarks; a perturbation
-// is a landmark; and a landmark that repeats is a clock face without a hand.
-
-/** r(θ) = e^{bθ}·f(θ) — the permanent kind. Costs nothing beyond f. */
-function multiplicative(b, ffn) {
-  return { kind: 'multiplicative', b, r: a => Math.exp(b * a) * ffn(a),
-           at: t => { const a = ((t % 1) + 1) % 1 * TAU, r = Math.exp(b * a) * ffn(a);
-             return [r * Math.cos(a), r * Math.sin(a)]; } };
-}
-
-/** r(θ) = e^{bθ} + p(θ) — the transient kind, with its half-life in turns. */
-function additive(b, pfn) {
-  return { kind: 'additive', b, halfLife: Math.log(2) / (b * TAU),
-           r: a => Math.exp(b * a) + pfn(a),
-           /** Relative size of the perturbation on turn k. */
-           relativeAt: (turn, Q = 800) => { let m = 0;
-             for (let i = 0; i < Q; i++) { const a = i / Q * TAU, A = a + turn * TAU;
-               m = Math.max(m, Math.abs(pfn(A)) / Math.exp(b * A)); }
-             return m; },
-           at: t => { const a = ((t % 1) + 1) % 1 * TAU, r = Math.exp(b * a) + pfn(a);
-             return [r * Math.cos(a), r * Math.sin(a)]; } };
-}
-
-/**
- * A zero-mean periodic wobble on the pitch is a multiplicative f, not a third
- * mode. `eps` is the wobble; `antiderivative` is its integral, which must itself
- * be periodic — which is what zero mean guarantees.
- */
-function pitchWobble(b, epsAmp, m) {
-  const P = a => (epsAmp / m) * Math.sin(m * a);
-  return { direct: a => Math.exp(b * a + P(a)),
-           asFactor: a => Math.exp(P(a)),
-           check: (Q = 4000, turns = 3) => { let worst = 0;
-             for (let i = 0; i < Q; i++) { const A = i / Q * TAU * turns;
-               const want = Math.exp(b * A + P(A)), got = Math.exp(b * A) * Math.exp(P(A));
-               worst = Math.max(worst, Math.abs(got - want) / want); }
-             return worst; } };
-}
-
-/**
- * What a perturbation tells a walker: its phase within a turn, and which turn it
- * is on. Both measured as the difference in the local ratio-reading, so both are
- * in the observer's own terms.
- */
-function whatItTells(rfn, o = {}) {
-  const N = o.N || 24, at = o.at == null ? 12 : o.at;
-  const cfg = (k, span = 3) => {
-    const P = j => { const a = j * TAU / N, r = rfn(a); return [r * Math.cos(a), r * Math.sin(a)]; };
-    const q0 = P(k), R = Math.hypot(q0[0], q0[1]), th = Math.atan2(q0[1], q0[0]);
-    const c = Math.cos(-th), s = Math.sin(-th), out = [];
-    for (let j = -span; j <= span; j++) { const q = P(k + j);
-      out.push([(q[0] * c - q[1] * s) / R, (q[0] * s + q[1] * c) / R]); }
-    return out;
-  };
-  const diff = (A, B) => { let d = 0;
-    for (let i = 0; i < A.length; i++) d = Math.max(d, Math.hypot(A[i][0] - B[i][0], A[i][1] - B[i][1]));
-    return d; };
-  return { phase: diff(cfg(0), cfg(at)), turn: diff(cfg(at), cfg(at + N)) };
-}
-
-return { multiplicative, additive, pitchWobble, whatItTells,
-         localConfig, homogeneity, closureDamage,
-         PHI, GOLDEN_B, PSI1, pitchOf, bOfPitch, growthOf,
-         logSpiral, logRadius, spectrum, sawtoothDecay, gibbs,
-         factor, shell, closureGap, paramError, ladder, pitchSweep,
-         lambdaOf, rungSpiral };
+return { population, procrustes, meanShape, pca, jacobi, realDFT, basisInvariance, cost, curvature, generalization, validity, crossings, centroidOf, normOf, bestAngle, mulberry };
 
 })();
 const { Shape, mix, alignTo, circle, ellipse, superellipse, rect, polygon, star, blob, rose,
@@ -5185,8 +4250,7 @@ const { Track, keyframes, rig, seam } = MOTION;
 const { waveform, coefficients, periodicWave, cycle, magnitudes, rawBuffer } = SOUND;
 const { Driver, window: win, compose, budget, probe, spectrum, bandOf, modulate, warp, stack, unstack } = COMPOSE;
 const ST = STRESS;
-const SP = (typeof PAGE !== 'undefined' && PAGE === 'spiral') ? SPIRAL : SPACE;
-const CV = CURVEMOD;
+const SP = SPACE;
 
 
 
@@ -5194,20 +4258,29 @@ const CV = CURVEMOD;
 
 
 
-const opts = { leaves: false, exact: true };
+const opts = { pop: true, mean: true, leaves: false };
 const p = (key, min, max, step, value) => ({ key, min, max, step, value });
-// The page's palette on the slate ground: INK is the light contour, CLAY (the name kept)
-// is the violet every other gallery uses for what the tile is about, BLUE the second series.
-const INK = 'rgba(232,236,245,0.92)', CLAY = 'rgba(160,138,255,0.95)', GHOST = 'rgba(232,236,245,0.22)',
-      SLIP = '#4ade80', BLUE = 'rgba(94,182,255,0.95)';
-const cache = new Map();
-const memo = (k, f) => { if (!cache.has(k)) cache.set(k, f()); return cache.get(k); };
-const RIB = a => 1 + 0.25 * Math.cos(5 * a) + 0.1 * Math.sin(3 * a);
+// The page's palette on the slate ground: INK the light contour, CLAY (the name kept) the
+// violet every gallery uses for what a tile is about, SLIP green for what holds.
+const INK = 'rgba(232,236,245,0.92)', CLAY = 'rgba(160,138,255,0.95)', GHOST = 'rgba(232,236,245,0.10)',
+      SLIP = '#4ade80', FAINT = 'rgba(232,236,245,0.30)';
 
-// ── drawing ──────────────────────────────────────────────────────────────
-function cam(pts, w, h, pad) {
+// ── the families ─────────────────────────────────────────────────────────
+const FAMILIES = [
+  { name: 'pebble', make: (i, o) => SH.pebble(64, { r: 100, seed: i + 1, lumps: o.lumps || 5, amp: 0.34 }) },
+  { name: 'amoeba', make: (i) => SH.amoeba(64, { r: 100, seed: i + 1 }) },
+  { name: 'leaf', make: (i) => SH.leaf(64, { len: 150 + 90 * ((i * 7) % 11) / 11, width: 60 + 50 * ((i * 5) % 9) / 9 }) },
+  { name: 'star', make: (i) => star(64, { r: 100, points: 4 + (i % 5), inner: 0.35 + 0.35 * ((i * 3) % 7) / 7 }) },
+];
+const famPop = (which, M, o = {}) => SP.population(M, i => FAMILIES[which].make(i, o));
+// memoized, because a PCA per slider-drag on a 60-shape population is not free
+const cache = new Map();
+const fit = (key, build) => { if (!cache.has(key)) cache.set(key, build()); return cache.get(key); };
+
+// ── drawing helpers ──────────────────────────────────────────────────────
+function cam(items, w, h, pad) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const s of pts) for (let i = 0; i < s.x.length; i++) {
+  for (const s of items) for (let i = 0; i < s.x.length; i++) {
     if (s.x[i] < x0) x0 = s.x[i]; if (s.x[i] > x1) x1 = s.x[i];
     if (s.y[i] < y0) y0 = s.y[i]; if (s.y[i] > y1) y1 = s.y[i];
   }
@@ -5215,476 +4288,288 @@ function cam(pts, w, h, pad) {
   const k = Math.min((w - 2 * pad) / bw, (h - 2 * pad) / bh);
   return { k, X: x => w / 2 + (x - (x0 + bw / 2)) * k, Y: y => h / 2 - (y - (y0 + bh / 2)) * k };
 }
-function polyOf(curve, P, fn) { const x = new Float64Array(P), y = new Float64Array(P);
-  for (let i = 0; i < P; i++) { const q = (fn || curve.at)(i / P); x[i] = q[0]; y[i] = q[1]; } return { x, y }; }
-function strokePoly(ctx, c, d, style, width, dash, open) {
+function strokeShape(ctx, c, s, style, width, dash, M) {
+  const d = s.sample ? s.sample(M || 420) : s;
   ctx.beginPath();
-  for (let i = 0; i < d.x.length; i++) { const X = c.X(d.x[i]), Y = c.Y(d.y[i]); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
-  if (!open) ctx.closePath();
-  ctx.setLineDash(dash || []); ctx.strokeStyle = style; ctx.lineWidth = width || 1.3;
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke(); ctx.setLineDash([]);
-}
-function dots(ctx, c, s, style, r) { ctx.fillStyle = style;
-  for (let i = 0; i < s.x.length; i++) { ctx.beginPath(); ctx.arc(c.X(s.x[i]), c.Y(s.y[i]), r || 1.8, 0, TAU); ctx.fill(); } }
-function label(ctx, x, y, t, style, align) {
-  ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace'; ctx.fillStyle = style || 'rgba(139,149,171,1)';
-  ctx.textAlign = align || 'left'; ctx.fillText(t, x, y); }
-function logLadder(ctx, x0, y0, w, h, series, o = {}) {
-  const lo = o.lo == null ? -9 : o.lo, hi = o.hi == null ? 0 : o.hi;
-  ctx.strokeStyle = 'rgba(232,236,245,0.10)';
-  for (let e = Math.ceil(lo); e <= hi; e += 2) { const Y = y0 + h - (e - lo) / (hi - lo) * h;
-    ctx.beginPath(); ctx.moveTo(x0 + 30, Y); ctx.lineTo(x0 + w, Y); ctx.stroke();
-    label(ctx, x0, Y + 3, `1e${e}`, 'rgba(139,149,171,0.9)'); }
-  for (const s of series) {
-    ctx.beginPath();
-    s.errs.forEach((e, i) => { const X = x0 + 34 + i / (s.errs.length - 1) * (w - 42);
-      const Y = y0 + h - (Math.log10(Math.max(e, Math.pow(10, lo))) - lo) / (hi - lo) * h;
-      i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
-    ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 1.4; ctx.stroke();
-    if (s.name) label(ctx, x0 + w, y0 + (s.labelY || 10), s.name, s.color, 'right');
+  for (let i = 0; i <= d.x.length; i++) {
+    const j = i % d.x.length, X = c.X(d.x[j]), Y = c.Y(d.y[j]);
+    i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
   }
+  ctx.closePath();
+  ctx.setLineDash(dash || []); ctx.strokeStyle = style; ctx.lineWidth = width || 1.3;
+  ctx.lineJoin = 'round'; ctx.stroke(); ctx.setLineDash([]);
+}
+function dots(ctx, c, s, style, r) {
+  ctx.fillStyle = style;
+  for (let i = 0; i < s.N; i++) { ctx.beginPath(); ctx.arc(c.X(s.x[i]), c.Y(s.y[i]), r || 1.6, 0, TAU); ctx.fill(); }
+}
+function label(ctx, x, y, text, style, align) {
+  ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace'; ctx.fillStyle = style || 'rgba(139,149,171,1)';
+  ctx.textAlign = align || 'left'; ctx.fillText(text, x, y);
+}
+function bars(ctx, x0, y0, w, h, vals, o = {}) {
+  const n = vals.length, mx = o.max || Math.max(...vals) || 1;
+  const bw = w / n;
+  for (let i = 0; i < n; i++) {
+    const hh = Math.max(0.5, vals[i] / mx * h);
+    ctx.fillStyle = o.color ? o.color(i) : (i < (o.hi || 0) ? CLAY : FAINT);
+    ctx.fillRect(x0 + i * bw + 0.6, y0 + h - hh, Math.max(1.2, bw - 1.6), hh);
+  }
+  ctx.strokeStyle = 'rgba(232,236,245,0.14)';
+  ctx.beginPath(); ctx.moveTo(x0, y0 + h + 0.5); ctx.lineTo(x0 + w, y0 + h + 0.5); ctx.stroke();
 }
 
 // ── the catalogue ────────────────────────────────────────────────────────
 const SECTIONS = [
 {
-  id: 'open', title: 'A spiral is not a closed curve', kicker: 'and forcing it does not converge',
-  note: 'Take one turn and treat it as closed. The parameterization runs from radius 1/g back round to radius 1, ' +
-        'so the wrap has to leap a <b>radial gap</b> — a genuine discontinuity in position, not merely in the ' +
-        'tangent. A band-limited curve is continuous, so it cannot reproduce this at any N, and it does not try: ' +
-        'it splits the difference. <b>Read the next section before concluding anything about the spiral from this ' +
-        'one</b> — the failure measured here turns out to belong to the word <em>treat</em>, not to the curve.',
+  id: 'cloud', title: 'The cloud', kicker: 'a family, its mean, and its axes',
+  note: 'Sixty members of one family, Procrustes-aligned and averaged. The <b>mean</b> is a leaf-by-leaf ' +
+        'arithmetic mean — which is still a band-limited closed curve, because averaging is linear and the ' +
+        'space is closed under it. The <b>modes</b> are the covariance\'s eigenvectors, and each one is itself ' +
+        'a point in the same space, so it draws as a shape and pastes as <code>.tvf</code> like anything else.',
   entries: [
-    { name: 'the error does not go down', tall: true, wide: true,
-      note: 'Raise N and watch nothing happen. The reconstruction converges — to the wrong curve. A cardinal ' +
-            'interpolant passes through the <em>midpoint</em> of a jump, so the sup error settles at exactly half ' +
-            'the gap, and the prediction is closed-form: <b>(1 − 1/g)/2</b> where g = e<sup>2πb</sup>. Compare the ' +
-            'measured number to the predicted one in the verdict; they agree to three digits and the agreement ' +
-            'improves with N, which is the opposite of what convergence looks like.',
-      params: [ p('pitch°', 55, 89, .5, 72.97), p('N', 16, 512, 1, 96) ],
-      code: v => { const b = SP.bOfPitch(v['pitch°']);
-        return `logSpiral(b = ${b.toFixed(4)})   growth per turn ×${SP.growthOf(b).toFixed(3)}\n  predicted error floor (1 − 1/g)/2 = ${((1 - 1 / SP.growthOf(b)) / 2).toFixed(5)}`; },
-      state: v => { const b = SP.bOfPitch(v['pitch°']), s = SP.logSpiral(b);
-        return { b, s, err: SP.paramError(s, v.N),
-                 ladder: memo(`lad:${v['pitch°']}`, () => SP.ladder(s, [32, 64, 128, 256, 512])) }; },
-      verdict: s => `measured ${s.err.toFixed(5)} · predicted floor ${s.s.floor.toFixed(5)} · ` +
-                    `ratio ${(s.err / s.s.floor).toFixed(4)} — the error is half the gap, not a function of N`,
-      bad: () => true,
+    { name: 'the population and its mean', tall: true,
+      note: 'Every member faint, the mean in ink. Turn the population off in the bar to see the mean alone — ' +
+            'it is smoother than any of its members, which is what averaging does to phase-incoherent detail ' +
+            'and is the reason a mean shape is a poor representative of a spiky family.',
+      params: [ p('family', 0, 3, 1, 0), p('M', 8, 80, 1, 60), p('lumps', 2, 9, 1, 5) ],
+      code: v => `pca(procrustes(population(${v.M}, i => ${FAMILIES[v.family].name}(64, { seed: i }))))`,
+      state: v => fitOf(v),
+      verdict: s => `${s.M} members · ${s.P.modes.length} non-zero modes out of a possible ${s.M - 1} · ` +
+                    `${s.P.componentsFor(0.95)} components carry 95% of the variance`,
       draw: (ctx, w, h, v, s) => {
-        const half = w * 0.52;
-        const ex = polyOf(s.s, 1600);
-        const rec = Shape.fromFunction(t => s.s.at(t), v.N).sample(1600);
-        const c = cam([ex, rec], half, h - 16, 22);
-        if (opts.exact) strokePoly(ctx, c, ex, GHOST, 2.6, null, true);
-        strokePoly(ctx, c, rec, CLAY, 1.5);
-        if (opts.leaves) dots(ctx, c, Shape.fromFunction(t => s.s.at(t), v.N), CLAY, v.N > 120 ? 1.2 : 2);
-        // the gap the wrap has to jump
-        const a0 = s.s.at(0), a1 = s.s.at(1 - 1e-9);
-        ctx.strokeStyle = BLUE; ctx.setLineDash([3, 3]); ctx.lineWidth = 1.6;
-        ctx.beginPath(); ctx.moveTo(c.X(a0[0]), c.Y(a0[1])); ctx.lineTo(c.X(a1[0]), c.Y(a1[1])); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = BLUE;
-        for (const q of [a0, a1]) { ctx.beginPath(); ctx.arc(c.X(q[0]), c.Y(q[1]), 3.2, 0, TAU); ctx.fill(); }
-        label(ctx, 10, 14, 'the exact spiral (open)', 'rgba(139,149,171,1)');
-        label(ctx, 10, 27, `tvf at N = ${v.N}`, CLAY);
-        label(ctx, 10, 40, `the gap the wrap must jump: ${s.s.gap.toFixed(4)}`, BLUE);
-        // the ladder
-        ctx.save(); ctx.translate(half, 0);
-        logLadder(ctx, 8, 26, w - half - 16, h - 52,
-          [{ errs: s.ladder.map(r => r.err), color: CLAY, width: 2, name: 'the spiral, one turn' }],
-          { lo: -3, hi: 0 });
-        // the predicted floor
-        const y0 = 26, hh = h - 52, lo = -3, hi = 0;
-        const Y = y0 + hh - (Math.log10(s.s.floor) - lo) / (hi - lo) * hh;
-        ctx.strokeStyle = BLUE; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.moveTo(42, Y); ctx.lineTo(w - half - 8, Y); ctx.stroke(); ctx.setLineDash([]);
-        label(ctx, 42, Y - 5, 'predicted floor (1 − 1/g)/2', BLUE);
-        label(ctx, 8, 16, 'sup error vs N — N = 32 … 512', 'rgba(139,149,171,1)');
+        const c = cam(s.al.concat([s.P.mean]), w, h, 22);
+        if (opts.pop) for (const m of s.al) strokeShape(ctx, c, m, 'rgba(232,236,245,0.13)', 1, null, 300);
+        if (opts.mean) strokeShape(ctx, c, s.P.mean, INK, 2.2);
+        if (opts.leaves && opts.mean) dots(ctx, c, s.P.mean, CLAY, 2);
+        label(ctx, 10, 14, `${s.M} members`, 'rgba(139,149,171,1)');
+        label(ctx, 10, 27, 'the mean', INK);
+      } },
+
+    { name: 'the first four modes', tall: true, wide: true,
+      note: 'Each panel is the mean displaced along one principal axis, at −2σ, 0 and +2σ. The percentage is that ' +
+            'mode\'s share of the total variance. Modes are ordered by variance, not by meaning — <b>nothing ' +
+            'guarantees an axis is interpretable</b>, and the honest reading of a mode is "this is the direction ' +
+            'the family varies most", not "this is roundness".',
+      params: [ p('family', 0, 3, 1, 0), p('sd', 0.5, 3, .1, 2), p('lumps', 2, 9, 1, 5) ],
+      code: v => `P.walk(k, ±${v.sd})   // the mean, displaced ${v.sd} standard deviations along mode k`,
+      state: v => fitOf(v),
+      verdict: s => `modes 1–4 carry ${(s.P.explained.slice(0, 4).reduce((a, c) => a + c, 0) * 100).toFixed(1)}% ` +
+                    `of the variance between them (${s.P.explained.slice(0, 4).map(e => (e * 100).toFixed(1) + '%').join(', ')})`,
+      draw: (ctx, w, h, v, s) => {
+        const K = Math.min(4, s.P.modes.length);
+        const pw = w / K, hh = h - 22;
+        const all = [];
+        for (let k = 0; k < K; k++) for (const sd of [-v.sd, 0, v.sd]) all.push(s.P.walk(k, sd));
+        const c0 = cam(all, pw, hh, 16);
+        for (let k = 0; k < K; k++) {
+          ctx.save(); ctx.translate(k * pw, 0);
+          if (k) { ctx.strokeStyle = 'rgba(232,236,245,0.08)'; ctx.beginPath(); ctx.moveTo(0, 8); ctx.lineTo(0, hh - 8); ctx.stroke(); }
+          strokeShape(ctx, c0, s.P.walk(k, -v.sd), CLAY, 1.5, [5, 3]);
+          strokeShape(ctx, c0, s.P.walk(k, +v.sd), 'rgba(94,182,255,0.95)', 1.5, [1, 3]);
+          if (opts.mean) strokeShape(ctx, c0, s.P.mean, INK, 1.7);
+          label(ctx, pw / 2, hh + 14, `PC${k + 1} — ${(s.P.explained[k] * 100).toFixed(1)}%`, 'rgba(195,204,223,1)', 'center');
+          ctx.restore();
+        }
+        label(ctx, 8, 14, `−${v.sd}σ  (dashed)`, CLAY);
+        label(ctx, 8, 27, `+${v.sd}σ  (dotted)`, 'rgba(94,182,255,0.95)');
+        label(ctx, 8, 40, 'the mean', INK);
+      } },
+
+    { name: 'the spectrum', kind: 'report', wide: true },
+  ]
+},
+{
+  id: 'walk', title: 'Walking the space', kicker: 'every point in here is a shape',
+  note: 'The population fixes a mean and a set of axes; after that the space is continuous and every point in it ' +
+        'decodes to a closed curve. These three tiles are the same operation at three levels of freedom: move ' +
+        'along two axes by hand, read a shape off a scatter plot, or let a Gaussian pick for you.',
+  entries: [
+    { name: 'two axes, by hand', tall: true,
+      note: 'The classic. Two sliders, two principal axes, and the shape that lands at that point. Everything ' +
+            'off these two axes is held at the mean, so this is a 2-D slice through a space with as many ' +
+            'dimensions as the family has.',
+      params: [ p('family', 0, 3, 1, 0), p('PC1', -3, 3, .05, 1.2), p('PC2', -3, 3, .05, -0.8), p('lumps', 2, 9, 1, 5) ],
+      code: v => `P.fromScores([${v.PC1} · σ₁, ${v.PC2} · σ₂])`,
+      state: v => { const f = fitOf(v);
+        const sc = [v.PC1 * (f.P.modes[0] ? f.P.modes[0].sd : 0), v.PC2 * (f.P.modes[1] ? f.P.modes[1].sd : 0)];
+        return { ...f, shape: f.P.fromScores(sc), sc }; },
+      verdict: s => `${(Math.hypot(s.PC1v, s.PC2v) || 0).toFixed(2)}σ from the mean · ` +
+                    `${SP.crossings(s.shape, 200) ? 'self-intersecting — a point in the space that is not a simple curve' : 'a simple closed curve'}`,
+      bad: s => SP.crossings(s.shape, 200) > 0,
+      draw: (ctx, w, h, v, s) => {
+        const c = cam([s.shape, s.P.mean].concat(opts.pop ? s.al : []), w, h, 22);
+        if (opts.pop) for (const m of s.al) strokeShape(ctx, c, m, 'rgba(232,236,245,0.07)', 1, null, 240);
+        if (opts.mean) strokeShape(ctx, c, s.P.mean, GHOST, 1.4, [5, 4]);
+        strokeShape(ctx, c, s.shape, INK, 2);
+        if (opts.leaves) dots(ctx, c, s.shape, CLAY, 2);
+        label(ctx, 10, 14, 'the mean', 'rgba(139,149,171,1)');
+        label(ctx, 10, 27, `PC1 ${v.PC1 >= 0 ? '+' : ''}${v.PC1}σ   PC2 ${v.PC2 >= 0 ? '+' : ''}${v.PC2}σ`, INK);
+      } },
+
+    { name: 'the population as a scatter', tall: true,
+      note: 'The same sixty shapes, plotted at their own coordinates in the first two components — the cloud seen ' +
+            'edge-on. The ring is one standard deviation. Move the cursor with the sliders and the shape at that ' +
+            'point is drawn over the plot; members near it should look like it, and where the cloud is empty the ' +
+            'model is extrapolating.',
+      params: [ p('family', 0, 3, 1, 0), p('PC1', -3, 3, .05, 0.9), p('PC2', -3, 3, .05, 0.6), p('lumps', 2, 9, 1, 5) ],
+      code: v => `P.scores(member)  for every member, and P.fromScores([·]) at the cursor`,
+      state: v => { const f = fitOf(v);
+        const pts = f.al.map(m => f.P.scores(m));
+        const s1 = f.P.modes[0] ? f.P.modes[0].sd : 1, s2 = f.P.modes[1] ? f.P.modes[1].sd : 1;
+        const shape = f.P.fromScores([v.PC1 * s1, v.PC2 * s2]);
+        // nearest member in the plane, so "does the neighbourhood agree" is answerable
+        let best = 0, bd = Infinity;
+        pts.forEach((q, i) => { const d = Math.hypot(q[0] / s1 - v.PC1, (q[1] || 0) / s2 - v.PC2); if (d < bd) { bd = d; best = i; } });
+        return { ...f, pts, s1, s2, shape, nearest: f.al[best], nd: bd }; },
+      verdict: s => `nearest member is ${s.nd.toFixed(2)}σ away in this plane` +
+                    (s.nd > 1.2 ? ' — far enough that the model is extrapolating, not interpolating' : ''),
+      bad: s => s.nd > 1.2,
+      draw: (ctx, w, h, v, s) => {
+        const R = Math.min(w, h) * 0.36, cx = w / 2, cy = h / 2;
+        const X = u => cx + u / 3 * R * 1.6, Y = u => cy - u / 3 * R * 1.6;
+        ctx.strokeStyle = 'rgba(232,236,245,0.10)';
+        ctx.beginPath(); ctx.moveTo(X(-3.2), cy); ctx.lineTo(X(3.2), cy);
+        ctx.moveTo(cx, Y(-3.2)); ctx.lineTo(cx, Y(3.2)); ctx.stroke();
+        for (const r of [1, 2]) { ctx.setLineDash([3, 3]); ctx.strokeStyle = r === 1 ? 'rgba(74,222,128,0.5)' : 'rgba(232,236,245,0.10)';
+          ctx.beginPath(); ctx.ellipse(cx, cy, (X(r) - cx), (cy - Y(r)), 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+        ctx.fillStyle = 'rgba(232,236,245,0.42)';
+        for (const q of s.pts) { ctx.beginPath(); ctx.arc(X(q[0] / s.s1), Y((q[1] || 0) / s.s2), 2.4, 0, TAU); ctx.fill(); }
+        // the nearest member, highlighted
+        const nq = s.P.scores(s.nearest);
+        ctx.strokeStyle = SLIP; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(X(nq[0] / s.s1), Y((nq[1] || 0) / s.s2), 5, 0, TAU); ctx.stroke();
+        // the cursor
+        ctx.strokeStyle = CLAY; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(X(v.PC1) - 7, Y(v.PC2)); ctx.lineTo(X(v.PC1) + 7, Y(v.PC2));
+        ctx.moveTo(X(v.PC1), Y(v.PC2) - 7); ctx.lineTo(X(v.PC1), Y(v.PC2) + 7); ctx.stroke();
+        // the decoded shape, small, in the corner
+        const box = Math.min(w, h) * 0.30;
+        ctx.save(); ctx.translate(w - box - 8, 8);
+        ctx.strokeStyle = 'rgba(232,236,245,0.10)'; ctx.strokeRect(0.5, 0.5, box, box);
+        const c2 = cam([s.shape, s.nearest], box, box, 10);
+        strokeShape(ctx, c2, s.nearest, 'rgba(74,222,128,0.75)', 1.2, [3, 3]);
+        strokeShape(ctx, c2, s.shape, INK, 1.6);
         ctx.restore();
-      } },
-  ]
-},
-{
-  id: 'observer', title: 'But the observer never sees that', kicker: 'closure is a global fact, and (R5) says it has none',
-  note: 'The theorem\'s fifth property is that neither map invokes a global functional of F: the observer holds the ' +
-        'K leaves in view, never the completed N. Put that beside a spiral and the section above reads differently ' +
-        'than it was first written. <b>A logarithmic spiral is homogeneous</b> — r = e<sup>bθ</sup> is unchanged by ' +
-        'shifting θ by any Δ and scaling by e<sup>bΔ</sup>, not merely by a whole turn — so the neighbourhood of ' +
-        'every leaf, measured in units of its own radius, is <em>the same neighbourhood</em>. An observer holding ' +
-        'ratios holds a constant, forever. Nothing in its readings could tell it how far it has walked, whether it ' +
-        'has come round, or whether there is anything to come round to.',
-  entries: [
-    { name: 'every leaf looks like every other leaf', tall: true,
-      note: 'The neighbourhood of leaf k, rotated so leaf k is on the +x axis and divided by its own radius. Drag ' +
-            '<b>leaf</b> across twenty turns — a radius growing by 5×10¹⁶ — and the configuration does not move off ' +
-            'the one drawn at leaf 0. This is not a near-repetition. It is the same seven points to fourteen ' +
-            'decimal places, and it is the reason a walker on this curve has nothing to detect.',
-      params: [ p('pitch°', 55, 89, .5, 72.97), p('leaf', 0, 480, 1, 120), p('per turn', 8, 48, 1, 24) ],
-      code: v => `localConfig(b, k = ${v.leaf})  vs  localConfig(b, 0)     // ${(v.leaf / v['per turn']).toFixed(2)} turns apart`,
-      state: v => { const b = SP.bOfPitch(v['pitch°']), N = v['per turn'];
-        const a = SP.localConfig(b, 0, { N }), c = SP.localConfig(b, v.leaf, { N });
-        let diff = 0;
-        for (let i = 0; i < a.length; i++) diff = Math.max(diff, Math.hypot(a[i][0]-c[i][0], a[i][1]-c[i][1]));
-        return { b, N, a, c, diff, radius: c.radius, turns: v.leaf / N }; },
-      verdict: s => `${s.turns.toFixed(2)} turns along, radius ×${s.radius.toExponential(2)} — the local ` +
-                    `configuration differs by ${s.diff.toExponential(2)}. There is nothing here to notice.`,
-      bad: s => s.diff > 1e-10,
-      draw: (ctx, w, h, v, s) => {
-        const top = h * 0.60;
-        // the two configurations, overlaid
-        const pts = { x: new Float64Array(s.a.length * 2), y: new Float64Array(s.a.length * 2) };
-        s.a.concat(s.c).forEach((q, i) => { pts.x[i] = q[0]; pts.y[i] = q[1]; });
-        const c = cam([pts], w, top, 34);
-        // the arc through each
-        for (const [cfg, col, wd] of [[s.a, INK, 3.4], [s.c, CLAY, 1.8]]) {
-          ctx.beginPath();
-          cfg.forEach((q, i) => { const X = c.X(q[0]), Y = c.Y(q[1]); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
-          ctx.strokeStyle = col; ctx.lineWidth = wd === 3.4 ? 3 : 1.4;
-          ctx.setLineDash(wd === 3.4 ? [] : [4, 3]); ctx.stroke(); ctx.setLineDash([]);
-          ctx.fillStyle = col;
-          for (const q of cfg) { ctx.beginPath(); ctx.arc(c.X(q[0]), c.Y(q[1]), wd === 3.4 ? 4 : 2.2, 0, TAU); ctx.fill(); }
-        }
-        label(ctx, 10, 14, 'leaf 0 and its six neighbours', INK);
-        label(ctx, 10, 27, `leaf ${v.leaf}, same treatment — drawn on top`, CLAY);
-        // the actual radii, to make the scale explicit
-        const y0 = top + 16, hh = h - y0 - 18;
-        ctx.strokeStyle = 'rgba(232,236,245,0.12)';
-        ctx.beginPath(); ctx.moveTo(10, y0 + hh + .5); ctx.lineTo(w - 10, y0 + hh + .5); ctx.stroke();
-        const lg = Math.log10(Math.max(s.radius, 1.0001));
-        for (let i = 0; i <= 40; i++) {
-          const u = i / 40, r = Math.pow(10, u * lg);
-          const X = 10 + u * (w - 20), H = Math.max(1, (Math.log10(r) / (lg || 1)) * hh);
-          ctx.fillStyle = 'rgba(124,92,255,0.5)';
-          ctx.fillRect(X - 1, y0 + hh - H, 2, H);
-        }
-        label(ctx, 10, y0 + 10, `the radius over that walk, log scale — 1 to ${s.radius.toExponential(1)}`,
-          'rgba(139,149,171,1)');
-        label(ctx, w - 10, y0 + hh + 12, 'and none of it is visible to a ratio', 'rgba(139,149,171,1)', 'right');
+        label(ctx, 10, h - 8, 'PC1 →', 'rgba(139,149,171,1)');
+        label(ctx, 10, 14, 'the shape at the cursor, and its nearest member', 'rgba(139,149,171,1)');
       } },
 
-    { name: 'the damage is all at the wrap', tall: true,
-      note: 'The observer takes K readings and <em>assumes</em> they close. The error, plotted by where it sits ' +
-            'around the turn: away from the wrap it is ordinary and halves as K doubles, at <b>O(1/K)</b>. At the ' +
-            'wrap it does not move. So the non-convergence in the first section is not distributed over the curve — ' +
-            'it is concentrated entirely at the one point a walker never arrives at.',
-      params: [ p('pitch°', 55, 89, .5, 72.97), p('K', 12, 192, 1, 48) ],
-      code: v => `closureDamage(b, K = ${v.K})   // error by position around the turn`,
-      state: v => { const b = SP.bOfPitch(v['pitch°']);
-        const d = memo(`dam:${v['pitch°']}:${v.K}`, () => SP.closureDamage(b, v.K));
-        const ladder = memo(`damlad:${v['pitch°']}`, () => [24, 48, 96, 192].map(K => SP.closureDamage(b, K)));
-        return { b, d, ladder }; },
-      verdict: s => `interior ${s.d.interior.toExponential(2)} · at the wrap ${s.d.wrap.toExponential(2)} — ` +
-                    `a factor of ${(s.d.wrap / s.d.interior).toFixed(0)} between the part the walker sees and the part it does not`,
-      bad: s => s.d.wrap / s.d.interior > 10,
+    { name: 'shapes the family never had', tall: true,
+      note: 'Draws from the fitted Gaussian: independent normals scaled by each mode\'s standard deviation. These ' +
+            'are new members of a family that has no generator — the model learned it from sixty examples and ' +
+            'nothing here was authored. <b>Push the spread past 2σ and watch it stop working</b>, which the last ' +
+            'section measures.',
+      params: [ p('family', 0, 3, 1, 1), p('seed', 1, 40, 1, 7), p('spread', .25, 4, .05, 1), p('k', 1, 12, 1, 8) ],
+      code: v => `P.sample(rand, k = ${v.k}, spread = ${v.spread})   × 9`,
+      state: v => { const f = fitOf(v);
+        const rand = SP.mulberry(v.seed);
+        const list = [];
+        for (let i = 0; i < 9; i++) list.push(f.P.sample(rand, v.k, v.spread));
+        const bad = list.filter(s => SP.crossings(s, 180) > 0).length;
+        return { ...f, list, bad }; },
+      verdict: s => s.bad === 0 ? 'all nine are simple closed curves'
+                                : `${s.bad} of 9 self-intersect — the Gaussian does not know shapes have to stay simple`,
+      bad: s => s.bad > 0,
       draw: (ctx, w, h, v, s) => {
-        const top = h * 0.56;
-        // the error profile around the turn
-        const pr = s.d.profile, n = pr.length;
-        let mx = 0; for (const q of pr) mx = Math.max(mx, q);
-        const y0 = 22, hh = top - 40;
-        ctx.fillStyle = 'rgba(124,92,255,0.09)';
-        ctx.fillRect(10, y0, (w - 20) * s.d.near, hh);
-        ctx.fillRect(10 + (w - 20) * (1 - s.d.near), y0, (w - 20) * s.d.near, hh);
-        ctx.beginPath();
-        for (let i = 0; i < n; i++) { const X = 10 + i / (n - 1) * (w - 20), Y = y0 + hh - pr[i] / mx * hh;
-          i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
-        ctx.strokeStyle = CLAY; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.strokeStyle = 'rgba(232,236,245,0.12)';
-        ctx.beginPath(); ctx.moveTo(10, y0 + hh + .5); ctx.lineTo(w - 10, y0 + hh + .5); ctx.stroke();
-        label(ctx, 10, 14, 'error around the turn — the shaded bands are the wrap', 'rgba(139,149,171,1)');
-        label(ctx, w / 2, y0 + hh + 12, 'the interior: where the walker actually is', INK, 'center');
-        // interior vs wrap against K
-        const y1 = top + 12, h1 = h - y1 - 16;
-        logLadder(ctx, 8, y1, w - 16, h1, [
-          { errs: s.ladder.map(d => d.interior), color: SLIP, width: 2, name: 'interior — O(1/K)' },
-          { errs: s.ladder.map(d => d.wrap), color: CLAY, width: 2, name: 'at the wrap — flat', labelY: 24 },
-        ], { lo: -3, hi: 0 });
-        label(ctx, 42, y1 + h1 + 12, 'K = 24', 'rgba(139,149,171,1)');
-        label(ctx, w - 12, y1 + h1 + 12, '192', 'rgba(139,149,171,1)', 'right');
-      } },
-
-    { name: 'what this changes about the page above', kind: 'report', wide: true },
-  ]
-},
-{
-  id: 'ramp', title: 'Because log r is a ramp', kicker: 'and a ramp on a circle is a sawtooth',
-  note: 'The spiral\'s whole difficulty is one line of algebra: <b>log r = bθ</b>. That is linear in the angle, and ' +
-        'a linear function on a circle is a sawtooth — the canonical discontinuous periodic signal, whose harmonics ' +
-        'fall exactly like 1/n and never terminate. Everything else on this page follows from that.',
-  entries: [
-    { name: 'the coefficients fall like 1/n, exactly', tall: true,
-      note: 'log r sampled over one turn, and its spectrum. The test is not that the coefficients are small but ' +
-            'that <b>c₁/cₙ = n</b> to three digits — the signature of a jump, and the reason no finite band ever ' +
-            'captures it.',
-      params: [ p('pitch°', 55, 89, .5, 72.97), p('N', 32, 512, 1, 256) ],
-      code: v => `logRadius(${v.N}, b = ${SP.bOfPitch(v['pitch°']).toFixed(4)})  →  spectrum`,
-      state: v => { const b = SP.bOfPitch(v['pitch°']);
-        return { b, v: SP.logRadius(v.N, b), decay: SP.sawtoothDecay(v.N, b, [2, 4, 8, 16]) }; },
-      verdict: s => 'c₁/cₙ = ' + s.decay.map(d => `${d.ratio.toFixed(3)} (want ${d.want})`).join(', ') +
-                    ' — a sawtooth to three digits',
-      draw: (ctx, w, h, v, s) => {
-        const top = h * 0.42;
-        // the ramp itself
-        ctx.strokeStyle = 'rgba(232,236,245,0.12)';
-        ctx.beginPath(); ctx.moveTo(8, top - 8); ctx.lineTo(w - 8, top - 8); ctx.stroke();
-        let mx = 0; for (const q of s.v) mx = Math.max(mx, q);
-        ctx.beginPath();
-        for (let i = 0; i < s.v.length; i++) { const X = 8 + i / (s.v.length - 1) * (w - 16);
-          const Y = top - 8 - s.v[i] / mx * (top - 30); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
-        ctx.strokeStyle = INK; ctx.lineWidth = 1.6; ctx.stroke();
-        // the jump at the wrap, drawn
-        ctx.setLineDash([3, 3]); ctx.strokeStyle = BLUE; ctx.lineWidth = 1.4;
-        ctx.beginPath(); ctx.moveTo(w - 8, top - 8 - (top - 30)); ctx.lineTo(w - 8, top - 8); ctx.stroke();
-        ctx.setLineDash([]);
-        label(ctx, 10, 14, 'log r over one turn — a straight ramp', INK);
-        label(ctx, w - 12, top - 8 - (top - 30) / 2, 'the jump', BLUE, 'right');
-        // the spectrum, log scale
-        const sp = SP.spectrum(s.v);
-        const n = Math.min(sp.length, 40), y0 = top + 18, hh = h - y0 - 24;
-        let pk = 0; for (let i = 1; i < sp.length; i++) pk = Math.max(pk, sp[i]);
-        const step = (w - 20) / n;
-        for (let m = 1; m < n; m++) {
-          const lv = Math.max(0, (Math.log10(sp[m] / pk) + 4) / 4);
-          ctx.fillStyle = CLAY;
-          ctx.fillRect(10 + (m - .5) * step - 2, y0 + hh - lv * hh, 4, lv * hh);
-        }
-        // the 1/n envelope
-        ctx.beginPath();
-        for (let m = 1; m < n; m++) { const lv = Math.max(0, (Math.log10(1 / m) + 4) / 4);
-          const X = 10 + (m - .5) * step, Y = y0 + hh - lv * hh; m === 1 ? ctx.moveTo(X, Y) : ctx.lineTo(X, Y); }
-        ctx.strokeStyle = BLUE; ctx.lineWidth = 1.3; ctx.setLineDash([3, 2]); ctx.stroke(); ctx.setLineDash([]);
-        ctx.strokeStyle = 'rgba(232,236,245,0.14)';
-        ctx.beginPath(); ctx.moveTo(10, y0 + hh + .5); ctx.lineTo(w - 10, y0 + hh + .5); ctx.stroke();
-        label(ctx, 10, y0 - 4, 'spectrum, log scale — the dashed line is 1/n', 'rgba(139,149,171,1)');
-      } },
-
-    { name: 'two Gibbs constants, and this project used the wrong one', kind: 'report', wide: true },
-  ]
-},
-{
-  id: 'factor', title: 'Factor the growth out', kicker: 'N + 1 numbers, every turn, exactly',
-  note: 'Write r(θ) = e<sup>bθ</sup>·f(θ) with f periodic. Store f as N leaf values and the growth as <b>one ' +
-        'number</b>. The exponential is applied analytically rather than sampled, so nothing about turn 20 is ' +
-        'harder than turn 0 — the scale ladder carries scale, the circle carries shape, and neither is asked to ' +
-        'represent the other.',
-  entries: [
-    { name: 'one turn and a scalar, extrapolated', tall: true, wide: true,
-      note: 'The stored leaves are the small closed curve on the left — an ordinary tvf shape, band-limited, ' +
-            'nothing special. On the right, the same leaves replayed at successive turns with the growth applied ' +
-            'analytically. Drag <b>turn</b> to 20 and the radius has grown by 5×10¹⁶; the relative error has not ' +
-            'moved off 10⁻¹⁴.',
-      params: [ p('pitch°', 55, 89, .5, 72.97), p('N', 8, 96, 1, 32), p('turns', 1, 6, 1, 4), p('check turn', 0, 20, 1, 7) ],
-      code: v => `factor(b = ${SP.bOfPitch(v['pitch°']).toFixed(4)}, f, N = ${v.N})   →   ${v.N} + 1 numbers, all turns`,
-      state: v => { const b = SP.bOfPitch(v['pitch°']);
-        const F = SP.factor(b, RIB, v.N);
-        return { b, F, err: F.checkTurn(v['check turn'], RIB),
-                 growth: Math.exp(b * TAU * v['check turn']) }; },
-      verdict: s => `turn ${s.turn} · relative error ${s.err.toExponential(2)} · the radius has grown by ` +
-                    `×${s.growth.toExponential(2)} · total cost ${s.F.cost} numbers`,
-      bad: s => s.err > 1e-11,
-      draw: (ctx, w, h, v, s) => {
-        const left = w * 0.30;
-        // the stored periodic factor, as a closed shape
-        const fs = s.F.shape();
-        const c1 = cam([fs.sample(600)], left, h - 20, 22);
-        strokePoly(ctx, c1, fs.sample(600), INK, 1.6);
-        if (opts.leaves) dots(ctx, c1, fs, CLAY, 2.2);
-        label(ctx, 8, 14, `f(θ), stored as ${v.N} leaves`, INK);
-        label(ctx, 8, 27, `+ one scalar: g = ${SP.growthOf(s.b).toFixed(4)}`, CLAY);
-        ctx.strokeStyle = 'rgba(232,236,245,0.08)';
-        ctx.beginPath(); ctx.moveTo(left, 10); ctx.lineTo(left, h - 10); ctx.stroke();
-        // the replayed turns
-        ctx.save(); ctx.translate(left, 0);
-        const W = w - left;
-        const turns = [];
-        for (let k = 0; k < v.turns; k++) {
-          const P = 700, d = { x: new Float64Array(P), y: new Float64Array(P) };
-          for (let i = 0; i < P; i++) { const q = s.F.atTurn(k - v.turns + 1, i / P); d.x[i] = q[0]; d.y[i] = q[1]; }
-          turns.push(d);
-        }
-        const c2 = cam(turns, W, h - 20, 22);
-        turns.forEach((d, i) => strokePoly(ctx, c2, d, i === turns.length - 1 ? INK : `rgba(232,236,245,${0.14 + 0.10 * i})`,
-          i === turns.length - 1 ? 1.7 : 1.2, null, true));
-        label(ctx, 8, 14, `${v.turns} turns replayed from those ${v.N} leaves`, INK);
-        label(ctx, 8, 27, 'the growth is applied, not sampled', 'rgba(139,149,171,1)');
-        ctx.restore();
-      } },
-    { name: 'the extrapolation table', kind: 'report', wide: true },
-  ]
-},
-{
-  id: 'perturb', title: 'Perturbing it', kicker: 'exactly two things you can do, with opposite fates',
-  note: 'Once the growth is factored out, the question of what you can <em>add</em> to a spiral has a short answer. ' +
-        '<b>Multiplicative and periodic</b> lives inside f, costs nothing beyond it, and scales with the curve — a ' +
-        'ribbed shell keeps its ribs at every size. <b>Additive</b> does not scale, so the spiral outgrows it: the ' +
-        'perturbation has a <em>half-life</em>. And perturbing the pitch, which looks like a third option, is not ' +
-        'one — a zero-mean periodic wobble on b is identically a multiplicative f, to 7×10⁻¹⁶.',
-  entries: [
-    { name: 'permanent, or with a half-life', tall: true, wide: true,
-      note: 'The same perturbation applied both ways, drawn over several turns. The multiplicative one is still ' +
-            'there on the outermost turn at full relative depth; the additive one has been swallowed. On the ' +
-            'golden spiral additive detail halves every <b>0.360 turns</b> — a bump starting at 30% of the radius ' +
-            'is at 10⁻⁹ of it by turn ten, and the decay matches e<sup>−2πbk</sup> to three digits.',
-      params: [ p('pitch°', 60, 88, .5, 72.97), p('amp', 0, .6, .02, .3), p('m', 2, 12, 1, 5), p('turns', 2, 6, 1, 4) ],
-      code: v => { const b = SP.bOfPitch(v['pitch°']);
-        return `multiplicative:  r = e^{bθ}·(1 + ${v.amp}·cos ${v.m}θ)      permanent
-` +
-               `additive:        r = e^{bθ} + ${v.amp}·cos ${v.m}θ          half-life ${(Math.log(2) / (b * TAU)).toFixed(3)} turns`; },
-      state: v => { const b = SP.bOfPitch(v['pitch°']);
-        const M = SP.multiplicative(b, a => 1 + v.amp * Math.cos(v.m * a));
-        const A = SP.additive(b, a => v.amp * Math.cos(v.m * a));
-        return { b, M, A, rel: [0, 1, 2, 3, 5, 10].map(t => ({ t, r: A.relativeAt(t) })) }; },
-      verdict: s => `additive: ${(s.rel[0].r * 100).toFixed(1)}% of the radius on turn 0, ` +
-                    `${s.rel[5].r.toExponential(1)} by turn 10 — half-life ${s.A.halfLife.toFixed(3)} turns. ` +
-                    `Multiplicative: unchanged at every turn, by construction.`,
-      bad: () => false,
-      draw: (ctx, w, h, v, s) => {
-        const half = w / 2;
-        [[s.M, 'multiplicative — permanent', 0, INK], [s.A, 'additive — outgrown', half, CLAY]].forEach(([C, tag, ox, col]) => {
-          ctx.save(); ctx.translate(ox, 0);
-          const P = 2400, d = { x: new Float64Array(P), y: new Float64Array(P) };
-          const base = { x: new Float64Array(P), y: new Float64Array(P) };
-          for (let i = 0; i < P; i++) { const a = (i / P) * TAU * v.turns;
-            const r = C.r(a), r0 = Math.exp(s.b * a);
-            d.x[i] = r * Math.cos(a); d.y[i] = r * Math.sin(a);
-            base.x[i] = r0 * Math.cos(a); base.y[i] = r0 * Math.sin(a); }
-          const c = cam([d, base], half, h - 18, 24);
-          if (opts.exact) strokePoly(ctx, c, base, GHOST, 1.6, [4, 3], true);
-          strokePoly(ctx, c, d, col, 1.5, null, true);
-          label(ctx, 8, 14, tag, col);
-          label(ctx, 8, 27, 'the unperturbed spiral, dashed', 'rgba(139,149,171,1)');
+        const cols = 3, rows = 3, pw = w / cols, ph = h / rows;
+        const c0 = cam(s.list, pw, ph, 12);
+        s.list.forEach((sh, i) => {
+          ctx.save(); ctx.translate((i % cols) * pw, Math.floor(i / cols) * ph);
+          const crossed = SP.crossings(sh, 180) > 0;
+          strokeShape(ctx, c0, sh, crossed ? CLAY : INK, crossed ? 1.6 : 1.3);
           ctx.restore();
         });
+      } },
+  ]
+},
+{
+  id: 'basis', title: 'What the representation does, and what it does not', kicker: 'the question, dissolved',
+  note: 'Three measurements. The first answers the question the page was built to ask, by showing the answer ' +
+        'cannot depend on the thing I thought it depended on. The second finds a clean law about how many ' +
+        'dimensions a band-limited family actually has. The third relocates the whole matter onto alignment, ' +
+        'where a genuine choice does exist — and where <b>one of the four nuisances is this representation\'s own</b>.',
+  entries: [
+    { name: 'leaf basis vs Fourier basis', kind: 'report', wide: true },
+    { name: 'a band-limited family has an exact dimension', kind: 'report', wide: true },
+    { name: 'what each nuisance costs', kind: 'report', wide: true },
+  ]
+},
+{
+  id: 'curved', title: 'Where the linear model runs out', kicker: 'and it is not the code\'s fault',
+  note: 'PCA fits a flat model. Some of the ways a shape can vary are not flat, and the clearest case is the one ' +
+        'every graphics person has an intuition for: <b>rotating a shape traces a circle in shape space, not a ' +
+        'line</b>. One intrinsic degree of freedom, no one-dimensional linear model, and the failure is visible ' +
+        'rather than statistical.',
+  entries: [
+    { name: 'rotation is a circle, not a line', tall: true, wide: true,
+      note: 'A single shape, rotated through the span on the slider, and nothing else varied. At a small span the ' +
+            'arc is nearly straight and one component captures it. Open the span up and the second component ' +
+            'grows to meet the first — at a full turn they are <b>exactly equal</b>, which is what a circle looks ' +
+            'like to an eigendecomposition. The left panel is the orbit projected onto its own first two ' +
+            'components; the right is the walk along PC1 alone, which cuts the chord and passes through shapes ' +
+            'the family does not contain.',
+      params: [ p('span°', 10, 360, 5, 200), p('M', 8, 40, 1, 24), p('seed', 1, 20, 1, 3) ],
+      code: v => `population(${v.M}, i => base.rotate(${v['span°']}° · i/${v.M}))   // one degree of freedom, not one dimension`,
+      state: v => {
+        const key = `rot:${v['span°']}:${v.M}:${v.seed}`;
+        return fit(key, () => SP.curvature(SH.pebble(64, { r: 100, seed: v.seed }), { M: v.M, span: TAU * v['span°'] / 360 }));
+      },
+      verdict: s => `PC1 ${(s.explained[0] * 100).toFixed(1)}% · PC2 ${(s.explained[1] * 100).toFixed(1)}% · ` +
+                    `ratio ${s.ratio.toFixed(3)}` + (s.ratio > 0.6 ? ' — two components for one degree of freedom' : ''),
+      bad: s => s.ratio > 0.3,
+      draw: (ctx, w, h, v, s) => {
+        const half = w / 2;
+        // left: the orbit in its own PC1/PC2 plane
+        const pts = s.pop.map(m => s.P.scores(m.clone().translate(-SP.centroidOf(m).x, -SP.centroidOf(m).y)));
+        let mx = 1e-9; for (const q of pts) mx = Math.max(mx, Math.abs(q[0]), Math.abs(q[1] || 0));
+        const R = Math.min(half, h) * 0.33, cx = half / 2, cy = h / 2;
+        ctx.strokeStyle = 'rgba(232,236,245,0.10)';
+        ctx.beginPath(); ctx.moveTo(cx - R * 1.3, cy); ctx.lineTo(cx + R * 1.3, cy);
+        ctx.moveTo(cx, cy - R * 1.3); ctx.lineTo(cx, cy + R * 1.3); ctx.stroke();
+        ctx.beginPath();
+        pts.forEach((q, i) => { const X = cx + q[0] / mx * R, Y = cy - (q[1] || 0) / mx * R; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+        ctx.strokeStyle = 'rgba(124,92,255,0.45)'; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.fillStyle = CLAY;
+        for (const q of pts) { ctx.beginPath(); ctx.arc(cx + q[0] / mx * R, cy - (q[1] || 0) / mx * R, 2.6, 0, TAU); ctx.fill(); }
+        // the chord PCA actually walks
+        ctx.strokeStyle = INK; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.stroke(); ctx.setLineDash([]);
+        label(ctx, 8, 14, 'the orbit, in its own PC1/PC2 plane', 'rgba(139,149,171,1)');
+        label(ctx, 8, 27, 'the PC1 walk — a chord across it', INK);
         ctx.strokeStyle = 'rgba(232,236,245,0.08)';
         ctx.beginPath(); ctx.moveTo(half, 10); ctx.lineTo(half, h - 10); ctx.stroke();
+        // right: the walk itself
+        ctx.save(); ctx.translate(half, 0);
+        const walks = [-2, -1, 0, 1, 2].map(sd => s.P.walk(0, sd));
+        const c2 = cam(s.pop.concat(walks), half, h - 18, 20);
+        for (const m of s.pop) strokeShape(ctx, c2, m.clone().translate(-SP.centroidOf(m).x, -SP.centroidOf(m).y), 'rgba(232,236,245,0.09)', 1, null, 260);
+        walks.forEach((sh, i) => strokeShape(ctx, c2, sh, i === 2 ? CLAY : INK, i === 2 ? 2 : 1.1, i === 2 ? null : [3, 3]));
+        label(ctx, 8, 14, 'the family (faint) and the PC1 walk', 'rgba(139,149,171,1)');
+        label(ctx, 8, 27, 'the midpoint of the walk', CLAY);
+        ctx.restore();
       } },
 
-    { name: 'what a perturbation tells the walker', kind: 'report', wide: true },
+    { name: 'the Gaussian does not know about validity', kind: 'report', wide: true },
   ]
 },
 {
-  id: 'shell', title: 'Or close it honestly', kicker: 'a shell, and where the stall trick applies',
-  note: 'The other option is to make a genuinely closed curve out of the spiral: out along the outer wall, a radial ' +
-        'cap, back along the inner wall, another cap. That is a shell, it is closed, it has four corners, and it is ' +
-        'therefore back in the ordinary algebraic tier at <b>O(1/N)</b> — a whole tier better than the wrapped turn, ' +
-        'which had no tier at all.',
-  entries: [
-    { name: 'the shell, and stalling at its corners', tall: true, wide: true,
-      note: 'The menagerie\'s finding applies here, with a condition worth seeing: the stall has to land <em>on</em> ' +
-            'the corners. This shell puts its four corners on the quarters so <code>stall(m, 4)</code> hits them, ' +
-            'and the ratios go 2, 4, 8, 16 as usual. The dotted line is the same stall misaligned — at fifths, on a ' +
-            'shape whose corners are at quarters — and it buys <b>nothing at all</b>. The mechanism is local, and ' +
-            'a reparameterization that stalls in the wrong places is just a worse parameterization.',
-      params: [ p('pitch°', 55, 89, .5, 72.97), p('turns', 1, 4, 1, 2), p('wall', .2, .9, .05, .6), p('m', 0, 3, 1, 2) ],
-      code: v => v.m === 0 ? `shell(b, turns = ${v.turns}, wall = ${v.wall})   → O(1/N)`
-                           : `reparam(shell(…), stall(${v.m}, 4))   → O(1/N^${v.m + 1})`,
-      state: v => { const b = SP.bOfPitch(v['pitch°']);
-        const sh = SP.shell(b, v.turns, v.wall);
-        const key = `sh:${v['pitch°']}:${v.turns}:${v.wall}`;
-        const lanes = memo(key, () => [0, 1, 2, 3].map(m => ({ m,
-          errs: SP.ladder(m === 0 ? sh : CV.reparam(sh, CV.stall(m, 4)), [32, 64, 128, 256, 512]).map(r => r.err) })));
-        const bad = memo(key + ':bad', () =>
-          SP.ladder(CV.reparam(sh, CV.stall(2, 5)), [32, 64, 128, 256, 512]).map(r => r.err));
-        const cur = v.m === 0 ? sh : CV.reparam(sh, CV.stall(v.m, 4));
-        return { b, sh, cur, lanes, bad, gap: SP.closureGap(sh),
-                 ratios: lanes[v.m].errs.slice(1).map((e, i) => lanes[v.m].errs[i] / e) }; },
-      verdict: s => `closed to ${s.gap.toExponential(1)} · error ratio per doubling ` +
-                    `${s.ratios.map(r => r.toFixed(2)).join(', ')} — O(1/N^${Math.log2(s.ratios[s.ratios.length - 1]).toFixed(2)})`,
-      bad: s => s.ratios[s.ratios.length - 1] < 3,
-      draw: (ctx, w, h, v, s) => {
-        const half = w * 0.46;
-        const ex = polyOf(s.sh, 2000);
-        const c = cam([ex], half, h - 16, 22);
-        if (opts.exact) strokePoly(ctx, c, ex, GHOST, 2.6);
-        const rec = Shape.fromFunction(t => s.cur.at(t), 128).sample(2000);
-        strokePoly(ctx, c, rec, INK, 1.5);
-        if (opts.leaves) dots(ctx, c, Shape.fromFunction(t => s.cur.at(t), 128), CLAY, 1.4);
-        ctx.fillStyle = CLAY;
-        for (const u of [0, 0.25, 0.5, 0.75]) { const q = s.sh.at(u);
-          ctx.beginPath(); ctx.arc(c.X(q[0]), c.Y(q[1]), 3, 0, TAU); ctx.fill(); }
-        label(ctx, 8, 14, `shell, ${v.turns} turn${v.turns > 1 ? 's' : ''}, wall ${v.wall}`, INK);
-        label(ctx, 8, 27, 'the four corners', CLAY);
-        ctx.strokeStyle = 'rgba(232,236,245,0.08)';
-        ctx.beginPath(); ctx.moveTo(half, 10); ctx.lineTo(half, h - 10); ctx.stroke();
-        ctx.save(); ctx.translate(half, 0);
-        const W = w - half;
-        logLadder(ctx, 8, 26, W - 16, h - 52,
-          s.lanes.map(l => ({ errs: l.errs, color: l.m === v.m ? CLAY : 'rgba(232,236,245,0.20)',
-                              width: l.m === v.m ? 2 : 1.1, name: l.m === v.m ? `m = ${l.m}` : null }))
-            .concat([{ errs: s.bad, color: BLUE, width: 1.3, name: 'stall at fifths — misaligned', labelY: 24 }]),
-          { lo: -9, hi: 0 });
-        label(ctx, 8, 16, 'sup error vs N — N = 32 … 512', 'rgba(139,149,171,1)');
-        ctx.restore();
-      } },
-  ]
-},
-{
-  id: 'ladder', title: 'The observer\'s own logarithm', kicker: 'the amplification law is a spiral',
-  note: 'The logarithm was in this framework before any spiral was drawn. The Lebesgue constant — the factor by ' +
-        'which a bounded error in the atoms can be amplified in the reconstruction — grows as <b>Λ<sub>N</sub> ≈ ' +
-        'ψ₁·ln N</b>, so it rises by ψ₁·ln 2 = 0.4413 <em>per doubling</em>: the same cost at every rung. Draw the ' +
-        'resolution ladder as a spiral with one turn per octave and that constant becomes a constant angular ' +
-        'sector, which is the same statement in a shape.',
-  entries: [
-    { name: 'one turn per octave', tall: true, wide: true,
-      note: 'Each turn of the spiral is a doubling of N. The radial ticks are the measured Λ at each rung; the ' +
-            'faint circles are the model ψ₁·ln N. <b>Equal cost per rung is equal angle per turn</b> — the reason ' +
-            'the amplification law looks like a law is the same reason a logarithmic spiral looks like a spiral, ' +
-            'which is that both are statements about multiplying rather than adding.',
-      params: [ p('from d', 2, 6, 1, 3), p('to d', 8, 14, 1, 12) ],
-      code: v => `Λ_N measured for N = 2^${v['from d']} … 2^${v['to d']},  against ψ₁·ln N`,
-      state: v => memo(`rung:${v['from d']}:${v['to d']}`, () => SP.rungSpiral(v['from d'], v['to d'])),
-      verdict: s => `ψ₁·ln 2 = ${s.perRung.toFixed(4)} per rung, measured mean increment ` +
-                    `${s.meanIncrement.toFixed(4)} — the same cost every doubling`,
-      bad: s => Math.abs(s.meanIncrement - s.perRung) > 0.01,
-      draw: (ctx, w, h, v, s) => {
-        const half = w * 0.42;
-        const R = Math.min(half, h) * 0.42, cx = half / 2, cy = h / 2;
-        const n = s.rungs.length - 1;
-        // the spiral: one turn per octave, radius doubling each turn
-        ctx.beginPath();
-        for (let i = 0; i <= 900; i++) { const u = i / 900, a = u * TAU * n;
-          const r = R * Math.pow(2, (u - 1) * n) * Math.pow(2, n) / Math.pow(2, n);
-          const rr = R * Math.pow(2, (u - 1) * n);
-          const X = cx + rr * Math.cos(a), Y = cy - rr * Math.sin(a);
-          i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
-        ctx.strokeStyle = CLAY; ctx.lineWidth = 1.6; ctx.stroke();
-        // one tick per rung, at the same angle every turn
-        s.rungs.forEach((r, i) => {
-          const u = i / n, a = u * TAU * n, rr = R * Math.pow(2, (u - 1) * n);
-          ctx.fillStyle = INK;
-          ctx.beginPath(); ctx.arc(cx + rr * Math.cos(a), cy - rr * Math.sin(a), 2.8, 0, TAU); ctx.fill();
-          if (i % 2 === 0) label(ctx, cx + rr * Math.cos(a) + 5, cy - rr * Math.sin(a) - 4,
-            `N=${r.N}`, 'rgba(139,149,171,1)');
-        });
-        label(ctx, 8, 14, 'the resolution ladder, one turn per octave', CLAY);
-        ctx.strokeStyle = 'rgba(232,236,245,0.08)';
-        ctx.beginPath(); ctx.moveTo(half, 10); ctx.lineTo(half, h - 10); ctx.stroke();
-        // Λ against depth: a straight line
-        ctx.save(); ctx.translate(half, 0);
-        const W = w - half, x0 = 40, y0 = 30, hh = h - 60, ww = W - 60;
-        const lamMax = Math.max(...s.rungs.map(r => Math.max(r.lambda, r.model))) * 1.05;
-        ctx.strokeStyle = 'rgba(232,236,245,0.12)';
-        ctx.beginPath(); ctx.moveTo(x0, y0 + hh); ctx.lineTo(x0 + ww, y0 + hh); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + hh); ctx.stroke();
-        const X = i => x0 + i / (s.rungs.length - 1) * ww, Y = l => y0 + hh - l / lamMax * hh;
-        ctx.beginPath(); s.rungs.forEach((r, i) => { const px = X(i), py = Y(r.model); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
-        ctx.strokeStyle = BLUE; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.4; ctx.stroke(); ctx.setLineDash([]);
-        ctx.beginPath(); s.rungs.forEach((r, i) => { const px = X(i), py = Y(r.lambda); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
-        ctx.strokeStyle = INK; ctx.lineWidth = 1.8; ctx.stroke();
-        ctx.fillStyle = INK;
-        s.rungs.forEach((r, i) => { ctx.beginPath(); ctx.arc(X(i), Y(r.lambda), 2.6, 0, TAU); ctx.fill(); });
-        label(ctx, x0, y0 - 8, 'Λ against depth d — a straight line, because Λ ≈ ψ₁·ln N', 'rgba(139,149,171,1)');
-        label(ctx, x0 + ww, Y(s.rungs[s.rungs.length - 1].model) - 6, 'ψ₁·ln N', BLUE, 'right');
-        label(ctx, x0 + ww, Y(s.rungs[s.rungs.length - 1].lambda) + 14, 'measured', INK, 'right');
-        label(ctx, x0 - 4, y0 + hh + 12, `d=${s.rungs[0].d}`, 'rgba(139,149,171,1)');
-        label(ctx, x0 + ww, y0 + hh + 12, `d=${s.rungs[s.rungs.length - 1].d}`, 'rgba(139,149,171,1)', 'right');
-        ctx.restore();
-      } },
-    { name: 'the golden spiral, and pitch', kind: 'report', wide: true },
-  ]
+  id: 'evidence', title: 'Evidence', kicker: 'including a metric that lies',
+  entries: [ { kind: 'report', name: 'does the model generalize', wide: true } ]
 },
 ];
+
+// shared fit for the family tiles
+function fitOf(v) {
+  const key = `fam:${v.family}:${v.M || 60}:${v.lumps || 5}`;
+  return fit(key, () => {
+    const M = v.M || 60;
+    const pop = famPop(v.family, M, { lumps: v.lumps });
+    const al = SP.procrustes(pop);
+    const P = SP.pca(al);
+    return { pop, al, P, M, PC1v: 0, PC2v: 0 };
+  });
+}
 
 // ── the editor link ──────────────────────────────────────────────────────
 // The leaf editor reads draw.html#tvf=<payload> and pastes the curves it carries, the
@@ -5761,75 +4646,91 @@ for (const sec of SECTIONS) {
   const el = document.createElement('section');
   el.id = sec.id;
   el.innerHTML = `<div class="sec-head"><h2>${sec.title}</h2><div class="rule"></div><span class="n">${sec.kicker || ''}</span></div>`
-               + `<p class="sec-note">${sec.note}</p><div class="grid"></div>`;
+               + (sec.note ? `<p class="sec-note">${sec.note}</p>` : '') + `<div class="grid"></div>`;
   const grid = el.querySelector('.grid');
   for (const e of sec.entries) grid.appendChild(makeTile(e));
   main.appendChild(el);
 }
+
 function makeTile(entry) {
   const tile = document.createElement('div');
   tile.className = 'tile' + (entry.wide ? ' wide' : '') + (entry.tall ? ' tall' : '');
+
   if (entry.kind === 'report') {
     tile.innerHTML = `<div class="body"><h3>${entry.name}</h3></div><div class="report">measuring…</div>`;
-    tiles.push({ tile, once: () => { const host = tile.querySelector('.report');
+    tiles.push({ tile, once: () => {
+      const host = tile.querySelector('.report');
       try { REPORTS[entry.name](host); }
-      catch (e) { host.innerHTML = `<p class="foot" style="color:var(--bad)">this measurement threw: ${e && e.message}</p>`; } } });
+      catch (e) { host.innerHTML = '<p class="foot" style="color:var(--bad)">this measurement threw: ' +
+        (e && e.message) + '</p>'; console.error(entry.name, e); }
+    } });
     return tile;
   }
+
   const vals = {};
   for (const par of entry.params) vals[par.key] = par.value;
   const dials = entry.params.map(par =>
     `<div class="dial"><label><span>${par.key}</span><span class="val" data-v="${par.key}">${par.value}</span></label>
      <input type="range" data-k="${par.key}" min="${par.min}" max="${par.max}" step="${par.step}" value="${par.value}"></div>`).join('');
+
   tile.innerHTML =
     `<div class="stage"><canvas></canvas></div>` +
     `<div class="tools"><button class="edit" title="open this tile's curve in the leaf editor — it rides in the link">edit</button>` +
-    `<button class="tvf" title="copy as .tvf">.tvf</button></div>` +
+    `<button class="tvf" title="copy this shape as .tvf">.tvf</button></div>` +
     `<div class="body"><h3>${entry.name}</h3><p class="note">${entry.note}</p>` +
     `<div class="verdict"></div><code class="src"></code><div class="dials">${dials}</div></div>`;
+
   const canvas = tile.querySelector('.stage canvas');
-  const src = tile.querySelector('code.src'), vEl = tile.querySelector('.verdict');
+  const src = tile.querySelector('code.src');
+  const vEl = tile.querySelector('.verdict');
   let st = null;
+
   const paint = () => {
-    try { st = entry.state(vals); st.turn = vals['check turn']; }
+    try { st = entry.state(vals); st.PC1v = vals.PC1; st.PC2v = vals.PC2; }
     catch (e) { src.textContent = 'error: ' + e.message; return; }
     src.textContent = entry.code(vals);
+    const bad = entry.bad ? entry.bad(st) : false;
     vEl.textContent = entry.verdict(st);
-    vEl.className = 'verdict ' + (entry.bad && entry.bad(st) ? 'bad' : 'ok');
+    vEl.className = 'verdict ' + (bad ? 'bad' : 'ok');
     const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
     const w = canvas.clientWidth || 340, h = canvas.clientHeight || 268;
     if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
     const ctx = canvas.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
     try { entry.draw(ctx, w, h, vals, st); } catch (e) { label(ctx, 10, 20, 'draw error: ' + e.message, CLAY); }
-    // Only some tiles hold a curve (the rest hold a measurement of one), so the two
-    // buttons that hand a curve on are shown only where there is one to hand.
-    const has = !!curveOf();
-    tile.querySelector('.edit').hidden = tile.querySelector('.tvf').hidden = !has;
+    // Only some tiles hold a shape (the rest hold a measurement of one), so the two
+    // buttons that hand a shape on are shown only where there is one to hand.
+    tile.querySelector('.edit').hidden = tile.querySelector('.tvf').hidden = !editShapes();
   };
-  const curveOf = () => st && (st.sh || st.s || (st.F && { at: t => st.F.atTurn(0, t) }));
+  const editShapes = () => { try { return st && (st.shape ? [st.shape] : st.list ? st.list : st.P ? [st.P.mean] : null); } catch (e) { return null; } };
+
   tile.querySelectorAll('input[type=range][data-k]').forEach(inp => {
     inp.addEventListener('input', () => {
       vals[inp.dataset.k] = parseFloat(inp.value);
       tile.querySelector(`[data-v="${inp.dataset.k}"]`).textContent = vals[inp.dataset.k];
-      paint(); });
+      paint();
+    });
   });
-  src.addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(src.textContent);
-    src.classList.add('copied'); setTimeout(() => src.classList.remove('copied'), 700); });
-  tile.querySelector('.tvf').addEventListener('click', async ev => {
+  src.addEventListener('click', () => {
+    navigator.clipboard && navigator.clipboard.writeText(src.textContent);
+    src.classList.add('copied'); setTimeout(() => src.classList.remove('copied'), 700);
+  });
+  tile.querySelector('.tvf').addEventListener('click', async (ev) => {
     if (!st) return;
-    const cu = curveOf();
-    if (!cu) return;
+    const btn = ev.currentTarget;
+    const out = st.shape ? [st.shape] : st.list ? st.list : st.P ? [st.P.mean] : null;
+    if (!out) return;
     let okd = false;
-    try { await navigator.clipboard.writeText(
-      toTVF([Shape.fromFunction(u => cu.at(u), 160)], { source: 'tvf.spiral — ' + entry.name })); okd = true; } catch (e) {}
-    const b = ev.currentTarget; b.classList.toggle('done', okd); b.textContent = okd ? 'copied' : 'select+⌘C';
-    setTimeout(() => { b.classList.remove('done'); b.textContent = '.tvf'; }, 1200);
+    try { await navigator.clipboard.writeText(toTVF(out, { source: 'tvf.space — ' + entry.name })); okd = true; } catch (e) {}
+    btn.classList.toggle('done', okd); btn.textContent = okd ? 'copied' : 'select+⌘C';
+    setTimeout(() => { btn.classList.remove('done'); btn.textContent = '.tvf'; }, 1200);
   });
+
   tile.querySelector('.edit').addEventListener('click', async () => {
-    const cu = curveOf();
-    if (!cu) return;
-    const href = await editorLink([Shape.fromFunction(u => cu.at(u), 160)], { name: entry.name, source: entry.code(vals) });
+    const list = editShapes();
+    if (!list) return;
+    const href = await editorLink(list, { name: entry.name, source: entry.code(vals) });
     window.open(href, 'tangent-draw');
   });
   tiles.push({ tile, paint });
@@ -5838,154 +4739,166 @@ function makeTile(entry) {
 
 // ── reports ──────────────────────────────────────────────────────────────
 const REPORTS = {
-'what this changes about the page above': (host) => {
-  const b = SP.GOLDEN_B;
-  const hom = SP.homogeneity(b, [1, 24, 120, 480]);
-  const dam = [24, 48, 96, 192].map(K => SP.closureDamage(b, K));
+'the spectrum': (host) => {
+  const rows = FAMILIES.map((f, i) => {
+    const P = SP.pca(SP.procrustes(famPop(i, 60, { lumps: 5 })));
+    // pad to four: a family with only two modes was shifting k95/k99 left into the
+    // PC3/PC4 columns, which read as nonsense rather than as a short row
+    const e = P.explained.slice(0, 4);
+    while (e.length < 4) e.push(null);
+    return { name: f.name, modes: P.modes.length, e,
+             k95: P.componentsFor(0.95), k99: P.componentsFor(0.99) };
+  });
   host.innerHTML =
-    `<p>The first section of this page measures a spiral forced into one closed turn and finds that the error does
-      not fall with N. That measurement stands. <b>What it is a measurement OF has to be restated.</b></p>
-     <table><thead><tr><th>leaf</th><th>turns walked</th><th>radius</th><th>local reading differs by</th></tr></thead><tbody>` +
-    hom.map(r => `<tr><td>${r.k}</td><td>${r.turns.toFixed(2)}</td><td>×${r.radius.toExponential(2)}</td>` +
-      `<td class="ok">${r.diff.toExponential(2)}</td></tr>`).join('') +
+    `<p>Four families, sixty members each, same treatment. <b>Rank</b> is how many directions the family
+      actually occupies — everything past it is numerically zero, not small.</p>
+     <table><thead><tr><th>family</th><th>rank</th><th>PC1</th><th>PC2</th><th>PC3</th><th>PC4</th><th>95%</th><th>99%</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.name}</td><td class="ok">${r.modes}</td>` +
+      r.e.map(e => `<td>${e == null ? '<span style="color:var(--dim)">—</span>' : (e * 100).toFixed(1) + '%'}</td>`).join('') +
+      `<td>k=${r.k95}</td><td>k=${r.k99}</td></tr>`).join('') +
     `</tbody></table>
-     <p style="margin-top:8px">A logarithmic spiral is <b>homogeneous</b>: invariant under a shift in θ combined
-      with the matching scale, for <em>any</em> shift. Every leaf's neighbourhood, in units of its own radius, is the
-      same neighbourhood — to 2×10⁻¹⁴ after twenty turns and a growth of 5×10¹⁶. An observer that holds ratios and
-      no absolute length has, in its entire record, <b>nothing that changes</b>.</p>
-
-     <table><thead><tr><th>K</th><th>error away from the wrap</th><th>error at the wrap</th><th>ratio</th></tr></thead><tbody>` +
-    dam.map(d => `<tr><td>${d.K}</td><td class="ok">${d.interior.toExponential(2)}</td>` +
-      `<td class="bad">${d.wrap.toExponential(2)}</td><td>${(d.wrap / d.interior).toFixed(0)}×</td></tr>`).join('') +
-    `</tbody></table>
-     <p style="margin-top:8px">And the damage is not spread over the curve. Away from the wrap the closed assumption
-      is ordinary and converges at <b>O(1/K)</b> — 3.1e-2, 1.5e-2, 8.3e-3, 4.3e-3, halving as K doubles. At the wrap
-      it is pinned at 4.2e-1 and does not move. <b>All of the failure sits at the one point a walker never reaches.</b></p>
-
-     <p style="margin-top:10px"><b>So the restatement.</b> The non-convergence is not a property of the spiral and
-      not a limitation the observer suffers. It is the price of <em>assuming closure</em> — and closure is a global
-      fact about a completed circle, which is exactly the kind of fact (R5) says the observer never has. The paper
-      puts it as N being the surveyor's count of the grid filled to the horizon while the observer sits at some
-      finite K and never has N. On a closed curve that reads as a limit never reached. <b>On a spiral there is no N
-      at all</b>, and the observer is not missing anything: it walks, its readings are identical at every step, and
-      the discontinuity this page opened with exists only in a surveyor's decision to call the walk finished.</p>
-     <p class="foot">Which is also why the factorization two sections down is not a trick. Writing r = e^{bθ}·f(θ)
-      does not add information — it declines to assert the one thing the observer was never in a position to assert.
-      The growth goes to the scale ladder, the periodic part goes to the circle, and nothing anywhere has to decide
-      how many turns there are going to be.</p>`;
+     <p class="foot">Sixty shapes at N=64 are sixty points in a 128-dimensional space, so the covariance has rank at
+      most 59 however it is computed — and every family here comes in far under that. That is not the population
+      being small; it is the families being generated from a handful of parameters, which the next section pins
+      down exactly.</p>`;
 },
 
-'what a perturbation tells the walker': (host) => {
-  const b = SP.GOLDEN_B;
-  const rows = [
-    ['no perturbation', a => Math.exp(b * a)],
-    ['periodic, ×(1 + 0.25 cos 5θ)', a => Math.exp(b * a) * (1 + 0.25 * Math.cos(5 * a))],
-    ['a one-off bump at θ = π', a => Math.exp(b * a) * (1 + 0.25 * Math.exp(-40 * Math.pow(a - Math.PI, 2)))],
-  ].map(([n, r]) => ({ n, t: SP.whatItTells(r) }));
-  const say = x => x < 1e-9 ? '<span style="color:var(--ok)">nothing</span>' : `<span style="color:#f6d68a">${x.toExponential(1)}</span>`;
-  const wob = SP.pitchWobble(b, 0.25, 4).check();
+'leaf basis vs Fourier basis': (host) => {
+  const al = SP.procrustes(famPop(0, 60, { lumps: 5 }));
+  const B = SP.basisInvariance(al, { compare: 8 });
   host.innerHTML =
-    `<p>Both columns are differences in the observer's own local ratio-reading — the same quantity the homogeneity
-      section measured at 10⁻¹⁴. The first asks whether it can tell <em>where in a turn</em> it is; the second,
-      whether it can tell <em>which turn</em>.</p>
-     <table><thead><tr><th>perturbation</th><th>phase within a turn</th><th>which turn you are on</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.n}</td><td>${say(r.t.phase)}</td><td>${say(r.t.turn)}</td></tr>`).join('') +
+    `<p>The same population, PCA'd twice: once on leaf values, once on the orthonormal real DFT of each channel.
+      If the leaf basis were a better or worse place to do statistics, these columns would differ.</p>
+     <table><thead><tr><th>mode</th><th>eigenvalue, leaf basis</th><th>eigenvalue, Fourier basis</th><th>relative difference</th></tr></thead><tbody>` +
+    B.rows.slice(0, 6).map(r => `<tr><td>PC${r.k + 1}</td><td>${r.leaf.toExponential(8)}</td>` +
+      `<td>${r.spectral.toExponential(8)}</td><td class="ok">${r.rel.toExponential(1)}</td></tr>`).join('') +
     `</tbody></table>
-     <p style="margin-top:9px"><b>A periodic perturbation gives an angular coordinate and never a total.</b> The
-      walker can say precisely where it is <em>in</em> a turn — 1.2, an enormous signal — and absolutely nothing
-      about <em>which</em> turn, because leaf k and leaf k+N still read identically to machine zero. It is a clock
-      face with no hand. Only a one-off event yields a turn count, and only once, and only if the walker remembers
-      having passed it.</p>
-     <p>Which is the K-and-N distinction arriving from a third direction. The observer can be given coordinates
-      inside its window for free; what cannot be given to it by any amount of local structure is <b>how many
-      windows there have been</b>. A total is not a thing a perturbation can encode, because a perturbation that
-      repeats says the same thing every time and a perturbation that does not repeat is not part of the curve's
-      law — it is an event.</p>
-     <p class="foot">And the third option that is not one: perturbing the pitch. A zero-mean periodic wobble ε(θ)
-      on b gives r = exp(∫(b+ε)) = e<sup>bθ</sup>·e<sup>∫ε</sup>, which is a multiplicative f — verified at
-      ${wob.toExponential(2)}. A wobble with nonzero mean just changes b into a different b. So there are two
-      modes, not three, and the page's whole taxonomy of what you can do to a spiral is: change f, or add
-      something and watch it go.</p>`;
+     <p style="margin-top:8px">Worst relative difference across all compared modes:
+      <span style="color:var(--ok)">${B.worst.toExponential(2)}</span>. Total variance,
+      ${B.totalLeaf.toExponential(8)} against ${B.totalSpectral.toExponential(8)}.</p>
+     <p><b>Which settles the question by dissolving it.</b> PCA diagonalizes a covariance matrix, an orthogonal
+      change of coordinates conjugates that matrix, and conjugation preserves eigenvalues. The DFT is orthogonal.
+      So there was never a version of this measurement that could have come out differently, and the interesting
+      part is what that rules out: <b>no representation choice below the level of the alignment can affect the
+      shape statistics at all.</b> Leaf values, harmonics, or any other orthonormal frame — same modes, same
+      variances, same everything, differing only in which coordinates the eigenvectors are written down in.</p>
+     <p class="foot">The normalization is load-bearing and worth stating: the transform used is the orthonormal real
+      DFT — cosine/sine pairs at √(2/N), DC and Nyquist at √(1/N). A transform scaled any other way would rescale the
+      variance and this table would prove nothing except that I had picked a constant.</p>`;
 },
 
-'two Gibbs constants, and this project used the wrong one': (host) => {
-  const rows = [64, 256, 1024].map(N => SP.gibbs(N));
-  const g = rows[rows.length - 1];
+'a band-limited family has an exact dimension': (host) => {
+  const rows = [2, 3, 4, 5, 6, 8].map(L => {
+    const P = SP.pca(SP.procrustes(SP.population(60, i => SH.pebble(64, { r: 100, seed: i + 1, lumps: L, amp: 0.34 }))));
+    return { L, rank: P.modes.length, k95: P.componentsFor(0.95) };
+  });
+  const law = rows.every(r => r.rank === 2 * r.L - 1);
   host.innerHTML =
-    `<p>A jump does not merely converge slowly — the overshoot beside it converges to a positive
-      <em>constant</em>. There are two such constants and they are not the same, so both are measured here by the
-      same code on the same signal: a step from −1 to +1, so the <b>jump is 2</b> and the half-jump is 1.</p>
-     <table><thead><tr><th>N</th><th>interpolation peak</th><th>of the jump</th><th>truncation peak</th><th>of the jump</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.N}</td><td>${r.interpolation.peak.toFixed(6)}</td>` +
-      `<td class="bad">+${(r.interpolation.ofJump * 100).toFixed(3)}%</td>` +
-      `<td>${r.truncation.peak.toFixed(6)}</td><td>+${(r.truncation.ofJump * 100).toFixed(3)}%</td></tr>`).join('') +
+    `<p><code>pebble(lumps: L)</code> builds its radius from L harmonics with random amplitudes and phases —
+      2L free parameters. Procrustes then normalizes the scale, which spends one. So the family should occupy
+      exactly <b>2L − 1</b> dimensions, and it does:</p>
+     <table><thead><tr><th>lumps L</th><th>free parameters 2L</th><th>measured rank</th><th>2L − 1</th><th>95% at</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.L}</td><td>${2 * r.L}</td><td class="${r.rank === 2 * r.L - 1 ? 'ok' : 'bad'}">${r.rank}</td>` +
+      `<td>${2 * r.L - 1}</td><td>k=${r.k95}</td></tr>`).join('') +
     `</tbody></table>
-     <p style="margin-top:8px"><b>The truncation column reproduces the classical Wilbraham–Gibbs constant exactly</b>
-      — 8.949% of the jump, against the textbook 0.0894899 — which is the check that the measurement is sound. The
-      interpolation column is <b>+${(g.interpolation.ofJump * 100).toFixed(2)}%</b>, more than half again as large,
-      and <em>that</em> is the one that applies here, because this format interpolates at its leaves rather than
-      projecting onto a truncated series.</p>
-     <p><b>And a correction to this project's own record.</b> The composition gallery and the failure gallery both
-      refer to "Gibbs ≈ 1.13", which is neither of these. The number they were describing — 1.1452, the sup of a box
-      window's reconstructed mass over its designed peak — is a real measurement of a real overshoot, but it is a
-      <em>window's</em> overshoot at a particular width in leaves, not the Gibbs constant. The Gibbs constants are
-      1.1790 for projection and ${g.interpolation.peak.toFixed(4)} for interpolation.
-      Those pages have been corrected to say what they measured rather than to name it after something else.</p>
-     <p class="foot">The reason to care beyond bookkeeping: the interpolation constant is the honest bound on how
-      badly a discontinuity can overshoot in this format, and it is 58% larger than the number a reader would look
-      up. Quoting the projection constant for an interpolating scheme understates the worst case.</p>`;
+     <p style="margin-top:8px">${law ? 'Exact at every row.' : 'Not exact — see the rows marked.'}
+      Sixty samples, and the rank stops dead at 2L − 1 rather than creeping up with the sample count, which is what
+      distinguishes a family with a genuine dimension from one that merely looks low-dimensional at this sample size.</p>
+     <p><b>Why this is worth having.</b> A band limit is usually described as a bound on detail. Here it shows up as
+      something sharper: a band-limited family of shapes is a <em>linear subspace of known dimension</em>, and PCA
+      recovers that dimension exactly rather than approximately. If you know a family's band you know how many
+      components it can possibly need, before fitting anything.</p>
+     <p class="foot">The one caveat, and it is the same one the whole page turns on: this holds because the family
+      varies only in its radial harmonics. Add a rotation and the rank stops being 2L − 1, for the reason the next
+      section draws.</p>`;
 },
 
-'the extrapolation table': (host) => {
-  const b = SP.GOLDEN_B;
-  const rows = [16, 32, 64].map(N => { const F = SP.factor(b, RIB, N);
-    return { N, cost: F.cost, errs: [0, 1, 3, 7, 20].map(t => F.checkTurn(t, RIB)) }; });
-  const wrapped = [32, 64, 128, 256, 512].map(N => SP.paramError(SP.logSpiral(b), N));
+'what each nuisance costs': (host) => {
+  const rand = SP.mulberry(11);
+  const base = i => SH.pebble(64, { r: 100, seed: i + 1, lumps: 5, amp: 0.34 });
+  const messy = SP.population(60, i => { const t = base(i);
+    t.rotate((rand() * 2 - 1) * Math.PI);
+    t.scale(0.7 + rand() * 0.8);
+    t.translate((rand() * 2 - 1) * 90, (rand() * 2 - 1) * 90);
+    return t.roll(Math.floor(rand() * t.N)); });
+  const rows = SP.cost(messy);
+  const clean = SP.pca(SP.procrustes(SP.population(60, base)));
   host.innerHTML =
-    `<p>The same curve, stored as N leaves of the periodic factor plus one growth scalar, evaluated at increasingly
-      distant turns. Relative error, so the comparison is fair across sixteen orders of magnitude in radius.</p>
-     <table><thead><tr><th>N</th><th>cost</th><th>turn 0</th><th>turn 1</th><th>turn 3</th><th>turn 7</th><th>turn 20</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.N}</td><td>${r.cost} numbers</td>` +
-      r.errs.map(e => `<td class="ok">${e.toExponential(1)}</td>`).join('') + `</tr>`).join('') +
+    `<p>One family, jittered by all four nuisances — moved, scaled, turned, and its leaf order rolled — then
+      aligned progressively. <b>Rank</b> is the honest column: how many directions the cloud occupies at all.</p>
+     <table><thead><tr><th>removed</th><th>rank</th><th>PC1 share</th><th>components for 95%</th></tr></thead><tbody>` +
+    rows.map((r, i) => `<tr><td>${r.name}</td><td class="${i === rows.length - 1 ? 'ok' : ''}">${r.modes}</td>` +
+      `<td>${(r.explained1 * 100).toFixed(1)}%</td><td>${r.k}</td></tr>`).join('') +
+    `<tr><td style="color:var(--dim)">(the same family, never jittered)</td><td class="ok">${clean.modes.length}</td>` +
+    `<td>${(clean.explained[0] * 100).toFixed(1)}%</td><td>${clean.componentsFor(0.95)}</td></tr>` +
     `</tbody></table>
-     <p style="margin-top:8px">At turn 20 the radius has grown by a factor of
-      ${Math.exp(b * TAU * 20).toExponential(2)} and the relative error has not moved off 10⁻¹⁴. <b>Extrapolation is
-      free because it is not extrapolation</b> — the growth is a closed-form multiplier, not something inferred from
-      samples, and the only thing being reconstructed is a periodic function on a circle, which is what the format
-      is for.</p>
-     <p>Against the alternative, which is the first section of this page: the same spiral forced into one wrapped
-      turn measures ${wrapped.map(e => e.toFixed(3)).join(', ')} at N = 32 … 512. Sixty-five leaves of factored
-      representation beat five hundred and twelve of the wrapped kind by <b>twelve orders of magnitude</b>, and the
-      gap widens with every turn you ask for.</p>
-     <p class="foot">The honest scope. This works because a logarithmic spiral is <em>exactly</em> self-similar —
-      r(θ+2π)/r(θ) is the same constant at every θ, to 6e-16. A curve that only roughly repeats gets no such
-      factorization, and the residual after dividing out the best-fit growth is then an ordinary signal with an
-      ordinary band, which is a fair thing to ask the format for but not a free one.</p>`;
+     <p style="margin-top:8px"><b>Rotation is half the space.</b> Removing translation and scale takes the rank from
+      40 to 18; removing rotation takes it from 18 to 9, which is the family's true dimension and exactly what the
+      unjittered population measures. Nine real directions were hiding under thirty-one nuisance ones.</p>
+     <p><b>And the fourth nuisance is this representation's own.</b> Translation, scale and rotation are the classical
+      Procrustes problem and every shape-statistics text handles them. The <em>cyclic roll</em> — which leaf gets
+      called first — exists because a closed curve is sampled on a circle and the circle has no distinguished
+      starting point. It is discrete rather than continuous, <code>alignTo</code> solves it exactly by trying all N
+      offsets, and it costs nothing extra here only because the rotation step happened to fix it too. On a family
+      where shapes are already rotationally aligned but arbitrarily re-indexed, it is the whole problem.</p>
+     <p class="foot"><b>Note the "components for 95%" column, and then distrust it.</b> It goes <em>up</em> — 2 to 6 —
+      as the alignment gets better, which reads like the model getting worse and is the opposite. It is a ratio:
+      once the nuisance variance that was dominating PC1 is removed, what is left is real shape variance spread more
+      evenly across real directions. A metric that improves when you add rotation noise to your data is a metric
+      that is measuring the wrong thing, and it is the one most often quoted.</p>`;
 },
 
-'the golden spiral, and pitch': (host) => {
-  const rows = SP.pitchSweep([89, 85, 80, 76, 72.97, 68, 60], 256);
+'the Gaussian does not know about validity': (host) => {
+  const fams = [['pebble', i => SH.pebble(64, { r: 100, seed: i + 1, lumps: 5, amp: 0.34 })],
+                ['amoeba', i => SH.amoeba(64, { r: 100, seed: i + 1 })],
+                ['leaf', i => SH.leaf(64, { len: 150 + 90 * ((i * 7) % 11) / 11, width: 60 + 50 * ((i * 5) % 9) / 9 })]];
+  const spreads = [1, 2, 3, 4];
+  const rows = fams.map(([n, f]) => {
+    const P = SP.pca(SP.procrustes(SP.population(50, f)));
+    return { n, rates: spreads.map(s => SP.validity(P, { seed: 5, trials: 40, spread: s }).rate) };
+  });
   host.innerHTML =
-    `<p>The <b>pitch</b> is the constant angle between the tangent and the radius — the property that defines a
-      logarithmic spiral and the one a nautilus holds fixed as it grows. At 90° the spiral is a circle; the smaller
-      the pitch the faster it winds out. The <b>golden spiral</b> multiplies its radius by φ every quarter turn,
-      which fixes b = ln φ/(π/2) = ${SP.GOLDEN_B.toFixed(6)} and the pitch at ${SP.pitchOf(SP.GOLDEN_B).toFixed(2)}°.</p>
-     <table><thead><tr><th>pitch</th><th>b</th><th>growth per turn</th><th>radial gap</th><th>predicted floor</th><th>measured at N=256</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.pitch === 72.97 ? '<b>72.97° (golden)</b>' : r.pitch + '°'}</td>` +
-      `<td>${r.b.toFixed(4)}</td><td>×${r.growth.toFixed(3)}</td><td>${r.gap.toFixed(4)}</td>` +
-      `<td>${r.floor.toFixed(4)}</td><td class="bad">${r.measured.toFixed(4)}</td></tr>`).join('') +
+    `<p>Draw 40 shapes from each fitted Gaussian at increasing spread, and count how many cross themselves.
+      A self-intersecting curve is still a perfectly good point in the space — it is just not a shape anyone wanted.</p>
+     <table><thead><tr><th>family</th>` + spreads.map(s => `<th>${s}σ</th>`).join('') + `</tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.n}</td>` + r.rates.map(v =>
+      `<td class="${v > 0.1 ? 'bad' : v > 0 ? '' : 'ok'}">${(v * 100).toFixed(0)}%</td>`).join('') + `</tr>`).join('') +
     `</tbody></table>
-     <p style="margin-top:8px">The last two columns track each other down the whole sweep — the wrapped spiral's error
-      is the closed-form half-gap at every pitch, not just at one. As the pitch approaches 90° the spiral approaches a
-      circle, the gap approaches zero, and the error goes with it: <b>the format handles a spiral perfectly in exactly
-      the limit where it stops being one.</b></p>
-     <p class="foot">Which is the whole page in one line. There is nothing wrong with the spiral and nothing wrong
-      with the format; the mismatch is that one of them is a statement about multiplying and the other is a statement
-      about a circle, and the fix is not to make either do the other's job but to give the growth to the ladder that
-      was built for it.</p>`;
+     <p style="margin-top:8px">Inside 2σ everything is fine; past 3σ the amoeba family is producing tangles a
+      quarter to three-quarters of the time. The model is behaving correctly — <b>the set of simple closed curves is
+      not a linear subspace</b>, so no linear model can be confined to it, and a Gaussian fitted inside it will put
+      mass outside it. Sampling near the mean stays valid because the valid region is a neighbourhood of the data,
+      not because the model knows anything.</p>
+     <p class="foot">This is the same fact the failure gallery reports from the other end: the library will compute
+      an area and a point-in-shape test for a self-crossing curve without complaint, because nothing in the
+      definition of a band-limited closed curve requires the map to be injective. Here it arrives as a sampling
+      rate rather than as a single example, which is the more useful form: it tells you where to stop.</p>`;
+},
+
+'does the model generalize': (host) => {
+  const al = SP.procrustes(famPop(1, 50));
+  const rows = SP.generalization(al, { ks: [1, 2, 3, 5, 8, 12], folds: 10 });
+  const P = SP.pca(al);
+  host.innerHTML =
+    `<p>Leave-one-out. Fit on 49 shapes, reconstruct the one held out from its first k components, and compare
+      against reconstructing a shape the model <em>did</em> see. Errors are sup distance per leaf, on shapes
+      Procrustes-normalized to unit norm.</p>
+     <table><thead><tr><th>k</th><th>in-sample</th><th>held-out</th><th>ratio</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.k}</td><td>${r.inSample.toExponential(2)}</td><td>${r.held.toExponential(2)}</td>` +
+      `<td class="${r.held / r.inSample > 3 ? 'bad' : 'ok'}">${(r.held / r.inSample).toFixed(2)}×</td></tr>`).join('') +
+    `</tbody></table>
+     <p style="margin-top:8px">The two columns track each other until k approaches the family's rank
+      (${P.modes.length}), and then they separate hard: in-sample error falls to machine zero because k components
+      can reproduce a k-dimensional family exactly, while the held-out shape has directions the fit never saw.
+      <b>The ratio column at the last row is the overfitting, stated plainly.</b></p>
+     <p class="foot">Worth saying about the method rather than the result: leave-one-out here refits the PCA on every
+      fold rather than reusing the full-population modes. Reusing them is faster, commonly done, and wrong — the held-out
+      shape contributed to the axes it is then scored against, and the "generalization" measured that way is
+      partly memory.</p>`;
 },
 };
 
+// ── paint on scroll ──────────────────────────────────────────────────────
 const io = new IntersectionObserver(ents => {
   for (const e of ents) {
     if (!e.isIntersecting) continue;
@@ -5996,10 +4909,13 @@ const io = new IntersectionObserver(ents => {
   }
 }, { rootMargin: '200px' });
 for (const t of tiles) io.observe(t.tile);
-for (const [id, key] of [['t-leaves', 'leaves'], ['t-exact', 'exact']]) {
+
+for (const [id, key] of [['t-pop', 'pop'], ['t-mean', 'mean'], ['t-leaves', 'leaves']]) {
   const btn = document.getElementById(id);
-  btn.addEventListener('click', () => { opts[key] = !opts[key]; btn.classList.toggle('on', opts[key]);
-    for (const t of tiles) if (t.paint && t.done) t.paint(); });
+  btn.addEventListener('click', () => {
+    opts[key] = !opts[key]; btn.classList.toggle('on', opts[key]);
+    for (const t of tiles) if (t.paint && t.done) t.paint();
+  });
 }
 globalThis.addEventListener('resize', () => { for (const t of tiles) if (t.paint && t.done) t.paint(); });
 

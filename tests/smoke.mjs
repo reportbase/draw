@@ -141,7 +141,7 @@ const { readdir } = await import('node:fs/promises');
 const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith('.html') && f !== 'index.html' && f !== 'inspect.html').sort();
 // Chart pages (the spiral) draw a measurement per tile rather than a list of loops: no
 // spectrum strip, and their own tile code. Everything else here is a shape page.
-const CHART_PAGES = new Set(['spiral.html']);
+const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of galleries){
   current = 'gallery/' + g;
@@ -154,7 +154,26 @@ for (const g of galleries){
     // styled by gallery/style.css: the slate ground, not the browser's white
     const bg = await gp.evaluate(() => getComputedStyle(document.body).backgroundColor);
     if (bg !== 'rgb(12, 15, 22)') throw new Error('style.css did not apply (body is ' + bg + ')');
-    await gp.$eval('.tile .edit', b => b.click());
+    // A chart page draws (and decides which tiles hold a curve) as tiles scroll in, and
+    // every measurement on it runs in the tab; scroll it all past, so they all run here,
+    // and catch any report that threw.
+    if (CHART_PAGES.has(g)) {
+      const threw = await gp.evaluate(async () => {
+        for (const t of document.querySelectorAll('.tile')) { t.scrollIntoView(); await new Promise(r => setTimeout(r, 120)); }
+        await new Promise(r => setTimeout(r, 1500));
+        return [...document.querySelectorAll('.tile')].filter(t => /this measurement threw|^error:/.test(
+          (t.querySelector('.report')?.textContent || '') + (t.querySelector('code.src')?.textContent || ''))).map(t => t.querySelector('h3').textContent);
+      });
+      if (threw.length) throw new Error('measurements failed: ' + threw.join('; '));
+    }
+    const edit = await gp.$('.tile .edit:not([hidden])');
+    if (!edit) {   // where it breaks hands no curve on, and has no edit buttons
+      if (!CHART_PAGES.has(g)) throw new Error('no edit button');
+      await gp.close();
+      console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} gallery/${g} (no curves to edit)`);
+      continue;
+    }
+    await edit.evaluate(b => b.click());
     await gp.waitForFunction(() => window.__links.length > 0, null, { timeout: 10000 });
     const link = await gp.evaluate(() => window.__links[0]);
     // The spectrum strip under that tile drew, and said something.

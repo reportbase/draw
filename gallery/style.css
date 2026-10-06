@@ -199,7 +199,7 @@ footer b{color:var(--ink-2);font-weight:600}
   .grid{grid-template-columns:1fr}
 }
 
-/* ── CHART PAGES ── (the spiral) tiles that draw a measurement rather than a list of
+/* ── CHART PAGES ── (the spiral, the menagerie, shape space, where it breaks) tiles that draw a measurement rather than a list of
    loops: a chart beside the curve, a verdict line saying what the chart shows, and no
    spectrum strip, because the curve is not the thing being measured. body.page-chart. */
 .tile.tall.wide canvas{height:400px}
@@ -209,4 +209,7 @@ footer b{color:var(--ink-2);font-weight:600}
    reads as a warning in amber rather than an alarm in red */
 .tile .verdict.bad{border-color:rgba(242,193,78,.38);background:rgba(242,193,78,.08);color:#f6d68a}
 .page-chart .tile code.src{white-space:pre-wrap}
+.page-chart .tile > .report{border-top:1px solid var(--line);margin:0 -10px -10px;padding:12px 15px 12px}
+/* a number the page is pointing at as wrong: the amber of a failing verdict, underlined */
+.page-chart .wrong{color:#f6d68a;border-bottom:1px dotted rgba(242,193,78,.55)}
 .page-chart .sec-head .n{font-style:italic;font-variant-numeric:normal}
