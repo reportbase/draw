@@ -207,15 +207,38 @@ try {
     }
   });
 
-  await step('save depth where needed', async () => {
+  /* The walls (WLS): scored over the whole range, not only where level 3 is reached, the
+     flat-walls writer holds every point off the walls to 1e-5 of the departure, where the full
+     file and the where-needed file miss by percents in bands at the walls; and its walls are
+     closer than theirs. The saved file uses it. */
+  /* SIT, re-measured (the format paper's "what the recursion found", 3): learning a shape from
+     its encounters, the nested reader stays under 1% at every distance from 4 to 128 h, while
+     the one sweep's error grows more than fifteenfold (23× when measured). */
+  await step('learning the shapes', async () => {
+    const r = await page.evaluate(() => runShapeEncounters().rows.map(x => ({ D: x.D, eA: x.eA, eB: x.eB })));
+    const med = a => a.slice().sort((x, y) => x - y)[a.length >> 1], at = D => r.filter(x => x.D === D);
+    if (r.some(x => !(x.eB < 0.01))) throw new Error('the nested reader misses by ' + Math.max(...r.map(x => x.eB)));
+    const grow = med(at(128).map(x => x.eA)) / med(at(4).map(x => x.eA));
+    if (!(grow > 15)) throw new Error('the one sweep grows only ×' + grow.toFixed(1) + ' from 4 to 128 h');
+  });
+
+  await step('walls', async () => {
+    const r = await page.evaluate(() => runDepthWalls());
+    if (r.rows.length < 20) throw new Error('only ' + r.rows.length + ' shapes read');
+    for (const x of r.rows) {
+      if (!(x.flat.all < 2e-5)) throw new Error(`${x.key}: flat walls miss by ${x.flat.all} off the walls`);
+      if (!(x.full.all > 10 * x.flat.all)) throw new Error(`${x.key}: the full file misses by only ${x.full.all}`);
+      if (!(Math.max(...x.flat.byWall.slice(3)) <= Math.max(...x.full.byWall.slice(3)))) throw new Error(`${x.key}: the inner walls got worse`);
+    }
+  });
+  await step('save depth: flat walls', async () => {
     for (const key of ['circle', 'egg']) {
       const r = await page.evaluate(k => depthSaveCheck(k), key);
       if (r.why) throw new Error(`${key}: ${r.why}`);
-      if (!(r.tau === 1e-6)) throw new Error(`${key}: saved with τ ${r.tau}, not the where-needed writer`);
-      if (!(r.docs < r.fullDocs / 2)) throw new Error(`${key}: ${r.docs} sweeps saved against ${r.fullDocs}`);
+      if (!(r.tau === 1e-6)) throw new Error(`${key}: saved with τ ${r.tau}, not the flat-walls writer`);
       if (r.readBack !== r.docs) throw new Error(`${key}: ${r.docs} sweeps written, ${r.readBack} read back`);
       if (!(r.trip < 1e-5)) throw new Error(`${key}: the round trip moved the reading by ${r.trip}`);
-      if (!(r.miss <= 1.5 * Math.max(r.tau, r.fullMiss))) throw new Error(`${key}: the saved reading misses by ${r.miss} (full ${r.fullMiss})`);
+      if (!(r.miss < 2e-5)) throw new Error(`${key}: the saved reading misses by ${r.miss} over the range (full ${r.fullMiss})`);
     }
   });
 
@@ -250,7 +273,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -434,17 +457,20 @@ await step('the two horns', async () => {
   if (Math.abs(r.norm - 1) > 1e-9) throw new Error('Fejér norm ' + r.norm);
 });
 
-/* The inspector reads depth (TVF §2.8): the example is written to text and read back, 518
-   sweeps, level 3 within the paper's range of the shape, the round trip through 8 digits
-   small; pasted depth text takes the same road. Its depth engine is the editor's, copied:
+/* The inspector reads depth (TVF §2.8): the example is written to text the way the editor
+   saves one (flat walls, 262 sweeps) and read back, level 3 within 1e-5 of the shape over the
+   whole range, where the full writer misses by percents at the walls; the round trip through 8
+   digits small; pasted depth text takes the same road. Its depth engine is the editor's, copied:
    the copy must still match. */
 await step('inspector reads depth', async () => {
   const strip = s => s.replace(/\s+/g, '');
-  const ed = await readFile(join(ROOT, 'draw.html'), 'utf8'), ins = await readFile(join(ROOT, 'gallery/inspect.html'), 'utf8');
+  const ed = await readFile(join(ROOT, 'draw.html'), 'utf8'), ins = await readFile(join(ROOT, 'gallery/inspect.html'), 'utf8'),
+        dep = await readFile(join(ROOT, 'gallery/depth.html'), 'utf8');
   const grab = (src, start) => { const i = src.indexOf(start); if (i < 0) return null; let d = 0, k = src.indexOf('{', i);
     for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) break; } return strip(src.slice(i, k + 1)); };
-  for (const [what, start] of [['DEPTH', 'const DEPTH = (function() {'], ...['fmtSig', 'rungOfRow', 'depthToTVF', 'depthFromTVF', 'depthLearnedFacing'].map(f => [f, 'function ' + f + '(']) ])
-    if (!grab(ins, start) || grab(ins, start) !== grab(ed, start)) throw new Error(`the inspector's ${what} no longer matches the editor's`);
+  for (const [what, start] of [['DEPTH', 'const DEPTH = (function() {'], ...['fmtSig', 'rungOfRow', 'depthToTVF', 'depthFromTVF', 'depthLearnedFacing', 'depthEnterWhereNeeded', 'wlsSlopeRow', 'wlsSolve', 'depthEnterFlat', 'depthEnterFlatWalls'].map(f => [f, 'function ' + f + '(']) ])
+    for (const [page, src] of [['inspector', ins], ['depth gallery', dep]])
+      if (!grab(src, start) || grab(src, start) !== grab(ed, start)) throw new Error(`the ${page}'s ${what} no longer matches the editor's`);
   const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   gp.on('pageerror', e => failures.push(`[inspector depth] ${e.message}`));
   await gp.goto(new URL('gallery/inspect.html', base).href, { waitUntil: 'load' });
@@ -457,12 +483,37 @@ await step('inspector reads depth', async () => {
   await gp.$eval('#paste', (t, v) => { t.value = v; t.dispatchEvent(new Event('input')); }, text);
   const b = await read();
   await gp.close();
-  if (a['the file'] !== '518 sweeps of 16 values') throw new Error('depth example read as ' + a['the file']);
+  if (a['the file'] !== '262 sweeps of 16 values') throw new Error('depth example read as ' + a['the file']);
+  const fullMiss = parseFloat((a['the walls'] || '').replace(/^.*misses by /, ''));
+  if (!(fullMiss > 0.1)) throw new Error('the full writer at the walls: ' + a['the walls']);
   const lvl3 = parseFloat((a['against the shape'] || '').replace(/^.*misses by /, ''));
   if (!(lvl3 > 0 && lvl3 < 1e-5)) throw new Error('level 3 misses the shape by ' + a['against the shape']);
   const trip = parseFloat(a['round trip'] || '');
   if (!(trip < 1e-5)) throw new Error('round trip ' + a['round trip']);
-  if (b['the file'] !== '518 sweeps of 16 values' || !/^1 at level 0/.test(b.addresses || '')) throw new Error('pasted depth text read as ' + JSON.stringify(b));
+  if (b['the file'] !== '262 sweeps of 16 values' || !/^1 at level 0/.test(b.addresses || '')) throw new Error('pasted depth text read as ' + JSON.stringify(b));
+});
+
+/* Depth: the page's claims, measured on the page with its own copy of the editor's engine. Flat
+   walls hold the run-1 shape to 1e-5 over the whole range, where every octave and where needed
+   miss by percents beside the walls; and at about the same count of values depth beats one sweep
+   on the grain beside the reader, and loses to it on a smooth bump out in the turn. */
+await step('depth gallery', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[depth gallery] ${e.message}`));
+  await gp.goto(new URL('gallery/depth.html', base).href, { waitUntil: 'load' });
+  const r = await gp.evaluate(() => ({ flat: depthPageCheck('two bumps', 'flat walls', 1e-6), full: depthPageCheck('two bumps', 'every octave', 1e-6),
+                                       dwn: depthPageCheck('two bumps', 'where needed', 1e-6) }));
+  if (!(r.flat.worst < 1e-5)) throw new Error('flat walls miss two bumps by ' + r.flat.worst);
+  if (!(r.full.worst > 1e-3 && r.dwn.worst > 1e-3)) throw new Error(`every octave ${r.full.worst}, where needed ${r.dwn.worst}: the walls no longer show`);
+  if (r.full.docs !== 518) throw new Error('every octave is ' + r.full.docs + ' sweeps');
+  const verdict = async shape => gp.evaluate(async sh => { const t = [...document.querySelectorAll('.tile')].find(x => x.querySelector('h3')?.textContent === 'the same values, two ways');
+    const sel = t.querySelector('select[data-k="shape"]'); sel.value = sh; sel.dispatchEvent(new Event('input'));
+    for (let i = 0; i < 200 && !/values in depth/.test(t.querySelector('.verdict').textContent); i++) await new Promise(r => setTimeout(r, 100));
+    return t.querySelector('.verdict').textContent; }, shape);
+  const grain = await verdict('a grain by the reader'), bump = await verdict('a narrow bump');
+  await gp.close();
+  if (!/depth [\d,]+× closer/.test(grain)) throw new Error('the grain by the reader: ' + grain);
+  if (!/breadth [\d,]+× closer/.test(bump)) throw new Error('a narrow bump: ' + bump);
 });
 
 /* Where you stand: the situated reader's claims, measured on the page with its own module. The

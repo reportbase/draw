@@ -397,7 +397,7 @@ window.inspectShapes = show;     // for the smoke test, and for poking at shapes
 // so the reading can be put back on the shape it was read from. Until now only the editor
 // could read one. The engine below is the editor's, copied unchanged, and the smoke test
 // fails if the copy drifts.
-// >>> copied from draw.html, unchanged: DEPTH, fmtSig, rungOfRow, depthToTVF, depthFromTVF, depthLearnedFacing
+// >>> copied from draw.html, unchanged: DEPTH, fmtSig, rungOfRow, depthToTVF, depthFromTVF, depthLearnedFacing, depthEnterWhereNeeded, WLS_K, wlsSlopeRow, wlsSolve, depthEnterFlat, depthEnterFlatWalls
 const DEPTH = (function() {
     const halve = t => t / (1 + Math.sqrt(1 + t * t));
     const step = (a, b) => (a + b) / (1 - a * b);
@@ -704,6 +704,135 @@ function depthLearnedFacing(surf, frame, upto, n) {
     }
     return pts;
 }
+function depthEnterWhereNeeded(surf, p, lo, hi, L, tol) {
+    const D = DEPTH;
+    surf.enter([]);
+    const holds = P => {
+        for (const r of surf.sk) {
+            const x = D.S(P, r),
+                e = Math.abs(p(x) - surf.value(x));
+            if (!(e <= tol))
+                return true; // over tolerance, or not a number: enter, to be safe
+        }
+        return false;
+    };
+    let frontier = [];
+    for (let k = D.split(lo)[0]; k <= D.split(hi)[0]; k++)
+        if (holds([k])) {
+            surf.enter([k]);
+            frontier.push([k]);
+        }
+    for (let m = 2; m <= L; m++) {
+        const next = [];
+        for (const P of frontier)
+            for (let k = -2; k <= 3; k++) {
+                const Q = P.concat([k]),
+                    [a, b] = D.range(Q);
+                if (b < lo || a > hi || !holds(Q))
+                    continue;
+                surf.enter(Q);
+                next.push(Q);
+            }
+        frontier = next;
+    }
+    return surf.docs.size;
+}
+const WLS_K = 12;
+const wlsSlopes = new Map(); // wall ρ → the slope of each leaf's presentation there (the kernel only)
+function wlsSlopeRow(sk, w) {
+    const key = sk.length + ':' + w;
+    if (!wlsSlopes.has(key)) {
+        const h = 1e-5, e = sk.map(() => 0);
+        wlsSlopes.set(key, sk.map((_, j) => {
+            e.fill(0);
+            e[j] = 1;
+            return (DEPTH.present(w * Math.exp(h), sk, e) - DEPTH.present(w * Math.exp(-h), sk, e)) / (2 * h);
+        }));
+    }
+    return wlsSlopes.get(key);
+}
+function wlsSolve(M, b) {
+    const n = b.length, A = M.map((r, i) => r.concat([b[i]]));
+    for (let c = 0; c < n; c++) {
+        let piv = c;
+        for (let r = c + 1; r < n; r++)
+            if (Math.abs(A[r][c]) > Math.abs(A[piv][c]))
+                piv = r;
+        [A[c], A[piv]] = [A[piv], A[c]];
+        for (let r = 0; r < n; r++)
+            if (r !== c) {
+                const f = A[r][c] / A[c][c];
+                for (let k = c; k <= n; k++)
+                    A[r][k] -= f * A[c][k];
+            }
+    }
+    return A.map((r, i) => r[n] / r[i]);
+}
+// Enter the sweep at P holding what the levels above left, its row adjusted so the residual
+// after it is flat at the given walls (ρ in P's own reading).
+function depthEnterFlat(surf, p, P, walls) {
+    const D = DEPTH,
+        sk = surf.sk,
+        t = r => {
+            const x = D.S(P, r);
+            return p(x) - surf.value(x);
+        },
+        dlog = (f, r) => (f(r * Math.exp(1e-5)) - f(r * Math.exp(-1e-5))) / 2e-5;
+    let c = sk.map(t);
+    const ws = walls.filter(w => w > sk[0] && w < 1 / sk[0]);
+    if (ws.length) {
+        const A = ws.map(w => wlsSlopeRow(sk, w)),
+            g = ws.map(w => dlog(t, w) - dlog(r => D.present(r, sk, c), w)),
+            y = wlsSolve(A.map(a => A.map(b => a.reduce((s, v, i) => s + v * b[i], 0))), g);
+        if (y.every(isFinite))
+            c = c.map((v, j) => v + A.reduce((s, a, i) => s + a[j] * y[i], 0));
+    }
+    surf.docs.set(P.join('.'), c);
+}
+// The writer: DWN's rule (enter only where the residual at the octave's own leaves exceeds
+// tol), children −K…K+1, every row flat at its children's walls.
+function depthEnterFlatWalls(surf, p, lo, hi, L, tol, K) {
+    const D = DEPTH;
+    K = K || WLS_K;
+    const holds = P => {
+        for (const r of surf.sk) {
+            const x = D.S(P, r),
+                e = Math.abs(p(x) - surf.value(x));
+            if (!(e <= tol))
+                return true;
+        }
+        return false;
+    };
+    const k0 = D.split(lo)[0],
+        k1 = D.split(hi)[0],
+        rootWalls = [],
+        kidWalls = [];
+    for (let k = k0; k < k1; k++)
+        rootWalls.push(2 ** k);
+    for (let j = -K; j <= K; j++)
+        kidWalls.push(2 ** j);
+    depthEnterFlat(surf, p, [], rootWalls);
+    let frontier = [];
+    for (let k = k0; k <= k1; k++)
+        if (holds([k])) {
+            depthEnterFlat(surf, p, [k], L > 1 ? kidWalls : []);
+            frontier.push([k]);
+        }
+    for (let m = 2; m <= L; m++) {
+        const next = [];
+        for (const P of frontier)
+            for (let k = -K; k <= K + 1; k++) {
+                const Q = P.concat([k]),
+                    [a, b] = D.range(Q);
+                if (b < lo || a > hi || !holds(Q))
+                    continue;
+                depthEnterFlat(surf, p, Q, m < L ? kidWalls : []);
+                next.push(Q);
+            }
+        frontier = next;
+    }
+    return surf.docs.size;
+}
 // <<< end of the copied depth code
 const DEPTH_LO = 2 ** -6, DEPTH_HI = 2 ** 6, DEPTH_L = 3, DTV_W = 16;
 
@@ -805,7 +934,9 @@ function renderDepthFacts() {
   out.push(fact('what each level adds', d.adds.map((a, i) => `level ${i + 1}: ${sci(a)}`).join(' · ') || 'nothing past the root',
     'The largest change each level makes to the reading. A level adds only what the levels above it left, inside its own octaves, so these should fall: the coarse shape first, then the detail, wherever it is.'));
   if (d.truth) out.push(fact('against the shape', `level ${d.L} misses by ${sci(d.truth[d.L])}`,
-    `Measured against the closed-form shape this example was read from, level by level, each level only where the reading reaches it (the editor's own scoring): ${d.truth.map((t, m) => m + ': ' + sci(t)).join(' · ')}. The format paper measures 7×10⁻⁸ to 6×10⁻⁶ at level 3 over the editor's library.`));
+    `Measured against the closed-form shape this example was read from, over the whole range from home to the far wall (400 points, none exactly on a wall), level by level: ${d.truth.map((t, m) => m + ': ' + sci(t)).join(' · ')}.`));
+  if (d.fullDocs) out.push(fact('the walls', `the full writer misses by ${sci(d.fullMiss)}`,
+    `Entering every octave to level 3 takes ${d.fullDocs} sweeps, yet the reading reaches level 3 on only ${Math.round(100 * d.fullReach)}% of the range: near every wall between octaves, at every level, it stops short. A sweep is flat at its walls (its kernel is mirrored there) and what it is handed generally is not, so no sweep holds it near them. This file was written the way the editor now saves one: each sweep's row chosen so what it leaves is flat at its children's walls, and children entered further out where needed. <a class="paper" href="../papers.html#tvf:2.8-depth">The format, §2.8</a>.`));
   if (d.trip != null) out.push(fact('round trip', `${sci(d.trip)} through text`,
     'Written to the file above at 8 significant digits and read back: the full reading changes by this much at most, as a share of the departure. Each value carries 8 digits, and a reading sums one sweep per level, so the rounding of a few documents adds up here.'));
   factsEl.innerHTML = out.join('');
@@ -820,14 +951,21 @@ function depthExample() {
   const sOf = th => { const r = R(th); return (1 - r * Math.cos(th)) / (r * Math.sin(th)); };
   const thAt = s => { let lo = 1e-12, hi = Math.PI - 1e-12; for (let i = 0; i < 200; i++) { const m = 0.5 * (lo + hi); if (sOf(m) < s) lo = m; else hi = m; } return 0.5 * (lo + hi); };
   const p = s => { const th = thAt(s); return R(th) * Math.sin(th) / (2 * s / (1 + s * s)); };
+  // Written as the editor saves a depth file: flat at every wall, octaves entered only where
+  // the residual exceeds 1e-6 of the departure (the format, §2.8, "the walls"). The full writer,
+  // every octave to level 3, is written too, to say what the walls cost it.
+  const g = depthGrid(400), size = Math.max(...g.map(s => Math.abs(p(s) - 1)));
   const surf = DEPTH.Surface(p, DTV_W);
-  DEPTH.enterRange(surf, DEPTH_LO, DEPTH_HI, DEPTH_L);
+  depthEnterFlatWalls(surf, p, DEPTH_LO, DEPTH_HI, DEPTH_L, 1e-6 * size);
+  const full = DEPTH.Surface(p, DTV_W);
+  DEPTH.enterRange(full, DEPTH_LO, DEPTH_HI, DEPTH_L);
   const frame = { x0: 1, y0: 0, tx: 0, ty: 1, cx: 0, cy: 0, Rm: 1 };
   const text = depthToTVF(surf, frame, 'a circle with two bumps');
   const back = readDepth(text);
-  const g = depthGrid(400), size = Math.max(...g.map(s => Math.abs(p(s) - 1)));
-  back.truth = Array.from({ length: back.L + 1 }, (_, m) =>
-    Math.max(...g.map(s => reaches(back.surf, s, m) ? Math.abs(back.surf.value(s, m) - p(s)) : 0)) / size);
+  back.truth = Array.from({ length: back.L + 1 }, (_, m) => Math.max(...g.map(s => Math.abs(back.surf.value(s, m) - p(s)))) / size);
+  back.fullDocs = full.docs.size;
+  back.fullMiss = Math.max(...g.map(s => Math.abs(full.value(s, DEPTH_L) - p(s)))) / size;
+  back.fullReach = g.filter(s => reaches(full, s, DEPTH_L)).length / g.length;
   back.trip = Math.max(...g.map(s => Math.abs(back.surf.value(s, DEPTH_L) - surf.value(s, DEPTH_L)))) / size;
   return back;
 }

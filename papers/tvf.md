@@ -4,7 +4,7 @@
 
 *Revised 5 October 2026: TVF holds depth as well as breadth, with no new syntax (§2.8). Measured in the drawing tool's editor; see `wander/tvf-depth-test.md`.*
 
-*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8). Revised 7 October 2026: the drawing tool's saved depth files now enter octaves only where needed, at τ = 10⁻⁶; and what the recursion found, stated (§2.8).*
+*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8). Revised 7 October 2026: the drawing tool's saved depth files now enter octaves only where needed, at τ = 10⁻⁶; and what the recursion found, stated (§2.8). Later the same day, the walls: scored over the whole range rather than only where level 3 is reached, every depth file so far missed by up to 15% in bands at the walls between octaves. The cause is that a sweep is flat at its walls. A writer whose rows leave flat residuals at their children's walls holds the whole range to 10⁻⁵, and the saved files now use it (§2.8). And the one result the statement of the recursion quoted from an earlier run, the nested reader against one sweep at a distance, re-measured: it holds (§2.8). And depth against breadth, re-scored over the whole range: depth still wins on the library, 24 of 24, but on a smooth formula with its detail away from the reader one sweep wins. The gallery's *Depth* page shows both (§2.8).*
 
 This is the tight specification. It supersedes the v22.x working document,
 which accreted iteration logs, extrapolations later withdrawn, and
@@ -353,7 +353,8 @@ engine), a depth file holds a shape read from a standpoint on its outline:
   by address, p(s) = h met ÷ 2s/(1+s²);
 - octaves are entered over 2⁻⁶…2⁶ to level 3; since 7 October the file the
   drawing tool saves enters an octave only where it has something to hold, at
-  τ = 10⁻⁶ of the departure (below).
+  τ = 10⁻⁶ of the departure, with each row flat at its children's walls
+  (below, "The walls").
 
 **Measured** (5 October 2026, `wander/tvf-depth-test.md`; 24 library shapes):
 - **The round trip** through text changes the reading by at most 2.3×10⁻⁷ of
@@ -366,6 +367,23 @@ engine), a depth file holds a shape read from a standpoint on its outline:
 
   Packing leaves into one sweep spends them evenly over the reader's turn.
   Entering octaves puts a whole sweep wherever the reading is.
+
+  *Re-scored 7 October over the whole range* (the walls, below), the depth
+  file written with flat walls (317 to 1,398 sweeps) against one sweep of the
+  power of two at or below its count:
+  - depth is still better on 24 of 24 library shapes, by 4× to 4,900×;
+  - breadth's worst miss sits at an end of the range on every shape, mostly
+    right beside the reader. There the outline's finest detail fills whole
+    octaves of the reading, and one sweep's even turn cannot zoom.
+
+  It is not a law for every shape. On a shape given by a smooth formula
+  (the gallery's *Depth* page: a unit circle with gaussian bumps), one sweep
+  of 2,048 to 4,096 leaves holds a bump out in the turn to 10⁻¹⁰ or so. It
+  converges spectrally, while a depth file stops at the τ it was written to
+  (10⁻⁶), so breadth wins there by about 2×10⁴. A grain of detail 2° from the
+  reader turns it round: depth 6.8×10⁻⁷, one sweep 2.7%. Depth beats breadth
+  where the detail is near the reader, which is where an outline read from
+  points keeps its finest detail.
 - **Size:** entering every octave whatever the shape gives 518 sweeps, about
   140 kB of text per shape.
 - **Entering only where needed** (built 6 Oct, `draw.html?lab=dwn`):
@@ -397,6 +415,61 @@ engine), a depth file holds a shape read from a standpoint on its outline:
   - **The cost of depth is set by the shape, not the range:** the circle
     needs 129 sweeps and the egg 244, where the full writer gives every
     shape 518.
+  - **Corrected the same day:** these misses, like the 5 October ones, were
+    scored only where the reading reaches level 3. Over the whole range,
+    both files miss by up to 15% in bands at the walls (next).
+
+**The walls** (7 Oct, `draw.html?lab=wls`). Scored over the whole range from
+home to the far wall (2,000 points, none exactly on a wall), the full file
+reaches level 3 on only 76% of it. Elsewhere it stops at level 1 or 2 and
+misses by up to 15% of the departure (on the egg; 0.3% to 15% over the
+library). There are two causes.
+
+1. **A sweep is flat at its walls.** Its presentation is the theorem's kernel
+   mirrored about home, with period π, so it is even about both of its walls:
+   its slope there is zero (measured: 3×10⁻³ at the walls against about 7
+   inside). What a level hands down generally slopes across a wall, so no sweep
+   holds it near one. The miss there is the slope times the leaf spacing. Every
+   child's walls are walls again one level down, so this happens at every wall
+   at every level, and children entered toward a wall only halve the band, one
+   per child: closing it that way took about 4,000 sweeps on the closed-form
+   example.
+2. **Children −2…3 reach ρ from ⅛ to 8 only.** Detail beyond that, such as a
+   narrow bump near a wall, gets no level 2 at all.
+
+**The fix is the writer's, and the format is unchanged.** A sweep is still a row
+of W values that any reader presents the same way, but the writer chooses
+them: the residual at the leaves, plus the least change that makes what the
+sweep leaves behind flat at its children's walls (its slope matched, in log ρ).
+A flat residual is what a mirrored sweep holds, so the next level holds it,
+walls included. Only walls inside the sweep's leaf span are matched: beyond its
+first and last leaf a sweep has no slope to give, and asking for it there blew
+the rows up (8%). Children are then considered out to −12…13 and entered only
+where needed (τ = 10⁻⁶).
+
+Over the 24 library shapes, scored over the whole range:
+
+| writer | sweeps (median, range) | reaches level 3 | misses > 10⁻⁵ | worst miss | inner walls (median) |
+|---|---|---|---|---|---|
+| every octave | 518 | 76% | 9.1% | 1.5×10⁻¹ | 1.0×10⁻³ |
+| where needed, τ = 10⁻⁶ | 127 (79 … 244) | 2–35% | 9.1% | 1.5×10⁻¹ | 1.0×10⁻³ |
+| flat walls, children ±4 | 218 (142 … 386) | 9–44% | 1.1% | 1.6×10⁻¹ | 1.4×10⁻⁴ |
+| flat walls, children ±12 | 787 (317 … 1,398) | 10–45% | 0 | 9.9×10⁻⁶ | 1.4×10⁻⁴ |
+
+- **Holding the whole range costs more than the full file:** a median of 787
+  sweeps against 518, about 210 kB. It is the first writer that holds every
+  point. Without flat walls the same children cost 4,037 sweeps on the
+  example, so the flat rows are what make it affordable.
+- **"Reaches level 3" stops meaning "held".** With flat walls a reading held
+  at level 2 is already within τ there, so the writer stops, and the share
+  reaching level 3 falls while the miss falls with it.
+- **On the closed-form example:** 262 sweeps, 4.1×10⁻⁶ over the whole range,
+  against the full writer's 518 sweeps and 1.5%. The inspector now writes its
+  example this way.
+- **The walls themselves still stop short.** At exactly s = 2^k the address
+  runs to the end of its octave and goes no deeper, so a reading there is
+  held only to level 1. Flat rows make that 7× closer (median 1.4×10⁻⁴
+  against 1.0×10⁻³ at the inner walls), but they do not close it.
 
 **What the recursion found.** The corner showed that one sweep can read a
 shape's breadth: where the corner falls among the reader's arrivals gives back
@@ -414,15 +487,24 @@ and so on down.
    shape's departure from the reader's unit circle. Each entered octave holds
    the residual inside that octave only. Nothing is stored twice, and the
    format needed no new syntax.
-3. **Depth beats breadth.** At an equal count of values, depth was better on
-   24 of 24 shapes (above). For a reader learning a shape at a distance, the
-   nested reader's error stayed flat at 0.7% from 4 to 128 steps away, while a
-   single sweep's grew 23-fold. That second result is recorded in the drawing
-   tool's lab notes from an earlier run and has not been re-measured here.
+3. **Depth beats breadth where the detail is near the reader.** At an equal
+   count of values, depth was better on 24 of 24 library shapes (above), and
+   still is when scored over the whole range. On a smooth formula with its
+   detail out in the turn, one sweep wins (above). The same holds for a reader learning a shape at a
+   distance from its encounters (the drawing tool's lab `sit`, five
+   pathological shapes, 1,024 values either way). The nested reader's error
+   stays flat at 0.5–0.8% (median 0.73–0.76%) from 4 to 128 steps away. A
+   single sweep's error grows from 0.31% to 7.35% (medians), 23-fold. This was
+   first recorded from an earlier Python run and re-measured here on 7 October;
+   the two agree. Near the reader the single sweep is the finer one, up to
+   about 8 steps. Past 128 steps its error falls again (2.4% at 256), but only
+   because the whole shape then fits between two of its leaves, and the error
+   depends on where a leaf happens to fall.
 4. **The cost follows the shape, not the range.** Entering an octave only
-   where it has something to hold keeps every library shape within about a
-   millionth of its departure with 79 to 244 sweeps instead of 518. The circle
-   needs 129 and the egg 244. Recursion goes where the detail is.
+   where it has something to hold, with every row flat at its children's walls,
+   keeps every library shape within 10⁻⁵ of its departure over the whole range,
+   with 317 to 1,398 sweeps. The circle needs 810 and the egg 1,398. Recursion
+   goes where the detail is, and to where the walls are.
 5. **For complex shapes, recursion counts hiding, not intricacy.** A child
    reader can stand where its parent saw furthest. The levels then needed count
    how many times the way in turns out of sight, not how intricate the outline
@@ -447,10 +529,10 @@ for the depth case.
 
 **Open:**
 - entering octaves only where needed. Built (above). The drawing tool's saved
-  files use τ = 10⁻⁶ (7 Oct): the circle saves in 129 sweeps (35 kB), the egg
-  in 244 (66 kB), read back through text to 2.3×10⁻⁷. What is left is choosing
-  τ for other uses, and whether a writer should also enter between an
-  octave's leaves when the residual peaks there;
+  files use it at τ = 10⁻⁶ with flat walls (7 Oct): the circle saves in 810
+  sweeps (219 kB), the egg in 1,398 (378 kB), read back through text to
+  2.0×10⁻⁷. What is left is choosing τ for other uses, and whether a writer
+  should also enter between an octave's leaves when the residual peaks there;
 - a depth reader in the reference decoder. One now runs outside the drawing
   tool: the gallery's inspector (`gallery/inspect.html`) reads a depth file,
   pasted or built from its example, and puts it back on the shape level by
@@ -459,13 +541,13 @@ for the depth case.
   bumps, it misses the shape by 4.8×10⁻⁶ of the departure at level 3, scored
   only where the reading reaches level 3. It reads its 518 sweeps back
   through text to 1.1×10⁻⁶;
-- the joins at walls (each wall is one octave's far wall meeting the next one's
-  home; the reference gives a wall its own address). The inspector met this
-  directly. At exactly s = 2^k the address runs to the end of its octave
-  (ρ = ∞) and goes no deeper, so a reading sampled there stops short. On the
-  example that is a miss of 1.9% of the departure, where points just off the
-  wall miss by a few millionths.
-  It samples between walls;
+- the walls themselves. The bands beside them are closed (above, "The
+  walls"); the points s = 2^k are not. A reading there runs to the end of its
+  octave (ρ = ∞) and goes no deeper, so it is held only to level 1: 1.4×10⁻⁴
+  of the departure at the median inner wall with flat rows. Closing it is a
+  reading rule, not a writer's choice. For example, a reading that lands on
+  a wall could be read as the limit from inside its octave. That would change
+  how every reader descends, so it is left open;
 - depth rows for readers nested in readers (a chain of standpoints rather than
   octaves of one reading).
 
@@ -769,10 +851,17 @@ at equal value count, better than breadth alone on 24 of 24 library shapes
 gallery's inspector (6 Oct): level 3 within 4.8×10⁻⁶ of the departure on the
 closed-form example. Entering octaves only where needed (6 Oct): at τ = 10⁻⁶
 of the departure, 79 to 244 sweeps (median 127, against 518) with the miss
-held to about τ, or to the full file's own miss where that is worse. The drawing
-tool's saved depth files use that writer since 7 Oct. Open: the joins
-at walls, where a reading sampled exactly on 2^k stops short (1.9% on the
-example).
+held to about τ where level 3 is reached. The walls (7 Oct): over the whole
+range every file so far missed by up to 15% in bands at the walls between
+octaves, because a sweep is flat at its walls. Rows chosen to leave flat
+residuals there, with children out to ±12 entered where needed, hold every
+library shape to 10⁻⁵ over the whole range (317 to 1,398 sweeps, median 787).
+The drawing tool's saved depth files use that writer. Depth against breadth,
+re-scored over the whole range (7 Oct): depth wins on the library 24 of 24 (4×
+to 4,900×); on a smooth formula with its detail away from the reader, one sweep
+wins. Open: the wall points
+s = 2^k themselves, where a reading stops at level 1 (1.4×10⁻⁴ at the median
+inner wall).
 
 **Partially validated:** forward transform on *real* (non-synthetic) sensor
 output; multi-depth segmented encoder (30–33 dB on landscapes, tuning open);

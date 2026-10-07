@@ -3052,12 +3052,12 @@
                 <button id="bTour" title="the tour — visit every shape in the drawing in turn, fitted to the screen, the camera arriving on a critically damped spring. Loops. Touch the camera or press Escape to stop.">tour the shapes</button>
             </div>
 
-            <!-- THE GALLERIES ARE THE COURSE BOOK. Nineteen pages under gallery/, each making one claim
+            <!-- THE GALLERIES ARE THE COURSE BOOK. Twenty pages under gallery/, each making one claim
                    about what a band-limited loop can and cannot be, every tile live and every tile one
                    click (its edit button) from this canvas. A new tab, so the scene here is untouched. -->
             <div class="group">
                 <div class="menu-title">learn</div>
-                <div class="menu-note sub">Nineteen galleries of live shapes, in reading order, each with its spectrum drawn underneath. Any tile's edit button opens it here.</div>
+                <div class="menu-note sub">Twenty galleries of live shapes, in reading order, each with its spectrum drawn underneath. Any tile's edit button opens it here.</div>
                 <button id="bGalleries" title="open the galleries in a new tab (gallery/)" onclick="window.open('gallery/', '_blank', 'noopener')">the galleries ↗</button>
                 <button id="bLabsPage" title="every lab in the drawer as one page (labs.html): what each does, with a link that runs it" onclick="window.open('labs.html', '_blank', 'noopener')">all the labs ↗</button>
                 <button id="bPapers" title="the papers behind the editor (papers.html): the .tvf format and the Tangent Bridge theorem, readable in the page" onclick="window.open('papers.html', '_blank', 'noopener')">the papers ↗</button>
@@ -3673,7 +3673,7 @@
                     <b>blue</b>
                      the nested reader's, 
                     <b>pink</b>
-                     the one sweep's. Predicted first (SIT, 5 Oct): the nested reader's depth error stays flat with distance (kill if not); the one sweep's grows; near home the one sweep is finer. Python run: nested 0.7% at every distance; one sweep ×23 from 4 to 128 h. 
+                     the one sweep's. Predicted first (SIT, 5 Oct): the nested reader's depth error stays flat with distance (kill if not); the one sweep's grows; near home the one sweep is finer. Python run: nested 0.7% at every distance; one sweep ×23 from 4 to 128 h. Re-measured here (7 Oct, 4 to 128 h): nested 0.5–0.8% at every distance, median 0.73–0.76%; one sweep, median 0.31% at 4 h and 7.35% at 128 h, ×23.4; the one sweep is finer up to about 8 h. 
                     <b>Teal</b>
                     : nested holds better. 
                     <b>Gold</b>
@@ -3682,7 +3682,7 @@
                     : the nested reader's error is over 1%. Replaces the current page in one history frame.
                 </div>
                 <div class="group row" style="margin-top:6px;gap:8px;">
-                    <button id="bShapeEncounters" data-code="sit" class="res-btn" title="place five pathological shapes 8 to 64 h ahead and let two readers learn them from encounters only, one sweep against nested octaves; the true outline is the answer key. Replaces the current page in one history frame.">learn the shapes</button>
+                    <button id="bShapeEncounters" data-code="sit" class="res-btn" title="place five pathological shapes 4 to 128 h ahead and let two readers learn them from encounters only, one sweep against nested octaves; the true outline is the answer key. Replaces the current page in one history frame.">learn the shapes</button>
                 </div>
             </div>
 
@@ -3755,7 +3755,8 @@
                 <div class="group row" style="margin-top:6px;gap:8px;flex-wrap:wrap;">
                     <button id="bDepthTVF" data-code="dtv" class="res-btn" title="write every DPT shape's depth as a TVF file, read it back, score it against the known shape, and against breadth alone at the same number of values. Replaces the current page in one history frame.">depth in TVF</button>
                     <button id="bDepthWhereNeeded" data-code="dwn" class="res-btn" title="write every DPT shape's depth again entering an octave only where the residual it would hold exceeds a tolerance τ of the departure (τ = 1e-3 … 1e-6), and compare sweeps, bytes and miss with the full file, scored where the full file reaches level 3. Touches nothing on the page.">where needed</button>
-                    <button id="bSaveDepthTVF" data-code="dts" class="res-btn" title="save the selected shape's depth (read from DPT's standpoint on it, to level 3) as a .tvf: one document per sweep, addressed by #meta address, entering an octave only where the residual it would hold exceeds 1e-6 of the departure (DWN's rule)">save depth .tvf</button>
+                    <button id="bDepthWalls" data-code="wls" class="res-btn" title="why a depth reading fails near every wall between octaves (a sweep is flat at its walls, the residual it is handed is not), and the writer that fixes it: each row chosen so what it leaves is flat at its children's walls, children −12…13 entered where needed. Every DPT shape written three ways (every octave; where needed; flat walls) and scored over the whole range, not only where level 3 is reached. Touches nothing on the page.">walls</button>
+                    <button id="bSaveDepthTVF" data-code="dts" class="res-btn" title="save the selected shape's depth (read from DPT's standpoint on it, to level 3) as a .tvf: one document per sweep, addressed by #meta address, entering an octave only where the residual it would hold exceeds 1e-6 of the departure (DWN's rule), each row flat at its children's walls (WLS's writer), so the whole range is held, walls' neighbourhoods included">save depth .tvf</button>
                     <button id="bLoadDepthTVF" data-code="dtl" class="res-btn" title="load a depth .tvf and draw what its reader holds, as lines over the page, levels 0–3">load depth .tvf…</button>
                     <input type="file" id="fLoadDepthTVF" accept=".tvf,text/plain" hidden>
                 </div>
@@ -44549,8 +44550,9 @@
         // addresses: one sweep (1,024 leaves), or nested (16 octaves × 64 leaves, walls exact).
         // The known outline is the answer key.
         const SIT_SHAPES = [['elongated', 2], ['lobed', 3], ['ripple3', 3], ['pinched', 4], ['noisy', 3]],
-            SIT_DS = [8, 16, 32, 64];
-        function runShapeEncounters() {
+            SIT_DS = [4, 8, 16, 32, 64, 128];
+        function runShapeEncounters(DS) {
+            DS = DS || SIT_DS;
             const LA = tbLeaves(2048),
                 LAl = LA.map(Math.log),
                 LB = tbLeaves(128),
@@ -44570,7 +44572,7 @@
             const rows = [];
             for (const [fam, lvl] of SIT_SHAPES) {
                 const Q0 = _shapePrep(pathoShape(fam, lvl, 1024));
-                for (const D of SIT_DS) {
+                for (const D of DS) {
                     const P = Q0.map(p => ({
                         x: p.x,
                         y: p.y + D
@@ -44626,6 +44628,7 @@
                 rows
             };
         }
+        window.runShapeEncounters = runShapeEncounters;
         function showShapeEncounters(res) {
             const pc = x => (100 * x).toFixed(x < 0.01 ? 2 : 1) + '%';
             const rows = res.rows;
@@ -45480,6 +45483,229 @@
             }
             return surf.docs.size;
         }
+        // ── THE WALLS (WLS, 7 Oct 2026): WHY A READING FAILS NEAR EVERY WALL, AND THE WRITER THAT FIXES IT ──
+        // §2.8 left "the joins at walls" open: a reading sampled exactly on s = 2^k stopped short,
+        // 1.9% off on the inspector's example. Measuring the whole range rather than only where
+        // level 3 is reached showed it is not a point but a band at every wall, at every level:
+        // with children −2…3 the reading reaches level 3 on 76% of the example's range, and the
+        // rest misses by up to 2% of the departure. Two causes, one of them structural.
+        //
+        // 1. A sweep's presentation is mirrored about both of its walls (home and the far wall:
+        //    the theorem's kernel reflected, period π), so its slope there is always zero (the
+        //    lab measures 3e-3 at the walls against ~7 inside). The residual a level hands down
+        //    is not mirrored: it generally slopes across a wall. So no sweep can hold it near
+        //    its walls, and every child's walls are walls again, one level down. The miss there
+        //    is the slope times the leaf spacing, and entering children toward the wall only
+        //    halves the band per child: the plain writer needs about 4,000 sweeps to close it.
+        // 2. Children −2…3 cover ρ from ⅛ to 8 only; detail beyond (a narrow bump near a wall)
+        //    has no level 2 there at all.
+        //
+        // The fix is the writer's, in the format as it stands. A sweep's row is still a row of W
+        // values that any reader presents the same way, but the writer chooses them: the residual
+        // at the leaves, plus the least change that makes what the sweep leaves behind FLAT at its
+        // children's walls (the slope of the residual matched, in log ρ). Flat residuals are what
+        // a mirrored sweep holds, so the next level holds them, walls included. Only walls inside
+        // the sweep's leaf span are matched (beyond its first and last leaf a sweep has no slope
+        // to give, and asking for it blows the row up: children −6…7 matched everywhere missed by
+        // 8%). Then children are considered further out, −K…K+1, and entered only where needed
+        // (DWN's rule). On the example: 261 sweeps, against 518, and the worst miss over every
+        // point off the walls 4.5e-6 instead of 2e-2; the walls themselves about 1e-6.
+        const WLS_K = 12;
+        const wlsSlopes = new Map(); // wall ρ → the slope of each leaf's presentation there (the kernel only)
+        function wlsSlopeRow(sk, w) {
+            const key = sk.length + ':' + w;
+            if (!wlsSlopes.has(key)) {
+                const h = 1e-5, e = sk.map(() => 0);
+                wlsSlopes.set(key, sk.map((_, j) => {
+                    e.fill(0);
+                    e[j] = 1;
+                    return (DEPTH.present(w * Math.exp(h), sk, e) - DEPTH.present(w * Math.exp(-h), sk, e)) / (2 * h);
+                }));
+            }
+            return wlsSlopes.get(key);
+        }
+        function wlsSolve(M, b) {
+            const n = b.length, A = M.map((r, i) => r.concat([b[i]]));
+            for (let c = 0; c < n; c++) {
+                let piv = c;
+                for (let r = c + 1; r < n; r++)
+                    if (Math.abs(A[r][c]) > Math.abs(A[piv][c]))
+                        piv = r;
+                [A[c], A[piv]] = [A[piv], A[c]];
+                for (let r = 0; r < n; r++)
+                    if (r !== c) {
+                        const f = A[r][c] / A[c][c];
+                        for (let k = c; k <= n; k++)
+                            A[r][k] -= f * A[c][k];
+                    }
+            }
+            return A.map((r, i) => r[n] / r[i]);
+        }
+        // Enter the sweep at P holding what the levels above left, its row adjusted so the residual
+        // after it is flat at the given walls (ρ in P's own reading).
+        function depthEnterFlat(surf, p, P, walls) {
+            const D = DEPTH,
+                sk = surf.sk,
+                t = r => {
+                    const x = D.S(P, r);
+                    return p(x) - surf.value(x);
+                },
+                dlog = (f, r) => (f(r * Math.exp(1e-5)) - f(r * Math.exp(-1e-5))) / 2e-5;
+            let c = sk.map(t);
+            const ws = walls.filter(w => w > sk[0] && w < 1 / sk[0]);
+            if (ws.length) {
+                const A = ws.map(w => wlsSlopeRow(sk, w)),
+                    g = ws.map(w => dlog(t, w) - dlog(r => D.present(r, sk, c), w)),
+                    y = wlsSolve(A.map(a => A.map(b => a.reduce((s, v, i) => s + v * b[i], 0))), g);
+                if (y.every(isFinite))
+                    c = c.map((v, j) => v + A.reduce((s, a, i) => s + a[j] * y[i], 0));
+            }
+            surf.docs.set(P.join('.'), c);
+        }
+        // The writer: DWN's rule (enter only where the residual at the octave's own leaves exceeds
+        // tol), children −K…K+1, every row flat at its children's walls.
+        function depthEnterFlatWalls(surf, p, lo, hi, L, tol, K) {
+            const D = DEPTH;
+            K = K || WLS_K;
+            const holds = P => {
+                for (const r of surf.sk) {
+                    const x = D.S(P, r),
+                        e = Math.abs(p(x) - surf.value(x));
+                    if (!(e <= tol))
+                        return true;
+                }
+                return false;
+            };
+            const k0 = D.split(lo)[0],
+                k1 = D.split(hi)[0],
+                rootWalls = [],
+                kidWalls = [];
+            for (let k = k0; k < k1; k++)
+                rootWalls.push(2 ** k);
+            for (let j = -K; j <= K; j++)
+                kidWalls.push(2 ** j);
+            depthEnterFlat(surf, p, [], rootWalls);
+            let frontier = [];
+            for (let k = k0; k <= k1; k++)
+                if (holds([k])) {
+                    depthEnterFlat(surf, p, [k], L > 1 ? kidWalls : []);
+                    frontier.push([k]);
+                }
+            for (let m = 2; m <= L; m++) {
+                const next = [];
+                for (const P of frontier)
+                    for (let k = -K; k <= K + 1; k++) {
+                        const Q = P.concat([k]),
+                            [a, b] = D.range(Q);
+                        if (b < lo || a > hi || !holds(Q))
+                            continue;
+                        depthEnterFlat(surf, p, Q, m < L ? kidWalls : []);
+                        next.push(Q);
+                    }
+                frontier = next;
+            }
+            return surf.docs.size;
+        }
+        // The lab: every library shape written three ways (every octave; DWN at τ = 1e-6; flat
+        // walls at τ = 1e-6), scored over the WHOLE range off the walls (a fine geometric grid of
+        // cell midpoints, the reading to level 3 wherever it reaches), at the walls 2^k
+        // themselves, and as the share of the range the reading reaches level 3 on.
+        function runDepthWalls(K, withBreadth) {
+            const t0 = performance.now(),
+                D = DEPTH,
+                NP = 2000,
+                rows = [];
+            const grid = [];
+            for (let i = 0; i < NP; i++)
+                grid.push(DEPTH_LO * Math.pow(DEPTH_HI / DEPTH_LO, (i + 0.5) / NP));
+            const walls = [];
+            for (let k = D.split(DEPTH_LO)[0]; k < D.split(DEPTH_HI)[0]; k++)
+                walls.push(2 ** k);
+            for (const spec of PRIMITIVES) {
+                if (typeof spec.pts !== 'function')
+                    continue;
+                const rd = depthReadShape(spec);
+                if (rd.why || !(rd.sMax > DEPTH_HI * 2))
+                    continue;
+                const pv = grid.map(rd.p);
+                if (pv.some(v => !isFinite(v)))
+                    continue;
+                const size = Math.max(...pv.map(v => Math.abs(v - 1))) || 1;
+                const measure = surf => {
+                    let all = 0, reach = 0, wall = 0;
+                    for (let i = 0; i < NP; i++) {
+                        all = Math.max(all, Math.abs(surf.value(grid[i], DEPTH_L) - pv[i]));
+                        const [ks] = D.addr(grid[i], DEPTH_L);
+                        if (ks.length === DEPTH_L && surf.has(ks))
+                            reach++;
+                    }
+                    const byWall = walls.map(w => Math.abs(surf.value(w, DEPTH_L) - rd.p(w)) / size);
+                    for (const v of byWall)
+                        wall = Math.max(wall, v * size);
+                    const lv = [0, 0, 0, 0];
+                    for (const k of surf.docs.keys())
+                        lv[k === '' ? 0 : k.split('.').length]++;
+                    const oct = {}, bad = [0, 0];
+                    for (let i = 0; i < NP; i++) {
+                        const e = Math.abs(surf.value(grid[i], DEPTH_L) - pv[i]) / size, k = D.split(grid[i])[0];
+                        oct[k] = Math.max(oct[k] || 0, e);
+                        if (e > 1e-5) bad[0]++;
+                        if (e > 1e-3) bad[1]++;
+                    }
+                    return { docs: surf.docs.size, all: all / size, wall: wall / size, reach: reach / NP, byWall, lv, oct, bad: bad.map(b => b / NP) };
+                };
+                const full = D.Surface(rd.p, DTV_W);
+                D.enterRange(full, DEPTH_LO, DEPTH_HI, DEPTH_L);
+                const dwn = D.Surface(rd.p, DTV_W);
+                depthEnterWhereNeeded(dwn, rd.p, DEPTH_LO, DEPTH_HI, DEPTH_L, DTS_TAU * size);
+                const flat = D.Surface(rd.p, DTV_W);
+                depthEnterFlatWalls(flat, rd.p, DEPTH_LO, DEPTH_HI, DEPTH_L, DTS_TAU * size, K || WLS_K);
+                const row = { key: spec.key, full: measure(full), dwn: measure(dwn), flat: measure(flat) };
+                // Breadth alone at the flat file's count (the nearest lower power of two, which the leaf
+                // generator needs), as DTV spends it: one sweep, p = 1 where the reader cannot read. Scored
+                // on every fifth point, with the flat file scored on the same points; `at` is where breadth
+                // misses most. Optional (runDepthWalls(0, true)), as it doubles the run: over the library
+                // depth still wins 24 of 24 scored this way, 4× to 4,900×, and breadth's worst is at an end
+                // of the range every time, mostly beside the reader, where the outline's finest detail
+                // fills whole octaves of the reading and one sweep's even turn cannot zoom.
+                if (withBreadth) {
+                    const pB = s => { const v = rd.p(s); return isFinite(v) ? v : 1; },
+                        Wb = 2 ** Math.floor(Math.log2(flat.docs.size * DTV_W)),
+                        one = D.Surface(pB, Wb);
+                    one.enter([]);
+                    let bw = 0, dw = 0, at = 0;
+                    for (let i = 0; i < NP; i += 5) {
+                        const e = Math.abs(one.value(grid[i], 0) - pv[i]);
+                        if (e > bw) { bw = e; at = grid[i]; }
+                        dw = Math.max(dw, Math.abs(flat.value(grid[i], DEPTH_L) - pv[i]));
+                    }
+                    row.breadth = { W: Wb, miss: bw / size, depth: dw / size, at };
+                }
+                rows.push(row);
+            }
+            return { rows, ms: Math.round(performance.now() - t0) };
+        }
+        window.runDepthWalls = runDepthWalls;
+        function showDepthWalls(res) {
+            const R = res.rows,
+                f = v => v.toExponential(1),
+                pc = v => (100 * v).toFixed(1) + '%',
+                med = a => { const b = a.slice().sort((x, y) => x - y); return b[b.length >> 1]; };
+            if (!R.length)
+                return flashStatus('walls: no shape could be read');
+            const part = (w, name) => {
+                const X = R.map(r => r[w]),
+                    inner = X.map(x => Math.max(...x.byWall.slice(3)));
+                return name + ': ' + Math.min(...X.map(x => x.docs)) + '–' + Math.max(...X.map(x => x.docs)) + ' sweeps (median ' + med(X.map(x => x.docs)) + ')'
+                + ', reaches level 3 on ' + pc(med(X.map(x => x.reach))) + ' of the range'
+                + ', misses by more than 1e-5 on ' + pc(med(X.map(x => x.bad[0])))
+                + ', worst ' + f(Math.max(...X.map(x => x.all)))
+                + ', at the inner walls ' + f(med(inner)) + ' (median)';
+            };
+            flashStatus('walls · ' + R.length + ' shapes, scored over the whole range off the walls · ' + part('full', 'every octave') + ' · '
+            + part('dwn', 'where needed, τ 1e-6') + ' · ' + part('flat', 'flat walls, τ 1e-6, children ±' + WLS_K)
+            + ' · the walls themselves still stop at level 1 (no deeper address reaches them) · ' + res.ms + ' ms');
+        }
         // Every library shape written both ways and scored the same way: the reading at level 3
         // against the shape, on cell midpoints so no sample sits exactly on a wall between octaves
         // (the walls are still open, §2.8), at every address where the FULL writer reaches level 3.
@@ -45564,14 +45790,17 @@
             + ' · entering an octave only where its residual exceeds τ of the departure: ' + parts.join(' · ')
             + ' · scored where the full file reaches level 3 · ' + res.ms + ' ms');
         }
-        // The writer "save depth .tvf" uses (7 Oct 2026): where needed, at τ = 1e-6 of the departure.
-        // The full writer gave every shape 518 sweeps and about 140 kB; at this τ the library's
-        // shapes take 79 to 244 (median 127, about 33 kB) and are held to about a millionth of
-        // the departure, or to the full file's own miss where that is worse (format paper §2.8).
-        // The departure's size is read as in DWN, on the same midpoint grid, so the tolerance
-        // means the same thing in the saved file as in the lab. A reading whose size cannot be
-        // taken (not a number anywhere on the grid) falls back to entering every octave: the
-        // economy is the writer's choice, and a reader needs no change either way.
+        // The writer "save depth .tvf" uses. 7 Oct 2026, first: where needed (DWN) at τ = 1e-6 of
+        // the departure, 79 to 244 sweeps where the full writer gave 518, and held to about a
+        // millionth where level 3 is reached. Later the same day the walls lab (WLS, above) scored
+        // the whole range and found both files miss by up to 15% in bands at the walls, where the
+        // reading never reaches level 3 at all. So the saved file now uses the flat-walls writer:
+        // the same τ, children −12…13, every row flat at its children's walls, and every point off
+        // the walls held to 1e-5 of the departure, at 317 to 1,398 sweeps (median 787). Larger than
+        // the full file, and the first of the three that holds the whole range. The departure's
+        // size is read as in the labs, on the same midpoint grid, so τ means the same thing here. A
+        // reading whose size cannot be taken (not a number anywhere on the grid) falls back to
+        // entering every octave: the economy is the writer's choice, and a reader needs no change.
         const DTS_TAU = 1e-6;
         function depthSaveSurface(rd) {
             const D = DEPTH,
@@ -45590,7 +45819,7 @@
                 D.enterRange(surf, DEPTH_LO, DEPTH_HI, DEPTH_L);
                 return { surf, tau: 0 };
             }
-            depthEnterWhereNeeded(surf, rd.p, DEPTH_LO, DEPTH_HI, DEPTH_L, DTS_TAU * (size || 1));
+            depthEnterFlatWalls(surf, rd.p, DEPTH_LO, DEPTH_HI, DEPTH_L, DTS_TAU * (size || 1), WLS_K);
             return { surf, tau: DTS_TAU };
         }
         // For the smoke test: one library shape through the saving writer and back through text.
@@ -45602,7 +45831,7 @@
             const {surf, tau} = depthSaveSurface(rd),
                 text = depthToTVF(surf, depthFrameOf(rd.C, rd.standpoint), key),
                 back = depthFromTVF(text).surf;
-            // Scored as DWN scores, where the full file reaches level 3, against the full file's own miss.
+            // Scored over the whole range off the walls (cell midpoints), against the full file there.
             const full = DEPTH.Surface(rd.p, DTV_W);
             DEPTH.enterRange(full, DEPTH_LO, DEPTH_HI, DEPTH_L);
             let size = 0, miss = 0, fullMiss = 0, trip = 0;
@@ -45612,9 +45841,6 @@
                     v = surf.value(s, DEPTH_L);
                 size = Math.max(size, Math.abs(p - 1));
                 trip = Math.max(trip, Math.abs(back.value(s, DEPTH_L) - v));
-                const [ks] = DEPTH.addr(s, DEPTH_L);
-                if (ks.length !== DEPTH_L || !full.has(ks))
-                    continue;
                 miss = Math.max(miss, Math.abs(v - p));
                 fullMiss = Math.max(fullMiss, Math.abs(full.value(s, DEPTH_L) - p));
             }
@@ -45659,7 +45885,7 @@
             const text = depthToTVF(surf, depthFrameOf(C, i0), name);
             downloadTextFile(text, safeFileName(name, 'depth.tvf'));
             flashStatus('saved depth .tvf · ' + surf.docs.size + ' sweeps of ' + DTV_W + ' values · ' + (text.length / 1024).toFixed(1) + ' kB'
-            + (tau ? ' · octaves entered only where the residual exceeds ' + tau.toExponential(0) + ' of the departure' : ' · every octave entered (the departure\'s size could not be read)'));
+            + (tau ? ' · octaves entered only where the residual exceeds ' + tau.toExponential(0) + ' of the departure, flat at every wall' : ' · every octave entered (the departure\'s size could not be read)'));
             return text;
         }
         // Load: draw what the reader holds as a line over the page (the learned facing), at every level.
@@ -54704,6 +54930,26 @@
                         finally {
                             bDwn.disabled = false;
                             bDwn.textContent = 'where needed';
+                        }
+                    }, 0);
+                });
+            const bWls = $('bDepthWalls');
+            if (bWls)
+                bWls.addEventListener('click', () => {
+                    bWls.disabled = true;
+                    bWls.textContent = 'writing…';
+                    setTimeout(() => {
+                        try {
+                            const res = runDepthWalls();
+                            window.__wls = res;
+                            showDepthWalls(res);
+                        }
+                        catch (e) {
+                            flashStatus('walls failed: ' + e.message);
+                        }
+                        finally {
+                            bWls.disabled = false;
+                            bWls.textContent = 'walls';
                         }
                     }, 0);
                 });
