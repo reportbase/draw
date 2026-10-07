@@ -3673,7 +3673,7 @@
                     <b>blue</b>
                      the nested reader's, 
                     <b>pink</b>
-                     the one sweep's. Predicted first (SIT, 5 Oct): the nested reader's depth error stays flat with distance (kill if not); the one sweep's grows; near home the one sweep is finer. Python run: nested 0.7% at every distance; one sweep ×23 from 4 to 128 h. 
+                     the one sweep's. Predicted first (SIT, 5 Oct): the nested reader's depth error stays flat with distance (kill if not); the one sweep's grows; near home the one sweep is finer. Python run: nested 0.7% at every distance; one sweep ×23 from 4 to 128 h. Re-measured here (7 Oct, 4 to 128 h): nested 0.5–0.8% at every distance, median 0.73–0.76%; one sweep, median 0.31% at 4 h and 7.35% at 128 h, ×23.4; the one sweep is finer up to about 8 h. 
                     <b>Teal</b>
                     : nested holds better. 
                     <b>Gold</b>
@@ -3682,7 +3682,7 @@
                     : the nested reader's error is over 1%. Replaces the current page in one history frame.
                 </div>
                 <div class="group row" style="margin-top:6px;gap:8px;">
-                    <button id="bShapeEncounters" data-code="sit" class="res-btn" title="place five pathological shapes 8 to 64 h ahead and let two readers learn them from encounters only, one sweep against nested octaves; the true outline is the answer key. Replaces the current page in one history frame.">learn the shapes</button>
+                    <button id="bShapeEncounters" data-code="sit" class="res-btn" title="place five pathological shapes 4 to 128 h ahead and let two readers learn them from encounters only, one sweep against nested octaves; the true outline is the answer key. Replaces the current page in one history frame.">learn the shapes</button>
                 </div>
             </div>
 
@@ -44550,8 +44550,9 @@
         // addresses: one sweep (1,024 leaves), or nested (16 octaves × 64 leaves, walls exact).
         // The known outline is the answer key.
         const SIT_SHAPES = [['elongated', 2], ['lobed', 3], ['ripple3', 3], ['pinched', 4], ['noisy', 3]],
-            SIT_DS = [8, 16, 32, 64];
-        function runShapeEncounters() {
+            SIT_DS = [4, 8, 16, 32, 64, 128];
+        function runShapeEncounters(DS) {
+            DS = DS || SIT_DS;
             const LA = tbLeaves(2048),
                 LAl = LA.map(Math.log),
                 LB = tbLeaves(128),
@@ -44571,7 +44572,7 @@
             const rows = [];
             for (const [fam, lvl] of SIT_SHAPES) {
                 const Q0 = _shapePrep(pathoShape(fam, lvl, 1024));
-                for (const D of SIT_DS) {
+                for (const D of DS) {
                     const P = Q0.map(p => ({
                         x: p.x,
                         y: p.y + D
@@ -44627,6 +44628,7 @@
                 rows
             };
         }
+        window.runShapeEncounters = runShapeEncounters;
         function showShapeEncounters(res) {
             const pc = x => (100 * x).toFixed(x < 0.01 ? 2 : 1) + '%';
             const rows = res.rows;

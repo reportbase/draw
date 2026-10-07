@@ -211,6 +211,17 @@ try {
      flat-walls writer holds every point off the walls to 1e-5 of the departure, where the full
      file and the where-needed file miss by percents in bands at the walls; and its walls are
      closer than theirs. The saved file uses it. */
+  /* SIT, re-measured (the format paper's "what the recursion found", 3): learning a shape from
+     its encounters, the nested reader stays under 1% at every distance from 4 to 128 h, while
+     the one sweep's error grows more than fifteenfold (23× when measured). */
+  await step('learning the shapes', async () => {
+    const r = await page.evaluate(() => runShapeEncounters().rows.map(x => ({ D: x.D, eA: x.eA, eB: x.eB })));
+    const med = a => a.slice().sort((x, y) => x - y)[a.length >> 1], at = D => r.filter(x => x.D === D);
+    if (r.some(x => !(x.eB < 0.01))) throw new Error('the nested reader misses by ' + Math.max(...r.map(x => x.eB)));
+    const grow = med(at(128).map(x => x.eA)) / med(at(4).map(x => x.eA));
+    if (!(grow > 15)) throw new Error('the one sweep grows only ×' + grow.toFixed(1) + ' from 4 to 128 h');
+  });
+
   await step('walls', async () => {
     const r = await page.evaluate(() => runDepthWalls());
     if (r.rows.length < 20) throw new Error('only ' + r.rows.length + ' shapes read');

@@ -4,7 +4,7 @@
 
 *Revised 5 October 2026: TVF holds depth as well as breadth, with no new syntax (§2.8). Measured in the drawing tool's editor; see `wander/tvf-depth-test.md`.*
 
-*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8). Revised 7 October 2026: the drawing tool's saved depth files now enter octaves only where needed, at τ = 10⁻⁶; and what the recursion found, stated (§2.8). Later the same day, the walls: scored over the whole range rather than only where level 3 is reached, every depth file so far missed by up to 15% in bands at the walls between octaves. The cause is that a sweep is flat at its walls. A writer whose rows leave flat residuals at their children's walls holds the whole range to 10⁻⁵, and the saved files now use it (§2.8).*
+*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8). Revised 7 October 2026: the drawing tool's saved depth files now enter octaves only where needed, at τ = 10⁻⁶; and what the recursion found, stated (§2.8). Later the same day, the walls: scored over the whole range rather than only where level 3 is reached, every depth file so far missed by up to 15% in bands at the walls between octaves. The cause is that a sweep is flat at its walls. A writer whose rows leave flat residuals at their children's walls holds the whole range to 10⁻⁵, and the saved files now use it (§2.8). And the one result the statement of the recursion quoted from an earlier run, the nested reader against one sweep at a distance, re-measured: it holds (§2.8).*
 
 This is the tight specification. It supersedes the v22.x working document,
 which accreted iteration logs, extrapolations later withdrawn, and
@@ -471,10 +471,16 @@ and so on down.
    the residual inside that octave only. Nothing is stored twice, and the
    format needed no new syntax.
 3. **Depth beats breadth.** At an equal count of values, depth was better on
-   24 of 24 shapes (above). For a reader learning a shape at a distance, the
-   nested reader's error stayed flat at 0.7% from 4 to 128 steps away, while a
-   single sweep's grew 23-fold. That second result is recorded in the drawing
-   tool's lab notes from an earlier run and has not been re-measured here.
+   24 of 24 shapes (above). The same holds for a reader learning a shape at a
+   distance from its encounters (the drawing tool's lab `sit`, five
+   pathological shapes, 1,024 values either way). The nested reader's error
+   stays flat at 0.5–0.8% (median 0.73–0.76%) from 4 to 128 steps away. A
+   single sweep's error grows from 0.31% to 7.35% (medians), 23-fold. This was
+   first recorded from an earlier Python run and re-measured here on 7 October;
+   the two agree. Near the reader the single sweep is the finer one, up to
+   about 8 steps. Past 128 steps its error falls again (2.4% at 256), but only
+   because the whole shape then fits between two of its leaves, and the error
+   depends on where a leaf happens to fall.
 4. **The cost follows the shape, not the range.** Entering an octave only
    where it has something to hold, with every row flat at its children's walls,
    keeps every library shape within 10⁻⁵ of its departure over the whole range,
