@@ -5,8 +5,8 @@ with straight lines, then align, group, order, arrange, morph, style and play
 shapes. Shapes save and load as `.tvf`, and export as SVG or PNG. An AI button
 has Claude draw vector art from a description (sign-in required).
 
-**Use it:** https://reportbase.github.io/draw/ (once GitHub Pages is turned on
-for this repo; see Publishing below)
+**Use it:** https://reportbase.github.io/draw/
+**Help:** https://reportbase.github.io/draw/gallery/index.html
 
 ## Link options
 
