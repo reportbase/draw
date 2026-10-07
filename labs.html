@@ -14,7 +14,7 @@
 <body class="page-labs">
 <header>
   <nav class="crumbs"><a href="draw.html">← the editor</a> · <a href="gallery/index.html">the galleries</a></nav>
-  <h1>tvf <em>labs</em> <span class="pill">81 labs</span></h1>
+  <h1>tvf <em>labs</em> <span class="pill">82 labs</span></h1>
   <p class="lede">
     The leaf editor's lab drawer holds the <b>experiments</b>: instruments that measure the format rather than
     make shapes with it, test suites that print their own numbers, and figures laid out for a paper. Each
@@ -29,7 +29,7 @@
 </header>
 <div class="bar"><div class="bar-in">
   <input id="q" type="search" placeholder="filter: a code, a word, a heading" aria-label="filter the labs" autocomplete="off">
-  <span class="count" id="count">81 labs</span>
+  <span class="count" id="count">82 labs</span>
   <div class="spacer"></div>
   <a class="jump" href="draw.html?lab=list" title="open the editor with the lab drawer listed">open the drawer</a>
 </div></div>
@@ -271,7 +271,7 @@
     </ul>
   </section>
   <section class="group" id="g19">
-    <div class="sec-head"><h2>depth in TVF</h2><div class="rule"></div><span class="n">4 labs</span></div>
+    <div class="sec-head"><h2>depth in TVF</h2><div class="rule"></div><span class="n">5 labs</span></div>
     <div class="sec-note">TVF was built for breadth; it holds depth with no new syntax (THE DEPTH GUIDE): one sweep per document, TVF 16 1 1 , #meta address:@ for the reader's own sweep and @k.k… for each octave entered, concatenated; the root carries #meta reader: , the standpoint and frame. <details><summary>more</summary>What each sweep holds is DPT's: the shape's departure from the reader's unit circle, the residual its levels above left, inside its own octave. THE TEST: every shape DPT scores is read to level 3, written as a depth file, read back , and scored against the known shape; and compared with breadth alone , one sweep holding as many values as the depth file. Teal : the file kept the reading (under 1e-6 of the departure) and depth beat breadth at the same count. Gold : kept, breadth as good or better. Red : the file changed the reading. SAVE writes the selected shape's depth file (DPT's standpoint on it); LOAD draws what the reader holds over the page, levels 0–3, blue to gold. wander/tvf-depth-test.md. WHERE NEEDED writes every shape again, entering an octave only where the residual it would hold exceeds τ of the departure, and reports what that saves: the full file enters all 518 sweeps whatever the shape.</details></div>
     <ul class="labs">
       <li class="lab" data-q="dtv depth in tvf write every dpt shape's depth as a tvf file, read it back, score it against the known shape, and against breadth alone at the same number of values. replaces the current page in one history frame. depth in tvf">
@@ -282,9 +282,13 @@
         <a class="run" href="draw.html?lab=dwn" title="open the editor and run where needed"><span class="code">dwn</span>where needed</a>
         <p>write every DPT shape's depth again entering an octave only where the residual it would hold exceeds a tolerance τ of the departure (τ = 1e-3 … 1e-6), and compare sweeps, bytes and miss with the full file, scored where the full file reaches level 3. Touches nothing on the page.</p>
       </li>
-      <li class="lab" data-q="dts save depth .tvf save the selected shape's depth (read from dpt's standpoint on it, to level 3) as a .tvf: one document per sweep, addressed by #meta address, entering an octave only where the residual it would hold exceeds 1e-6 of the departure (dwn's rule) depth in tvf">
+      <li class="lab" data-q="wls walls why a depth reading fails near every wall between octaves (a sweep is flat at its walls, the residual it is handed is not), and the writer that fixes it: each row chosen so what it leaves is flat at its children's walls, children −12…13 entered where needed. every dpt shape written three ways (every octave; where needed; flat walls) and scored over the whole range, not only where level 3 is reached. touches nothing on the page. depth in tvf">
+        <a class="run" href="draw.html?lab=wls" title="open the editor and run walls"><span class="code">wls</span>walls</a>
+        <p>why a depth reading fails near every wall between octaves (a sweep is flat at its walls, the residual it is handed is not), and the writer that fixes it: each row chosen so what it leaves is flat at its children's walls, children −12…13 entered where needed. Every DPT shape written three ways (every octave; where needed; flat walls) and scored over the whole range, not only where level 3 is reached. Touches nothing on the page.</p>
+      </li>
+      <li class="lab" data-q="dts save depth .tvf save the selected shape's depth (read from dpt's standpoint on it, to level 3) as a .tvf: one document per sweep, addressed by #meta address, entering an octave only where the residual it would hold exceeds 1e-6 of the departure (dwn's rule), each row flat at its children's walls (wls's writer), so the whole range is held, walls' neighbourhoods included depth in tvf">
         <a class="run" href="draw.html?lab=dts" title="open the editor and run save depth .tvf"><span class="code">dts</span>save depth .tvf</a>
-        <p>save the selected shape's depth (read from DPT's standpoint on it, to level 3) as a .tvf: one document per sweep, addressed by #meta address, entering an octave only where the residual it would hold exceeds 1e-6 of the departure (DWN's rule)</p>
+        <p>save the selected shape's depth (read from DPT's standpoint on it, to level 3) as a .tvf: one document per sweep, addressed by #meta address, entering an octave only where the residual it would hold exceeds 1e-6 of the departure (DWN's rule), each row flat at its children's walls (WLS's writer), so the whole range is held, walls' neighbourhoods included</p>
       </li>
       <li class="lab" data-q="dtl load depth .tvf… load a depth .tvf and draw what its reader holds, as lines over the page, levels 0–3 depth in tvf">
         <a class="run" href="draw.html?lab=dtl" title="open the editor and run load depth .tvf…"><span class="code">dtl</span>load depth .tvf…</a>
@@ -710,7 +714,7 @@ q.addEventListener('input', () => {
     }
     sec.hidden = !any;
   }
-  count.textContent = words.length ? shown + ' of 81' : '81 labs';
+  count.textContent = words.length ? shown + ' of 82' : '82 labs';
   none.hidden = shown > 0;
 });
 </script>

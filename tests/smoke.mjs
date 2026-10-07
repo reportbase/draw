@@ -207,15 +207,27 @@ try {
     }
   });
 
-  await step('save depth where needed', async () => {
+  /* The walls (WLS): scored over the whole range, not only where level 3 is reached, the
+     flat-walls writer holds every point off the walls to 1e-5 of the departure, where the full
+     file and the where-needed file miss by percents in bands at the walls; and its walls are
+     closer than theirs. The saved file uses it. */
+  await step('walls', async () => {
+    const r = await page.evaluate(() => runDepthWalls());
+    if (r.rows.length < 20) throw new Error('only ' + r.rows.length + ' shapes read');
+    for (const x of r.rows) {
+      if (!(x.flat.all < 2e-5)) throw new Error(`${x.key}: flat walls miss by ${x.flat.all} off the walls`);
+      if (!(x.full.all > 10 * x.flat.all)) throw new Error(`${x.key}: the full file misses by only ${x.full.all}`);
+      if (!(Math.max(...x.flat.byWall.slice(3)) <= Math.max(...x.full.byWall.slice(3)))) throw new Error(`${x.key}: the inner walls got worse`);
+    }
+  });
+  await step('save depth: flat walls', async () => {
     for (const key of ['circle', 'egg']) {
       const r = await page.evaluate(k => depthSaveCheck(k), key);
       if (r.why) throw new Error(`${key}: ${r.why}`);
-      if (!(r.tau === 1e-6)) throw new Error(`${key}: saved with τ ${r.tau}, not the where-needed writer`);
-      if (!(r.docs < r.fullDocs / 2)) throw new Error(`${key}: ${r.docs} sweeps saved against ${r.fullDocs}`);
+      if (!(r.tau === 1e-6)) throw new Error(`${key}: saved with τ ${r.tau}, not the flat-walls writer`);
       if (r.readBack !== r.docs) throw new Error(`${key}: ${r.docs} sweeps written, ${r.readBack} read back`);
       if (!(r.trip < 1e-5)) throw new Error(`${key}: the round trip moved the reading by ${r.trip}`);
-      if (!(r.miss <= 1.5 * Math.max(r.tau, r.fullMiss))) throw new Error(`${key}: the saved reading misses by ${r.miss} (full ${r.fullMiss})`);
+      if (!(r.miss < 2e-5)) throw new Error(`${key}: the saved reading misses by ${r.miss} over the range (full ${r.fullMiss})`);
     }
   });
 
@@ -434,16 +446,17 @@ await step('the two horns', async () => {
   if (Math.abs(r.norm - 1) > 1e-9) throw new Error('Fejér norm ' + r.norm);
 });
 
-/* The inspector reads depth (TVF §2.8): the example is written to text and read back, 518
-   sweeps, level 3 within the paper's range of the shape, the round trip through 8 digits
-   small; pasted depth text takes the same road. Its depth engine is the editor's, copied:
+/* The inspector reads depth (TVF §2.8): the example is written to text the way the editor
+   saves one (flat walls, 262 sweeps) and read back, level 3 within 1e-5 of the shape over the
+   whole range, where the full writer misses by percents at the walls; the round trip through 8
+   digits small; pasted depth text takes the same road. Its depth engine is the editor's, copied:
    the copy must still match. */
 await step('inspector reads depth', async () => {
   const strip = s => s.replace(/\s+/g, '');
   const ed = await readFile(join(ROOT, 'draw.html'), 'utf8'), ins = await readFile(join(ROOT, 'gallery/inspect.html'), 'utf8');
   const grab = (src, start) => { const i = src.indexOf(start); if (i < 0) return null; let d = 0, k = src.indexOf('{', i);
     for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) break; } return strip(src.slice(i, k + 1)); };
-  for (const [what, start] of [['DEPTH', 'const DEPTH = (function() {'], ...['fmtSig', 'rungOfRow', 'depthToTVF', 'depthFromTVF', 'depthLearnedFacing'].map(f => [f, 'function ' + f + '(']) ])
+  for (const [what, start] of [['DEPTH', 'const DEPTH = (function() {'], ...['fmtSig', 'rungOfRow', 'depthToTVF', 'depthFromTVF', 'depthLearnedFacing', 'wlsSlopeRow', 'wlsSolve', 'depthEnterFlat', 'depthEnterFlatWalls'].map(f => [f, 'function ' + f + '(']) ])
     if (!grab(ins, start) || grab(ins, start) !== grab(ed, start)) throw new Error(`the inspector's ${what} no longer matches the editor's`);
   const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   gp.on('pageerror', e => failures.push(`[inspector depth] ${e.message}`));
@@ -457,12 +470,14 @@ await step('inspector reads depth', async () => {
   await gp.$eval('#paste', (t, v) => { t.value = v; t.dispatchEvent(new Event('input')); }, text);
   const b = await read();
   await gp.close();
-  if (a['the file'] !== '518 sweeps of 16 values') throw new Error('depth example read as ' + a['the file']);
+  if (a['the file'] !== '262 sweeps of 16 values') throw new Error('depth example read as ' + a['the file']);
+  const fullMiss = parseFloat((a['the walls'] || '').replace(/^.*misses by /, ''));
+  if (!(fullMiss > 0.1)) throw new Error('the full writer at the walls: ' + a['the walls']);
   const lvl3 = parseFloat((a['against the shape'] || '').replace(/^.*misses by /, ''));
   if (!(lvl3 > 0 && lvl3 < 1e-5)) throw new Error('level 3 misses the shape by ' + a['against the shape']);
   const trip = parseFloat(a['round trip'] || '');
   if (!(trip < 1e-5)) throw new Error('round trip ' + a['round trip']);
-  if (b['the file'] !== '518 sweeps of 16 values' || !/^1 at level 0/.test(b.addresses || '')) throw new Error('pasted depth text read as ' + JSON.stringify(b));
+  if (b['the file'] !== '262 sweeps of 16 values' || !/^1 at level 0/.test(b.addresses || '')) throw new Error('pasted depth text read as ' + JSON.stringify(b));
 });
 
 /* Where you stand: the situated reader's claims, measured on the page with its own module. The
