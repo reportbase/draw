@@ -4,7 +4,7 @@
 
 *Revised 5 October 2026: TVF holds depth as well as breadth, with no new syntax (§2.8). Measured in the drawing tool's editor; see `wander/tvf-depth-test.md`.*
 
-*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8).*
+*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8). Revised 7 October 2026: the drawing tool's saved depth files now enter octaves only where needed, at τ = 10⁻⁶; and what the recursion found, stated (§2.8).*
 
 This is the tight specification. It supersedes the v22.x working document,
 which accreted iteration logs, extrapolations later withdrawn, and
@@ -351,7 +351,9 @@ anything not `type:depth`.
 engine), a depth file holds a shape read from a standpoint on its outline:
 - what is held is the shape's departure from the reader's unit circle, address
   by address, p(s) = h met ÷ 2s/(1+s²);
-- octaves are entered over 2⁻⁶…2⁶ to level 3.
+- octaves are entered over 2⁻⁶…2⁶ to level 3; since 7 October the file the
+  drawing tool saves enters an octave only where it has something to hold, at
+  τ = 10⁻⁶ of the departure (below).
 
 **Measured** (5 October 2026, `wander/tvf-depth-test.md`; 24 library shapes):
 - **The round trip** through text changes the reading by at most 2.3×10⁻⁷ of
@@ -396,6 +398,47 @@ engine), a depth file holds a shape read from a standpoint on its outline:
     needs 129 sweeps and the egg 244, where the full writer gives every
     shape 518.
 
+**What the recursion found.** The corner showed that one sweep can read a
+shape's breadth: where the corner falls among the reader's arrivals gives back
+how far the shape is stretched. Past the corner, when a reading needs more than
+one sweep, the answer is recursion. That is a different thing from breadth.
+Packing more leaves into one sweep is breadth. Depth is the same sweep again,
+entered over one octave of the reading, with its own home, corner and far wall,
+and so on down.
+
+1. **Every level is the same sweep.** Seen from its parent, a child sweep lies
+   in each half of its octave in the same proportions: fully clear at its home,
+   half as clear at its corner, fully clear again at its wall. Every child lies
+   the same way at every level (the drawing tool's nested-fisheye lab).
+2. **A level holds only what the levels above left.** The root holds the
+   shape's departure from the reader's unit circle. Each entered octave holds
+   the residual inside that octave only. Nothing is stored twice, and the
+   format needed no new syntax.
+3. **Depth beats breadth.** At an equal count of values, depth was better on
+   24 of 24 shapes (above). For a reader learning a shape at a distance, the
+   nested reader's error stayed flat at 0.7% from 4 to 128 steps away, while a
+   single sweep's grew 23-fold. That second result is recorded in the drawing
+   tool's lab notes from an earlier run and has not been re-measured here.
+4. **The cost follows the shape, not the range.** Entering an octave only
+   where it has something to hold keeps every library shape within about a
+   millionth of its departure with 79 to 244 sweeps instead of 518. The circle
+   needs 129 and the egg 244. Recursion goes where the detail is.
+5. **For complex shapes, recursion counts hiding, not intricacy.** A child
+   reader can stand where its parent saw furthest. The levels then needed count
+   how many times the way in turns out of sight, not how intricate the outline
+   is. Measured in the drawing tool's labs and again in the gallery's
+   *Where you stand* page: curls of 290° and 310° are seen 83% and 63% from
+   outside, and whole once a reader stands inside; spirals past a full turn
+   are seen at best 92%, 73% and 66% from one standpoint, outside or in; a
+   chain of readers works its way out to the mouth and no further, and the
+   deepest library spiral needs six levels.
+
+In short: a bounded reader holds a complex shape not by looking harder but by
+looking again, as the same sweep, wherever the last look left something
+unexplained, and only there. Two things stay open: the walls between octaves
+(below), and a derivation of why amplification adds across levels rather than
+multiplying (next).
+
 **Relation to composition.** A depth file is the depth case of the Bridge's
 composition: bridges driving bridges (Tangent Bridge, algebraic form §12.5).
 Composition's amplification adds across levels rather than multiplying. The
@@ -403,9 +446,11 @@ measured agreement above is consistent with that; it has not been derived
 for the depth case.
 
 **Open:**
-- entering octaves only where needed. Built (above); what is left is choosing
-  τ for a use, and whether a writer should also enter between an octave's
-  leaves when the residual peaks there;
+- entering octaves only where needed. Built (above). The drawing tool's saved
+  files use τ = 10⁻⁶ (7 Oct): the circle saves in 129 sweeps (35 kB), the egg
+  in 244 (66 kB), read back through text to 2.3×10⁻⁷. What is left is choosing
+  τ for other uses, and whether a writer should also enter between an
+  octave's leaves when the residual peaks there;
 - a depth reader in the reference decoder. One now runs outside the drawing
   tool: the gallery's inspector (`gallery/inspect.html`) reads a depth file,
   pasted or built from its example, and puts it back on the shape level by
@@ -724,7 +769,8 @@ at equal value count, better than breadth alone on 24 of 24 library shapes
 gallery's inspector (6 Oct): level 3 within 4.8×10⁻⁶ of the departure on the
 closed-form example. Entering octaves only where needed (6 Oct): at τ = 10⁻⁶
 of the departure, 79 to 244 sweeps (median 127, against 518) with the miss
-held to about τ, or to the full file's own miss where that is worse. Open: the joins
+held to about τ, or to the full file's own miss where that is worse. The drawing
+tool's saved depth files use that writer since 7 Oct. Open: the joins
 at walls, where a reading sampled exactly on 2^k stops short (1.9% on the
 example).
 

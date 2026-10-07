@@ -3755,7 +3755,7 @@
                 <div class="group row" style="margin-top:6px;gap:8px;flex-wrap:wrap;">
                     <button id="bDepthTVF" data-code="dtv" class="res-btn" title="write every DPT shape's depth as a TVF file, read it back, score it against the known shape, and against breadth alone at the same number of values. Replaces the current page in one history frame.">depth in TVF</button>
                     <button id="bDepthWhereNeeded" data-code="dwn" class="res-btn" title="write every DPT shape's depth again entering an octave only where the residual it would hold exceeds a tolerance τ of the departure (τ = 1e-3 … 1e-6), and compare sweeps, bytes and miss with the full file, scored where the full file reaches level 3. Touches nothing on the page.">where needed</button>
-                    <button id="bSaveDepthTVF" data-code="dts" class="res-btn" title="save the selected shape's depth (read from DPT's standpoint on it, to level 3) as a .tvf: one document per sweep, addressed by #meta address">save depth .tvf</button>
+                    <button id="bSaveDepthTVF" data-code="dts" class="res-btn" title="save the selected shape's depth (read from DPT's standpoint on it, to level 3) as a .tvf: one document per sweep, addressed by #meta address, entering an octave only where the residual it would hold exceeds 1e-6 of the departure (DWN's rule)">save depth .tvf</button>
                     <button id="bLoadDepthTVF" data-code="dtl" class="res-btn" title="load a depth .tvf and draw what its reader holds, as lines over the page, levels 0–3">load depth .tvf…</button>
                     <input type="file" id="fLoadDepthTVF" accept=".tvf,text/plain" hidden>
                 </div>
@@ -45564,6 +45564,63 @@
             + ' · entering an octave only where its residual exceeds τ of the departure: ' + parts.join(' · ')
             + ' · scored where the full file reaches level 3 · ' + res.ms + ' ms');
         }
+        // The writer "save depth .tvf" uses (7 Oct 2026): where needed, at τ = 1e-6 of the departure.
+        // The full writer gave every shape 518 sweeps and about 140 kB; at this τ the library's
+        // shapes take 79 to 244 (median 127, about 33 kB) and are held to about a millionth of
+        // the departure, or to the full file's own miss where that is worse (format paper §2.8).
+        // The departure's size is read as in DWN, on the same midpoint grid, so the tolerance
+        // means the same thing in the saved file as in the lab. A reading whose size cannot be
+        // taken (not a number anywhere on the grid) falls back to entering every octave: the
+        // economy is the writer's choice, and a reader needs no change either way.
+        const DTS_TAU = 1e-6;
+        function depthSaveSurface(rd) {
+            const D = DEPTH,
+                NP = 600,
+                surf = D.Surface(rd.p, DTV_W);
+            let size = 0;
+            for (let i = 0; i < NP; i++) {
+                const v = rd.p(DEPTH_LO * Math.pow(DEPTH_HI / DEPTH_LO, (i + 0.5) / NP));
+                if (!isFinite(v)) {
+                    size = NaN;
+                    break;
+                }
+                size = Math.max(size, Math.abs(v - 1));
+            }
+            if (!isFinite(size)) {
+                D.enterRange(surf, DEPTH_LO, DEPTH_HI, DEPTH_L);
+                return { surf, tau: 0 };
+            }
+            depthEnterWhereNeeded(surf, rd.p, DEPTH_LO, DEPTH_HI, DEPTH_L, DTS_TAU * (size || 1));
+            return { surf, tau: DTS_TAU };
+        }
+        // For the smoke test: one library shape through the saving writer and back through text.
+        window.depthSaveCheck = key => {
+            const spec = PRIMITIVES.find(s => s.key === key);
+            const rd = spec && depthReadShape(spec);
+            if (!rd || rd.why)
+                return { why: rd ? rd.why : 'no such shape' };
+            const {surf, tau} = depthSaveSurface(rd),
+                text = depthToTVF(surf, depthFrameOf(rd.C, rd.standpoint), key),
+                back = depthFromTVF(text).surf;
+            // Scored as DWN scores, where the full file reaches level 3, against the full file's own miss.
+            const full = DEPTH.Surface(rd.p, DTV_W);
+            DEPTH.enterRange(full, DEPTH_LO, DEPTH_HI, DEPTH_L);
+            let size = 0, miss = 0, fullMiss = 0, trip = 0;
+            for (let i = 0; i < 600; i++) {
+                const s = DEPTH_LO * Math.pow(DEPTH_HI / DEPTH_LO, (i + 0.5) / 600),
+                    p = rd.p(s),
+                    v = surf.value(s, DEPTH_L);
+                size = Math.max(size, Math.abs(p - 1));
+                trip = Math.max(trip, Math.abs(back.value(s, DEPTH_L) - v));
+                const [ks] = DEPTH.addr(s, DEPTH_L);
+                if (ks.length !== DEPTH_L || !full.has(ks))
+                    continue;
+                miss = Math.max(miss, Math.abs(v - p));
+                fullMiss = Math.max(fullMiss, Math.abs(full.value(s, DEPTH_L) - p));
+            }
+            return { tau, docs: surf.docs.size, fullDocs: full.docs.size, readBack: back.docs.size, bytes: text.length,
+                     miss: miss / size, fullMiss: fullMiss / size, trip: trip / size };
+        };
         // Save: the selected shape (or the first on the page), read from DPT's standpoint.
         function saveDepthTVF() {
             const idx = (typeof selectedIndices === 'function' ? selectedIndices() : []);
@@ -45597,12 +45654,12 @@
                 flashStatus('save depth .tvf: ' + rd.why);
                 return;
             }
-            const surf = DEPTH.Surface(rd.p, DTV_W);
-            DEPTH.enterRange(surf, DEPTH_LO, DEPTH_HI, DEPTH_L);
+            const {surf, tau} = depthSaveSurface(rd);
             const name = sp.gname || state.svgName || ('shape ' + (i + 1));
             const text = depthToTVF(surf, depthFrameOf(C, i0), name);
             downloadTextFile(text, safeFileName(name, 'depth.tvf'));
-            flashStatus('saved depth .tvf · ' + surf.docs.size + ' sweeps of ' + DTV_W + ' values · ' + (text.length / 1024).toFixed(1) + ' kB');
+            flashStatus('saved depth .tvf · ' + surf.docs.size + ' sweeps of ' + DTV_W + ' values · ' + (text.length / 1024).toFixed(1) + ' kB'
+            + (tau ? ' · octaves entered only where the residual exceeds ' + tau.toExponential(0) + ' of the departure' : ' · every octave entered (the departure\'s size could not be read)'));
             return text;
         }
         // Load: draw what the reader holds as a line over the page (the learned facing), at every level.

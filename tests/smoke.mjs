@@ -207,6 +207,18 @@ try {
     }
   });
 
+  await step('save depth where needed', async () => {
+    for (const key of ['circle', 'egg']) {
+      const r = await page.evaluate(k => depthSaveCheck(k), key);
+      if (r.why) throw new Error(`${key}: ${r.why}`);
+      if (!(r.tau === 1e-6)) throw new Error(`${key}: saved with τ ${r.tau}, not the where-needed writer`);
+      if (!(r.docs < r.fullDocs / 2)) throw new Error(`${key}: ${r.docs} sweeps saved against ${r.fullDocs}`);
+      if (r.readBack !== r.docs) throw new Error(`${key}: ${r.docs} sweeps written, ${r.readBack} read back`);
+      if (!(r.trip < 1e-5)) throw new Error(`${key}: the round trip moved the reading by ${r.trip}`);
+      if (!(r.miss <= 1.5 * Math.max(r.tau, r.fullMiss))) throw new Error(`${key}: the saved reading misses by ${r.miss} (full ${r.fullMiss})`);
+    }
+  });
+
   /* With everything selected, the buttons that act on a selection (align,
      group, order, style…) are enabled too, so the walk reaches them. Escape
      after each press can drop the selection, so it is taken again each time. */
