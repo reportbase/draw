@@ -238,7 +238,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -451,6 +451,42 @@ await step('inspector reads depth', async () => {
   const trip = parseFloat(a['round trip'] || '');
   if (!(trip < 1e-5)) throw new Error('round trip ' + a['round trip']);
   if (b['the file'] !== '518 sweeps of 16 values' || !/^1 at level 0/.test(b.addresses || '')) throw new Error('pasted depth text read as ' + JSON.stringify(b));
+});
+
+/* Where you stand: the situated reader's claims, measured on the page with its own module. The
+   circle from its centre opens at ½, 1, 2/π, 2/π, and so does any shape read by direction; the
+   corner reads the circle's stretch back; the circle's two sizes are one; a deep curl is seen
+   whole only with a reader inside; the deepest spiral needs six levels of readers within
+   readers. And dragging the reader changes what it reads. */
+await step('where you stand', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[where you stand] ${e.message}`));
+  await gp.goto(new URL('gallery/situated.html', base).href, { waitUntil: 'load' });
+  const r = await gp.evaluate(() => {
+    const circle = SI.polarShape(2048, t => 1), egg = shapeOf('egg');
+    const c = SI.stats(SI.readings(circle, 40000).s), d = SI.stats(SI.readings(egg, 40000, null, 'direction').s);
+    const cr = SI.cornerReads(circle, 3), nf = SI.nearFar(circle), oc = SI.occlusion(pathoOf('curled 310°'));
+    const ns = SI.nest(pathoOf('spiral 1.7 turns'), SI.outsideStarts()), done = ns.hist.find(h => h[2] >= 0.99);
+    return { c, d, even: cr.even, Q: nf.Q, flip: nf.flip, out: oc.out, both: oc.both, levels: done ? done[0] : -1 };
+  });
+  const near = (a, b, e) => Math.abs(a - b) <= e;
+  if (!(near(r.c.corner, 0.5, 1e-3) && near(r.c.middle, 1, 2e-3) && near(r.c.tail, 2 / Math.PI, 3e-3) && near(r.c.head, 2 / Math.PI, 3e-3)))
+    throw new Error('the circle from its centre opens at ' + JSON.stringify(r.c));
+  if (!(near(r.d.corner, 0.5, 1e-3) && near(r.d.middle, 1, 2e-3))) throw new Error('read by direction, the egg opens at ' + JSON.stringify(r.d));
+  if (!near(r.even, 3, 0.03)) throw new Error('the corner reads the circle stretched by 3 as ' + r.even);
+  if (!(near(r.Q, 1, 1e-9) && r.flip < 1e-10)) throw new Error(`the circle's two sizes: Q ${r.Q}, flip ${r.flip}`);
+  if (!(near(r.out, 0.63, 0.02) && r.both > 0.999)) throw new Error(`curled 310°: ${r.out} from outside, ${r.both} with the inside`);
+  if (r.levels !== 6) throw new Error('the deepest spiral needed ' + r.levels + ' levels, the editor records 6');
+  // drag the first tile's reader and the reading must change
+  const tile = gp.locator('.tile').first();
+  await tile.scrollIntoViewIfNeeded(); await gp.waitForTimeout(300);
+  const before = await tile.locator('.verdict').textContent();
+  const box = await tile.locator('canvas').boundingBox();
+  await gp.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.4); await gp.mouse.down();
+  await gp.mouse.move(box.x + box.width * 0.62, box.y + box.height * 0.3, { steps: 4 }); await gp.mouse.up();
+  const after = await tile.locator('.verdict').textContent();
+  await gp.close();
+  if (before === after) throw new Error('dragging the reader changed nothing: ' + after);
 });
 
 /* The inspector reads facts off the leaves. Two of its examples have answers that can be
