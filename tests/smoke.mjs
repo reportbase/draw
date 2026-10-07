@@ -273,7 +273,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -464,11 +464,13 @@ await step('the two horns', async () => {
    the copy must still match. */
 await step('inspector reads depth', async () => {
   const strip = s => s.replace(/\s+/g, '');
-  const ed = await readFile(join(ROOT, 'draw.html'), 'utf8'), ins = await readFile(join(ROOT, 'gallery/inspect.html'), 'utf8');
+  const ed = await readFile(join(ROOT, 'draw.html'), 'utf8'), ins = await readFile(join(ROOT, 'gallery/inspect.html'), 'utf8'),
+        dep = await readFile(join(ROOT, 'gallery/depth.html'), 'utf8');
   const grab = (src, start) => { const i = src.indexOf(start); if (i < 0) return null; let d = 0, k = src.indexOf('{', i);
     for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) break; } return strip(src.slice(i, k + 1)); };
-  for (const [what, start] of [['DEPTH', 'const DEPTH = (function() {'], ...['fmtSig', 'rungOfRow', 'depthToTVF', 'depthFromTVF', 'depthLearnedFacing', 'wlsSlopeRow', 'wlsSolve', 'depthEnterFlat', 'depthEnterFlatWalls'].map(f => [f, 'function ' + f + '(']) ])
-    if (!grab(ins, start) || grab(ins, start) !== grab(ed, start)) throw new Error(`the inspector's ${what} no longer matches the editor's`);
+  for (const [what, start] of [['DEPTH', 'const DEPTH = (function() {'], ...['fmtSig', 'rungOfRow', 'depthToTVF', 'depthFromTVF', 'depthLearnedFacing', 'depthEnterWhereNeeded', 'wlsSlopeRow', 'wlsSolve', 'depthEnterFlat', 'depthEnterFlatWalls'].map(f => [f, 'function ' + f + '(']) ])
+    for (const [page, src] of [['inspector', ins], ['depth gallery', dep]])
+      if (!grab(src, start) || grab(src, start) !== grab(ed, start)) throw new Error(`the ${page}'s ${what} no longer matches the editor's`);
   const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   gp.on('pageerror', e => failures.push(`[inspector depth] ${e.message}`));
   await gp.goto(new URL('gallery/inspect.html', base).href, { waitUntil: 'load' });
@@ -489,6 +491,29 @@ await step('inspector reads depth', async () => {
   const trip = parseFloat(a['round trip'] || '');
   if (!(trip < 1e-5)) throw new Error('round trip ' + a['round trip']);
   if (b['the file'] !== '262 sweeps of 16 values' || !/^1 at level 0/.test(b.addresses || '')) throw new Error('pasted depth text read as ' + JSON.stringify(b));
+});
+
+/* Depth: the page's claims, measured on the page with its own copy of the editor's engine. Flat
+   walls hold the run-1 shape to 1e-5 over the whole range, where every octave and where needed
+   miss by percents beside the walls; and at about the same count of values depth beats one sweep
+   on the grain beside the reader, and loses to it on a smooth bump out in the turn. */
+await step('depth gallery', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[depth gallery] ${e.message}`));
+  await gp.goto(new URL('gallery/depth.html', base).href, { waitUntil: 'load' });
+  const r = await gp.evaluate(() => ({ flat: depthPageCheck('two bumps', 'flat walls', 1e-6), full: depthPageCheck('two bumps', 'every octave', 1e-6),
+                                       dwn: depthPageCheck('two bumps', 'where needed', 1e-6) }));
+  if (!(r.flat.worst < 1e-5)) throw new Error('flat walls miss two bumps by ' + r.flat.worst);
+  if (!(r.full.worst > 1e-3 && r.dwn.worst > 1e-3)) throw new Error(`every octave ${r.full.worst}, where needed ${r.dwn.worst}: the walls no longer show`);
+  if (r.full.docs !== 518) throw new Error('every octave is ' + r.full.docs + ' sweeps');
+  const verdict = async shape => gp.evaluate(async sh => { const t = [...document.querySelectorAll('.tile')].find(x => x.querySelector('h3')?.textContent === 'the same values, two ways');
+    const sel = t.querySelector('select[data-k="shape"]'); sel.value = sh; sel.dispatchEvent(new Event('input'));
+    for (let i = 0; i < 200 && !/values in depth/.test(t.querySelector('.verdict').textContent); i++) await new Promise(r => setTimeout(r, 100));
+    return t.querySelector('.verdict').textContent; }, shape);
+  const grain = await verdict('a grain by the reader'), bump = await verdict('a narrow bump');
+  await gp.close();
+  if (!/depth [\d,]+× closer/.test(grain)) throw new Error('the grain by the reader: ' + grain);
+  if (!/breadth [\d,]+× closer/.test(bump)) throw new Error('a narrow bump: ' + bump);
 });
 
 /* Where you stand: the situated reader's claims, measured on the page with its own module. The

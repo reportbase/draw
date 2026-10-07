@@ -397,7 +397,7 @@ window.inspectShapes = show;     // for the smoke test, and for poking at shapes
 // so the reading can be put back on the shape it was read from. Until now only the editor
 // could read one. The engine below is the editor's, copied unchanged, and the smoke test
 // fails if the copy drifts.
-// >>> copied from draw.html, unchanged: DEPTH, fmtSig, rungOfRow, depthToTVF, depthFromTVF, depthLearnedFacing, WLS_K, wlsSlopeRow, wlsSolve, depthEnterFlat, depthEnterFlatWalls
+// >>> copied from draw.html, unchanged: DEPTH, fmtSig, rungOfRow, depthToTVF, depthFromTVF, depthLearnedFacing, depthEnterWhereNeeded, WLS_K, wlsSlopeRow, wlsSolve, depthEnterFlat, depthEnterFlatWalls
 const DEPTH = (function() {
     const halve = t => t / (1 + Math.sqrt(1 + t * t));
     const step = (a, b) => (a + b) / (1 - a * b);
@@ -703,6 +703,39 @@ function depthLearnedFacing(surf, frame, upto, n) {
         });
     }
     return pts;
+}
+function depthEnterWhereNeeded(surf, p, lo, hi, L, tol) {
+    const D = DEPTH;
+    surf.enter([]);
+    const holds = P => {
+        for (const r of surf.sk) {
+            const x = D.S(P, r),
+                e = Math.abs(p(x) - surf.value(x));
+            if (!(e <= tol))
+                return true; // over tolerance, or not a number: enter, to be safe
+        }
+        return false;
+    };
+    let frontier = [];
+    for (let k = D.split(lo)[0]; k <= D.split(hi)[0]; k++)
+        if (holds([k])) {
+            surf.enter([k]);
+            frontier.push([k]);
+        }
+    for (let m = 2; m <= L; m++) {
+        const next = [];
+        for (const P of frontier)
+            for (let k = -2; k <= 3; k++) {
+                const Q = P.concat([k]),
+                    [a, b] = D.range(Q);
+                if (b < lo || a > hi || !holds(Q))
+                    continue;
+                surf.enter(Q);
+                next.push(Q);
+            }
+        frontier = next;
+    }
+    return surf.docs.size;
 }
 const WLS_K = 12;
 const wlsSlopes = new Map(); // wall ρ → the slope of each leaf's presentation there (the kernel only)

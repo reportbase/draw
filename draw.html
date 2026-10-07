@@ -3052,12 +3052,12 @@
                 <button id="bTour" title="the tour — visit every shape in the drawing in turn, fitted to the screen, the camera arriving on a critically damped spring. Loops. Touch the camera or press Escape to stop.">tour the shapes</button>
             </div>
 
-            <!-- THE GALLERIES ARE THE COURSE BOOK. Nineteen pages under gallery/, each making one claim
+            <!-- THE GALLERIES ARE THE COURSE BOOK. Twenty pages under gallery/, each making one claim
                    about what a band-limited loop can and cannot be, every tile live and every tile one
                    click (its edit button) from this canvas. A new tab, so the scene here is untouched. -->
             <div class="group">
                 <div class="menu-title">learn</div>
-                <div class="menu-note sub">Nineteen galleries of live shapes, in reading order, each with its spectrum drawn underneath. Any tile's edit button opens it here.</div>
+                <div class="menu-note sub">Twenty galleries of live shapes, in reading order, each with its spectrum drawn underneath. Any tile's edit button opens it here.</div>
                 <button id="bGalleries" title="open the galleries in a new tab (gallery/)" onclick="window.open('gallery/', '_blank', 'noopener')">the galleries ↗</button>
                 <button id="bLabsPage" title="every lab in the drawer as one page (labs.html): what each does, with a link that runs it" onclick="window.open('labs.html', '_blank', 'noopener')">all the labs ↗</button>
                 <button id="bPapers" title="the papers behind the editor (papers.html): the .tvf format and the Tangent Bridge theorem, readable in the page" onclick="window.open('papers.html', '_blank', 'noopener')">the papers ↗</button>
@@ -45610,7 +45610,7 @@
         // walls at τ = 1e-6), scored over the WHOLE range off the walls (a fine geometric grid of
         // cell midpoints, the reading to level 3 wherever it reaches), at the walls 2^k
         // themselves, and as the share of the range the reading reaches level 3 on.
-        function runDepthWalls(K) {
+        function runDepthWalls(K, withBreadth) {
             const t0 = performance.now(),
                 D = DEPTH,
                 NP = 2000,
@@ -45660,7 +45660,28 @@
                 depthEnterWhereNeeded(dwn, rd.p, DEPTH_LO, DEPTH_HI, DEPTH_L, DTS_TAU * size);
                 const flat = D.Surface(rd.p, DTV_W);
                 depthEnterFlatWalls(flat, rd.p, DEPTH_LO, DEPTH_HI, DEPTH_L, DTS_TAU * size, K || WLS_K);
-                rows.push({ key: spec.key, full: measure(full), dwn: measure(dwn), flat: measure(flat) });
+                const row = { key: spec.key, full: measure(full), dwn: measure(dwn), flat: measure(flat) };
+                // Breadth alone at the flat file's count (the nearest lower power of two, which the leaf
+                // generator needs), as DTV spends it: one sweep, p = 1 where the reader cannot read. Scored
+                // on every fifth point, with the flat file scored on the same points; `at` is where breadth
+                // misses most. Optional (runDepthWalls(0, true)), as it doubles the run: over the library
+                // depth still wins 24 of 24 scored this way, 4× to 4,900×, and breadth's worst is at an end
+                // of the range every time, mostly beside the reader, where the outline's finest detail
+                // fills whole octaves of the reading and one sweep's even turn cannot zoom.
+                if (withBreadth) {
+                    const pB = s => { const v = rd.p(s); return isFinite(v) ? v : 1; },
+                        Wb = 2 ** Math.floor(Math.log2(flat.docs.size * DTV_W)),
+                        one = D.Surface(pB, Wb);
+                    one.enter([]);
+                    let bw = 0, dw = 0, at = 0;
+                    for (let i = 0; i < NP; i += 5) {
+                        const e = Math.abs(one.value(grid[i], 0) - pv[i]);
+                        if (e > bw) { bw = e; at = grid[i]; }
+                        dw = Math.max(dw, Math.abs(flat.value(grid[i], DEPTH_L) - pv[i]));
+                    }
+                    row.breadth = { W: Wb, miss: bw / size, depth: dw / size, at };
+                }
+                rows.push(row);
             }
             return { rows, ms: Math.round(performance.now() - t0) };
         }

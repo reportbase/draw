@@ -29,18 +29,20 @@ publishes.
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before
   anything else, typeset by KaTeX from cdnjs when that loads and shown as source when it does not.
-- `gallery/`: nineteen teaching pages, in reading order: `gallery.html` (the catalogue),
+- `gallery/`: twenty teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `epicycles`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`
-  (the loop), `compose` (composed), `situated` (where you stand), `fail` (where it breaks). Also `playground.html` (sculpt
+  (the loop), `compose` (composed), `situated` (where you stand), `depth`, `fail` (where it breaks). Also `playground.html` (sculpt
   a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
   library as an ES module, *generated* from the copy the pages inline: regenerate it from
   a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
   the front page `index.html` that lists them, and `inspect.html`, which reads a shape's
   spectrum, symmetry, width and leaf count back off its leaves, and reads depth files
   (TVF §2.8). Its depth code (`DEPTH`, `fmtSig`, `rungOfRow`, `depthToTVF`, `depthFromTVF`,
-  `depthLearnedFacing`) is copied unchanged from `draw.html` between `// >>> copied from
-  draw.html` markers; `npm test` fails if the two drift, so change it in the editor and copy.
+  `depthLearnedFacing`, and the writers `depthEnterWhereNeeded` and `depthEnterFlatWalls` with
+  their helpers) is copied unchanged from `draw.html` between `// >>> copied from draw.html`
+  markers, and `depth.html` carries the same copy; `npm test` fails if either drifts, so change
+  it in the editor and copy it to both.
   - **Links into the papers:** where a page states a result a paper proves or measures, its
     note carries `<a class="paper" href="../papers.html#paper:heading-id">…</a>` (a small pill,
     styled in `style.css`). `npm test` opens every such link and fails on one that names no
@@ -49,24 +51,27 @@ publishes.
     `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
     a layout of their own have a section there scoped to their body class (`page-index`,
     `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`).
-  - Each page bundles its JavaScript so it runs from one file. All nineteen, and the playground, carry the **same**
+  - Each page bundles its JavaScript so it runs from one file. All twenty, and the playground, carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
     mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
     names the page that differs.
-  - The other ten have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
-    STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES, SITUATED), and no spectrum strip or predict mode. `spiral`,
-    `curves`, `space`, `fail`, `situated` are *chart* pages (`body.page-chart`: a measurement and a
+  - The other eleven have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
+    STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES, SITUATED, DEPTHPAGE), and no spectrum strip or predict mode. `spiral`,
+    `curves`, `space`, `fail`, `situated`, `depth` are *chart* pages (`body.page-chart`: a measurement and a
     verdict line per tile); `motion`, `compose` and `epicycles` animate (`page-chart page-motion`; epicycles
     carries only tvf.js, FORMAT and EPICYCLES, and its dials may be selects);
     `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`).
     `situated` (where you stand) is the situated reader, its arithmetic ported from the editor's labs
-    (`unc`, `crb`, `nfr`, `occ`, `nsr`) so the two agree; its standpoints are dragged on the canvas. Each
+    (`unc`, `crb`, `nfr`, `occ`, `nsr`) so the two agree; its standpoints are dragged on the canvas.
+    `depth` writes depth files three ways (every octave, where needed, flat walls) on closed-form
+    shapes, with the editor's depth code copied (carries tvf.js and that copy, no FORMAT); its .tvf
+    buttons copy a tile's depth file. Each
     has a section in `style.css`. Edit buttons (the shared editor link) are on `spiral`,
     `curves`, `space`, `motion`, `compose` and `epicycles`; the rest hold no curve to hand on.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 19" crumbs and "next" links in each page.
+    a page means updating it, and the "N of 20" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE
