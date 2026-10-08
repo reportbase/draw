@@ -211,6 +211,18 @@ try {
      flat-walls writer holds every point off the walls to 1e-5 of the departure, where the full
      file and the where-needed file miss by percents in bands at the walls; and its walls are
      closer than theirs. The saved file uses it. */
+  /* Undoing the division (UDV): one reader's quotients give back the unit circle, which misses
+     every figure but the circle; three readers' quotients, crossed, give back each figure
+     exactly up to its size, and with one length, exactly. */
+  await step('undoing the division', async () => {
+    const r = await page.evaluate(() => undoDivisionRun().map(x => ({ key: x.key, kind: x.kind, miss: x.miss })));
+    const of = k => r.filter(x => x.kind === k);
+    if (of('as held').length < 5) throw new Error('only ' + of('as held').length + ' figures read');
+    for (const x of of('three readers, no length').concat(of('three readers, one length')))
+      if (!(x.miss < 1e-12)) throw new Error(`${x.key}, ${x.kind}: off by ${x.miss}`);
+    if (!(Math.max(...of('one reader, census').map(x => x.miss)) > 0.5)) throw new Error('the census came back close to the figures');
+  });
+
   /* SIT, re-measured (the format paper's "what the recursion found", 3): learning a shape from
      its encounters, the nested reader stays under 1% at every distance from 4 to 128 h, while
      the one sweep's error grows more than fifteenfold (23× when measured). */
@@ -273,7 +285,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -514,6 +526,25 @@ await step('depth gallery', async () => {
   await gp.close();
   if (!/depth [\d,]+× closer/.test(grain)) throw new Error('the grain by the reader: ' + grain);
   if (!/breadth [\d,]+× closer/.test(bump)) throw new Error('a narrow bump: ' + bump);
+});
+
+/* Recovered: one reader and the census miss every figure but the circle read from its centre;
+   three readers' crossed quotients recover every place two of them see, exactly; the crescent
+   hides some of its places from readers in its body. */
+await step('recovered gallery', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[recovered gallery] ${e.message}`));
+  await gp.goto(new URL('gallery/recovered.html', base).href, { waitUntil: 'load' });
+  const r = await gp.evaluate(() => recoverCheck());
+  await gp.close();
+  if (r.length < 5) throw new Error('only ' + r.length + ' figures');
+  for (const x of r) {
+    if (!(x.worst < 1e-12)) throw new Error(`${x.n}: three readers miss by ${x.worst}`);
+    if (!(x.census > 0.2)) throw new Error(`${x.n}: the census came back within ${x.census}`);
+  }
+  const cres = r.find(x => x.n === 'crescent'), circ = r.find(x => x.n === 'circle');
+  if (!(circ.got === 180)) throw new Error('the circle: ' + circ.got + ' places recovered');
+  if (!(cres.got < 180 && cres.got > 90)) throw new Error('the crescent: ' + cres.got + ' places recovered');
 });
 
 /* Where you stand: the situated reader's claims, measured on the page with its own module. The
