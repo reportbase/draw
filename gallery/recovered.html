@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tvf — depth</title>
+<title>tvf — recovered</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -12,43 +12,42 @@
 <body class="page-chart">
 
 <header>
-  <nav class="crumbs"><a href="index.html">← all galleries</a> · 19 of 21</nav>
-  <h1>tvf <em>depth</em> <span class="pill">tvf.depth.js</span></h1>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 20 of 21</nav>
+  <h1>tvf <em>recovered</em> <span class="pill">tvf.recovered.js</span></h1>
   <p class="lede">
-    Packing more leaves into one sweep is <b>breadth</b>. <b>Depth</b> is the same sweep again, entered over one
-    octave of the reading, with its own home, corner and far wall, and so on down. A reader at a point holds a
-    shape as a depth file: one sweep of sixteen values for its own reading, and one more for every octave it
-    enters, each holding only what the levels above it left.
+    A reader at a point holds, of each place it reads, one number: <b>v/h</b>. Dividing one extent by the other
+    cancels the size of both, so one reader's numbers say which way every place lies and nothing about how far.
+    This page shows how the figure comes back after that division, and what it costs.
   </p>
   <p class="sub">
-    Every shape here is a unit circle with bumps on it, read from a point on its edge, so what is held is the
-    shape's departure from the reader's own circle, and every miss is measured against the shape's formula. The
-    page writes depth files the three ways the format has been written (every octave; only where needed; with
-    every row flat at its children's walls), and every number is measured in your tab, over the whole range from
-    the reader's home to its far wall.
+    Not a number per reading: <b>another standpoint</b>. A quotient fixes a line through its reader; two readers'
+    lines towards the same place cross at the place. Three readers who know only the shape of their own triangle
+    recover the figure exactly up to its size, and <b>one length</b>, how far apart two of them stand, gives the size.
+    What has to be true is that two readers see each place, and know which of their readings it is. Every number is
+    measured in your tab, and the readers can be dragged.
   </p>
 </header>
 
 <div class="bar"><div class="bar-in">
-  <button id="t-walls" class="on">octave walls</button>
+  <button id="t-lines" class="on">readers' lines</button>
   <div class="spacer"></div>
-  <a class="jump" href="#octaves">the octaves</a>
-  <a class="jump" href="#needed">only where needed</a>
-  <a class="jump" href="#walls">the walls</a>
-  <a class="jump" href="#breadth">depth against breadth</a>
+  <a class="jump" href="#divide">what dividing loses</a>
+  <a class="jump" href="#cross">another standpoint</a>
+  <a class="jump" href="#three">one length</a>
+  <a class="jump" href="#noise">rounded readings</a>
+  <a class="jump" href="#hidden">what has to be true</a>
 </div></div>
 
 <main id="main"></main>
 
 <footer>
-  <b>tvf.depth.js</b> is the depth engine and its writers, copied unchanged from the leaf editor (the nested
-  sweep, the theorem's kernel mirrored about home, enter-every-octave, enter-where-needed and flat walls), with the
-  closed-form shapes this page reads.<br>
-  <b>The number to carry off:</b> a depth file holds a shape to 10⁻⁵ of its departure over the whole range when
-  every sweep leaves what it hands down flat at its children's walls; without that, every file misses by percents
-  in bands beside the walls, however many octaves it enters. And depth beats breadth where the detail is beside
-  the reader, not everywhere.
-  <div class="next">Next: <a href="recovered.html">Recovered →</a></div>
+  <b>tvf.recovered.js</b> is the recovery: places along an outline, each reader's quotient v/h of each place, the line
+  a quotient fixes, crossing two readers' lines at the place (the pair meeting squarest, of those that see it), and the
+  readers' own layout, in their units until one length is given. The same arithmetic as the leaf editor's
+  <em>undoing the division</em> lab.<br>
+  <b>The number to carry off:</b> what the division removes is one number for the whole figure, its size, and one length
+  between two standpoints puts it back; the shape needs no number at all, only a second place to stand.
+  <div class="next">Next: <a href="fail.html">Where it breaks →</a></div>
 </footer>
 
 <script>
@@ -1252,802 +1251,380 @@ const primitives = { circle, ellipse, superellipse, rect, polygon, star, blob, r
 return { Shape, mix, alignTo, primitives, kernelMatrix, kernelSlope, slopeDiff, leafSlopes, leafSlopesCascade, reconstructSlope, circle, ellipse, superellipse, rect, polygon, star, blob, rose, kernel, leafPositions, reconstruct, evalAt, arcLengthResample, clearCache, TAU };
 
 })();
-// >>> copied from draw.html, unchanged: DEPTH, fmtSig, rungOfRow, depthToTVF, depthFromTVF, depthLearnedFacing, depthEnterWhereNeeded, WLS_K, wlsSlopeRow, wlsSolve, depthEnterFlat, depthEnterFlatWalls
-const DEPTH = (function() {
-    const halve = t => t / (1 + Math.sqrt(1 + t * t));
-    const step = (a, b) => (a + b) / (1 - a * b);
-    function leaves(N) {
-        let u = 1,
-            m = 0;
-        while (2 ** (m + 2) < 2 * N) {
-            u = halve(u);
-            m++;
-        }
-        const two = step(u, u),
-            out = [u];
-        while (out.length < N / 2)
-            out.push(step(out[out.length - 1], two));
-        return out;
-    }
-    function split(r) {
-        let k = 0;
-        while (r > 2 ** k)
-            k++;
-        while (r <= 2 ** (k - 1))
-            k--;
-        const lo = 2 ** (k - 1),
-            hi = 2 ** k;
-        const f = k <= 0 ? (r - lo) / (hi - lo) : (1 / lo - 1 / r) / (1 / lo - 1 / hi);
-        return [k, f <= 0.5 ? 2 * f : (f < 1 ? 1 / (2 * (1 - f)) : Infinity)];
-    }
-    function join(k, rho) {
-        const f = rho <= 1 ? rho / 2 : 1 - 1 / (2 * rho);
-        const lo = 2 ** (k - 1),
-            hi = 2 ** k;
-        return k <= 0 ? lo + f * (hi - lo) : 1 / (1 / lo - f * (1 / lo - 1 / hi));
-    }
-    function S(path, r) {
-        for (let i = path.length - 1; i >= 0; i--)
-            r = join(path[i], r);
-        return r;
-    }
-    function addr(s, m) {
-        const ks = [];
-        let r = s;
-        for (let i = 0; i < m; i++) {
-            if (r === 0 || !isFinite(r))
-                break;
-            const q = split(r);
-            ks.push(q[0]);
-            r = q[1];
-        }
-        return [ks, r];
-    }
-    function Kpair(tau, N) {
-        if (tau === 0)
-            return 1;
-        if (!isFinite(tau))
-            return 0;
-        const n = Math.sqrt(1 + tau * tau);
-        let br = 1 / n,
-            bi = tau / n,
-            or = 1,
-            oi = 0,
-            e = N;
-        while (e) {
-            if (e & 1) {
-                const t = or * br - oi * bi;
-                oi = or * bi + oi * br;
-                or = t;
-            }
-            const t2 = br * br - bi * bi;
-            bi = 2 * br * bi;
-            br = t2;
-            e >>= 1;
-        }
-        return oi / (N * tau);
-    }
-    function present(r, sk, ck) {
-        const M = sk.length,
-            N = 2 * M;
-        let out = 0;
-        for (let k = 0; k < M; k++) {
-            const s = sk[k];
-            const tm = isFinite(r) ? (r - s) / (1 + r * s) : 1 / s;
-            const tp = isFinite(r) ? (r + s) / (1 - r * s) : -1 / s;
-            out += ck[k] * (Kpair(tm, N) + Kpair(tp, N));
-        }
-        return out;
-    }
-    function Surface(p, W) {
-        const sk = leaves(2 * W),
-            docs = new Map(),
-            key = P => P.join('.');
-        function value(s, upto) {
-            let tot = docs.has('') ? present(s, sk, docs.get('')) : 0,
-                r = s;
-            const P = [];
-            for (let m = 1; m <= (upto == null ? 99 : upto); m++) {
-                if (r === 0 || !isFinite(r))
-                    break;
-                const q = split(r);
-                P.push(q[0]);
-                r = q[1];
-                const d = docs.get(key(P));
-                if (!d)
-                    break;
-                tot += present(r, sk, d);
-            }
-            return tot;
-        }
-        function enter(P) {
-            docs.set(key(P), sk.map(r => {
-                const x = S(P, r);
-                return p(x) - value(x);
-            }));
-        }
-        return {
-            sk,
-            docs,
-            value,
-            enter,
-            has: P => docs.has(key(P))
-        };
-    }
-    const range = P => [S(P, 0), S(P, Infinity)];
-    function enterRange(surf, lo, hi, L) {
-        surf.enter([]);
-        let frontier = [];
-        for (let k = split(lo)[0]; k <= split(hi)[0]; k++) {
-            surf.enter([k]);
-            frontier.push([k]);
-        }
-        for (let m = 2; m <= L; m++) {
-            const next = [];
-            for (const P of frontier)
-                for (let k = -2; k <= 3; k++) {
-                    const Q = P.concat([k]),
-                        [a, b] = range(Q);
-                    if (b < lo || a > hi)
-                        continue;
-                    surf.enter(Q);
-                    next.push(Q);
-                }
-            frontier = next;
-        }
-        return surf.docs.size;
-    }
-    function misses(surf, pts, pv, L) {
-        const out = [];
-        for (let m = 0; m <= L; m++) {
-            let worst = 0;
-            for (let i = 0; i < pts.length; i++) {
-                if (m > 0) {
-                    const [ks] = addr(pts[i], m);
-                    if (ks.length !== m || !surf.has(ks))
-                        continue;
-                }
-                const e = Math.abs(surf.value(pts[i], m) - pv[i]);
-                if (e > worst)
-                    worst = e;
-            }
-            out.push(worst);
-        }
-        return out;
-    }
-    return {
-        leaves,
-        split,
-        join,
-        S,
-        addr,
-        Kpair,
-        present,
-        Surface,
-        enterRange,
-        misses,
-        range
-    };
-})();
-function fmtSig(x, digits) {
-    // §2.7: decimal preferred inside [1e-3, 1e3], scientific outside.
-    if (x === 0)
-        return '0';
-    if (!isFinite(x))
-        return String(x);
-    const abs = Math.abs(x);
-    if (abs < 1e-3 || abs >= 1e3)
-        return x.toExponential(digits - 1);
-    let s = x.toPrecision(digits);
-    if (s.indexOf('.') !== -1 && s.indexOf('e') === -1) {
-        s = s.replace(/0+$/, '').replace(/\.$/, '');
-        if (s === '' || s === '-')
-            s = '0';
-    }
-    return s;
-}
-function rungOfRow(values) {
-    // §2.2: IEEE 754 exponent of the row's dominant magnitude.
-    let peak = 0;
-    for (let i = 0; i < values.length; i++) {
-        const a = Math.abs(values[i]);
-        if (a > peak)
-            peak = a;
-    }
-    if (peak === 0)
-        return 0;
-    return Math.floor(Math.log2(peak));
-}
-function depthToTVF(surf, frame, name) {
-    const keys = [...surf.docs.keys()].sort((a, b) => (a.split('.').length - b.split('.').length) || (a < b ? -1 : a > b ? 1 : 0));
-    const out = [];
-    for (const k of keys) {
-        const vals = surf.docs.get(k),
-            L = [];
-        L.push(`TVF ${vals.length} 1 1`);
-        L.push('#meta type:depth');
-        L.push('#meta address:@' + k);
-        if (k === '') {
-            L.push('#meta leaves:corner,halve,step');
-            L.push('#meta holds:departure from the reader\'s unit circle, p(s) = h met / (2s/(1+s^2))');
-            if (frame)
-                L.push('#meta reader:' + ['x0', 'y0', 'tx', 'ty', 'cx', 'cy', 'Rm'].map(q => q + '=' + fmtSig(frame[q], 10)).join(','));
-            if (name)
-                L.push('#meta name:' + String(name).replace(/[\r\n]+/g, ' '));
-        }
-        L.push(rungOfRow(vals) + ' ' + vals.map(v => fmtSig(v, 8)).join(' '));
-        out.push(L.join('\n'));
-    }
-    return out.join('\n') + '\n';
-}
-function depthFromTVF(text) {
-    const lines = text.split(/\r?\n/),
-        docs = new Map();
-    let frame = null,
-        name = null,
-        W = null;
-    for (let i = 0; i < lines.length; i++) {
-        const m = lines[i].trim().match(/^TVF\s+(\d+)\s+(\d+)\s+(\d+)\s*$/);
-        if (!m)
-            continue;
-        const w = +m[1];
-        if (W == null)
-            W = w;
-        else if (w !== W)
-            throw new Error('documents of different widths');
-        let addr = null,
-            type = null,
-            j = i + 1;
-        for (; j < lines.length && lines[j].trim().startsWith('#'); j++) {
-            const t = lines[j].trim();
-            if (!t.startsWith('#meta'))
-                continue;
-            const tag = t.slice(5).trim(),
-                c = tag.indexOf(':'),
-                key = tag.slice(0, c).trim(),
-                val = tag.slice(c + 1).trim();
-            if (key === 'address')
-                addr = val.replace(/^@/, '');
-            if (key === 'type')
-                type = val;
-            if (key === 'reader') {
-                frame = {};
-                for (const kv of val.split(',')) {
-                    const [a, b] = kv.split('=');
-                    frame[a] = +b;
-                }
-            }
-            if (key === 'name')
-                name = val;
-        }
-        if (type !== 'depth' || addr == null)
-            continue;
-        const parts = (lines[j] || '').trim().split(/\s+/);
-        if (parts.length < w + 1)
-            throw new Error('document @' + addr + ': expected ' + w + ' values');
-        docs.set(addr, parts.slice(1, w + 1).map(Number));
-        i = j;
-    }
-    if (!docs.size)
-        throw new Error('no depth documents found');
-    const surf = DEPTH.Surface(() => 0, W);
-    for (const [k, v] of docs)
-        surf.docs.set(k, v);
-    return {
-        surf,
-        frame,
-        name,
-        W
-    };
-}
-function depthLearnedFacing(surf, frame, upto, n) {
-    n = n || 600;
-    const pts = [],
-        nx = -frame.ty,
-        ny = frame.tx;
-    for (let i = 0; i < n; i++) {
-        const s = DEPTH_LO * Math.pow(DEPTH_HI / DEPTH_LO, i / (n - 1)),
-            p = surf.value(s, upto),
-            h = p * 2 * s / (1 + s * s),
-            v = s * h;
-        const ux = frame.x0 + h * frame.tx + v * nx,
-            uy = frame.y0 + h * frame.ty + v * ny;
-        pts.push({
-            x: frame.cx + frame.Rm * ux,
-            y: frame.cy + frame.Rm * uy
-        });
-    }
-    return pts;
-}
-function depthEnterWhereNeeded(surf, p, lo, hi, L, tol) {
-    const D = DEPTH;
-    surf.enter([]);
-    const holds = P => {
-        for (const r of surf.sk) {
-            const x = D.S(P, r),
-                e = Math.abs(p(x) - surf.value(x));
-            if (!(e <= tol))
-                return true; // over tolerance, or not a number: enter, to be safe
-        }
-        return false;
-    };
-    let frontier = [];
-    for (let k = D.split(lo)[0]; k <= D.split(hi)[0]; k++)
-        if (holds([k])) {
-            surf.enter([k]);
-            frontier.push([k]);
-        }
-    for (let m = 2; m <= L; m++) {
-        const next = [];
-        for (const P of frontier)
-            for (let k = -2; k <= 3; k++) {
-                const Q = P.concat([k]),
-                    [a, b] = D.range(Q);
-                if (b < lo || a > hi || !holds(Q))
-                    continue;
-                surf.enter(Q);
-                next.push(Q);
-            }
-        frontier = next;
-    }
-    return surf.docs.size;
-}
-const WLS_K = 12;
-const wlsSlopes = new Map(); // wall ρ → the slope of each leaf's presentation there (the kernel only)
-function wlsSlopeRow(sk, w) {
-    const key = sk.length + ':' + w;
-    if (!wlsSlopes.has(key)) {
-        const h = 1e-5, e = sk.map(() => 0);
-        wlsSlopes.set(key, sk.map((_, j) => {
-            e.fill(0);
-            e[j] = 1;
-            return (DEPTH.present(w * Math.exp(h), sk, e) - DEPTH.present(w * Math.exp(-h), sk, e)) / (2 * h);
-        }));
-    }
-    return wlsSlopes.get(key);
-}
-function wlsSolve(M, b) {
-    const n = b.length, A = M.map((r, i) => r.concat([b[i]]));
-    for (let c = 0; c < n; c++) {
-        let piv = c;
-        for (let r = c + 1; r < n; r++)
-            if (Math.abs(A[r][c]) > Math.abs(A[piv][c]))
-                piv = r;
-        [A[c], A[piv]] = [A[piv], A[c]];
-        for (let r = 0; r < n; r++)
-            if (r !== c) {
-                const f = A[r][c] / A[c][c];
-                for (let k = c; k <= n; k++)
-                    A[r][k] -= f * A[c][k];
-            }
-    }
-    return A.map((r, i) => r[n] / r[i]);
-}
-// Enter the sweep at P holding what the levels above left, its row adjusted so the residual
-// after it is flat at the given walls (ρ in P's own reading).
-function depthEnterFlat(surf, p, P, walls) {
-    const D = DEPTH,
-        sk = surf.sk,
-        t = r => {
-            const x = D.S(P, r);
-            return p(x) - surf.value(x);
-        },
-        dlog = (f, r) => (f(r * Math.exp(1e-5)) - f(r * Math.exp(-1e-5))) / 2e-5;
-    let c = sk.map(t);
-    const ws = walls.filter(w => w > sk[0] && w < 1 / sk[0]);
-    if (ws.length) {
-        const A = ws.map(w => wlsSlopeRow(sk, w)),
-            g = ws.map(w => dlog(t, w) - dlog(r => D.present(r, sk, c), w)),
-            y = wlsSolve(A.map(a => A.map(b => a.reduce((s, v, i) => s + v * b[i], 0))), g);
-        if (y.every(isFinite))
-            c = c.map((v, j) => v + A.reduce((s, a, i) => s + a[j] * y[i], 0));
-    }
-    surf.docs.set(P.join('.'), c);
-}
-// The writer: DWN's rule (enter only where the residual at the octave's own leaves exceeds
-// tol), children −K…K+1, every row flat at its children's walls.
-function depthEnterFlatWalls(surf, p, lo, hi, L, tol, K) {
-    const D = DEPTH;
-    K = K || WLS_K;
-    const holds = P => {
-        for (const r of surf.sk) {
-            const x = D.S(P, r),
-                e = Math.abs(p(x) - surf.value(x));
-            if (!(e <= tol))
-                return true;
-        }
-        return false;
-    };
-    const k0 = D.split(lo)[0],
-        k1 = D.split(hi)[0],
-        rootWalls = [],
-        kidWalls = [];
-    for (let k = k0; k < k1; k++)
-        rootWalls.push(2 ** k);
-    for (let j = -K; j <= K; j++)
-        kidWalls.push(2 ** j);
-    depthEnterFlat(surf, p, [], rootWalls);
-    let frontier = [];
-    for (let k = k0; k <= k1; k++)
-        if (holds([k])) {
-            depthEnterFlat(surf, p, [k], L > 1 ? kidWalls : []);
-            frontier.push([k]);
-        }
-    for (let m = 2; m <= L; m++) {
-        const next = [];
-        for (const P of frontier)
-            for (let k = -K; k <= K + 1; k++) {
-                const Q = P.concat([k]),
-                    [a, b] = D.range(Q);
-                if (b < lo || a > hi || !holds(Q))
-                    continue;
-                depthEnterFlat(surf, p, Q, m < L ? kidWalls : []);
-                next.push(Q);
-            }
-        frontier = next;
-    }
-    return surf.docs.size;
-}
-// <<< end of the copied depth code
-
 const { TAU } = TVF;
 
-const DEPTH_LO = 2 ** -6, DEPTH_HI = 2 ** 6, DEPTH_L = 3, DTV_W = 16;
-
-// ── tvf.depth.js: the shapes this page reads ──────────────────────────────
-// A unit circle with gaussian bumps on its radius, read from (1, 0), where the outline is
-// square to the radius and the reader's tangent runs straight up: R(θ) = 1 + Σ a·b(θ), each
-// bump made even about the reader and zero there, b(θ) = (g(θ − c) + g(−θ − c))/2 − g(c) with
-// g(x) = exp(−(x/w)²), so the reader stands exactly on the shape whatever the bumps. The first
-// is the editor's closed-form test shape ("run 1"); the last puts a grain of detail right
-// beside the reader, where one sweep's even turn is coarsest in s. The reading at address s
-// is the point met there, s = v/h of it as the reader sees it; the departure held is
-// p(s) = the h met ÷ 2s/(1+s²), the unit circle's h at s, so the bare circle holds nothing and
-// every miss is against the formula.
-const DEPTHPAGE = (function () {
-const DEG = Math.PI / 180;
-const SHAPES = {
-  'two bumps':           [[0.05, 100, 20], [0.01, 40, 3]],
-  'one broad bump':      [[0.08, 95, 30]],
-  'a narrow bump':       [[0.02, 60, 2.5]],
-  'three bumps':         [[0.03, 50, 6], [0.04, 100, 10], [0.02, 150, 4]],
-  'a grain by the reader':  [[0.0003, 2, 0.3]],
-};
-function shape(name) {
-  const B = SHAPES[name].map(([a, c, w]) => [a, c * DEG, w * DEG]);
-  const g = (x, w) => Math.exp(-((x / w) ** 2));
-  const R = th => 1 + B.reduce((t, [a, c, w]) => t + a * ((g(th - c, w) + g(-th - c, w)) / 2 - g(c, w)), 0);
-  const sOf = th => { const r = R(th); return (1 - r * Math.cos(th)) / (r * Math.sin(th)); };
-  // s rises from 0 at the reader to ∞ straight across (the page checks none of these folds),
-  // so the point met at s is found by halving: 64 halvings hold θ to the last bit
-  const thAt = s => { let lo = 1e-12, hi = Math.PI - 1e-12; for (let i = 0; i < 64; i++) { const m = 0.5 * (lo + hi); if (sOf(m) < s) lo = m; else hi = m; } return 0.5 * (lo + hi); };
-  const p = s => { const th = thAt(s); return R(th) * Math.sin(th) / (2 * s / (1 + s * s)); };
-  const outline = [];
-  for (let i = 0; i < 360; i++) { const t = TAU * i / 360, r = R(t); outline.push({ x: r * Math.cos(t), y: r * Math.sin(t) }); }
-  return { name, R, p, outline };
+// ── tvf.recovered.js: recovering a figure from quotients ─────────────────
+// A reader at o holds, of a place P, only the quotient v/h = (P.y − o.y)/(P.x − o.x): the
+// tangent of its turn towards P, the size of both extents divided out. That quotient fixes
+// a LINE, through o along atan(v/h), and nothing about where on it P lies (not even which
+// way: v/h is the same for P and for P reflected through o). The editor's labs show the
+// consequence (rcc: the census returns the unit circle from every figure) and the cure
+// (udv: readers elsewhere, whose lines cross at the place). This module is that arithmetic.
+const RECOVER = (function () {
+const TAU = 2 * Math.PI;
+function polar(M, r) { const P = []; for (let i = 0; i < M; i++) { const t = TAU * i / M, R = r(t); P.push({ x: R * Math.cos(t), y: R * Math.sin(t) }); } return P; }
+/** M places evenly along the outline (by arc length), from a dense closed polygon. */
+function places(D, M) {
+  const n = D.length, cum = [0];
+  for (let i = 0; i < n; i++) { const a = D[i], b = D[(i + 1) % n]; cum.push(cum[i] + Math.hypot(b.x - a.x, b.y - a.y)); }
+  const L = cum[n], out = [];
+  let j = 0;
+  for (let k = 0; k < M; k++) {
+    const s = L * k / M;
+    while (cum[j + 1] < s) j++;
+    const a = D[j], b = D[(j + 1) % n], t = (s - cum[j]) / ((cum[j + 1] - cum[j]) || 1);
+    out.push({ x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) });
+  }
+  return out;
 }
-// The whole range, home to far wall, on cell midpoints in log s: no sample lands on a wall.
-const grid = n => Array.from({ length: n }, (_, i) => DEPTH_LO * Math.pow(DEPTH_HI / DEPTH_LO, (i + 0.5) / n));
-const walls = () => { const w = []; for (let k = DEPTH.split(DEPTH_LO)[0]; k < DEPTH.split(DEPTH_HI)[0]; k++) w.push(2 ** k); return w; };
-const reaches = (surf, s, m) => { if (!m) return true; const [ks] = DEPTH.addr(s, m); return ks.length === m && surf.has(ks); };
-function sizeOf(sh, G) { return Math.max(...G.map(s => Math.abs(sh.p(s) - 1))) || 1; }
-// The three writers the format has had, each at a tolerance τ of the departure where it takes one.
-function write(sh, writer, tau, size) {
-  const surf = DEPTH.Surface(sh.p, DTV_W);
-  if (writer === 'every octave') DEPTH.enterRange(surf, DEPTH_LO, DEPTH_HI, DEPTH_L);
-  else if (writer === 'where needed') depthEnterWhereNeeded(surf, sh.p, DEPTH_LO, DEPTH_HI, DEPTH_L, tau * size);
-  else depthEnterFlatWalls(surf, sh.p, DEPTH_LO, DEPTH_HI, DEPTH_L, tau * size);
-  return surf;
+function centre(P) { let x = 0, y = 0; for (const q of P) { x += q.x; y += q.y; } return { x: x / P.length, y: y / P.length }; }
+function radius(P, c) { let s = 0, lo = Infinity, hi = 0; for (const q of P) { const r = Math.hypot(q.x - c.x, q.y - c.y); s += r; lo = Math.min(lo, r); hi = Math.max(hi, r); } return { mean: s / P.length, swing: hi / lo }; }
+/** What a reader holds of a place: the quotient, rounded to `digits` significant figures if given. */
+function quotient(o, P, digits) { const q = (P.y - o.y) / (P.x - o.x); return digits && isFinite(q) ? Number(q.toPrecision(digits)) : q; }
+/** The line a quotient fixes: its direction (either way along it). */
+function lineOf(q) { const a = Math.atan(q); return [Math.cos(a), Math.sin(a)]; }
+const cr = (ax, ay, bx, by) => ax * by - ay * bx;
+/** The three readers' default places: a triangle about c at `spread` of the mean radius. */
+function triangle(c, R, spread) { return [0, 1, 2].map(k => { const t = Math.PI / 2 + TAU * k / 3; return { x: c.x + spread * R * Math.cos(t), y: c.y + spread * R * Math.sin(t) }; }); }
+/** Is place i of the outline P seen from o: does the segment o → P[i] cross no other edge? */
+function sees(P, o, i) {
+  const n = P.length, Q = P[i];
+  for (let j = 0; j < n; j++) {
+    if (j === i || (j + 1) % n === i) continue;
+    const A = P[j], B = P[(j + 1) % n];
+    const d = cr(Q.x - o.x, Q.y - o.y, B.x - A.x, B.y - A.y);
+    if (Math.abs(d) < 1e-15) continue;
+    const t = cr(A.x - o.x, A.y - o.y, B.x - A.x, B.y - A.y) / d, u = cr(A.x - o.x, A.y - o.y, Q.x - o.x, Q.y - o.y) / d;
+    if (t > 1e-9 && t < 1 - 1e-9 && u >= 0 && u <= 1) return false;
+  }
+  return true;
 }
-// What a file holds, scored over the whole range: the miss at every point (as a share of the
-// departure), where the reading reaches level 3, and at the walls between octaves themselves.
-function score(sh, surf, G, pv, size, upto) {
-  const L = upto == null ? DEPTH_L : upto;
-  const err = G.map((s, i) => Math.abs(surf.value(s, L) - pv[i]) / size);
-  const reach = G.map(s => reaches(surf, s, DEPTH_L));
-  const inner = walls().filter(w => w >= 2 ** -3).map(w => Math.abs(surf.value(w, L) - sh.p(w)) / size);
-  const byLevel = [0, 0, 0, 0];
-  for (const k of surf.docs.keys()) byLevel[k === '' ? 0 : k.split('.').length]++;
-  return { err, reach, worst: Math.max(...err), over: t => err.filter(e => e > t).length / err.length,
-           reached: reach.filter(Boolean).length / reach.length, wall: Math.max(...inner), docs: surf.docs.size, byLevel };
+/**
+ * Every place recovered from the readers' quotients, given where the readers stand (R, in
+ * whatever units they hold their own layout). Of the readers that see a place, the pair
+ * whose lines meet squarest is crossed. A place fewer than two readers see is not recovered.
+ * Returns per place { x, y, angle (degrees), pair } or null.
+ */
+function recover(P, O, R, o = {}) {
+  const Q = P.map(p => O.map(r => quotient(r, p, o.digits)));
+  return P.map((_, i) => {
+    const who = o.seen ? O.map((r, k) => k).filter(k => o.seen[k][i]) : O.map((r, k) => k);
+    if (who.length < 2) return null;
+    const L = Q[i].map(lineOf);
+    let best = null, bs = -1;
+    for (let a = 0; a < who.length; a++) for (let b = a + 1; b < who.length; b++) {
+      const s = Math.abs(cr(L[who[a]][0], L[who[a]][1], L[who[b]][0], L[who[b]][1]));
+      if (s > bs) { bs = s; best = [who[a], who[b]]; }
+    }
+    const [a, b] = best, d = cr(L[a][0], L[a][1], L[b][0], L[b][1]);
+    if (Math.abs(d) < 1e-300) return null;
+    const t = cr(R[b].x - R[a].x, R[b].y - R[a].y, L[b][0], L[b][1]) / d;
+    return { x: R[a].x + t * L[a][0], y: R[a].y + t * L[a][1], angle: Math.asin(Math.min(1, bs)) * 180 / Math.PI, pair: best };
+  });
 }
-// One sweep of W values from the reader's own standpoint: breadth alone. The leaves come from
-// the corner by halving and the tangent step, which spaces them evenly only when W is a power
-// of two, so breadth is spent at the power of two at or below the depth file's count, as the
-// editor's depth-in-TVF lab spends it.
-const pow2 = n => 2 ** Math.floor(Math.log2(n));
-function breadth(sh, W) { const surf = DEPTH.Surface(sh.p, pow2(W)); surf.enter([]); return surf; }
-// A single sweep asked to hold a ramp (the residual's slope across a wall, in the sweep's own
-// turn θ, s = tan(θ/2)): the cause of the walls, on its own.
-function ramp(W, n) {
-  const sk = DEPTH.leaves(2 * W), c = sk.map(r => 2 * Math.atan(r)), out = [];
-  for (let i = 0; i <= n; i++) { const th = Math.PI * (i + 0.5) / (n + 1); out.push({ th, v: DEPTH.present(Math.tan(th / 2), sk, c) }); }
-  return { sk, out };
+/** The readers' own layout: reader 0 at the origin, in units of `len` (their idea of the
+ *  distance from reader 0 to reader 1), keeping the triangle's shape and turn. */
+function ownLayout(O, len) {
+  const base = Math.hypot(O[1].x - O[0].x, O[1].y - O[0].y);
+  return O.map(r => ({ x: (r.x - O[0].x) / base * len, y: (r.y - O[0].y) / base * len }));
 }
-return { SHAPES, shape, grid, walls, reaches, sizeOf, write, score, breadth, pow2, ramp };
+/** The worst and median distance of recovered places from the true ones, as a share of R. */
+function misses(P, rec, R) {
+  const e = [];
+  rec.forEach((q, i) => { if (q) e.push(Math.hypot(q.x - P[i].x, q.y - P[i].y) / R); });
+  e.sort((a, b) => a - b);
+  return { worst: e.length ? e[e.length - 1] : NaN, median: e.length ? e[e.length >> 1] : NaN, n: e.length };
+}
+return { polar, places, centre, radius, quotient, lineOf, triangle, sees, recover, ownLayout, misses };
 })();
 
 // ── page ─────────────────────────────────────────────────────────────────
-const DP = DEPTHPAGE;
-const opts = { walls: true };
+const RC = RECOVER;
 const p = (key, min, max, step, value) => ({ key, min, max, step, value });
 const sel = (key, options, value) => ({ key, options, value });
-const INK = 'rgba(232,236,245,0.92)', GHOST = 'rgba(232,236,245,0.22)', DIM = 'rgba(139,149,171,0.7)',
-      VIOLET = '#b9a6ff', BLUE = '#6fa8ff', GOLD = '#f2c14e', TEAL = '#4fd0d0', PINK = '#ff7ad9', RED = '#e0644f';
-const LEVEL_COL = ['rgba(124,92,255,0.35)', 'rgba(124,92,255,0.55)', 'rgba(150,120,255,0.8)', VIOLET];
+const INK = 'rgba(232,236,245,0.92)', GHOST = 'rgba(232,236,245,0.22)', DIM = 'rgba(139,149,171,1)',
+      GOLD = '#f2c14e', TEAL = '#4fd0d0', RED = '#e0644f', CLAY = 'rgba(160,138,255,0.95)', BLUE = 'rgba(94,182,255,0.9)';
+const READER_COL = [GOLD, BLUE, '#d98bff'];
 const cache = new Map();
 const memo = (k, f) => { if (!cache.has(k)) cache.set(k, f()); return cache.get(k); };
-const sci = v => v === 0 ? '0' : v < 1e-3 ? v.toExponential(1) : (100 * v).toFixed(v < 0.1 ? 2 : 1) + '%';
-const pc = v => (100 * v).toFixed(v < 0.1 && v > 0 ? 1 : 0) + '%';
-const NAMES = Object.keys(DP.SHAPES);
-const G = DP.grid(1200);
-const shapeOf = n => memo('sh:' + n, () => { const sh = DP.shape(n); sh.pv = G.map(sh.p); sh.size = DP.sizeOf(sh, G); return sh; });
-const fileOf = (n, writer, tau) => memo(`f:${n}:${writer}:${tau}`, () => {
-  const sh = shapeOf(n), surf = DP.write(sh, writer, tau, sh.size);
-  const text = depthToTVF(surf, { x0: 1, y0: 0, tx: 0, ty: 1, cx: 0, cy: 0, Rm: 1 }, n);
-  return { surf, text, sc: DP.score(sh, surf, G, sh.pv, sh.size) };
-});
-const SAVED = ['flat walls', 1e-6];   // the writer the editor saves with
+const sci = v => !isFinite(v) ? '—' : v === 0 ? '0' : v < 1e-3 ? v.toExponential(1) : (100 * v).toFixed(v < 0.1 ? 2 : 1) + '%';
+const opts = { lines: true };
+
+// ── the shapes ───────────────────────────────────────────────────────────
+// Each about radius one. The crescent is the one no standpoint sees whole: its horns hide
+// parts of its hollow side from a reader in its body.
+function crescent() {
+  const P = [], a0 = 0.7, n = 1200;
+  for (let i = 0; i <= n; i++) { const t = a0 + (TAU - 2 * a0) * i / n; P.push({ x: Math.cos(t), y: Math.sin(t) }); }
+  // the hollow: an inner circle through the two horn tips, traversed back
+  const tip = { x: Math.cos(a0), y: Math.sin(a0) }, cx = 0.55, r = Math.hypot(tip.x - cx, tip.y);
+  const b0 = Math.atan2(tip.y, tip.x - cx);
+  // from the lower tip round through the inner circle's leftmost point to the upper tip
+  for (let i = 1; i < n; i++) { const t = (TAU - b0) - (TAU - 2 * b0) * i / n; P.push({ x: cx + r * Math.cos(t), y: r * Math.sin(t) }); }
+  return P;
+}
+const FIGURES = {
+  circle:   () => RC.polar(2048, () => 1),
+  egg:      () => RC.polar(2048, () => 1).map(q => ({ x: q.x * (1 + 0.18 * q.y), y: 1.25 * q.y })),
+  star:     () => RC.polar(2048, t => 1 + 0.32 * Math.cos(5 * t) + 0.06 * Math.cos(10 * t)),
+  heart:    () => { const P = []; for (let i = 0; i < 2048; i++) { const t = TAU * i / 2048;
+                    P.push({ x: Math.pow(Math.sin(t), 3), y: (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 16 }); } return P; },
+  square:   () => { const C = [[-1, -1], [1, -1], [1, 1], [-1, 1]], P = []; for (let k = 0; k < 4; k++) for (let i = 0; i < 512; i++) {
+                    const a = C[k], b = C[(k + 1) % 4], t = i / 512; P.push({ x: 0.8 * (a[0] + t * (b[0] - a[0])), y: 0.8 * (a[1] + t * (b[1] - a[1])) }); } return P; },
+  crescent,
+};
+const NAMES = Object.keys(FIGURES);
+const M = 180;
+const figureOf = n => memo('f:' + n, () => { const D = FIGURES[n](), P = RC.places(D, M), c = RC.centre(D), r = RC.radius(P, c); return { D, P, c, R: r.mean, swing: r.swing }; });
+// where the readers stand by default: inside, about the centre (in the crescent's body)
+const homeOf = (n, k, spread) => { const f = figureOf(n);
+  if (n === 'crescent') return [{ x: -0.78, y: 0.12 }, { x: -0.62, y: -0.42 }, { x: -0.55, y: 0.5 }].slice(0, k);
+  return RC.triangle(f.c, f.R, spread || 0.3).slice(0, k); };
 
 // ── drawing ──────────────────────────────────────────────────────────────
+function cam(sets, w, h, pad) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of sets) for (const q of s) { if (!q) continue;
+    if (q.x < x0) x0 = q.x; if (q.x > x1) x1 = q.x; if (q.y < y0) y0 = q.y; if (q.y > y1) y1 = q.y; }
+  const bw = x1 - x0 || 1, bh = y1 - y0 || 1, k = Math.min((w - 2 * pad) / bw, (h - 2 * pad) / bh);
+  const mx = x0 + bw / 2, my = y0 + bh / 2;
+  return { k, X: x => w / 2 + (x - mx) * k, Y: y => h / 2 - (y - my) * k,
+           inv: (sx, sy) => ({ x: mx + (sx - w / 2) / k, y: my - (sy - h / 2) / k }) };
+}
+function outline(ctx, c, P, style, width) {
+  ctx.beginPath(); P.forEach((q, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, c.X(q.x), c.Y(q.y))); ctx.closePath();
+  ctx.strokeStyle = style; ctx.lineWidth = width || 1.2; ctx.lineJoin = 'round'; ctx.stroke();
+}
 function label(ctx, x, y, t, style, align) {
-  ctx.fillStyle = style; ctx.font = '11px "IBM Plex Mono", monospace'; ctx.textAlign = align || 'left'; ctx.fillText(t, x, y);
+  ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace'; ctx.fillStyle = style || DIM; ctx.textAlign = align || 'left'; ctx.fillText(t, x, y);
 }
-// the reading's axis: log₂ s from the reader's home (left) to its far wall (right)
-const axis = (x0, w) => s => x0 + (Math.log2(s) + 6) / 12 * w;
-function wallLines(ctx, X, y0, y1) {
-  if (!opts.walls) return;
-  ctx.strokeStyle = 'rgba(139,149,171,0.16)'; ctx.lineWidth = 1;
-  for (const w of DP.walls()) { const x = Math.round(X(w)) + 0.5; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke(); }
+function dot(ctx, x, y, r, fill, stroke) {
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.4; ctx.stroke(); }
 }
-function sAxis(ctx, X, y) {
-  for (const e of [-6, -3, 0, 3, 6]) label(ctx, X(2 ** e), y, e === 0 ? '1' : '2' + String(e).replace('-', '⁻').replace(/\d/g, c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[c]), DIM, 'center');
-}
-function line(ctx, xs, ys, style, width) {
-  ctx.beginPath(); let on = false;
-  for (let i = 0; i < xs.length; i++) { if (!isFinite(ys[i])) { on = false; continue; } (on ? ctx.lineTo : ctx.moveTo).call(ctx, xs[i], ys[i]); on = true; }
-  ctx.strokeStyle = style; ctx.lineWidth = width || 1; ctx.stroke();
-}
-// the miss, on a log scale from 10⁻⁹ to 1, against s
-function missPlot(ctx, X, y0, h, err, style, width) {
-  const Y = e => y0 + h - (Math.log10(Math.max(e, 1e-9)) + 9) / 9 * h;
-  line(ctx, G.map(X), err.map(Y), style, width);
-  return Y;
-}
-function missFrame(ctx, X, x0, w, y0, h) {
-  const Y = e => y0 + h - (Math.log10(e) + 9) / 9 * h;
-  ctx.strokeStyle = 'rgba(139,149,171,0.12)'; ctx.lineWidth = 1;
-  for (const e of [1e-9, 1e-6, 1e-3, 1]) { const y = Math.round(Y(e)) + 0.5; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + w, y); ctx.stroke();
-    label(ctx, x0 - 4, y + 3, e === 1 ? '1' : '10' + String(Math.log10(e)).replace('-', '⁻').replace(/\d/g, c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[c]), DIM, 'right'); }
-  return Y;
-}
-// the addresses entered, one row per level: each sweep spans the s it is entered over
-function addressMap(ctx, X, x0, w, y0, rowH, surf) {
-  for (let m = 1; m <= DEPTH_L; m++) label(ctx, x0 - 4, y0 + (m - 0.5) * rowH + 3, 'L' + m, DIM, 'right');
-  for (const k of surf.docs.keys()) {
-    if (k === '') continue;
-    const P = k.split('.').map(Number), m = P.length, [a, b] = DEPTH.range(P);
-    const xa = Math.max(x0, X(Math.max(a, 2 ** -7))), xb = Math.min(x0 + w, X(Math.min(b, 2 ** 7)));
-    if (xb <= x0 || xa >= x0 + w) continue;
-    ctx.fillStyle = LEVEL_COL[m]; ctx.fillRect(xa + 0.5, y0 + (m - 1) * rowH + 1, Math.max(1, xb - xa - 1), rowH - 2);
-  }
-}
-function inset(ctx, x, y, r, sh) {
-  ctx.strokeStyle = 'rgba(232,236,245,0.18)'; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
-  ctx.beginPath(); sh.outline.forEach((q, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, x + r * q.x, y - r * q.y)); ctx.closePath();
-  ctx.strokeStyle = INK; ctx.lineWidth = 1.4; ctx.stroke();
-  ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(x + r, y, 3.5, 0, TAU); ctx.fill();
-  ctx.strokeStyle = GOLD; ctx.beginPath(); ctx.moveTo(x + r, y - 0.45 * r); ctx.lineTo(x + r, y + 0.45 * r); ctx.stroke();
+function readerDot(ctx, c, o, k) { dot(ctx, c.X(o.x), c.Y(o.y), 5, '#fff', READER_COL[k]); }
+// A reader's line towards a place, drawn the whole way across the stage: the quotient does
+// not say which side of the reader the place is, or how far.
+function lineThrough(ctx, c, o, q, style, w, h) {
+  const [dx, dy] = RC.lineOf(q), L = 2 * Math.max(w, h) / c.k;
+  ctx.beginPath(); ctx.moveTo(c.X(o.x - L * dx), c.Y(o.y - L * dy)); ctx.lineTo(c.X(o.x + L * dx), c.Y(o.y + L * dy));
+  ctx.strokeStyle = style; ctx.lineWidth = 0.8; ctx.stroke();
 }
 
 // ── the catalogue ────────────────────────────────────────────────────────
 const SECTIONS = [
 {
-  id: 'octaves', title: 'The octaves', kicker: 'the same sweep again, wherever the reading goes',
-  note: 'The reader\'s own sweep holds sixteen values, spread from its home (left, s → 0) through its corner (s = 1) to ' +
-        'its far wall (right, s → ∞). Its children are the doublings of its reading: child k from 2<sup>k−1</sup> to ' +
-        '2<sup>k</sup>, each a whole sweep of its own with its home at its low wall and its far wall at its high one, and ' +
-        'each holding only what the levels above it left, inside its own octave. Their children are octaves of their ' +
-        'own readings, and so on down. Each level adds what the one above could not hold, so the reading closes on the ' +
-        'shape level by level. A file is one ordinary <code>TVF 16 1 1</code> document per sweep, each saying where it sits ' +
-        'with <code>#meta address</code>. <a class="paper" href="../papers.html#tvf:2.8-depth">the format, §2.8</a>',
+  id: 'divide', title: 'What dividing loses', kicker: 'a quotient holds the turn, and nothing else',
+  note: 'A reader standing at a point holds, of each place it reads, one number: <b>v/h</b>, how far across against how far ' +
+        'along. Dividing one extent by the other cancels the size of both, so the quotient is the tangent of the reader\'s ' +
+        'turn towards the place, and that is all. It fixes a <b>line</b> through the reader: not where on it the place is, ' +
+        'and not even which way. Asked for the figure, a reader with only its quotients can do one thing, which is to apply ' +
+        'the census (the two extents squared make one) and put every place at radius one. That returns the unit circle, ' +
+        'from every figure: the reconstruction is perfect, and what it reconstructs is the census, not the figure. ' +
+        'The editor\'s <em>recovered circle</em> lab (draw.html?lab=rcc) runs its library this way.',
   entries: [
-    { name: 'the reading, level by level', wide: true, tall: true,
-      note: 'The shape\'s departure from the reader\'s circle (grey), against the address s, and the reading at levels 0 to ' +
-            'the dial (violet, faint to bright). Underneath, the sweeps entered at each level, each spanning the octave it ' +
-            'is entered over. The file is written as the editor saves one: only where needed, every row flat at its children\'s walls.',
-      params: [ sel('shape', NAMES, 'two bumps'), p('level', 0, 3, 1, 3) ],
-      code: v => `depthEnterFlatWalls(Surface(p, 16), p, 2⁻⁶, 2⁶, 3, 1e-6 · departure)   // ${v.shape}, read to level ${v.level}`,
-      state: v => { const sh = shapeOf(v.shape), f = fileOf(v.shape, ...SAVED);
-        const lv = [0, 1, 2, 3].map(m => G.map(s => f.surf.value(s, m)));
-        const miss = lv.map(c => Math.max(...c.map((x, i) => Math.abs(x - sh.pv[i]))) / sh.size);
-        return { sh, f, lv, miss, text: f.text }; },
-      verdict: s => `${s.f.sc.docs} sweeps (${s.f.sc.byLevel.map((n, m) => n + ' at level ' + m).join(', ')}) · the reading misses the shape by ` +
-                    s.miss.map((m, l) => `${sci(m)} at level ${l}`).join(', ') + ' · departure ' + sci(s.sh.size),
-      bad: s => s.miss[3] > 1e-5,
+    { name: 'one reader, and the census', wide: true, readers: 1,
+      note: 'Drag the reader. Gold lines: what its quotients fix, one line for every tenth place. Red: the census\'s answer, ' +
+            'every place put at the figure\'s mean radius (radius one, near enough) along its line, on the side the place is (the kindest reading). Only the circle, ' +
+            'read from its centre, comes back.',
+      params: [ sel('figure', NAMES, 'heart') ],
+      code: v => `RC.quotient(reader, place)   // ${M} places of the ${v.figure}, one number each`,
+      state: v => { const f = figureOf(v.figure), O = v.R || homeOf(v.figure, 1, 0), o = O[0];
+        const census = f.P.map(q => { const dx = q.x - o.x, dy = q.y - o.y, r = Math.hypot(dx, dy) || 1; return { x: o.x + dx / r * f.R, y: o.y + dy / r * f.R }; });
+        return { f, O, census, miss: RC.misses(f.P, census, f.R) }; },
+      verdict: s => `${M} quotients · the census puts every place at the mean radius from the reader: it misses the figure by up to ${sci(s.miss.worst)} of its radius (median ${sci(s.miss.median)})`,
+      bad: s => s.miss.worst > 0.01,
       draw: (ctx, w, h, v, s) => {
-        const x0 = 46, pw = w - x0 - 14, X = axis(x0, pw), top = 14, ph = h - 120;
-        let lo = Infinity, hi = -Infinity; for (const x of s.sh.pv) { lo = Math.min(lo, x - 1); hi = Math.max(hi, x - 1); }
-        const pad = 0.08 * (hi - lo || 1e-3), Y = d => top + ph - (d - lo + pad) / (hi - lo + 2 * pad) * ph;
-        wallLines(ctx, X, top, top + ph + 70);
-        line(ctx, G.map(X), s.sh.pv.map(x => Y(x - 1)), 'rgba(232,236,245,0.35)', 5);
-        for (let m = 0; m <= v.level; m++) line(ctx, G.map(X), s.lv[m].map(x => Y(x - 1)), LEVEL_COL[m], m === v.level ? 1.8 : 1);
-        addressMap(ctx, X, x0, pw, top + ph + 12, 14, s.f.surf);
-        sAxis(ctx, X, h - 6);
-        inset(ctx, w - 62, 52, 34, s.sh);
-        label(ctx, x0, 10, 'p(s) − 1, the departure held, and the reading to level ' + v.level, INK);
+        const c = cam([s.f.P, s.census, s.O], w, h, 26), o = s.O[0];
+        if (opts.lines) for (let i = 0; i < s.f.P.length; i += 10) lineThrough(ctx, c, o, RC.quotient(o, s.f.P[i]), 'rgba(242,193,78,0.16)', w, h);
+        outline(ctx, c, s.f.P, GHOST, 2.4);
+        outline(ctx, c, s.census, RED, 1.5);
+        readerDot(ctx, c, o, 0);
+        label(ctx, 10, 14, 'drag the reader · grey the figure, red what the census gives back', INK);
+        return c;
       } },
-    { kind: 'report', name: 'what each level adds', wide: true },
+    { name: 'every size reads alike',
+      note: 'The figure, and the same figure grown or shrunk about the reader. Every quotient is the same for both, to the last ' +
+            'digit or so: the reader cannot tell them apart, because the size is what the division cancelled.',
+      params: [ sel('figure', NAMES, 'star'), p('scale', 0.25, 4, 0.05, 2) ],
+      code: v => `quotient(o, o + ${v.scale}·(P − o)) = quotient(o, P)`,
+      state: v => { const f = figureOf(v.figure), o = homeOf(v.figure, 1, 0)[0];
+        const S = f.P.map(q => ({ x: o.x + v.scale * (q.x - o.x), y: o.y + v.scale * (q.y - o.y) }));
+        let d = 0; f.P.forEach((q, i) => { const a = RC.quotient(o, q), b = RC.quotient(o, S[i]); if (isFinite(a)) d = Math.max(d, Math.abs(a - b) / Math.max(1, Math.abs(a))); });
+        return { f, S, o, d }; },
+      verdict: s => `every quotient the same, to ${s.d === 0 ? 'the last bit' : s.d.toExponential(0)}`,
+      draw: (ctx, w, h, v, s) => {
+        const c = cam([s.f.P, s.S], w, h, 18);
+        outline(ctx, c, s.f.P, GHOST, 2); outline(ctx, c, s.S, CLAY, 1.4); readerDot(ctx, c, s.o, 0);
+      } },
   ]
 },
 {
-  id: 'needed', title: 'Only where needed', kicker: 'a sweep is entered where it has something to hold',
-  note: 'Entering every octave to level 3 gives every shape the same 518 sweeps, the bare circle as much as the most ' +
-        'intricate outline. The economy is the writer\'s: before entering an octave, read what it would hold (the residual ' +
-        'the levels above left, at its own sixteen leaves) and enter it only if that exceeds τ of the departure. A skipped ' +
-        'octave is a row of near-zeros the file need not carry, and its children are never considered, because a reading ' +
-        'cannot pass a missing sweep. Which octaves are entered is the writer\'s choice; a reader needs no change. ' +
-        '<a class="paper" href="../papers.html#tvf:2.8-depth">the format, §2.8</a>',
+  id: 'cross', title: 'Another standpoint', kicker: 'two lines cross at the place',
+  note: 'What brings the figure back is not another number per reading but <b>another reader</b>. A second reader\'s quotient ' +
+        'fixes a second line towards the same place, and two lines cross at one point, which is the place. Each reader still holds ' +
+        'nothing but quotients. One thing is assumed throughout: which reading belongs to which place (both readers read the same ' +
+        'arrival), as in the editor\'s labs. One thing fails: a place on the line joining the two readers, where their two ' +
+        'lines are the same line and cross nowhere.',
   entries: [
-    { name: 'the tolerance', wide: true,
-      note: 'The miss at every address, on a log scale, for a file written at τ (the gold line). Underneath, the sweeps ' +
-            'entered. Lower τ, and the file enters more octaves, and only where the shape needs them: the narrow bump\'s ' +
-            'octaves fill in, the plain stretches stay empty.',
-      params: [ sel('shape', NAMES, 'a narrow bump'), p('log τ', -7, -2, 1, -5), sel('writer', ['flat walls', 'where needed'], 'flat walls') ],
-      code: v => `${v.writer === 'flat walls' ? 'depthEnterFlatWalls' : 'depthEnterWhereNeeded'}(surf, p, 2⁻⁶, 2⁶, 3, 1e${v['log τ']} · departure)   // ${v.shape}`,
-      state: v => { const tau = 10 ** v['log τ'], f = fileOf(v.shape, v.writer, tau); return { tau, f, text: f.text }; },
-      verdict: s => `${s.f.sc.docs} sweeps, ${(s.f.text.length / 1024).toFixed(1)} kB of text · misses by more than τ on ${pc(s.f.sc.over(s.tau * 1.01))} of the range · worst ${sci(s.f.sc.worst)}`,
-      bad: s => s.f.sc.over(s.tau * 1.01) > 0.01,
+    { name: 'two readers', wide: true, readers: 2,
+      note: 'Drag either reader. Gold and blue lines: their quotients, for every tenth place. Teal dots: where the lines cross. ' +
+            'Red: the places whose two lines meet at under 3°, on or near the line through the readers (dashed). Exact ' +
+            'quotients still cross there, but barely: the least rounding throws those crossings far (rounded readings, below).',
+      params: [ sel('figure', NAMES, 'egg') ],
+      code: v => `crossing the lines from two readers' quotients · ${v.figure}`,
+      state: v => { const f = figureOf(v.figure), O = v.R || homeOf(v.figure, 2);
+        const rec = RC.recover(f.P, O, O), bad = rec.map(q => !q || q.angle < 3);
+        const good = rec.map((q, i) => bad[i] ? null : q), poor = rec.map((q, i) => bad[i] ? q : null);
+        return { f, O, rec, bad, good: RC.misses(f.P, good, f.R), poor: RC.misses(f.P, poor, f.R), nBad: bad.filter(Boolean).length }; },
+      verdict: s => `${M - s.nBad} places crossed at 3° or squarer, recovered to ${sci(s.good.worst)} of the radius · ${s.nBad} near the line through the readers, ` +
+                    (s.poor.n ? `worst ${sci(s.poor.worst)}` : 'not crossed at all'),
+      bad: s => s.nBad > 0,
       draw: (ctx, w, h, v, s) => {
-        const x0 = 46, pw = w - x0 - 14, X = axis(x0, pw), top = 10, ph = h - 92;
-        wallLines(ctx, X, top, top + ph + 52);
-        const Y = missFrame(ctx, X, x0, pw, top, ph);
-        missPlot(ctx, X, top, ph, s.f.sc.err, VIOLET, 1.4);
-        ctx.strokeStyle = GOLD; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(x0, Y(s.tau)); ctx.lineTo(x0 + pw, Y(s.tau)); ctx.stroke(); ctx.setLineDash([]);
-        label(ctx, x0 + pw, Y(s.tau) - 4, 'τ', GOLD, 'right');
-        addressMap(ctx, X, x0, pw, top + ph + 10, 12, s.f.surf);
-        sAxis(ctx, X, h - 6);
+        const c = cam([s.f.P, s.O], w, h, 26);
+        const [a, b] = s.O, dx = b.x - a.x, dy = b.y - a.y, L = 3 * Math.max(w, h) / c.k / (Math.hypot(dx, dy) || 1);
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(224,100,79,0.45)'; ctx.beginPath();
+        ctx.moveTo(c.X(a.x - L * dx), c.Y(a.y - L * dy)); ctx.lineTo(c.X(a.x + L * dx), c.Y(a.y + L * dy)); ctx.stroke(); ctx.setLineDash([]);
+        if (opts.lines) for (let i = 0; i < s.f.P.length; i += 10) s.O.forEach((o, k) => lineThrough(ctx, c, o, RC.quotient(o, s.f.P[i]), k ? 'rgba(94,182,255,0.16)' : 'rgba(242,193,78,0.16)', w, h));
+        outline(ctx, c, s.f.P, GHOST, 2.4);
+        s.rec.forEach((q, i) => { if (q) dot(ctx, c.X(q.x), c.Y(q.y), s.bad[i] ? 3 : 1.8, s.bad[i] ? RED : TEAL); });
+        s.O.forEach((o, k) => readerDot(ctx, c, o, k));
+        label(ctx, 10, 14, 'drag the readers', INK);
+        return c;
       } },
-    { kind: 'report', name: 'sweeps by tolerance', wide: true },
   ]
 },
 {
-  id: 'walls', title: 'The walls', kicker: 'a sweep is flat where its octave ends',
-  note: 'Score a file over the whole range, not only where the reading reaches level 3, and every file written the first ' +
-        'two ways misses by percents in bands beside the walls between octaves. The cause is in the sweep itself. Its ' +
-        'presentation is the theorem\'s kernel mirrored about home, so it is even about both of its walls: its slope there is ' +
-        'zero. What a level hands down generally slopes across a wall, so no sweep can hold it near one, and every child\'s ' +
-        'walls are walls again one level down. The fix is the writer\'s, in the format as it stands: choose each row as the ' +
-        'residual at its leaves plus the least change that leaves what it hands down <b>flat</b> at its children\'s walls. A ' +
-        'flat residual is what a mirrored sweep holds, so the next level holds it, walls included. ' +
-        '<a class="paper" href="../papers.html#tvf:2.8-depth">the format, §2.8</a>',
+  id: 'three', title: 'Three readers, and one length', kicker: 'the shape from the crossings, the size from one length',
+  note: 'Three readers, so that every place has a pair of lines meeting at a good angle: the pair used for each place is the ' +
+        'one meeting squarest. If the readers know only the <b>shape of their own triangle</b>, they cross their lines in their ' +
+        'own units and get the figure exactly, at whatever size they took their triangle to be: the size was divided out at ' +
+        'every standpoint, and no number of quotients puts it back. <b>One length</b>, how far apart two of them stand, sets ' +
+        'the size, exactly: the figure comes back as large as that length says, no more right and no less. The editor\'s ' +
+        '<em>undoing the division</em> lab (draw.html?lab=udv) runs its library this way.',
   entries: [
-    { name: 'a sweep is flat at its walls',
-      note: 'One sweep (violet) asked to hold a straight ramp (grey) across its turn, from home to its far wall. Below, its ' +
-            'miss on a log scale: small inside, climbing at both walls, where the sweep bends flat, whatever its size.',
-      params: [ sel('values', ['16', '32', '64'], '16') ],
-      code: v => `present(θ, leaves(${2 * v.values}), ramp)   // one sweep of ${v.values} values holding θ`,
-      state: v => { const r = DP.ramp(+v.values, 600);
-        const err = r.out.map(o => Math.abs(o.v - o.th));
-        const edge = Math.max(...err.filter((_, i) => i < 6 || i > 594)), mid = Math.max(...err.filter((_, i) => i > 200 && i < 400));
-        return { r, err, edge, mid }; },
-      verdict: s => `at the walls it misses by ${s.edge.toFixed(3)} rad · in the middle third by ${s.mid.toExponential(1)}`,
-      bad: () => true,
+    { name: 'the length they take', wide: true, readers: 3,
+      note: 'Drag the readers. Teal: the figure they recover, laid out from reader 0 with their triangle at the length on the dial ' +
+            '(1 is the true length). Grey: the figure. The shape is exact whatever the dial says; the size is exactly as right as the length.',
+      params: [ sel('figure', NAMES, 'heart'), p('length', 0.5, 2, 0.01, 1.4) ],
+      code: v => `recover(places, readers, ownLayout(readers, ${v.length} × true length))`,
+      state: v => { const f = figureOf(v.figure), O = v.R || homeOf(v.figure, 3);
+        const own = RC.ownLayout(O, v.length * Math.hypot(O[1].x - O[0].x, O[1].y - O[0].y)).map(r => ({ x: r.x + O[0].x, y: r.y + O[0].y }));
+        const rec = RC.recover(f.P, O, own);
+        const back = rec.map(q => q && { x: O[0].x + (q.x - O[0].x) / v.length, y: O[0].y + (q.y - O[0].y) / v.length });
+        const angle = Math.min(...rec.filter(Boolean).map(q => q.angle));
+        return { f, O, own, rec, shape: RC.misses(f.P, back, f.R), size: RC.misses(f.P, rec, f.R), angle }; },
+      verdict: s => `the shape to ${sci(s.shape.worst)} of the radius · the figure at ${s.size.worst < 1e-12 ? 'its own size, to ' + sci(s.size.worst) : 'the length\'s size, off by ' + sci(s.size.worst)} · lines crossing at ${s.angle.toFixed(0)}° or squarer`,
+      bad: s => s.shape.worst > 1e-9,
       draw: (ctx, w, h, v, s) => {
-        const x0 = 40, pw = w - 52, top = 16, ph = Math.round((h - 40) * 0.45), X = th => x0 + th / Math.PI * pw, Y = th => top + ph - th / Math.PI * ph;
-        line(ctx, s.r.out.map(o => X(o.th)), s.r.out.map(o => Y(o.th)), 'rgba(232,236,245,0.35)', 5);
-        line(ctx, s.r.out.map(o => X(o.th)), s.r.out.map(o => Y(o.v)), VIOLET, 1.6);
-        for (const q of s.r.sk) { const th = 2 * Math.atan(q); ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(X(th), Y(th), 2, 0, TAU); ctx.fill(); }
-        // the miss, on a log scale from 10⁻⁶ to 1: low inside, climbing at both walls
-        const t2 = top + ph + 14, h2 = h - 24 - t2, Ye = e => t2 + h2 - (Math.log10(Math.max(e, 1e-6)) + 6) / 6 * h2;
-        ctx.strokeStyle = 'rgba(139,149,171,0.12)';
-        for (const e of [1e-6, 1e-3, 1]) { const y = Math.round(Ye(e)) + 0.5; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + pw, y); ctx.stroke();
-          label(ctx, x0 - 4, y + 3, e === 1 ? '1' : '10' + String(Math.log10(e)).replace('-', '⁻').replace(/\d/g, c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[c]), DIM, 'right'); }
-        line(ctx, s.r.out.map(o => X(o.th)), s.err.map(Ye), PINK, 1.3);
-        label(ctx, x0, h - 8, 'home', DIM); label(ctx, x0 + pw / 2, h - 8, 'corner', DIM, 'center'); label(ctx, x0 + pw, h - 8, 'far wall', DIM, 'right');
-        label(ctx, x0, 11, 'ramp, sweep, leaves; below, the miss', INK);
+        const c = cam([s.f.P, s.rec, s.O], w, h, 24);
+        outline(ctx, c, s.f.P, GHOST, 2.4);
+        outline(ctx, c, s.rec.filter(Boolean), TEAL, 1.5);
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(242,193,78,0.5)'; ctx.beginPath(); s.own.forEach((o, k) => (k ? ctx.lineTo : ctx.moveTo).call(ctx, c.X(o.x), c.Y(o.y))); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+        s.O.forEach((o, k) => readerDot(ctx, c, o, k));
+        label(ctx, 10, 14, 'drag the readers · the dashed triangle is theirs, at the length they take', INK);
+        return c;
       } },
-    { name: 'three writers', wide: true,
-      note: 'The miss at every address on a log scale. Shaded: where the reading never reaches level 3. Every octave ' +
-            'and where needed both stop short beside every wall and miss there by what the level above left; flat walls ' +
-            'hold the whole range to a millionth or so, and need level 3 far less often, because a flat residual is already held at level 2.',
-      params: [ sel('shape', NAMES, 'two bumps'), sel('writer', ['every octave', 'where needed', 'flat walls'], 'every octave') ],
-      code: v => v.writer === 'every octave' ? `enterRange(surf, 2⁻⁶, 2⁶, 3)   // ${v.shape}` : `${v.writer === 'flat walls' ? 'depthEnterFlatWalls' : 'depthEnterWhereNeeded'}(surf, p, 2⁻⁶, 2⁶, 3, 1e-6 · departure)   // ${v.shape}`,
-      state: v => { const f = fileOf(v.shape, v.writer, 1e-6); return { f, text: f.text }; },
-      verdict: s => `${s.f.sc.docs} sweeps · reaches level 3 on ${pc(s.f.sc.reached)} of the range · misses by more than 1e-5 on ${pc(s.f.sc.over(1e-5))} · worst ${sci(s.f.sc.worst)} · at the walls ${sci(s.f.sc.wall)}`,
-      bad: s => s.f.sc.worst > 1e-5,
-      draw: (ctx, w, h, v, s) => {
-        const x0 = 46, pw = w - x0 - 14, X = axis(x0, pw), top = 10, ph = h - 30;
-        ctx.fillStyle = 'rgba(224,100,79,0.10)';
-        for (let i = 0; i < G.length; i++) if (!s.f.sc.reach[i]) { const a = i ? Math.sqrt(G[i - 1] * G[i]) : G[0], b = i < G.length - 1 ? Math.sqrt(G[i] * G[i + 1]) : G[i]; ctx.fillRect(X(a), top, Math.max(1, X(b) - X(a)), ph); }
-        wallLines(ctx, X, top, top + ph);
-        missFrame(ctx, X, x0, pw, top, ph);
-        missPlot(ctx, X, top, ph, s.f.sc.err, v.writer === 'flat walls' ? TEAL : PINK, 1.4);
-        sAxis(ctx, X, h - 6);
-      } },
-    { kind: 'report', name: 'the three writers, shape by shape', wide: true },
+    { kind: 'report', name: 'every figure, three readers', wide: true },
   ]
 },
 {
-  id: 'breadth', title: 'Depth against breadth', kicker: 'about the same number of values, spent two ways',
-  note: 'A depth file of n sweeps carries 16n values. Spend about as many on breadth instead: one sweep of that many leaves ' +
-        '(the power of two at or below), spread evenly over the reader\'s turn. Which holds the shape better depends on ' +
-        '<b>where its detail is</b>. A smooth bump out in the turn is held best by breadth: the departure is smooth in the ' +
-        'turn, one sweep converges on it spectrally, to 10⁻¹⁰ or so, and a depth file stops at the τ it was written to. A ' +
-        'grain of detail right beside the reader is the other way about: there a tiny feature fills whole octaves of the ' +
-        'reading, where one sweep\'s even turn is at its coarsest, and depth puts sweeps on it octave by octave. The ' +
-        'editor\'s library is the second kind (its outlines are read from points, and their finest detail sits beside the ' +
-        'reader): over the whole range depth wins there on 24 of 24, by 4× to 4,900×. ' +
-        '<a class="paper" href="../papers.html#tvf:2.8-depth">the format, §2.8</a>',
+  id: 'noise', title: 'Rounded readings', kicker: 'squarer crossings, fewer digits',
+  note: 'Exact quotients give an exact figure. Kept to a few digits, each line is turned by a little, and the crossing moves by ' +
+        'that turn over the sine of the angle the lines meet at: readers huddled together see every place along nearly the same ' +
+        'line, and every crossing is shallow. Spread them out and the same digits give a closer figure.',
   entries: [
-    { name: 'the same values, two ways', wide: true,
-      note: 'The miss at every address on a log scale: the depth file (teal, written as the editor saves one) against one sweep ' +
-            '(pink). Try a bump out in the turn, then the grain by the reader: the pink line climbs at the left, where the ' +
-            'grain is, and the teal one does not.',
-      params: [ sel('shape', NAMES, 'a grain by the reader') ],
-      code: v => `Surface(p, 2^⌊log₂(16 × sweeps)⌋).enter([])   // one sweep, against the depth file · ${v.shape}`,
-      state: v => { const sh = shapeOf(v.shape), f = fileOf(v.shape, ...SAVED);
-        const b = memo('b:' + v.shape, () => { const W = 16 * f.sc.docs, surf = DP.breadth(sh, W); return { W, err: G.map((s, i) => Math.abs(surf.value(s) - sh.pv[i]) / sh.size) }; });
-        return { f, b, bw: Math.max(...b.err), text: f.text }; },
-      verdict: s => `${(16 * s.f.sc.docs).toLocaleString()} values in depth, ${DP.pow2(16 * s.f.sc.docs).toLocaleString()} in one sweep · depth misses by ${sci(s.f.sc.worst)} · one sweep by ${sci(s.bw)} · ` +
-                    (s.bw > s.f.sc.worst ? `depth ${Math.round(s.bw / s.f.sc.worst).toLocaleString()}× closer` : `breadth ${Math.round(s.f.sc.worst / s.bw).toLocaleString()}× closer`),
+    { name: 'digits and spread', wide: true,
+      note: 'Each reader keeps its quotients to the digits on the dial. The readers stand in a triangle about the centre at the ' +
+            'spread on the dial (a share of the radius). Each recovered place is coloured by how far it lands from the true one: ' +
+            'teal under a thousandth of the radius, gold under a hundredth, red beyond.',
+      params: [ sel('figure', NAMES.filter(n => n !== 'crescent'), 'star'), p('digits', 2, 15, 1, 4), p('spread', 0.05, 0.9, 0.05, 0.3) ],
+      code: v => `recover(places, readers, readers, { digits: ${v.digits} })   // spread ${v.spread}`,
+      state: v => { const f = figureOf(v.figure), O = homeOf(v.figure, 3, v.spread);
+        const rec = RC.recover(f.P, O, O, { digits: v.digits });
+        return { f, O, rec, m: RC.misses(f.P, rec, f.R), angle: Math.min(...rec.filter(Boolean).map(q => q.angle)) }; },
+      verdict: s => `worst ${sci(s.m.worst)} of the radius, median ${sci(s.m.median)} · lines crossing at ${s.angle.toFixed(0)}° or squarer`,
+      bad: s => s.m.worst > 0.01,
       draw: (ctx, w, h, v, s) => {
-        const x0 = 46, pw = w - x0 - 14, X = axis(x0, pw), top = 10, ph = h - 30;
-        wallLines(ctx, X, top, top + ph);
-        missFrame(ctx, X, x0, pw, top, ph);
-        missPlot(ctx, X, top, ph, s.b.err, PINK, 1.3);
-        missPlot(ctx, X, top, ph, s.f.sc.err, TEAL, 1.5);
-        sAxis(ctx, X, h - 6);
+        const c = cam([s.f.P, s.O], w, h, 24);
+        outline(ctx, c, s.f.P, GHOST, 2.4);
+        s.rec.forEach((q, i) => { if (!q) return; const e = Math.hypot(q.x - s.f.P[i].x, q.y - s.f.P[i].y) / s.f.R;
+          dot(ctx, c.X(q.x), c.Y(q.y), 2.2, e < 1e-3 ? TEAL : e < 1e-2 ? GOLD : RED); });
+        s.O.forEach((o, k) => readerDot(ctx, c, o, k));
       } },
-    { kind: 'report', name: 'depth against breadth, shape by shape', wide: true },
+    { kind: 'report', name: 'digits against spread', wide: true },
+  ]
+},
+{
+  id: 'hidden', title: 'What has to be true', kicker: 'two readers must see the place',
+  note: 'Crossing needs two lines towards the same place, so at least two readers must <b>see</b> it: the segment from each to ' +
+        'the place must not pass through the outline first. Inside a round figure every reader sees everything. Inside the ' +
+        'crescent\'s body the horns hide parts of the hollow side, and a place seen by fewer than two readers is not recovered at ' +
+        'all: no quotient is held for it, so nothing is wrong about it either. Where the places are seen, they come back exact. ' +
+        'Where the readers stand decides how much of the figure there is to recover; the <a href="situated.html">where you stand</a> ' +
+        'page measures what single standpoints can see.',
+  entries: [
+    { name: 'seen by two', wide: true, readers: 3,
+      note: 'Drag the readers. Teal: places seen by two readers or three, recovered. Red: places seen by one reader or none, not recovered.',
+      params: [ sel('figure', NAMES, 'crescent') ],
+      code: v => `recover(places, readers, readers, { seen })   // ${v.figure}`,
+      state: v => { const f = figureOf(v.figure), O = v.R || homeOf(v.figure, 3);
+        const seen = O.map(o => f.P.map((_, i) => RC.sees(f.P, o, i)));
+        const rec = RC.recover(f.P, O, O, { seen }), got = rec.filter(Boolean).length;
+        return { f, O, seen, rec, got, m: RC.misses(f.P, rec, f.R) }; },
+      verdict: s => `${s.got} of ${M} places seen by two readers or more (${Math.round(100 * s.got / M)}%), recovered to ${sci(s.m.worst)} · ${M - s.got} not recovered`,
+      bad: s => s.got < M,
+      draw: (ctx, w, h, v, s) => {
+        const c = cam([s.f.P, s.O], w, h, 24);
+        outline(ctx, c, s.f.P, GHOST, 2.4);
+        s.f.P.forEach((q, i) => dot(ctx, c.X(q.x), c.Y(q.y), 2.2, s.rec[i] ? TEAL : RED));
+        s.O.forEach((o, k) => readerDot(ctx, c, o, k));
+        label(ctx, 10, 14, 'drag the readers', INK);
+        return c;
+      } },
+    { kind: 'report', name: 'how much three readers recover', wide: true },
   ]
 },
 ];
 
 // ── reports ──────────────────────────────────────────────────────────────
 const REPORTS = {
-'what each level adds': (host) => {
-  const rows = NAMES.map(n => { const sh = shapeOf(n), f = fileOf(n, ...SAVED);
-    return { n, f, miss: [0, 1, 2, 3].map(m => Math.max(...G.map((s, i) => Math.abs(f.surf.value(s, m) - sh.pv[i]))) / sh.size) }; });
+'every figure, three readers': (host) => {
+  const rows = NAMES.map(n => { const f = figureOf(n), O = homeOf(n, 3), o = O[0];
+    const census = f.P.map(q => { const dx = q.x - o.x, dy = q.y - o.y, r = Math.hypot(dx, dy) || 1; return { x: o.x + dx / r * f.R, y: o.y + dy / r * f.R }; });
+    const seen = O.map(r => f.P.map((_, i) => RC.sees(f.P, r, i)));
+    const own = RC.ownLayout(O, 1).map(r => ({ x: r.x + O[0].x, y: r.y + O[0].y })), base = Math.hypot(O[1].x - O[0].x, O[1].y - O[0].y);
+    const shapeOnly = RC.recover(f.P, O, own, { seen }).map(q => q && { x: O[0].x + (q.x - O[0].x) * base, y: O[0].y + (q.y - O[0].y) * base });
+    const full = RC.recover(f.P, O, O, { seen });
+    return { n, swing: f.swing, census: RC.misses(f.P, census, f.R).worst, shape: RC.misses(f.P, shapeOnly, f.R), full: RC.misses(f.P, full, f.R) }; });
   host.innerHTML =
-    `<p>Each shape written as the editor saves one, and its reading measured against the shape over the whole range, level by level.</p>
-     <table><thead><tr><th>shape</th><th>sweeps</th><th>level 0</th><th>level 1</th><th>level 2</th><th>level 3</th><th>text</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.n}</td><td>${r.f.sc.docs}</td>${r.miss.map((m, l) => `<td class="${l === 3 ? (m <= 1e-5 ? 'ok' : 'bad') : ''}">${sci(m)}</td>`).join('')}<td>${(r.f.text.length / 1024).toFixed(0)} kB</td></tr>`).join('') +
+    `<p>Each figure read by three readers standing inside it, ${M} places, every quotient exact. The census uses reader 0 alone.</p>
+     <table><thead><tr><th>figure</th><th>radius swings</th><th>one reader + census</th><th>three readers, no length (scaled back)</th><th>three readers + one length</th><th>places recovered</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.n}</td><td>${r.swing.toFixed(2)}×</td><td class="bad">${sci(r.census)}</td><td class="ok">${sci(r.shape.worst)}</td><td class="ok">${sci(r.full.worst)}</td><td>${r.full.n} of ${M}</td></tr>`).join('') +
     `</tbody></table>
-     <p class="foot">The miss is a share of the shape's largest departure from the reader's circle. The editor's <em>save depth .tvf</em> writes the same file for a shape on its page.</p>`;
+     <p class="foot">The misses are shares of each figure's mean radius. "No length" is the figure in the readers' own units,
+      put back at its size only to compare it. The crescent's missing places are the ones fewer than two readers see (below).</p>`;
 },
-'sweeps by tolerance': (host) => {
-  const TAUS = [1e-3, 1e-4, 1e-5, 1e-6];
+'digits against spread': (host) => {
+  const D = [3, 6, 9, 12], S = [0.05, 0.15, 0.3, 0.6], figs = NAMES.filter(n => n !== 'crescent');
+  const worst = (d, sp) => Math.max(...figs.map(n => { const f = figureOf(n), O = homeOf(n, 3, sp); return RC.misses(f.P, RC.recover(f.P, O, O, { digits: d }), f.R).worst; }));
   host.innerHTML =
-    `<p>Every shape written with flat walls at four tolerances: the sweeps entered and the worst miss over the whole range. Every octave, for comparison, is 518 sweeps whatever the shape.</p>
-     <table><thead><tr><th>shape</th>${TAUS.map(t => `<th>τ = ${t.toExponential(0)}</th>`).join('')}</tr></thead><tbody>` +
-    NAMES.map(n => `<tr><td>${n}</td>${TAUS.map(t => { const f = fileOf(n, 'flat walls', t); return `<td class="${f.sc.worst <= 10 * t ? 'ok' : 'bad'}">${f.sc.docs} · ${sci(f.sc.worst)}</td>`; }).join('')}</tr>`).join('') +
+    `<p>The worst miss over ${figs.length} figures, as a share of the radius, with the readers' quotients kept to d significant digits and the readers standing at a spread s of the radius from the centre.</p>
+     <table><thead><tr><th>digits</th>${S.map(s => `<th>spread ${s}</th>`).join('')}</tr></thead><tbody>` +
+    D.map(d => `<tr><td>${d}</td>${S.map(s => { const w = worst(d, s); return `<td class="${w < 1e-3 ? 'ok' : 'bad'}">${sci(w)}</td>`; }).join('')}</tr>`).join('') +
     `</tbody></table>
-     <p class="foot">The editor's <em>where needed</em> lab (draw.html?lab=dwn) runs the library the same way.</p>`;
+     <p class="foot">Each digit kept takes a tenth off the miss. Spreading the readers from a twentieth of the radius to six tenths is worth about one digit more.</p>`;
 },
-'the three writers, shape by shape': (host) => {
-  const W = ['every octave', 'where needed', 'flat walls'];
+'how much three readers recover': (host) => {
+  const rows = NAMES.map(n => { const f = figureOf(n), O = homeOf(n, 3), seen = O.map(o => f.P.map((_, i) => RC.sees(f.P, o, i)));
+    const by = [0, 0, 0, 0]; f.P.forEach((_, i) => by[seen.filter(s => s[i]).length]++);
+    return { n, by, m: RC.misses(f.P, RC.recover(f.P, O, O, { seen }), f.R) }; });
   host.innerHTML =
-    `<p>Each shape written the three ways (τ = 10⁻⁶ where a writer takes one), scored over the whole range: sweeps, the share reaching level 3, the worst miss, and the miss at the walls between octaves themselves.</p>
-     <table><thead><tr><th>shape</th>${W.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>` +
-    NAMES.map(n => `<tr><td>${n}</td>${W.map(x => { const sc = fileOf(n, x, 1e-6).sc; return `<td class="${sc.worst <= 1e-5 ? 'ok' : 'bad'}">${sc.docs} · ${pc(sc.reached)} · ${sci(sc.worst)} · walls ${sci(sc.wall)}</td>`; }).join('')}</tr>`).join('') +
-    `</tbody></table>
-     <p class="foot">The walls themselves, the points s = 2<sup>k</sup>, still stop at level 1 with every writer: no deeper
-      address reaches them, so closing them is a reading rule, not a writer's choice, and it is open. The editor's <em>walls</em>
-      lab (draw.html?lab=wls) runs the library: there flat walls hold every shape to 10⁻⁵ at 317 to 1,398 sweeps.</p>`;
-},
-'depth against breadth, shape by shape': (host) => {
-  const rows = NAMES.map(n => { const sh = shapeOf(n), f = fileOf(n, ...SAVED), W = 16 * f.sc.docs;
-    const b = memo('b:' + n, () => { const surf = DP.breadth(sh, W); return { W, err: G.map((s, i) => Math.abs(surf.value(s) - sh.pv[i]) / sh.size) }; });
-    return { n, W, d: f.sc.worst, b: Math.max(...b.err) }; });
-  host.innerHTML =
-    `<p>Each shape's depth file against one sweep of about as many values (the power of two at or below), both scored over the whole range.</p>
-     <table><thead><tr><th>shape</th><th>values: depth, one sweep</th><th>depth</th><th>one sweep</th><th>closer</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.n}</td><td>${r.W.toLocaleString()}, ${DP.pow2(r.W).toLocaleString()}</td><td class="ok">${sci(r.d)}</td><td>${sci(r.b)}</td><td>${r.b > r.d ? 'depth, ' + Math.round(r.b / r.d).toLocaleString() + '×' : 'breadth, ' + Math.round(r.d / r.b).toLocaleString() + '×'}</td></tr>`).join('') +
-    `</tbody></table>
-     <p class="foot">Breadth holds the smooth bumps out in the turn; depth holds the grain beside the reader. A finer
-      grain than this one needs more than three levels, and then depth misses it too: the reading stops at level 3 by
-      design. The editor's <em>walls</em> lab, run as <code>runDepthWalls(0, true)</code>, scores its library this way.</p>`;
+    `<p>Each figure, the three readers at their places on the page (in the crescent's body; elsewhere about the centre): how many places each number of readers sees.</p>
+     <table><thead><tr><th>figure</th><th>seen by none</th><th>by one</th><th>by two</th><th>by three</th><th>recovered, worst miss</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.n}</td>${r.by.map(x => `<td>${x}</td>`).join('')}<td class="${r.by[0] + r.by[1] ? 'bad' : 'ok'}">${r.by[2] + r.by[3]} of ${M}, ${sci(r.m.worst)}</td></tr>`).join('') +
+    `</tbody></table>`;
 },
 };
 
@@ -2073,23 +1650,21 @@ function makeTile(entry) {
       catch (e) { host.innerHTML = `<p class="foot" style="color:var(--bad)">this measurement threw: ${e && e.message}</p>`; } } });
     return tile;
   }
-  const vals = {};
+  const vals = { R: null };
   for (const par of entry.params) vals[par.key] = par.value;
   const dials = entry.params.map(par => par.options
     ? `<div class="dial"><label><span>${par.key}</span><span class="val" data-v="${par.key}">${par.value}</span></label>
        <select data-k="${par.key}">${par.options.map(o => `<option${o === par.value ? ' selected' : ''}>${o}</option>`).join('')}</select></div>`
     : `<div class="dial"><label><span>${par.key}</span><span class="val" data-v="${par.key}">${par.value}</span></label>
        <input type="range" data-k="${par.key}" min="${par.min}" max="${par.max}" step="${par.step}" value="${par.value}"></div>`).join('');
-  // No edit button: the curves here are a reader's depth files, not loops the editor draws.
-  // The .tvf button copies the tile's depth file, which the inspector and the editor read.
+  // No edit button: what a tile holds is a reading, not a loop to hand on.
   tile.innerHTML =
-    `<div class="stage"><canvas></canvas></div>` +
-    `<div class="tools"><button class="tvf" title="copy this depth file as .tvf (the inspector reads it)">.tvf</button></div>` +
+    `<div class="stage"><canvas${entry.readers ? ' style="cursor:crosshair;touch-action:none"' : ''}></canvas></div>` +
     `<div class="body"><h3>${entry.name}</h3><p class="note">${entry.note}</p>` +
     `<div class="verdict"></div><code class="src"></code><div class="dials">${dials}</div></div>`;
   const canvas = tile.querySelector('.stage canvas');
   const src = tile.querySelector('code.src'), vEl = tile.querySelector('.verdict');
-  let st = null;
+  let st = null, view = null;
   const render = () => {
     if (!st) return;
     const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
@@ -2097,7 +1672,7 @@ function makeTile(entry) {
     if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
-    try { entry.draw(ctx, w, h, vals, st); } catch (e) { label(ctx, 10, 20, 'draw error: ' + e.message, RED); }
+    try { view = entry.draw(ctx, w, h, vals, st) || view; } catch (e) { label(ctx, 10, 20, 'draw error: ' + e.message, RED); }
   };
   const paint = () => {
     try { st = entry.state(vals); }
@@ -2105,25 +1680,31 @@ function makeTile(entry) {
     src.textContent = entry.code(vals);
     vEl.textContent = entry.verdict(st);
     vEl.className = 'verdict ' + (entry.bad && entry.bad(st) ? 'bad' : 'ok');
-    tile.querySelector('.tvf').hidden = !st.text;
     render();
   };
   tile.querySelectorAll('[data-k]').forEach(inp => {
     inp.addEventListener('input', () => {
       vals[inp.dataset.k] = inp.tagName === 'SELECT' ? inp.value : parseFloat(inp.value);
       tile.querySelector(`[data-v="${inp.dataset.k}"]`).textContent = vals[inp.dataset.k];
-      vEl.textContent = 'writing…';
-      setTimeout(paint, 0); });
+      if (inp.dataset.k === 'figure') vals.R = null;     // a new figure: the readers back to their places
+      paint(); });
   });
+  // THE READERS ARE DRAGGED: the one nearest the pointer when it goes down follows it.
+  if (entry.readers) {
+    let which = -1;
+    const at = ev => { const r = canvas.getBoundingClientRect(); return view ? view.inv(ev.clientX - r.left, ev.clientY - r.top) : null; };
+    canvas.addEventListener('pointerdown', ev => {
+      const q = at(ev); if (!q || !st) return;
+      const O = st.O; let best = Infinity;
+      O.forEach((o, k) => { const d = Math.hypot(o.x - q.x, o.y - q.y); if (d < best) { best = d; which = k; } });
+      canvas.setPointerCapture(ev.pointerId);
+      vals.R = O.map(o => ({ x: o.x, y: o.y })); vals.R[which] = q; paint();
+    });
+    canvas.addEventListener('pointermove', ev => { if (which < 0) return; const q = at(ev); if (!q) return; vals.R = vals.R.slice(); vals.R[which] = q; paint(); });
+    canvas.addEventListener('pointerup', () => { which = -1; });
+  }
   src.addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(src.textContent);
     src.classList.add('copied'); setTimeout(() => src.classList.remove('copied'), 700); });
-  tile.querySelector('.tvf').addEventListener('click', async ev => {
-    if (!st || !st.text) return;
-    let okd = false;
-    try { await navigator.clipboard.writeText(st.text); okd = true; } catch (e) {}
-    const b = ev.currentTarget; b.classList.toggle('done', okd); b.textContent = okd ? 'copied' : 'select+⌘C';
-    setTimeout(() => { b.classList.remove('done'); b.textContent = '.tvf'; }, 1200);
-  });
   tiles.push({ tile, paint, render });
   return tile;
 }
@@ -2139,13 +1720,17 @@ const io = new IntersectionObserver(ents => {
 }, { rootMargin: '200px' });
 for (const t of tiles) io.observe(t.tile);
 {
-  const btn = document.getElementById('t-walls');
-  btn.addEventListener('click', () => { opts.walls = !opts.walls; btn.classList.toggle('on', opts.walls);
+  const btn = document.getElementById('t-lines');
+  btn.addEventListener('click', () => { opts.lines = !opts.lines; btn.classList.toggle('on', opts.lines);
     for (const t of tiles) if (t.render && t.done) t.render(); });
 }
 globalThis.addEventListener('resize', () => { for (const t of tiles) if (t.render && t.done) t.render(); });
-// for the smoke test: one shape through a writer, scored as the tiles score it
-window.depthPageCheck = (n, writer, tau) => { const f = fileOf(n, writer, tau); return { docs: f.sc.docs, worst: f.sc.worst, reached: f.sc.reached, wall: f.sc.wall }; };
+// for the smoke test: every figure through the three ways, as the first report reads them
+window.recoverCheck = () => NAMES.map(n => { const f = figureOf(n), O = homeOf(n, 3), o = O[0];
+  const census = f.P.map(q => { const dx = q.x - o.x, dy = q.y - o.y, r = Math.hypot(dx, dy) || 1; return { x: o.x + dx / r * f.R, y: o.y + dy / r * f.R }; });
+  const seen = O.map(r => f.P.map((_, i) => RC.sees(f.P, r, i)));
+  const full = RC.recover(f.P, O, O, { seen }), m = RC.misses(f.P, full, f.R);
+  return { n, census: RC.misses(f.P, census, f.R).worst, worst: m.worst, got: m.n }; });
 
 </script>
 </body>

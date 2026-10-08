@@ -285,7 +285,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -526,6 +526,25 @@ await step('depth gallery', async () => {
   await gp.close();
   if (!/depth [\d,]+× closer/.test(grain)) throw new Error('the grain by the reader: ' + grain);
   if (!/breadth [\d,]+× closer/.test(bump)) throw new Error('a narrow bump: ' + bump);
+});
+
+/* Recovered: one reader and the census miss every figure but the circle read from its centre;
+   three readers' crossed quotients recover every place two of them see, exactly; the crescent
+   hides some of its places from readers in its body. */
+await step('recovered gallery', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[recovered gallery] ${e.message}`));
+  await gp.goto(new URL('gallery/recovered.html', base).href, { waitUntil: 'load' });
+  const r = await gp.evaluate(() => recoverCheck());
+  await gp.close();
+  if (r.length < 5) throw new Error('only ' + r.length + ' figures');
+  for (const x of r) {
+    if (!(x.worst < 1e-12)) throw new Error(`${x.n}: three readers miss by ${x.worst}`);
+    if (!(x.census > 0.2)) throw new Error(`${x.n}: the census came back within ${x.census}`);
+  }
+  const cres = r.find(x => x.n === 'crescent'), circ = r.find(x => x.n === 'circle');
+  if (!(circ.got === 180)) throw new Error('the circle: ' + circ.got + ' places recovered');
+  if (!(cres.got < 180 && cres.got > 90)) throw new Error('the crescent: ' + cres.got + ' places recovered');
 });
 
 /* Where you stand: the situated reader's claims, measured on the page with its own module. The
