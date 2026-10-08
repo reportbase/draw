@@ -211,6 +211,18 @@ try {
      flat-walls writer holds every point off the walls to 1e-5 of the departure, where the full
      file and the where-needed file miss by percents in bands at the walls; and its walls are
      closer than theirs. The saved file uses it. */
+  /* Undoing the division (UDV): one reader's quotients give back the unit circle, which misses
+     every figure but the circle; three readers' quotients, crossed, give back each figure
+     exactly up to its size, and with one length, exactly. */
+  await step('undoing the division', async () => {
+    const r = await page.evaluate(() => undoDivisionRun().map(x => ({ key: x.key, kind: x.kind, miss: x.miss })));
+    const of = k => r.filter(x => x.kind === k);
+    if (of('as held').length < 5) throw new Error('only ' + of('as held').length + ' figures read');
+    for (const x of of('three readers, no length').concat(of('three readers, one length')))
+      if (!(x.miss < 1e-12)) throw new Error(`${x.key}, ${x.kind}: off by ${x.miss}`);
+    if (!(Math.max(...of('one reader, census').map(x => x.miss)) > 0.5)) throw new Error('the census came back close to the figures');
+  });
+
   /* SIT, re-measured (the format paper's "what the recursion found", 3): learning a shape from
      its encounters, the nested reader stays under 1% at every distance from 4 to 128 h, while
      the one sweep's error grows more than fifteenfold (23× when measured). */
