@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tvf — the corner</title>
+<title>tvf — compile time</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -12,30 +12,38 @@
 <body class="page-chart">
 
 <header>
-  <nav class="crumbs"><a href="index.html">← all galleries</a> · 19 of 25</nav>
-  <h1>tvf <em>the corner</em> <span class="pill">tvf.corner.js</span></h1>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 24 of 25</nav>
+  <h1>tvf <em>compile time</em> <span class="pill">tvf.compile.js</span></h1>
   <p class="lede">
-    A reader reads v/h, how far across against how far along, and the <b>corner</b> is where the two are equal. Before it, v is read in terms of h; past it, h in terms of v; and the flip s ↦ 1/s turns one side into the other. <b>Near and far are one geometry</b>, read from either side.
+    "Geometry is compile time": the addresses, the corner, the flip and the levels are laid before anything arrives, with no
+    branches, and the payload, the values met there, is runtime, where every "if" belongs. The question left is whether
+    <b>compile time itself has logic</b>, and whether a creator can add some when it makes a universe.
   </p>
   <p class="sub">
-    This is the central result of <a href="https://github.com/reportbase/wander/blob/main/papers/serial-parallel-nowhere.md">Serial, Parallel and Nowhere</a> (the reader-geometry paper in the wander repository). The page shows the flip, the sweep laid without trigonometry (proportion to the corner, then a level per doubling), what that does to the detail of a thing moving off, and why the corner is the cheapest place to be sure. Every number is measured in your tab; the first place can be dragged.
+    Compilers have a precise answer, <b>partial evaluation</b>. Split a program's inputs into those fixed before it runs and those
+    that arrive; run, ahead of time, every step and every branch that needs only the fixed ones; what is left is runtime. This
+    page does that to a reader's own programs, live, so the question is run rather than argued. The framing is <a href="https://github.com/reportbase/wander/blob/main/papers/serial-parallel-nowhere.md">Serial, Parallel and Nowhere</a>'s opening
+    (in the wander repository); the answer here is a reading, not a ruling.
   </p>
 </header>
 
 <div class="bar"><div class="bar-in">
-  <button id="t-walls" class="on">level walls</button>
   <div class="spacer"></div>
-  <a class="jump" href="#flip">the flip</a>
-  <a class="jump" href="#levels">proportion, then levels</a>
-  <a class="jump" href="#detail">smaller, less detail</a>
-  <a class="jump" href="#cost">the cheapest place</a>
+  <a class="jump" href="#split">compile time and runtime</a>
+  <a class="jump" href="#exit">where the if lives</a>
+  <a class="jump" href="#creator">can compile time have logic?</a>
 </div></div>
 
 <main id="main"></main>
 
 <footer>
-  <b>tvf.corner.js</b> is the corner's arithmetic: the sweep g = (2/π)·atan(s) and its flip, the in-place sweep (proportion to the corner, then halvings), the level a reading falls in, the bands of detail a body of a given size shows at a distance, and the cost of a sure reading.<br><b>The number to carry off:</b> g(s) + g(1/s) = 1, to the last digit: whatever a reader holds near, it holds the same way far, read from the other side.
-  <div class="next">Next: <a href="depth.html">Depth →</a></div>
+  <b>tvf.compile.js</b> is a small partial evaluator: a language of numbers, names, arithmetic, calls, if, let, for and while; a
+  folder that runs everything a program's fixed inputs decide and returns the rest; a census of what is left; and the reader's
+  programs (reading one place, detail by recursion, detail by level), with the level read from a float's exponent bits and two
+  ways of creating one universe.<br>
+  <b>The number to carry off:</b> with the geometry fixed, the reader left for runtime has one branch, the side of the corner, and it
+  is the payload's; and a universe created by logic and one written out by hand are bit for bit the same from inside.
+  <div class="next">Next: <a href="fail.html">Where it breaks →</a></div>
 </footer>
 
 <script>
@@ -1241,232 +1249,334 @@ return { Shape, mix, alignTo, primitives, kernelMatrix, kernelSlope, slopeDiff, 
 })();
 const { TAU } = TVF;
 
-// ── tvf.corner.js: the corner ─────────────────────────────────────────────
-// A reader reads v/h: how far across, against how far along. The corner is v = h, the
-// reading 1. Before it v is read in terms of h, past it h in terms of v, and the flip
-// s ↦ 1/s exchanges the two sides: near and far are one geometry read from either side
-// (Serial, Parallel and Nowhere, §3, in the wander repository). This module is the arithmetic
-// the page measures: the sweep g = (2/π)·atan(s) and its flip, the in-place sweep
-// (proportion to the corner, then halvings), the level a thing of a given size shows at a
-// distance, and the cost of a sure reading (wander's GRN run 5).
-const CORNER = (function () {
-const TAU = 2 * Math.PI;
-/** The sweep: the share of the quarter turn the reading s has come, 0 at home, ½ at the corner, 1 at the far wall. */
-const g = s => isFinite(s) ? (2 / Math.PI) * Math.atan(s) : 1;
+// ── tvf.compile.js: compile time and runtime ──────────────────────────────
+// Serial, Parallel and Nowhere (in the wander repository) opens with "geometry is compile
+// time": the addressing (the sweep, the corner, the flip, the levels) is laid before anything
+// arrives, with no branches; the payload is runtime, and every "if" belongs there. The
+// question left is whether compile time has logic of its own, and whether a creator can add
+// some. Compilers have a precise answer, PARTIAL EVALUATION: split a program's inputs into
+// those fixed before it runs (static) and those that arrive (dynamic); every step and every
+// "if" that depends only on static inputs is run once, ahead of time, and folded into a
+// constant; what is left, the residual program, is runtime, and its branches are exactly
+// the ones that depend on what arrives. This module is a small partial evaluator for the
+// reader's programs, so the page can run the question rather than state it.
+const COMPILE = (function () {
+// ── the language: numbers, names, arithmetic, calls, if, let, for and while ──
+const num = v => ({ k: 'num', v }), vr = n => ({ k: 'var', n });
+const op = (o, a, b) => ({ k: 'op', o, a, b });
+const call = (f, ...args) => ({ k: 'call', f, args });
+const iff = (c, t, e) => ({ k: 'if', c, t, e });
+const lett = (n, v, body) => ({ k: 'let', n, v, body });
+// for i from lo to hi−1, acc = body(i, acc), starting from init; the result is acc
+const forr = (i, lo, hi, acc, init, body) => ({ k: 'for', i, lo, hi, acc, init, body });
+// while cond(x), x = step(x), from init; the result is x (a descent with an exit test)
+const whil = (x, init, cond, step) => ({ k: 'while', x, init, cond, step });
+const tuple = (...items) => ({ k: 'tuple', items });
+const FN = { log2: Math.log2, floor: Math.floor, ceil: Math.ceil, sqrt: Math.sqrt, pow2: x => 2 ** x, abs: Math.abs, atan: Math.atan };
+const OP = { '+': (a, b) => a + b, '-': (a, b) => a - b, '*': (a, b) => a * b, '/': (a, b) => a / b, '<': (a, b) => +(a < b), '<=': (a, b) => +(a <= b), '>': (a, b) => +(a > b) };
 /**
- * The in-place sweep: proportion from home to the corner (g = s/2), then one halving of
- * what is left per doubling past it: ½ at s = 1, ¾ at 2, ⅞ at 4, 15/16 at 8 …, in
- * proportion within each level. No trigonometry.
+ * Partially evaluate `node` in `env` (static names bound to numbers; dynamic names absent).
+ * Returns a number node when everything it needs is static, else the residual node. `st`
+ * counts what ran at compile time (folded operations, branches decided, loop turns
+ * unrolled) and what is left for runtime (operations, branches, loops in the residual).
  */
-function inPlace(s) {
-  if (!(s > 0)) return 0;
-  if (!isFinite(s)) return 1;
-  if (s <= 1) return s / 2;
-  const k = Math.floor(Math.log2(s)), lo = 2 ** k, a = 1 - 2 ** -(k + 1), b = 1 - 2 ** -(k + 2);
-  return a + (b - a) * (s - lo) / lo;
+function pe(node, env, st) {
+  switch (node.k) {
+    case 'num': return node;
+    case 'var': return node.n in env ? num(env[node.n]) : node;
+    case 'op': { const a = pe(node.a, env, st), b = pe(node.b, env, st);
+      if (a.k === 'num' && b.k === 'num') { st.foldedOps++; return num(OP[node.o](a.v, b.v)); }
+      return { k: 'op', o: node.o, a, b }; }
+    case 'call': { const args = node.args.map(x => pe(x, env, st));
+      if (args.every(x => x.k === 'num')) { st.foldedOps++; return num(FN[node.f](...args.map(x => x.v))); }
+      return { k: 'call', f: node.f, args }; }
+    case 'if': { const c = pe(node.c, env, st);
+      if (c.k === 'num') { st.decidedIfs++; return pe(c.v ? node.t : node.e, env, st); }
+      return { k: 'if', c, t: pe(node.t, env, st), e: pe(node.e, env, st) }; }
+    case 'let': { const v = pe(node.v, env, st);
+      if (v.k === 'num') return pe(node.body, Object.assign({}, env, { [node.n]: v.v }), st);
+      const env2 = Object.assign({}, env); delete env2[node.n];
+      return { k: 'let', n: node.n, v, body: pe(node.body, env2, st) }; }
+    case 'tuple': return { k: 'tuple', items: node.items.map(x => pe(x, env, st)) };
+    case 'for': { const lo = pe(node.lo, env, st), hi = pe(node.hi, env, st), init = pe(node.init, env, st);
+      if (lo.k === 'num' && hi.k === 'num' && hi.v - lo.v <= 4096) {
+        // a loop with static bounds runs at compile time, turn by turn; the accumulator stays
+        // static as long as each turn's body folds
+        let acc = init;
+        for (let i = lo.v; i < hi.v; i++) { st.unrolled++;
+          const e = Object.assign({}, env, { [node.i]: i });
+          if (acc.k === 'num') e[node.acc] = acc.v; else delete e[node.acc];
+          acc = acc.k === 'num' ? pe(node.body, e, st) : { k: 'op', o: 'step', a: acc, b: pe(node.body, e, st) }; }
+        return acc; }
+      const env2 = Object.assign({}, env); delete env2[node.i]; delete env2[node.acc];
+      return { k: 'for', i: node.i, lo, hi, acc: node.acc, init, body: pe(node.body, env2, st) }; }
+    case 'while': { const init = pe(node.init, env, st);
+      if (init.k === 'num') {
+        // a descent whose exit is decided by static values runs at compile time
+        let x = init.v, turns = 0;
+        for (;;) { const c = pe(node.cond, Object.assign({}, env, { [node.x]: x }), st);
+          if (c.k !== 'num') break;
+          st.decidedIfs++; if (!c.v || ++turns > 4096) return num(x);
+          const nx = pe(node.step, Object.assign({}, env, { [node.x]: x }), st); if (nx.k !== 'num') break; x = nx.v; st.unrolled++; }
+        const env2 = Object.assign({}, env); delete env2[node.x];
+        return { k: 'while', x: node.x, init: num(x), cond: pe(node.cond, env2, st), step: pe(node.step, env2, st) }; }
+      const env2 = Object.assign({}, env); delete env2[node.x];
+      return { k: 'while', x: node.x, init, cond: pe(node.cond, env2, st), step: pe(node.step, env2, st) }; }
+  }
+  throw new Error('no such node ' + node.k);
 }
-/** The level a reading falls in: 0 before the corner, k for 2^(k−1) < s ≤ 2^k past it. */
-const level = s => s <= 1 ? 0 : Math.ceil(Math.log2(s));
-/**
- * A body of radius 1 with relief in bands one doubling apart, m = 4, 8, 16, 32, 64, 128
- * lobes, read at distance d by a reader whose grain is one h: the body spans 2/d of the
- * reader's h, a band's lobes are 2π/m of the radius apart, so they span 2π/(m·d) h each,
- * and a band shows when its lobes cover at least `grains` grains at the given resolution.
- */
-const BANDS = [4, 8, 16, 32, 64, 128];
-function bandsShown(d, res, grains) {
-  return BANDS.filter(m => (TAU / m) / d * res >= grains);
+/** What the residual program still does at runtime: operations, branches, loops. */
+function census(node, c = { ops: 0, ifs: 0, loops: 0 }) {
+  if (!node || typeof node !== 'object') return c;
+  if (node.k === 'op' || node.k === 'call') c.ops++;
+  if (node.k === 'if') c.ifs++;
+  if (node.k === 'for' || node.k === 'while') { c.loops++; c.ifs++; }   // a loop is an exit test at every turn
+  for (const v of Object.values(node)) if (v && typeof v === 'object') { if (Array.isArray(v)) v.forEach(x => census(x, c)); else census(v, c); }
+  return c;
 }
-/** wander's GRN run 5: paying per grain read, a sure "two" costs (1 + s)·max(1, 1/s). */
-const sureCost = s => (1 + s) * Math.max(1, 1 / s);
-return { g, inPlace, level, BANDS, bandsShown, sureCost };
+/** Run a node fully, with every input given: the meaning both a program and its residual must keep. */
+function run(node, env, counter) {
+  counter = counter || { ifs: 0, turns: 0 };
+  const r = x => run(x, env, counter);
+  switch (node.k) {
+    case 'num': return node.v;
+    case 'var': return env[node.n];
+    case 'op': return node.o === 'step' ? r(node.b) : OP[node.o](r(node.a), r(node.b));
+    case 'call': return FN[node.f](...node.args.map(r));
+    case 'if': counter.ifs++; return r(node.c) ? r(node.t) : r(node.e);
+    case 'let': return run(node.body, Object.assign({}, env, { [node.n]: r(node.v) }), counter);
+    case 'tuple': return node.items.map(r);
+    case 'for': { let acc = r(node.init); const lo = r(node.lo), hi = r(node.hi);
+      for (let i = lo; i < hi; i++) { counter.ifs++; counter.turns++; acc = run(node.body, Object.assign({}, env, { [node.i]: i, [node.acc]: acc }), counter); } counter.ifs++; return acc; }
+    case 'while': { let x = r(node.init);
+      for (;;) { counter.ifs++; if (!run(node.cond, Object.assign({}, env, { [node.x]: x }), counter)) return x; counter.turns++; x = run(node.step, Object.assign({}, env, { [node.x]: x }), counter); if (counter.turns > 1e5) return x; } }
+  }
+}
+/** The residual as text, one statement a line, as a reader of code would write it. */
+function show(node, ind = '') {
+  const s = n => show(n, ind);
+  switch (node.k) {
+    case 'num': return Number.isInteger(node.v) ? String(node.v) : node.v.toPrecision(6);
+    case 'var': return node.n;
+    case 'op': return node.o === 'step' ? s(node.b) : `(${s(node.a)} ${node.o} ${s(node.b)})`;
+    case 'call': return `${node.f}(${node.args.map(s).join(', ')})`;
+    case 'if': return `${s(node.c)} ? ${s(node.t)} : ${s(node.e)}`;
+    case 'let': return `let ${node.n} = ${s(node.v)}\n${ind}${s(node.body)}`;
+    case 'tuple': return 'return [' + node.items.map(s).join(', ') + ']';
+    case 'for': return `for ${node.i} in ${s(node.lo)}…${s(node.hi)}: ${node.acc} = ${s(node.body)}   (from ${s(node.init)})`;
+    case 'while': return `while ${s(node.cond)}: ${node.x} = ${s(node.step)}   (from ${s(node.init)})`;
+  }
+}
+// ── the reader's programs ──
+// Reading one place. N is the leaf count (the sweep's breadth), D the size of the thing met
+// and s its reading v/h. The first leaf comes from the corner by halving, log₂N times (the
+// format's trig-free leaves); where the reading falls on the in-place sweep needs the side of
+// the corner; its level of detail is log₂(D/s), one level per doubling.
+const halve = t => op('/', t, op('+', num(1), call('sqrt', op('+', num(1), op('*', t, t)))));
+const READ = lett('u', forr('j', num(0), op('-', call('log2', vr('N')), num(1)), 'u', num(1), halve(vr('u'))),
+  lett('g', iff(op('<=', vr('s'), num(1)), op('/', vr('s'), num(2)),
+                op('-', num(1), call('pow2', op('-', num(0), op('+', call('ceil', call('log2', vr('s'))), num(1)))))),
+    tuple(vr('u'), vr('g'), call('floor', call('log2', op('/', vr('D'), vr('s')))))));
+// Detail by recursion: descend a level at a time while the thing still covers more than a
+// grain at the next level, an exit test at every turn.
+const RECURSE = whil('k', num(0), op('>', op('/', vr('D'), op('*', vr('s'), call('pow2', op('+', vr('k'), num(1))))), num(1)), op('+', vr('k'), num(1)));
+// Detail by level: read level k = ⌊log₂(D/s)⌋ directly.
+const LEVEL = call('floor', call('log2', op('/', vr('D'), vr('s'))));
+/** The level a positive float falls in, read from its exponent bits: no branch, no loop. */
+const dv = new DataView(new ArrayBuffer(8));
+function exponentLevel(x) { dv.setFloat64(0, x); return ((dv.getUint16(0) >> 4) & 0x7ff) - 1023; }
+// ── creating a universe ──
+// The creator chooses the ratio between levels, ρ, and how many levels, L. Two ways to make
+// the table of walls a reader reads by: (a) compile-time LOGIC, a loop that multiplies and a
+// branch that snaps a power of two to its exact value, run once at creation; (b) the table
+// written out by hand, a literal. The reader inside reads only the table.
+function createByLogic(rho, L) {
+  const walls = [1], trace = { turns: 0, branches: 0 };
+  for (let k = 1; k <= L; k++) { trace.turns++; let w = walls[k - 1] * rho;
+    trace.branches++; if (Number.isInteger(Math.log2(rho))) w = 2 ** (k * Math.log2(rho));   // exact for powers of two
+    walls.push(w); }
+  return { walls, trace };
+}
+function createByHand(rho, L) { const text = '[' + createByLogic(rho, L).walls.map(w => String(w)).join(', ') + ']'; return { walls: JSON.parse(text), text }; }
+/** A reader inside: for a reading s, its level (the last wall at or below s) and its share within that level. */
+function readInside(walls, s) { let k = 0; while (k + 1 < walls.length && walls[k + 1] <= s) k++;
+  const lo = walls[k], hi = walls[k + 1] || lo * (walls[1] / walls[0]); return [k, (s - lo) / (hi - lo)]; }
+return { num, vr, op, call, iff, lett, forr, whil, tuple, pe, census, run, show, READ, RECURSE, LEVEL, exponentLevel, createByLogic, createByHand, readInside };
 })();
 
 // ── page ─────────────────────────────────────────────────────────────────
-const CN = CORNER;
+const CP = COMPILE;
 const p = (key, min, max, step, value) => ({ key, min, max, step, value });
 const sel = (key, options, value) => ({ key, options, value });
-const INK = 'rgba(232,236,245,0.92)', GHOST = 'rgba(232,236,245,0.22)', DIM = 'rgba(139,149,171,1)',
-      GOLD = '#f2c14e', TEAL = '#4fd0d0', RED = '#e0644f', VIOLET = '#b9a6ff', BLUE = 'rgba(94,182,255,0.95)';
-const sci = v => v === 0 ? '0' : Math.abs(v) < 1e-3 ? v.toExponential(1) : v.toFixed(4);
-const frac = v => { for (const [n, d] of [[1, 2], [3, 4], [7, 8], [15, 16], [31, 32], [63, 64], [127, 128]]) if (Math.abs(v - n / d) < 1e-12) return n + '/' + d; return v.toFixed(4); };
-const opts = { walls: true };
+const INK = 'rgba(232,236,245,0.92)', DIM = 'rgba(139,149,171,1)', GOLD = '#f2c14e', TEAL = '#4fd0d0', RED = '#e0644f', VIOLET = '#b9a6ff', BLUE = 'rgba(94,182,255,0.95)';
+const opts = { lines: true };
+function rng(seed) { let s = (seed * 2654435761) >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+const BIND = ['fixed at creation', 'arrives'];
+// the static values a fixed input takes
+const VALUES = { N: 64, s: 0.37, D: 5 };
 
-// ── drawing ──────────────────────────────────────────────────────────────
-function cam(sets, w, h, pad) {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const s of sets) for (const q of s) { if (q.x < x0) x0 = q.x; if (q.x > x1) x1 = q.x; if (q.y < y0) y0 = q.y; if (q.y > y1) y1 = q.y; }
-  const bw = x1 - x0 || 1, bh = y1 - y0 || 1, k = Math.min((w - 2 * pad) / bw, (h - 2 * pad) / bh);
-  const mx = x0 + bw / 2, my = y0 + bh / 2;
-  return { k, X: x => w / 2 + (x - mx) * k, Y: y => h / 2 - (y - my) * k, inv: (sx, sy) => ({ x: mx + (sx - w / 2) / k, y: my - (sy - h / 2) / k }) };
+// ── drawing: code on the stage ───────────────────────────────────────────
+function label(ctx, x, y, t, style, align, size) {
+  ctx.font = (size || 11) + 'px "IBM Plex Mono", ui-monospace, monospace'; ctx.fillStyle = style || DIM; ctx.textAlign = align || 'left'; ctx.fillText(t, x, y);
 }
-function label(ctx, x, y, t, style, align) {
-  ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace'; ctx.fillStyle = style || DIM; ctx.textAlign = align || 'left'; ctx.fillText(t, x, y);
-}
-function dot(ctx, x, y, r, fill, stroke) {
-  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
-  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.4; ctx.stroke(); }
-}
-function line(ctx, pts, style, width, dash) {
-  ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, q[0], q[1]));
-  if (dash) ctx.setLineDash(dash); ctx.strokeStyle = style; ctx.lineWidth = width || 1.2; ctx.stroke(); ctx.setLineDash([]);
+function codeBlock(ctx, x, y, w, title, text, style) {
+  label(ctx, x, y, title, GOLD, 'left', 11);
+  let yy = y + 18;
+  for (const raw of text.split('\n')) {
+    // wrap long lines at the panel's width
+    let line = raw; const max = Math.max(20, Math.floor(w / 6.6));
+    while (line.length > max) { label(ctx, x, yy, line.slice(0, max), style, 'left', 11); line = '    ' + line.slice(max); yy += 15; }
+    label(ctx, x, yy, line, style, 'left', 11); yy += 15;
+  }
+  return yy;
 }
 
 // ── the catalogue ────────────────────────────────────────────────────────
 const SECTIONS = [
 {
-  id: 'flip', title: 'Near and far are one geometry', kicker: 'the flip s ↦ 1/s',
-  note: 'A reader holds, of each place, v/h: how far across against how far along. The <b>corner</b> is v = h, a reading of 1. ' +
-        'Before it the reader reads v in terms of h; past it, h in terms of v. Exchanging v and h is the flip, s ↦ 1/s, and it ' +
-        'takes every place before the corner to one past it: the near half of the facing and the far half are one geometry, ' +
-        'read from either side. On the sweep, the share of the quarter turn g = (2/π)·atan(s), the flip is g ↦ 1 − g, and the ' +
-        'corner, its fixed point, is g = ½. This is the central result of Serial, Parallel and Nowhere (§3.2, in the wander ' +
-        'repository); the <a href="situated.html">where you stand</a> page reads shapes with it.',
+  id: 'split', title: 'Compile time and runtime', kicker: 'what is fixed before anything arrives',
+  note: 'A reader\'s program has two kinds of input. Some are fixed before anything arrives: how many leaves its sweep has, where ' +
+        'it stands, the ratio between its levels. That is the geometry. Others arrive: the values it meets. That is the payload. ' +
+        'A compiler can take such a program and run, ahead of time, every step and every "if" that needs only the fixed inputs, ' +
+        'folding them into constants; what is left, the <b>residual</b> program, is runtime, and its branches are exactly the ones ' +
+        'that wait on what arrives. That is partial evaluation, and it is the precise sense of "geometry is compile time" (Serial, ' +
+        'Parallel and Nowhere, the opening, in the wander repository): with the geometry fixed, the residual reader has no branch ' +
+        'that is not about its payload.',
   entries: [
-    { name: 'a place and its flip', wide: true, readers: 1,
-      note: 'Drag the place (blue). The reader stands at the corner of the axes, h along, v across; the dashed line is the corner, ' +
-            'v = h. Gold: the place\'s flip, v and h exchanged. The bar underneath is the sweep, g from 0 at home to 1 at the far ' +
-            'wall: the two land at g and 1 − g, either side of ½.',
-      params: [ sel('read', ['one place', 'a row of places'], 'one place') ],
-      code: v => `g(v/h) + g(h/v) = 1`,
-      state: v => { const q = v.R ? v.R[0] : { x: 1, y: 0.35 }, h = Math.max(1e-6, q.x), vv = Math.max(1e-6, q.y), s = vv / h;
-        const row = v.read === 'a row of places' ? Array.from({ length: 9 }, (_, i) => ({ x: 0.3 + 0.2 * i, y: vv })) : [{ x: h, y: vv }];
-        const sum = Math.max(...row.map(r => Math.abs(CN.g(r.y / r.x) + CN.g(r.x / r.y) - 1)));
-        return { O: [{ x: h, y: vv }], row, s, sum }; },
-      verdict: s => `v/h = ${s.s.toFixed(3)} · g = ${s.s ? CN.g(s.s).toFixed(4) : 0}, its flip ${CN.g(1 / s.s).toFixed(4)} · g + g′ − 1 = ${s.sum === 0 ? '0' : s.sum.toExponential(0)} for every place shown`,
+    { name: 'the reader, folded', wide: true,
+      note: 'The program reads one place: its sweep\'s first leaf, from the corner by halving log₂N times; where the reading s falls ' +
+            'on the in-place sweep, which needs the side of the corner; and the level of detail of a thing of size D, log₂(D/s). ' +
+            'Set each input as fixed at creation or arriving. Left: the program. Right: what is left for runtime.',
+      params: [ sel('N (leaves)', BIND, 'fixed at creation'), sel('s (the reading)', BIND, 'arrives'), sel('D (its size)', BIND, 'arrives') ],
+      code: v => `pe(READ, { ${['N (leaves)', 's (the reading)', 'D (its size)'].filter(k => v[k] === BIND[0]).map(k => k[0] + ': ' + VALUES[k[0]]).join(', ')} })`,
+      state: v => { const env = {}; for (const k of ['N (leaves)', 's (the reading)', 'D (its size)']) if (v[k] === BIND[0]) env[k[0]] = VALUES[k[0]];
+        const st = { foldedOps: 0, decidedIfs: 0, unrolled: 0 }, res = CP.pe(CP.READ, env, st), left = CP.census(res);
+        // the residual must mean what the program means: run both on the same inputs
+        const full = Object.assign({}, VALUES), a = CP.run(CP.READ, full), b = CP.run(res, full), same = JSON.stringify(a) === JSON.stringify(b);
+        return { env, st, res, left, same, a }; },
+      verdict: s => `at compile time: ${s.st.foldedOps} operations folded, ${s.st.decidedIfs} ${s.st.decidedIfs === 1 ? 'branch' : 'branches'} decided, ${s.st.unrolled} loop turns run · left for runtime: ${s.left.ops} operations, ${s.left.ifs} ${s.left.ifs === 1 ? 'branch' : 'branches'}${s.left.loops ? ', ' + s.left.loops + ' loop' : ''} · the residual reads the same as the program: ${s.same ? 'yes' : 'NO'}`,
+      bad: s => !s.same,
       draw: (ctx, w, h, v, s) => {
-        const sh = h - 46, k = Math.min(w * 0.5, sh) / 2.7, X0 = w / 2 - 1.2 * k, Y0 = sh - 10;
-        const c = { k, X: x => X0 + x * k, Y: y => Y0 - y * k, inv: (sx, sy) => ({ x: (sx - X0) / k, y: (Y0 - sy) / k }) };
-        line(ctx, [[c.X(0), c.Y(0)], [c.X(2.3), c.Y(0)]], DIM, 1); line(ctx, [[c.X(0), c.Y(0)], [c.X(0), c.Y(2.3)]], DIM, 1);
-        line(ctx, [[c.X(0), c.Y(0)], [c.X(2.3), c.Y(2.3)]], 'rgba(242,193,78,0.5)', 1, [5, 4]);
-        label(ctx, c.X(2.3), c.Y(0) + 14, 'h', DIM, 'right'); label(ctx, c.X(0) - 8, c.Y(2.3), 'v', DIM, 'right'); label(ctx, c.X(2.2), c.Y(2.3) - 4, 'the corner, v = h', GOLD, 'right');
-        for (const r of s.row) { line(ctx, [[c.X(r.x), c.Y(r.y)], [c.X(r.y), c.Y(r.x)]], 'rgba(232,236,245,0.15)', 1, [2, 3]);
-          dot(ctx, c.X(r.x), c.Y(r.y), 3.5, BLUE); dot(ctx, c.X(r.y), c.Y(r.x), 3.5, GOLD); }
-        dot(ctx, c.X(s.O[0].x), c.Y(s.O[0].y), 6, null, '#fff');
-        // the sweep bar
-        const bx = 30, bw = w - 60, by = h - 26;
-        line(ctx, [[bx, by], [bx + bw, by]], DIM, 1); line(ctx, [[bx + bw / 2, by - 6], [bx + bw / 2, by + 6]], GOLD, 1);
-        label(ctx, bx, by + 14, 'home, g = 0', DIM); label(ctx, bx + bw / 2, by + 14, 'the corner, ½', GOLD, 'center'); label(ctx, bx + bw, by + 14, 'far wall, 1', DIM, 'right');
-        for (const r of s.row) { dot(ctx, bx + bw * CN.g(r.y / r.x), by, 3, BLUE); dot(ctx, bx + bw * CN.g(r.x / r.y), by, 3, GOLD); }
-        return c;
+        const half = (w - 30) / 2;
+        codeBlock(ctx, 12, 20, half, 'the program', CP.show(CP.READ), 'rgba(232,236,245,0.75)');
+        codeBlock(ctx, 24 + half, 20, half, 'left for runtime', CP.show(s.res), s.left.ifs ? BLUE : TEAL);
       } },
-    { name: 'the circle from a point on it',
-      note: 'Read from a point on it, the unit circle\'s places at a turn θ round from the reader have v/h = tan(θ/2): the evenly ' +
-            'spread world. The flip takes the place at θ to the place at π − θ, the mirror across the diameter square to the reader\'s ' +
-            'facing, and the corner is the point a quarter turn round.',
-      params: [ p('θ °', 2, 178, 1, 50) ],
-      code: v => `tan(θ/2) · tan((π − θ)/2) = 1`,
-      state: v => { const th = v['θ °'] * Math.PI / 180, s = Math.tan(th / 2), s2 = Math.tan((Math.PI - th) / 2);
-        return { th, s, s2, prod: Math.abs(s * s2 - 1) }; },
-      verdict: s => `v/h = ${s.s.toFixed(3)} at θ, ${s.s2.toFixed(3)} at π − θ; their product is 1 to ${s.prod < 1e-15 ? '1e−16' : s.prod.toExponential(0)}`,
+    { kind: 'report', name: 'every split', wide: true },
+  ]
+},
+{
+  id: 'exit', title: 'Where the if lives', kicker: 'recursion against level of detail',
+  note: 'The papers first described the levels as a recursion, and then rejected it (Serial, Parallel and Nowhere, §3.3, ' +
+        '"Recursion considered and rejected"). Folding both shows why. A <b>recursion</b> descends a level at a time and tests ' +
+        'at every turn whether to stop, and the test asks the payload (is the thing still bigger than a grain?), so the loop ' +
+        'and its exit stay in the runtime program, and it runs as many turns as there are levels. <b>Level of detail</b> reads the ' +
+        'level directly, k = ⌊log₂(D/s)⌋: one operation on the payload and no loop. And ⌊log₂⌋ needs no branch either: it is the ' +
+        'exponent of a floating-point number, read from its bits, "as a float\'s exponent is read from its bits".',
+  entries: [
+    { name: 'the two descents, folded',
+      note: 'Both programs folded with the thing\'s size D and its reading s arriving. The verdict runs both on the dial\'s payload and ' +
+            'counts the tests each made at runtime.',
+      params: [ p('log₂ D/s', 0, 30, 1, 12) ],
+      code: v => `pe(RECURSE, {}) against pe(LEVEL, {})`,
+      state: v => { const D = 2 ** v['log₂ D/s'] * 1.3, env = { D, s: 1 };
+        const st1 = { foldedOps: 0, decidedIfs: 0, unrolled: 0 }, st2 = { foldedOps: 0, decidedIfs: 0, unrolled: 0 };
+        const r1 = CP.pe(CP.RECURSE, {}, st1), r2 = CP.pe(CP.LEVEL, {}, st2), c1 = { ifs: 0, turns: 0 }, c2 = { ifs: 0, turns: 0 };
+        const k1 = CP.run(r1, env, c1), k2 = CP.run(r2, env, c2);
+        return { r1, r2, k1, k2, c1, c2 }; },
+      verdict: s => `recursion: level ${s.k1} after ${s.c1.turns} turns and ${s.c1.ifs} tests · level of detail: level ${s.k2}, ${s.c2.ifs} tests`,
+      bad: s => s.k1 !== s.k2,
       draw: (ctx, w, h, v, s) => {
-        const r = Math.min(w, h) * 0.36, cx = w / 2, cy = h / 2;
-        ctx.strokeStyle = GHOST; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
-        // the reader at (1, 0) facing up; the place at θ is (cos θ, sin θ)
-        const P = t => [cx + r * Math.cos(t), cy - r * Math.sin(t)];
-        line(ctx, [P(0), P(Math.PI / 2)], 'rgba(242,193,78,0.35)', 1, [4, 4]);
-        line(ctx, [P(0), P(s.th)], BLUE, 1); line(ctx, [P(0), P(Math.PI - s.th)], GOLD, 1);
-        dot(ctx, ...P(s.th), 4, BLUE); dot(ctx, ...P(Math.PI - s.th), 4, GOLD); dot(ctx, ...P(Math.PI / 2), 3, null, GOLD); dot(ctx, ...P(0), 5, '#fff', GOLD);
-        label(ctx, ...P(Math.PI / 2).map((x, i) => i ? x - 8 : x), 'the corner', GOLD, 'center');
+        const y = codeBlock(ctx, 12, 20, w - 24, 'recursion, left for runtime', CP.show(s.r1), RED);
+        codeBlock(ctx, 12, y + 16, w - 24, 'level of detail, left for runtime', CP.show(s.r2), TEAL);
+      } },
+    { name: 'the level, from the bits',
+      note: 'A double\'s 64 bits: sign, eleven of exponent, fifty-two of fraction. The exponent, less 1023, is ⌊log₂ x⌋ for any ' +
+            'normal positive x: the level, read off without a test. The verdict checks it against ⌊log₂ x⌋ on 100,000 random readings.',
+      params: [ p('log₂ x', -20, 20, 0.01, 3.4) ],
+      code: v => `exponentLevel(2^${v['log₂ x']})`,
+      state: v => { const x = 2 ** v['log₂ x'], dv = new DataView(new ArrayBuffer(8)); dv.setFloat64(0, x);
+        const bits = [...Array(8)].map((_, i) => dv.getUint8(i).toString(2).padStart(8, '0')).join('');
+        const r = rng(5); let bad = 0; for (let i = 0; i < 100000; i++) { const y = Math.exp((r() - 0.5) * 120); if (CP.exponentLevel(y) !== Math.floor(Math.log2(y))) bad++; }
+        return { x, bits, k: CP.exponentLevel(x), bad }; },
+      verdict: s => `x = ${s.x.toPrecision(5)} · exponent bits say level ${s.k}, ⌊log₂ x⌋ = ${Math.floor(Math.log2(s.x))} · disagreements in 100,000: ${s.bad}`,
+      bad: s => s.bad > 0,
+      draw: (ctx, w, h, v, s) => {
+        const cw = Math.min(14, (w - 24) / 64), x0 = (w - 64 * cw) / 2, y0 = h / 2 - 14;
+        for (let i = 0; i < 64; i++) { const col = i === 0 ? DIM : i < 12 ? GOLD : 'rgba(232,236,245,0.45)';
+          ctx.fillStyle = s.bits[i] === '1' ? col : 'rgba(139,149,171,0.12)'; ctx.fillRect(x0 + i * cw + 1, y0, cw - 2, 26); }
+        label(ctx, x0, y0 - 8, 'sign', DIM); label(ctx, x0 + cw * 1, y0 + 44, 'exponent (11 bits)', GOLD); label(ctx, x0 + 64 * cw, y0 + 44, 'fraction (52 bits)', DIM, 'right');
+        label(ctx, w / 2, y0 + 72, `exponent − 1023 = ${s.k}`, GOLD, 'center', 12);
       } },
   ]
 },
 {
-  id: 'levels', title: 'Proportion before the corner, levels past it', kicker: '½, ¾, ⅞, 15/16 …',
-  note: 'The sweep can be laid without a trigonometric function. From home to the corner, in proportion: g = s/2. Past the corner, ' +
-        'one <b>level</b> per doubling of the reading, and each level takes half of what is left: ½ at the corner, ¾ at s = 2, ⅞ at ' +
-        '4, 15/16 at 8, in proportion within each level. So within a level the reader holds a share, and across levels a count, ' +
-        'and the count is the logarithm. The sweep a level later is the same sweep at half the scale: every level is alike, and ' +
-        'none is preferred. The arctangent sweep beside it is the same shape drawn smooth; the in-place one is what a reader can ' +
-        'lay with halvings alone (Serial, Parallel and Nowhere, §3.3, §3.5).',
+  id: 'creator', title: 'Can compile time have logic?', kicker: 'logic at creation, and what is left of it',
+  note: 'Yes, in one precise sense. A creator can run any program it likes over the things it fixes (how many levels, the ratio ' +
+        'between them): loops, branches, arithmetic. That is compile-time logic, and partial evaluation is exactly that: logic, ' +
+        'run once, before anything arrives. Two limits follow. It can only branch on what is fixed at creation, never on what ' +
+        'will arrive, so it cannot do the payload\'s work ahead of time. And once it has run it leaves nothing but its output: a ' +
+        'reader inside the universe reads the baked table and cannot tell whether that table came from logic or was written out by ' +
+        'hand. So "geometry has no if" is true of what is left, the residual a reader runs; any logic of creation is the ' +
+        'creator\'s, and invisible from inside.',
   entries: [
-    { name: 'the two sweeps', wide: true,
-      note: 'Against log₂ s, from 2⁻⁶ to 2⁶: the in-place sweep (violet, proportion then halvings) and the arctangent sweep (grey). ' +
-            'The dial sets a reading; the verdict gives its level and both sweeps there.',
-      params: [ p('log₂ s', -6, 6, 0.05, 1.5) ],
-      code: v => `inPlace(2^${v['log₂ s']})`,
-      state: v => { const s = 2 ** v['log₂ s']; return { s, a: CN.g(s), b: CN.inPlace(s), k: CN.level(s) }; },
-      verdict: s => `s = ${s.s.toPrecision(4)} · ${s.k ? 'level ' + s.k + ' past the corner' : 'before the corner, in proportion'} · in place ${frac(s.b)} · arctangent ${s.a.toFixed(4)}`,
+    { name: 'two ways to create the same universe', wide: true,
+      note: 'Choose the ratio between levels and how many there are. One creation runs a loop and a branch (snapping a power of two ' +
+            'to its exact value); the other is the same table written out as a literal. Below, a reader inside reads 10,000 places ' +
+            'with each and compares its readings.',
+      params: [ sel('ρ', ['2', '3', '1.5', '√2', '4'], '2'), p('levels', 2, 40, 1, 12) ],
+      code: v => `createByLogic(${v['ρ']}, ${v.levels}) against createByHand(…)`,
+      state: v => { const rho = { '2': 2, '3': 3, '1.5': 1.5, '√2': Math.SQRT2, '4': 4 }[v['ρ']];
+        const A = CP.createByLogic(rho, v.levels), B = CP.createByHand(rho, v.levels);
+        const r = rng(9); let diff = 0; const top = A.walls[A.walls.length - 1];
+        for (let i = 0; i < 10000; i++) { const s = Math.exp(r() * Math.log(top)); const a = CP.readInside(A.walls, s), b = CP.readInside(B.walls, s); if (a[0] !== b[0] || a[1] !== b[1]) diff++; }
+        const bitsSame = A.walls.every((w, i) => Object.is(w, B.walls[i]));
+        return { rho, A, B, diff, bitsSame }; },
+      verdict: s => `creation by logic: ${s.A.trace.turns} loop turns, ${s.A.trace.branches} branches, run once · the two tables are bit for bit ${s.bitsSame ? 'the same' : 'DIFFERENT'} · readings that differ inside: ${s.diff} of 10,000`,
+      bad: s => !s.bitsSame || s.diff > 0,
       draw: (ctx, w, h, v, s) => {
-        const x0 = 40, pw = w - 60, top = 14, ph = h - 40, X = l => x0 + (l + 6) / 12 * pw, Y = gg => top + ph - gg * ph;
-        if (opts.walls) for (let k = -5; k <= 5; k++) line(ctx, [[X(k), top], [X(k), top + ph]], 'rgba(139,149,171,0.12)', 1);
-        for (const gg of [0.5, 0.75, 0.875, 0.9375]) { line(ctx, [[x0, Y(gg)], [x0 + pw, Y(gg)]], 'rgba(242,193,78,0.18)', 1, [2, 3]); label(ctx, x0 - 4, Y(gg) + 3, frac(gg), GOLD, 'right'); }
-        const L = Array.from({ length: 481 }, (_, i) => -6 + 12 * i / 480);
-        line(ctx, L.map(l => [X(l), Y(CN.g(2 ** l))]), 'rgba(232,236,245,0.35)', 2);
-        line(ctx, L.map(l => [X(l), Y(CN.inPlace(2 ** l))]), VIOLET, 1.6);
-        dot(ctx, X(Math.log2(s.s)), Y(s.b), 4, GOLD);
-        for (const e of [-6, -3, 0, 3, 6]) label(ctx, X(e), h - 8, e === 0 ? '1' : '2' + String(e).replace('-', '⁻').replace(/\d/g, c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[c]), DIM, 'center');
+        const half = (w - 30) / 2;
+        codeBlock(ctx, 12, 20, half, 'by logic (run once, at creation)', `walls = [1]\nfor k in 1…${v.levels}:\n  w = walls[k−1] × ${v['ρ']}\n  if ρ is a power of two: w = exact 2^(k·log₂ρ)\n  walls.push(w)`, 'rgba(232,236,245,0.75)');
+        const shown = s.B.walls.slice(0, 9).map(x => +x.toPrecision(6)).join(', ') + (s.B.walls.length > 9 ? ', …' : '');
+        codeBlock(ctx, 24 + half, 20, half, 'by hand (a literal)', `walls = [${shown}]`, 'rgba(232,236,245,0.75)');
+        label(ctx, w / 2, h - 20, s.bitsSame ? 'what the reader inside holds: the same table, either way' : 'the tables differ', s.bitsSame ? TEAL : RED, 'center', 12);
       } },
-  ]
-},
-{
-  id: 'detail', title: 'Smaller, less detail', kicker: 'one level per doubling of distance',
-  note: 'Toward the horizon a thing of size Δ at distance v is read as Δ/v units of the reader\'s h, and h is also the reader\'s ' +
-        'grain, so the detail that shows is how many grains fit across it: Δ/v again, one division read twice. Each doubling of ' +
-        'distance halves it and loses one level of detail. Nothing is asked of the thing, which sends the same signal near or far; ' +
-        'what changes is how many of the reader\'s grains it lands on, so less is <b>captured</b>, not less sent (Serial, Parallel ' +
-        'and Nowhere, §3.3, "Smaller drives less detailed"). Wander\'s flying page draws its planets this way, each band of relief ' +
-        'only once its features cover a few pixels.',
-  entries: [
-    { name: 'a body moving off', wide: true,
-      note: 'A body with relief in six bands, 4 to 128 lobes, each band twice as fine as the last. The dial moves it away; a band is ' +
-            'drawn only while its lobes span at least two of the reader\'s grains (at 400 grains to the reader\'s h). Each doubling ' +
-            'of distance drops exactly one band.',
-      params: [ p('log₂ distance', 0, 7, 0.05, 2) ],
-      code: v => `bandsShown(2^${v['log₂ distance']}, 400 grains to h, 2 grains a lobe)`,
-      state: v => { const d = 2 ** v['log₂ distance'], shown = CN.bandsShown(d, 400, 2); return { d, shown, across: 2 / d * 400 }; },
-      verdict: s => `at ${s.d.toPrecision(3)} radii it spans ${s.across.toFixed(0)} grains · bands shown: ${s.shown.length ? s.shown.join(', ') + ' lobes' : 'none, a plain ball'} · level of detail ${s.shown.length}`,
-      draw: (ctx, w, h, v, s) => {
-        // drawn at a fixed size so its detail can be compared; its true size is the small disc beside it
-        const r = Math.min(w * 0.3, h * 0.4), cx = w * 0.38, cy = h / 2;
-        ctx.beginPath();
-        for (let i = 0; i <= 1440; i++) { const t = TAU * i / 1440;
-          let R = 1; for (const m of s.shown) R += 0.06 * Math.pow(4 / m, 0.6) * Math.cos(m * t + m);
-          (i ? ctx.lineTo : ctx.moveTo).call(ctx, cx + r * R * Math.cos(t), cy - r * R * Math.sin(t)); }
-        ctx.closePath(); ctx.strokeStyle = INK; ctx.lineWidth = 1.4; ctx.stroke();
-        const tr = Math.max(0.6, r / s.d * 0.5); dot(ctx, w * 0.8, cy, tr, 'rgba(232,236,245,0.85)');
-        label(ctx, w * 0.8, cy + Math.max(tr, 4) + 14, 'as large as it reads', DIM, 'center');
-        CN.BANDS.forEach((m, i) => label(ctx, 12, 18 + 13 * i, `${m} lobes ${s.shown.includes(m) ? 'shown' : '—'}`, s.shown.includes(m) ? TEAL : DIM));
-      } },
-    { kind: 'report', name: 'distance against detail', wide: true },
-  ]
-},
-{
-  id: 'cost', title: 'The corner is the cheapest place to be sure', kicker: 'the same cost at s and at 1/s',
-  note: 'A reader with grains one h wide reads two points one apart at size s (how many of its grains the gap spans). Below the ' +
-        'corner it must look about 1/s times to be sure there are two; past it each look costs s grains. Paying per grain read, ' +
-        'a sure "two" costs (1 + s)·max(1, 1/s): least at the corner, s = 1, and the same at s and 1/s, so the flip holds for cost ' +
-        'too. Measured in wander\'s GRN runs 3 to 5 (<a href="https://reportbase.github.io/wander/dial.html">the h dial</a>).',
-  entries: [
-    { name: 'the cost of a sure two',
-      note: 'The cost against log₂ s. The dial sets s; its flip 1/s is marked in gold, at the same height.',
-      params: [ p('log₂ s', -4, 4, 0.05, -1.5) ],
-      code: v => `(1 + s)·max(1, 1/s) at s = 2^${v['log₂ s']}`,
-      state: v => { const s = 2 ** v['log₂ s']; return { s, c: CN.sureCost(s), c2: CN.sureCost(1 / s) }; },
-      verdict: s => `cost ${s.c.toFixed(3)} at s, ${s.c2.toFixed(3)} at 1/s · least, 2, at the corner`,
-      draw: (ctx, w, h, v, s) => {
-        const x0 = 34, pw = w - 50, top = 12, ph = h - 36, X = l => x0 + (l + 4) / 8 * pw, Y = c => top + ph - (Math.log2(c) - 1) / 4 * ph;
-        const L = Array.from({ length: 321 }, (_, i) => -4 + 8 * i / 320);
-        line(ctx, L.map(l => [X(l), Y(CN.sureCost(2 ** l))]), VIOLET, 1.6);
-        line(ctx, [[X(0), top], [X(0), top + ph]], 'rgba(242,193,78,0.35)', 1, [4, 4]);
-        dot(ctx, X(Math.log2(s.s)), Y(s.c), 4.5, BLUE); dot(ctx, X(-Math.log2(s.s)), Y(s.c2), 4.5, GOLD);
-        label(ctx, X(0), h - 8, 'the corner', GOLD, 'center'); label(ctx, X(-4), h - 8, '1/16', DIM, 'left'); label(ctx, X(4), h - 8, '16', DIM, 'right');
-      } },
+    { kind: 'report', name: 'what this page finds', wide: true },
   ]
 },
 ];
 
 // ── reports ──────────────────────────────────────────────────────────────
 const REPORTS = {
-'distance against detail': (host) => {
-  const rows = [0, 1, 2, 3, 4, 5, 6, 7].map(k => { const d = 2 ** k; return { d, across: 2 / d * 400, shown: CN.bandsShown(d * 1.0001, 400, 2) }; });
+'every split': (host) => {
+  const names = ['N', 's', 'D'], rows = [];
+  for (let m = 0; m < 8; m++) { const env = {}; names.forEach((n, i) => { if (m & (1 << i)) env[n] = VALUES[n]; });
+    const st = { foldedOps: 0, decidedIfs: 0, unrolled: 0 }, res = CP.pe(CP.READ, env, st), left = CP.census(res);
+    const same = JSON.stringify(CP.run(CP.READ, VALUES)) === JSON.stringify(CP.run(res, VALUES));
+    rows.push({ fixed: names.filter(n => n in env).join(', ') || 'nothing', st, left, same }); }
   host.innerHTML =
-    `<p>The body at each doubling of distance: how many of the reader's grains it spans, and the bands of relief that cover two grains a lobe.</p>
-     <table><thead><tr><th>distance (radii)</th><th>grains across</th><th>bands shown</th><th>level of detail</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${r.d}</td><td>${r.across.toFixed(1)}</td><td>${r.shown.join(', ') || 'none'}</td><td>${r.shown.length}</td></tr>`).join('') +
+    `<p>The reading program folded for every choice of what is fixed at creation (the rest arrives).</p>
+     <table><thead><tr><th>fixed at creation</th><th>compile time: folded, decided, turns</th><th>runtime: operations, branches, loops</th><th>same readings</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.fixed}</td><td>${r.st.foldedOps}, ${r.st.decidedIfs}, ${r.st.unrolled}</td><td class="${r.left.ifs ? '' : 'ok'}">${r.left.ops}, ${r.left.ifs}, ${r.left.loops}</td><td class="${r.same ? 'ok' : 'bad'}">${r.same ? 'yes' : 'no'}</td></tr>`).join('') +
     `</tbody></table>
-     <p class="foot">Up close every band covers two grains a lobe. From 16 radii on, the finest band left falls below that at each doubling: one band, one level of detail, lost per doubling, because the grains across halve and so does every lobe's share of them.</p>`;
+     <p class="foot">With the leaf count fixed, the halving loop runs at creation and leaves one constant. The one branch left is
+      the side of the corner, and it is left exactly when the reading s arrives: it waits on the payload. Fix everything and nothing
+      is left for runtime: a universe with nothing arriving is a constant.</p>`;
+},
+'what this page finds': (host) => {
+  host.innerHTML =
+    `<table><thead><tr><th>question</th><th>what the folding shows</th></tr></thead><tbody>
+      <tr><td>Is geometry compile time?</td><td>Everything that needs only the fixed inputs folds away before anything arrives; the residual's
+        branches are exactly those on the payload.</td></tr>
+      <tr><td>Where does the "if" live?</td><td>On the payload: which side of the corner a reading falls. Recursion keeps a loop whose exit asks the
+        payload; level of detail keeps one operation, and ⌊log₂⌋ is read from a float's exponent bits with no test.</td></tr>
+      <tr><td>Does compile time have logic?</td><td>It can: loops and branches over what is fixed, run once at creation. It cannot branch on
+        what will arrive.</td></tr>
+      <tr><td>Can a creator add compile-time logic?</td><td>Yes, and from inside it leaves no trace: the table made by logic and the table
+        written by hand are bit for bit the same, and so are the readings.</td></tr>
+     </tbody></table>
+     <p class="foot">A reading of the question, not a ruling. It takes "compile time" in the compiler's sense (binding time: what is
+      known before the program runs). Whether a universe's creation is like that is what the question asks; this page shows what
+      follows if it is.</p>`;
 },
 };
 
@@ -1561,15 +1671,16 @@ const io = new IntersectionObserver(ents => {
   }
 }, { rootMargin: '200px' });
 for (const t of tiles) io.observe(t.tile);
-{
-  const btn = document.getElementById('t-walls');
-  btn.addEventListener('click', () => { opts.walls = !opts.walls; btn.classList.toggle('on', opts.walls);
-    for (const t of tiles) if (t.render && t.done) t.render(); });
-}
 globalThis.addEventListener('resize', () => { for (const t of tiles) if (t.render && t.done) t.render(); });
 
-window.cornerCheck = () => { let flip = 0; for (let i = 0; i <= 400; i++) { const s = 2 ** (-8 + 16 * i / 400); flip = Math.max(flip, Math.abs(CN.g(s) + CN.g(1 / s) - 1)); }
-  return { flip, inPlace: [1, 2, 4, 8].map(CN.inPlace), bands: [0, 1, 2, 3, 4, 5, 6, 7].map(k => CN.bandsShown(2 ** k * 1.0001, 400, 2).length), cost: [CN.sureCost(0.5), CN.sureCost(1), CN.sureCost(2)] }; };
+window.compileCheck = () => { const st = { foldedOps: 0, decidedIfs: 0, unrolled: 0 }, res = CP.pe(CP.READ, { N: 64 }, st), left = CP.census(res);
+  const same = JSON.stringify(CP.run(CP.READ, VALUES)) === JSON.stringify(CP.run(res, VALUES));
+  const all = CP.census(CP.pe(CP.READ, { N: 64, s: 0.37, D: 5 }, { foldedOps: 0, decidedIfs: 0, unrolled: 0 }));
+  const r1 = CP.pe(CP.RECURSE, {}, { foldedOps: 0, decidedIfs: 0, unrolled: 0 }), r2 = CP.pe(CP.LEVEL, {}, { foldedOps: 0, decidedIfs: 0, unrolled: 0 });
+  const A = CP.createByLogic(3, 20), B = CP.createByHand(3, 20);
+  let bits = 0; for (let i = -40; i <= 40; i++) if (CP.exponentLevel(2 ** (i + 0.3)) !== Math.floor(i + 0.3)) bits++;
+  return { left, same, unrolled: st.unrolled, allIfs: all.ifs, recurseLoops: CP.census(r1).loops, levelLoops: CP.census(r2).loops, levelIfs: CP.census(r2).ifs,
+           tablesSame: A.walls.every((w, i) => Object.is(w, B.walls[i])), bits }; };
 </script>
 </body>
 </html>
