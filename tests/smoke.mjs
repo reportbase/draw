@@ -285,7 +285,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'standpoint.html', 'readers.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'standpoint.html', 'readers.html', 'compile.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -570,6 +570,22 @@ await step('reader-geometry galleries', async () => {
   const b = await run('readers.html', 'betweenCheck');
   if (!(b.cr < 1e-12 && b.pd < 1e-12)) throw new Error('between readers ' + JSON.stringify(b));
   if (!(b.right === 30 && b.wrong === 0)) throw new Error('matching ' + JSON.stringify(b));
+});
+
+/* Compile time: the partial evaluator folds the reader's program so that, with the leaf count
+   fixed, one branch is left (the side of the corner, on the payload) and the residual reads the
+   same as the program; with everything fixed nothing is left; recursion keeps a loop, level of
+   detail none; the exponent bits give ⌊log₂⌋; the two creations are bit for bit the same. */
+await step('compile time', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[compile time] ${e.message}`));
+  await gp.goto(new URL('gallery/compile.html', base).href, { waitUntil: 'load' });
+  const r = await gp.evaluate(() => compileCheck());
+  await gp.close();
+  if (!(r.same && r.left.ifs === 1 && r.left.loops === 0 && r.unrolled === 5)) throw new Error('the folded reader ' + JSON.stringify(r));
+  if (r.allIfs !== 0) throw new Error('with everything fixed, ' + r.allIfs + ' branches are left');
+  if (!(r.recurseLoops === 1 && r.levelLoops === 0 && r.levelIfs === 0)) throw new Error('recursion against level ' + JSON.stringify(r));
+  if (!(r.tablesSame && r.bits === 0)) throw new Error('creation or bits ' + JSON.stringify(r));
 });
 
 /* Where you stand: the situated reader's claims, measured on the page with its own module. The
