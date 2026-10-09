@@ -285,7 +285,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'standpoint.html', 'readers.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -477,11 +477,11 @@ await step('the two horns', async () => {
 await step('inspector reads depth', async () => {
   const strip = s => s.replace(/\s+/g, '');
   const ed = await readFile(join(ROOT, 'draw.html'), 'utf8'), ins = await readFile(join(ROOT, 'gallery/inspect.html'), 'utf8'),
-        dep = await readFile(join(ROOT, 'gallery/depth.html'), 'utf8');
+        dep = await readFile(join(ROOT, 'gallery/depth.html'), 'utf8'), std = await readFile(join(ROOT, 'gallery/standpoint.html'), 'utf8');
   const grab = (src, start) => { const i = src.indexOf(start); if (i < 0) return null; let d = 0, k = src.indexOf('{', i);
     for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) break; } return strip(src.slice(i, k + 1)); };
   for (const [what, start] of [['DEPTH', 'const DEPTH = (function() {'], ...['fmtSig', 'rungOfRow', 'depthToTVF', 'depthFromTVF', 'depthLearnedFacing', 'depthEnterWhereNeeded', 'wlsSlopeRow', 'wlsSolve', 'depthEnterFlat', 'depthEnterFlatWalls'].map(f => [f, 'function ' + f + '(']) ])
-    for (const [page, src] of [['inspector', ins], ['depth gallery', dep]])
+    for (const [page, src] of [['inspector', ins], ['depth gallery', dep], ['where-to-stand gallery', std]])
       if (!grab(src, start) || grab(src, start) !== grab(ed, start)) throw new Error(`the ${page}'s ${what} no longer matches the editor's`);
   const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   gp.on('pageerror', e => failures.push(`[inspector depth] ${e.message}`));
@@ -545,6 +545,31 @@ await step('recovered gallery', async () => {
   const cres = r.find(x => x.n === 'crescent'), circ = r.find(x => x.n === 'circle');
   if (!(circ.got === 180)) throw new Error('the circle: ' + circ.got + ' places recovered');
   if (!(cres.got < 180 && cres.got > 90)) throw new Error('the crescent: ' + cres.got + ' places recovered');
+});
+
+/* The three pages that follow Serial, Parallel and Nowhere, each measured with its own module:
+   the corner (the flip holds to the last bit, the in-place sweep's ½ ¾ ⅞ 15/16, one band of
+   detail lost per doubling once past the finest, the sure reading cheapest at the corner);
+   where to stand (the model of the editor's circle reads 0.53 where the editor read 0.54, three
+   levels out it is small, and a perfect circle costs one sweep); between readers (the cross ratio
+   agrees between readers, three readers place each other and the places, a third reader matches
+   readings to places with none wrong). */
+await step('reader-geometry galleries', async () => {
+  const run = async (pg, hook) => { const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    gp.on('pageerror', e => failures.push(`[${pg}] ${e.message}`));
+    await gp.goto(new URL('gallery/' + pg, base).href, { waitUntil: 'load' });
+    const r = await gp.evaluate(h => window[h](), hook); await gp.close(); return r; };
+  const c = await run('corner.html', 'cornerCheck');
+  if (!(c.flip < 1e-15)) throw new Error('the flip misses by ' + c.flip);
+  if (c.inPlace.join() !== '0.5,0.75,0.875,0.9375') throw new Error('in-place sweep ' + c.inPlace);
+  for (let k = 4; k < c.bands.length; k++) if (c.bands[k] !== c.bands[k - 1] - 1) throw new Error('bands by distance ' + c.bands);
+  if (c.cost.join() !== '3,2,3') throw new Error('sure cost ' + c.cost);
+  const st = await run('standpoint.html', 'standCheck');
+  if (!(Math.abs(st.dpt - 0.53) < 0.02)) throw new Error('the model of the editor\'s circle reads ' + st.dpt);
+  if (!(st.dptFar < 0.1 && st.perfect < 1e-6 && st.perfectCost === 1)) throw new Error('standpoint ' + JSON.stringify(st));
+  const b = await run('readers.html', 'betweenCheck');
+  if (!(b.cr < 1e-12 && b.pd < 1e-12)) throw new Error('between readers ' + JSON.stringify(b));
+  if (!(b.right === 30 && b.wrong === 0)) throw new Error('matching ' + JSON.stringify(b));
 });
 
 /* Where you stand: the situated reader's claims, measured on the page with its own module. The
