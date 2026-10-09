@@ -4,7 +4,7 @@
 
 *Revised 5 October 2026: TVF holds depth as well as breadth, with no new syntax (§2.8). Measured in the drawing tool's editor; see `wander/tvf-depth-test.md`.*
 
-*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8). Revised 7 October 2026: the drawing tool's saved depth files now enter octaves only where needed, at τ = 10⁻⁶; and what the recursion found, stated (§2.8). Later the same day, the walls: scored over the whole range rather than only where level 3 is reached, every depth file so far missed by up to 15% in bands at the walls between octaves. The cause is that a sweep is flat at its walls. A writer whose rows leave flat residuals at their children's walls holds the whole range to 10⁻⁵, and the saved files now use it (§2.8). And the one result the statement of the recursion quoted from an earlier run, the nested reader against one sweep at a distance, re-measured: it holds (§2.8). And depth against breadth, re-scored over the whole range: depth still wins on the library, 24 of 24, but on a smooth formula with its detail away from the reader one sweep wins. The gallery's *Depth* page shows both (§2.8).*
+*Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8). Revised 7 October 2026: the drawing tool's saved depth files now enter octaves only where needed, at τ = 10⁻⁶; and what the recursion found, stated (§2.8). Later the same day, the walls: scored over the whole range rather than only where level 3 is reached, every depth file so far missed by up to 15% in bands at the walls between octaves. The cause is that a sweep is flat at its walls. A writer whose rows leave flat residuals at their children's walls holds the whole range to 10⁻⁵, and the saved files now use it (§2.8). And the one result the statement of the recursion quoted from an earlier run, the nested reader against one sweep at a distance, re-measured: it holds (§2.8). And depth against breadth, re-scored over the whole range: depth still wins on the library, 24 of 24, but on a smooth formula with its detail away from the reader one sweep wins. The gallery's *Depth* page shows both (§2.8). Revised 9 October 2026: "what the recursion found" reworded as the levels, after the ruling of 8 October that recursion is rejected for level of detail; and the library circle's sweeps traced to the reader's standpoint (§2.8).*
 
 This is the tight specification. It supersedes the v22.x working document,
 which accreted iteration logs, extrapolations later withdrawn, and
@@ -41,7 +41,7 @@ text, AI models can read, generate, and grep it directly.
 
 **Breadth and depth.** TVF was built for **breadth**: one sweep's leaves, held
 discretely and presented back continuously by the kernel. Packing leaves
-tighter is more breadth, not depth. TVF also holds **depth**, the recursion:
+tighter is more breadth, not depth. TVF also holds **depth**, the levels:
 every octave of a reader's reading held by a whole sweep of its own, the same
 sweep again with its own home, corner and far wall. It does so with no new
 syntax: one ordinary document per sweep, addressed by a `#meta` tag and
@@ -321,7 +321,7 @@ TVF 16 1 1
   the tangent step, with no trigonometry;
 - presented by the theorem's kernel mirrored about home.
 
-**The address** places the sweep in the recursion:
+**The address** places the sweep among the levels:
 - `@` is the reader's own sweep.
 - `@k` is the sweep entered over octave k of the reading, the doublings
   2^(k−1) to 2^k.
@@ -471,10 +471,15 @@ Over the 24 library shapes, scored over the whole range:
   held only to level 1. Flat rows make that 7× closer (median 1.4×10⁻⁴
   against 1.0×10⁻³ at the inner walls), but they do not close it.
 
-**What the recursion found.** The corner showed that one sweep can read a
+**What the levels found.** *(First written on 7 October as "what the recursion
+found". On 8 October recursion was considered and rejected for level of detail
+("Serial, Parallel and Nowhere", §3.3, in the wander repository): the levels
+exist whole, each the same sweep, and the level a thing shows is set by its
+size; nothing recurses. The findings below stand; the words are now the
+levels'.)* The corner showed that one sweep can read a
 shape's breadth: where the corner falls among the reader's arrivals gives back
 how far the shape is stretched. Past the corner, when a reading needs more than
-one sweep, the answer is recursion. That is a different thing from breadth.
+one sweep, the answer is the levels. That is a different thing from breadth.
 Packing more leaves into one sweep is breadth. Depth is the same sweep again,
 entered over one octave of the reading, with its own home, corner and far wall,
 and so on down.
@@ -503,9 +508,14 @@ and so on down.
 4. **The cost follows the shape, not the range.** Entering an octave only
    where it has something to hold, with every row flat at its children's walls,
    keeps every library shape within 10⁻⁵ of its departure over the whole range,
-   with 317 to 1,398 sweeps. The circle needs 810 and the egg 1,398. Recursion
-   goes where the detail is, and to where the walls are.
-5. **For complex shapes, recursion counts hiding, not intricacy.** A child
+   with 317 to 1,398 sweeps. The egg needs 1,398. The levels are entered where
+   the detail is, and where the walls are. The library circle's 810 hold the
+   reader's standpoint, not the circle (9 October): it stands on a ripple of the
+   256-leaf outline, 9×10⁻⁵ of the radius high, whose slope turns its facing
+   0.43° off square, so its departure near home is p − 1 ≈ 0.0074/s. Squared to
+   the radius it falls tenfold, and a circle read square needs the first level
+   only.
+5. **For complex shapes, the levels count hiding, not intricacy.** A child
    reader can stand where its parent saw furthest. The levels then needed count
    how many times the way in turns out of sight, not how intricate the outline
    is. Measured in the drawing tool's labs and again in the gallery's
