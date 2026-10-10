@@ -483,3 +483,8 @@ a.paper{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weigh
   padding:0 7px;margin-left:2px;line-height:17px;text-decoration:none;vertical-align:1px}
 a.paper::before{content:'¶ ';opacity:.7}
 a.paper:hover{background:rgba(124,92,255,.22);color:#d9cfff}
+
+/* ── THE LEVELS ── (levels) one wide chart per section, square enough for the rings, which are
+   circles and read wrong squashed: the levels tile at 460px, the shape tile at 620px */
+.page-levels .tile.wide canvas{height:460px}
+.page-levels .tile.tall.wide canvas{height:620px}

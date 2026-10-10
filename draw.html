@@ -3052,16 +3052,17 @@
                 <button id="bTour" title="the tour — visit every shape in the drawing in turn, fitted to the screen, the camera arriving on a critically damped spring. Loops. Touch the camera or press Escape to stop.">tour the shapes</button>
             </div>
 
-            <!-- THE GALLERIES ARE THE COURSE BOOK. Twenty-five pages under gallery/, each making one claim
+            <!-- THE GALLERIES ARE THE COURSE BOOK. Twenty-six pages under gallery/, each making one claim
                    about what a band-limited loop can and cannot be, every tile live and every tile one
                    click (its edit button) from this canvas. A new tab, so the scene here is untouched. -->
             <div class="group">
                 <div class="menu-title">learn</div>
-                <div class="menu-note sub">Twenty-five galleries of live shapes, in reading order, each with its spectrum drawn underneath. Any tile's edit button opens it here.</div>
+                <div class="menu-note sub">Twenty-six galleries of live shapes, in reading order, each with its spectrum drawn underneath. Any tile's edit button opens it here.</div>
                 <button id="bGalleries" title="open the galleries in a new tab (gallery/)" onclick="window.open('gallery/', '_blank', 'noopener')">the galleries ↗</button>
                 <button id="bLabsPage" title="every lab in the drawer as one page (labs.html): what each does, with a link that runs it" onclick="window.open('labs.html', '_blank', 'noopener')">all the labs ↗</button>
                 <button id="bPapers" title="the papers behind the editor (papers.html): the .tvf format and the Tangent Bridge theorem, readable in the page" onclick="window.open('papers.html', '_blank', 'noopener')">the papers ↗</button>
                 <button id="bInspect" title="open the selected shapes (or all of them) in the inspector, which reads their spectrum, symmetry, width and leaf count back off the leaves">inspect the selection ↗</button>
+                <button id="bLevels" title="open the selected shape (or the largest) on the levels page: read from its centre or from a place on its outline, laid on the corner's circle and the doublings past it, its depth counted in levels once its size is divided out (gallery/levels.html)">read the selection in the levels ↗</button>
             </div>
 
             <div class="group">
@@ -71162,6 +71163,25 @@
                     const lead = state.subpaths[idx[0]];
                     const code = await encodeShapeLink(curves, lead && lead.gname);
                     window.open('gallery/inspect.html#tvf=' + code, '_blank');
+                });
+            // The same payload to the levels page (gallery/levels.html), which reads the largest of
+            // the curves from its centre or from a place on its outline, on the corner's circle and
+            // the doublings past it. It reads #tvf= as the inspector does.
+            const bLevels = document.getElementById('bLevels');
+            if (bLevels)
+                bLevels.addEventListener('click', async () => {
+                    let idx = selectedIndices();
+                    if (!idx.length)
+                        idx = state.subpaths.map((_, i) => i);
+                    const curves = idx.map(i => state.subpaths[i]).filter(sp => sp && sp.leafX && sp.leafX.length >= 3)
+                        .map(sp => ({ x: sp.leafX, y: sp.leafY }));
+                    if (!curves.length) {
+                        flashStatus('nothing to read — draw or select a shape first');
+                        return;
+                    }
+                    const lead = state.subpaths[idx[0]];
+                    const code = await encodeShapeLink(curves, lead && lead.gname);
+                    window.open('gallery/levels.html#tvf=' + code, '_blank');
                 });
 
             // Re-spell the curves as .tvf text so they take the paste path. Six decimals keeps
