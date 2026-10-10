@@ -29,10 +29,10 @@ publishes.
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before
   anything else, typeset by KaTeX from cdnjs when that loads and shown as source when it does not.
-- `gallery/`: twenty-five teaching pages, in reading order: `gallery.html` (the catalogue),
+- `gallery/`: twenty-six teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `epicycles`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`
-  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks). Also `playground.html` (sculpt
+  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks). Also `playground.html` (sculpt
   a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
   library as an ES module, *generated* from the copy the pages inline: regenerate it from
   a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
@@ -51,15 +51,15 @@ publishes.
     `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
     a layout of their own have a section there scoped to their body class (`page-index`,
     `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`).
-  - Each page bundles its JavaScript so it runs from one file. All twenty-five, and the playground, carry the **same**
+  - Each page bundles its JavaScript so it runs from one file. All twenty-six, and the playground, carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
     mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
     names the page that differs.
-  - The other sixteen have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
-    STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES, SITUATED, DEPTHPAGE, RECOVER, CORNER, STAND, BETWEEN, COMPILE), and no spectrum strip or predict mode. `spiral`,
-    `curves`, `space`, `fail`, `situated`, `corner`, `depth`, `standpoint`, `recovered`, `readers`, `compile` are *chart* pages (`body.page-chart`: a measurement and a
+  - The other seventeen have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
+    STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES, SITUATED, DEPTHPAGE, RECOVER, CORNER, LEVELS, STAND, BETWEEN, COMPILE), and no spectrum strip or predict mode. `spiral`,
+    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile` are *chart* pages (`body.page-chart`: a measurement and a
     verdict line per tile); `motion`, `compose` and `epicycles` animate (`page-chart page-motion`; epicycles
     carries only tvf.js, FORMAT and EPICYCLES, and its dials may be selects);
     `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`).
@@ -70,7 +70,12 @@ publishes.
     buttons copy a tile's depth file. `recovered` recovers a figure from readers' quotients v/h
     (the editor's `udv` lab): one reader and the census, two and three readers crossing their lines,
     one length for the size, rounded readings and what readers cannot see; its readers are dragged
-    (carries tvf.js and RECOVER only). Three pages follow Serial, Parallel and Nowhere (wander's
+    (carries tvf.js and RECOVER only). `levels` (10 Oct 2026, from wander's levels.html; Tom: "should we add
+    this to that project", "both") lays the corner's circle and each doubling past it in half the room of the
+    last, the rings a grain can see, and a shape read from its centroid or from a place on its outline (the
+    nearest wall in each direction), with a level-of-detail circle and its depth in levels once its size is
+    divided out (LEVELS; `levelsCheck`). It loads a .tvf from its bar and reads `#tvf=`: the editor's "read
+    the selection in the levels" sends the selection there. Three pages follow Serial, Parallel and Nowhere (wander's
     `papers/`, linked on GitHub): `corner` (the flip, the in-place sweep, detail by distance, the cost of
     a sure reading; CORNER), `standpoint` (a reader on a rippled circle, why the editor's circle costs
     810 sweeps; STAND, with the depth copy) and `readers` (the cross ratio, readers finding each other,
@@ -81,7 +86,7 @@ publishes.
     has a section in `style.css`. Edit buttons (the shared editor link) are on `spiral`,
     `curves`, `space`, `motion`, `compose` and `epicycles`; the rest hold no curve to hand on.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 25" crumbs and "next" links in each page.
+    a page means updating it, and the "N of 26" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE

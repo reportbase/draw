@@ -285,7 +285,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'standpoint.html', 'readers.html', 'compile.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -564,6 +564,23 @@ await step('reader-geometry galleries', async () => {
   if (c.inPlace.join() !== '0.5,0.75,0.875,0.9375') throw new Error('in-place sweep ' + c.inPlace);
   for (let k = 4; k < c.bands.length; k++) if (c.bands[k] !== c.bands[k - 1] - 1) throw new Error('bands by distance ' + c.bands);
   if (c.cost.join() !== '3,2,3') throw new Error('sure cost ' + c.cost);
+  // the levels: the lay (s = 8 at 1.875, the first level half wide), one level fewer per doubling
+  // of the grain, the depth averaging zero on the corner, the star read from its centre (its tip
+  // over its dip as drawn), the crescent not star-shaped from its centroid, a place on the egg's
+  // outline meeting walls on its inward half only and each once, and a .tvf curve parsed
+  const lv = await run('levels.html', 'levelsCheck');
+  if (!(lv.r8 === 1.875 && lv.w0 === 0.5 && lv.v1 - lv.v2 === 1)) throw new Error('the lay ' + JSON.stringify(lv));
+  if (!(lv.meanDepth < 1e-9 && Math.abs(lv.tipDip - 145 / 55) < 0.02)) throw new Error('the depth ' + JSON.stringify(lv));
+  if (!(lv.crescentMulti > 0 && lv.outlineMulti === 0 && Math.abs(lv.outlineMet - 0.5) < 0.02 && lv.parsed === 1)) throw new Error('the standpoints ' + JSON.stringify(lv));
+  // the editor's "read the selection in the levels" link: the payload encodeShapeLink writes opens there
+  { const ep = await browser.newPage(); await ep.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    const code = await ep.evaluate(() => { const N = 64, x = [], y = []; for (let k = 0; k < N; k++) { const q = (k + 0.5) * 2 * Math.PI / N; x.push(100 * Math.cos(q)); y.push(60 * Math.sin(q)); }
+      return window.encodeShapeLink([{ x, y }], 'an oval'); }); await ep.close();
+    const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } }); gp.on('pageerror', e => failures.push(`[levels.html#tvf] ${e.message}`));
+    await gp.goto(new URL('gallery/levels.html#tvf=' + code, base).href, { waitUntil: 'load' });
+    const got = await gp.waitForFunction(() => /an oval: 64 leaves/.test(document.getElementById('loaded').textContent) && document.getElementById('loaded').textContent, null, { timeout: 10000 })
+      .then(h => h.jsonValue()).catch(async () => 'timed out: ' + await gp.evaluate(() => document.getElementById('loaded').textContent));
+    await gp.close(); if (!/an oval/.test(got)) throw new Error('the editor\'s link on the levels page: ' + got); }
   const st = await run('standpoint.html', 'standCheck');
   if (!(Math.abs(st.dpt - 0.53) < 0.02)) throw new Error('the model of the editor\'s circle reads ' + st.dpt);
   if (!(st.dptFar < 0.1 && st.perfect < 1e-6 && st.perfectCost === 1)) throw new Error('standpoint ' + JSON.stringify(st));
