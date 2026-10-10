@@ -95,7 +95,7 @@ publishes.
   `gallery/inspect.html#tvf=…`. New fields go after the curves, so older readers ignore them.
 - `gallery/<page>.html#tile=<slug>&<dial>=<value>` opens a tile at given settings.
 
-## Shared with 3d: change with care
+## Shared with 3d and games: change with care
 The 3d repo copies three blocks **verbatim**:
 1. the curve library, from `tvf-core.js` (from its first line to the end of the
    `const tvf = (function(){ … })();` IIFE)
@@ -108,8 +108,18 @@ The 3d repo copies three blocks **verbatim**:
 between its `// >>> copied from draw.html` markers (a PR in the 3d repo), or tell
 the owner it needs doing.
 
+The games repo copies two of them **verbatim** into `games.html` (since Oct 10, for mini golf's
+moving paths, which are closed `.tvf` curves): the curve library (block 1, as `tvf-core`) and
+`parseTvfText` (block 3, as `tvf-reader`), between its `// >>> copied from draw.html, unchanged:
+NAME` and `// <<< end of NAME` markers, inside its `TVF_CURVE` wrapper. Games has its own weekly
+"Draw sync" check (`tests/draw-sync.mjs`, also run on every games PR) that fails once these drift
+from draw's `main`. After changing either here, copy it into games.html as well (a PR in the games
+repo), or tell the owner both copies need doing.
+
 The `.tvf` curve format (`TVF N 1 2`, `#meta` lines, then one row of x and one
-row of y leaf values) is read by 3d too. Change it compatibly.
+row of y leaf values) is read by 3d and games too, and games writes it (a path saved from mini
+golf, with `#meta source:minigolf`, which draw should keep ignoring or carrying through). Change it
+compatibly.
 
 ## Other details
 - The AI button talks to the `login.tangent.workers.dev` gateway (the page holds
@@ -132,4 +142,5 @@ row of y leaf values) is read by 3d too. Change it compatibly.
 ## Related repos
 - **3d:** copies the blocks above.
 - **flare:** storage.
-- **games:** the games page.
+- **games:** the games page; copies the curve library and `parseTvfText` (see above) for mini
+  golf's paths, and opens and saves `.tvf` curves.
