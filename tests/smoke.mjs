@@ -135,6 +135,29 @@ try {
     if (!(e < 1e-9)) throw new Error('resample misses the curve by ' + e);
   });
 
+  /* The auto-rung reads x and y through ONE transform of z = x + iy (autoRungReconstructXY),
+     where it used to take two single-channel ones. The reconstruction is linear, the top mode's
+     mirror is written so it stays so, and the two must agree to rounding at every rung the
+     ladder tries; a shape's own answer must not move either (a circle settles on the floor). */
+  await step('auto-rung: one transform for x and y', async () => {
+    const r = await page.evaluate(() => {
+      let seed = 11;
+      const R = () => (seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5;
+      let worst = 0;
+      for (const N of [256, 512, 1024, 2048]) {
+        const x = new Float64Array(N), y = new Float64Array(N);
+        for (let k = 0; k < N; k++) { x[k] = R(); y[k] = R(); }
+        worst = Math.max(worst, window.__autoRung.packedGap(x, y, 2048));
+      }
+      const n = 400, cx = new Float64Array(n + 1), cy = new Float64Array(n + 1);
+      for (let i = 0; i <= n; i++) { cx[i] = 0.5 * Math.cos(2 * Math.PI * i / n); cy[i] = 0.5 * Math.sin(2 * Math.PI * i / n); }
+      const sol = window.__autoRung.solve({ refX: cx, refY: cy, dirty: false }, undefined, 400);
+      return { worst, rung: sol && sol.rung, reason: sol && sol.reason };
+    });
+    if (!(r.worst < 1e-12)) throw new Error('one transform and two differ by ' + r.worst);
+    if (r.rung !== 8 || r.reason !== 'resolved') throw new Error(`a circle settled at rung ${r.rung} (${r.reason}), not 8`);
+  });
+
   /* TVF §8's three decoder test vectors, against the editor's own kernel at N = 8 … 1024:
      the invisible mode reads zero at every leaf, the band Gram is diag(N, N/2, …, N/2, N)
      with every band mode presented exactly, and the Lebesgue function peaks at home at the
@@ -281,7 +304,8 @@ try {
    of its own, with every CDN blocked, because the importer must not need one (the path-data
    polyfill is inlined; without it a 200-path file took 40 s): 300 shapes load held; clicking
    the one in the middle converts that one and no other; the autosave keeps the rest held, and
-   a reload brings them back held. Clicking reaches every shape through the hit test, so a pass
+   a reload brings them back held; select-all and the SVG export keep them held, and the export
+   writes all 300. Clicking reaches every shape through the hit test, so a pass
    that reads every shape's leaves shows up here as the count dropping to 0. */
 current = 'crowded import';
 {
@@ -322,11 +346,65 @@ current = 'crowded import';
                              null, { timeout: 15000 });
     await cp.reload({ waitUntil: 'load' });
     await cp.waitForFunction(() => window.__lazy && window.__lazy.held() === 299, null, { timeout: 30000 });
+    // Whole-page actions leave held shapes held: select-all draws their halos from the
+    // outlines, and the SVG export writes them from the outlines too.
+    await cp.mouse.click(box.x + 5, box.y + box.height - 5);
+    await cp.keyboard.press('ControlOrMeta+a');
+    await cp.waitForTimeout(600);
+    const heldAll = await cp.evaluate(() => window.__lazy.held());
+    if (heldAll !== 299) throw new Error(`select-all left ${heldAll} of 299 held`);
+    const [dl] = await Promise.all([cp.waitForEvent('download', { timeout: 30000 }),
+      cp.evaluate(() => document.getElementById('bExportSvg').click())]);
+    const out = await readFile(await dl.path(), 'utf8');
+    const npaths = (out.match(/<path /g) || []).length;
+    if (npaths !== 300) throw new Error(`the export wrote ${npaths} paths, not 300`);
+    const heldExp = await cp.evaluate(() => window.__lazy.held());
+    if (heldExp !== 299) throw new Error(`exporting left ${heldExp} of 299 held`);
   } catch (e){
     failures.push(`[crowded import] ${e.message.split('\n')[0]}`);
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} crowded import converts on touch`);
   await cp.close();
+}
+
+/* The group button lives in the panel under the selection (BOX_BUTTONS 'bt-group'), no longer
+   beside the rotate grip, and a double-click on a shape puts the panel away and brings it back.
+   Three shapes, all selected: the button is in the panel's row, pressing it groups them, a
+   double-click on the middle shape hides the panel and a second shows it again. */
+current = 'panel: group button and double-click';
+{
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  gp.on('pageerror', e => failures.push(`[panel] ${e.message}`));
+  await gp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await gp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await gp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+      + '<rect x="110" y="10" width="80" height="80" fill="#48c"/><circle cx="250" cy="50" r="40" fill="#4c8"/></svg>';
+    await gp.setInputFiles('#fLoad', { name: 'three.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+    await gp.waitForTimeout(1500);
+    const box = await gp.locator('#cv').boundingBox();
+    await gp.mouse.click(box.x + 20, box.y + box.height - 20);
+    await gp.keyboard.press('ControlOrMeta+a');
+    await gp.waitForTimeout(600);
+    const g = await gp.evaluate(() => window.__box.group());
+    if (!g) throw new Error('no group button in the panel with three shapes selected');
+    await gp.mouse.click(box.x + g.cx, box.y + g.cy);
+    await gp.waitForTimeout(400);
+    if (!(await gp.evaluate(() => window.__box.grouped()))) throw new Error('the panel button did not group the selection');
+    const mid = [box.x + box.width / 2, box.y + box.height / 2];
+    await gp.mouse.dblclick(...mid);
+    await gp.waitForTimeout(400);
+    if (await gp.evaluate(() => window.__box.panelUp())) throw new Error('a double-click on the shape left the panel up');
+    await gp.mouse.dblclick(...mid);
+    await gp.waitForTimeout(400);
+    if (!(await gp.evaluate(() => window.__box.panelUp()))) throw new Error('a second double-click did not bring the panel back');
+  } catch (e){
+    failures.push(`[panel] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} panel: group button and double-click`);
+  await gp.close();
 }
 
 /* The gallery pages: each must load without an uncaught error, and its first

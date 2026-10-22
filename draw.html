@@ -7167,8 +7167,10 @@
                 for (let i = 0; i < state.subpaths.length; i++)
                     out.push(i);
             } else if (state.activeSet && state.activeSet.size > 0) {
+                // A held shape (CONVERT ON TOUCH) has no leaves to show until something converts
+                // it, and asking for them would: selecting a crowded page is not that something.
                 for (const i of state.activeSet)
-                    if (state.subpaths[i])
+                    if (state.subpaths[i] && !state.subpaths[i]._lazy)
                         out.push(i);
             }
             return out;
@@ -7180,7 +7182,8 @@
         function leavesShownFor(sp) {
             if (state.editMode || state.editMotion || state.editLeafMotion || state.leavesAll)
                 return true;
-            return !!(state.activeSet && state.activeSet.size > 0 && state.activeSet.has(sp));
+            return !!(state.activeSet && state.activeSet.size > 0 && state.activeSet.has(sp)
+            && !(state.subpaths[sp] && state.subpaths[sp]._lazy)); // held: no leaves yet, as leafOwners
         }
 
         function forEachLeaf(visitor) {
@@ -9985,16 +9988,114 @@
             };
         }
 
+        // ── ONE SOURCE, EVERY RUNG ──────────────────────────────────────────────────
+        // The ladder resamples the same source outline at every rung it tries, and it used
+        // to do it twice per rung (once for the alias test, once for the deviation) and from
+        // scratch each time: the cumulative arc length of the source rebuilt, the source
+        // copied into a plain array first. The cumulative lengths depend on the source alone,
+        // so they are built once per shape here, and each rung's resample is shared by both
+        // of its tests. The arithmetic is tvf.arcLengthResample's, step for step, so every
+        // rung sees exactly the leaves it saw before.
+        function autoRungResampler(src) {
+            const X = src.x,
+                Y = src.y,
+                M = X.length;
+            const cum = new Float64Array(M + 1);
+            for (let i = 1; i <= M; i++) {
+                const j = i % M;
+                cum[i] = cum[i - 1] + Math.hypot(X[j] - X[i - 1], Y[j] - Y[i - 1]);
+            }
+            const total = cum[M];
+            return N => {
+                const outX = new Float64Array(N),
+                    outY = new Float64Array(N);
+                let seg = 0;
+                for (let k = 0; k < N; k++) {
+                    const t = ((k + 0.5) / N) * total;
+                    while (seg < M && cum[seg + 1] < t)
+                        seg++;
+                    const sLen = cum[seg + 1] - cum[seg];
+                    const u = sLen > 1e-12 ? (t - cum[seg]) / sLen : 0;
+                    const j = (seg + 1) % M;
+                    outX[k] = X[seg] * (1 - u) + X[j] * u;
+                    outY[k] = Y[seg] * (1 - u) + Y[j] * u;
+                }
+                return {
+                    x: outX,
+                    y: outY
+                };
+            };
+        }
+
+        // ── BOTH CHANNELS IN ONE TRANSFORM ──────────────────────────────────────────
+        // reconstructFFT reads one real channel: a forward transform of N, the half-shift and
+        // the half-weight top mode, an inverse of M. The ladder needs x and y at every rung,
+        // which was four transforms where two will do: the reconstruction is linear, so it
+        // can read z = x + iy and hand back x̂ + iŷ, the real part one channel and the
+        // imaginary part the other.
+        //
+        // Every step is complex-linear but one. The top mode, at ±N/2, is split in half for a
+        // real channel and its mirror CONJUGATED, and conjugation is not linear over complex
+        // input. It is linear in the real coefficient, though: for a real channel that bin is
+        // a real number X, and conj(X·w) = X·conj(w). So the mirror takes Z·conj(w), which is
+        // the same thing written so that it holds for x and y at once. Same sums otherwise;
+        // the answers differ from two separate transforms only at rounding.
+        function autoRungReconstructXY(x, y, M) {
+            const N = x.length;
+            if (!fftReconUsable(N, M))
+                return [autoRungReconstruct(Float64Array.from(x), M), autoRungReconstruct(Float64Array.from(y), M)];
+            const re = Float64Array.from(x),
+                im = Float64Array.from(y);
+            fftInPlace(re, im, false);
+            const shift = fftTable(2 * N); // half-shift twiddle e^{-imπ/N} = W_{2N}^m
+            const sr = new Float64Array(M),
+                si = new Float64Array(M);
+            // The signed frequency m runs 0 … N/2 then −N/2+1 … −1. With M ≥ N (the ladder's
+            // case) its slot is m or M + m and its twiddle m or 2N + m, so neither needs a
+            // modulo; a smaller M folds, and takes the general form.
+            const TWO_N = 2 * N,
+                H = N / 2,
+                inv = 1 / N,
+                fold = M < N;
+            for (let k = 0; k < N; k++) {
+                const m = (k <= H) ? k : k - N; // signed frequency
+                const t = m >= 0 ? m : TWO_N + m;
+                const tr = shift.cos[t],
+                    ti = shift.sin[t];
+                const a = re[k] * inv,
+                    b = im[k] * inv;
+                const idx = fold ? ((m % M) + M) % M : m >= 0 ? m : M + m;
+                if (k === H) {
+                    // Z·w/2 at +N/2, Z·conj(w)/2 at its mirror −N/2.
+                    sr[idx] += 0.5 * (a * tr - b * ti);
+                    si[idx] += 0.5 * (a * ti + b * tr);
+                    const mi = fold ? ((-m % M) + M) % M : M - m;
+                    sr[mi] += 0.5 * (a * tr + b * ti);
+                    si[mi] += 0.5 * (b * tr - a * ti);
+                    continue;
+                }
+                sr[idx] += a * tr - b * ti;
+                si[idx] += a * ti + b * tr;
+            }
+            fftInPlace(sr, si, true);
+            for (let i = 0; i < M; i++) {
+                sr[i] *= M; // undo the inverse transform's 1/M
+                si[i] *= M;
+            }
+            return [sr, si];
+        }
+
         // Full-rung reconstruction of the source + its diagonal. Built once per shape and
-        // reused across every candidate rung, so the ladder scan costs one reference.
+        // reused across every candidate rung, so the ladder scan costs one reference. It
+        // carries the source's resampler, so each rung's leaves come from the same lengths.
         function autoRungReference(sp) {
             const src = autoRungSource(sp);
             if (!src)
                 return null;
             const M = AUTO_RUNG_M;
-            const rs = arcLengthResample(Array.from(src.x), Array.from(src.y), FULL_RUNG_N);
-            const fx = autoRungReconstruct(Float64Array.from(rs.x), M);
-            const fy = autoRungReconstruct(Float64Array.from(rs.y), M);
+            const resample = autoRungResampler(src);
+            const rs = resample(FULL_RUNG_N);
+            const [fx, fy] = autoRungReconstructXY(rs.x, rs.y, M);
             let minX = 1e9,
                 minY = 1e9,
                 maxX = -1e9,
@@ -10011,6 +10112,7 @@
             }
             return {
                 src,
+                resample,
                 fx,
                 fy,
                 M,
@@ -10026,19 +10128,34 @@
         // The alignment search is proportional to M (a fixed ±6 was ±3° at M=720 and would
         // be ±0.75° here), and the peak is taken at the shift that minimizes RMS rather
         // than at its own best shift, so both numbers describe the same correspondence.
-        function autoRungDeviationAt(ref, N) {
-            const {src, fx, fy, M, diag} = ref;
-            const rs = arcLengthResample(Array.from(src.x), Array.from(src.y), N);
-            const rx = autoRungReconstruct(Float64Array.from(rs.x), M);
-            const ry = autoRungReconstruct(Float64Array.from(rs.y), M);
+        // rs: this rung's resample, when the caller already has it (the ladder shares one
+        // between the alias test and this one); otherwise it is taken here.
+        function autoRungDeviationAt(ref, N, rs) {
+            const {fx, fy, M, diag} = ref;
+            // The full rung IS the reference: the same leaves through the same transform give
+            // back fx and fy exactly, the shift search finds zero at no shift, and the four
+            // transforms and the search only confirmed it.
+            if (N === FULL_RUNG_N)
+                return {
+                    pct: 100,
+                    peakPct: 100,
+                    rms: 0,
+                    peak: 0,
+                };
+            if (!rs)
+                rs = ref.resample(N);
+            const [rx, ry] = autoRungReconstructXY(rs.x, rs.y, M);
             const SHIFT = Math.max(6, Math.round(M / 120));
             let bestSum = Infinity,
                 bestShift = 0;
+            // The wrap is taken by splitting the sum where i + sh passes M, rather than by a
+            // modulo per sample: the same terms added in the same order.
             for (let s = -SHIFT; s <= SHIFT; s++) {
                 const sh = ((s % M) + M) % M;
                 let sum = 0;
-                for (let i = 0; i < M; i++) {
-                    const j = (i + sh) % M;
+                for (let i = 0, j = sh; i < M; i++, j++) {
+                    if (j === M)
+                        j = 0;
                     const dx = rx[i] - fx[j],
                         dy = ry[i] - fy[j];
                     sum += dx * dx + dy * dy;
@@ -10050,12 +10167,16 @@
             }
             const bestRms = Math.sqrt(bestSum / M);
             let peak = 0;
-            for (let i = 0; i < M; i++) {
-                const j = (i + bestShift) % M;
-                const d = Math.hypot(rx[i] - fx[j], ry[i] - fy[j]);
+            for (let i = 0, j = bestShift; i < M; i++, j++) {
+                if (j === M)
+                    j = 0;
+                const dx = rx[i] - fx[j],
+                    dy = ry[i] - fy[j];
+                const d = dx * dx + dy * dy; // compared squared; the root taken once, below
                 if (d > peak)
                     peak = d;
             }
+            peak = Math.sqrt(peak);
             return {
                 pct: Math.max(0, 100 * (1 - bestRms / diag)),
                 peakPct: Math.max(0, 100 * (1 - peak / diag)),
@@ -10078,11 +10199,12 @@
         // an otherwise excellent score; the alias flag is the local signal that catches
         // it. Auto requires BOTH to pass — that is the settling ladder's own criterion,
         // now driving the rung instead of merely reporting on it.
-        function autoRungAliasAt(ref, N) {
-            const rs = arcLengthResample(Array.from(ref.src.x), Array.from(ref.src.y), N);
+        function autoRungAliasAt(ref, N, rs) {
+            if (!rs)
+                rs = ref.resample(N);
             const ind = aliasIndicators({
-                leafX: Float64Array.from(rs.x),
-                leafY: Float64Array.from(rs.y)
+                leafX: rs.x,
+                leafY: rs.y
             });
             if (!ind)
                 return 0;
@@ -10155,9 +10277,10 @@
                 // contour it rejects every low rung outright, so the expensive measurement only
                 // runs on the two or three rungs that could actually win. The order does not
                 // change the answer: whichever rung is returned has passed all three.
-                if (autoRungAliasAt(ref, N) > AUTO_ALIAS_THR)
+                const rs = ref.resample(N); // one resample, both tests
+                if (autoRungAliasAt(ref, N, rs) > AUTO_ALIAS_THR)
                     continue;
-                const dev = autoRungDeviationAt(ref, N);
+                const dev = autoRungDeviationAt(ref, N, rs);
                 lastPct = dev.pct;
                 // The acuity gate is measured on the RMS, not the peak, and that is not a
                 // softening — it is the only form of the gate that can be satisfied. The peak
@@ -10414,6 +10537,23 @@
             const fit = 0.92 * Math.min(w / bw, h / bh) / (state.hRun || 1);
             return Math.max(now, fit) * LOAD_ZOOM_HEADROOM;
         }
+        // Test hook: the solver on a shape-like object ({refX, refY} or {leafX, leafY}), so a
+        // check can hold its answers to a recorded set and time it without a page of shapes.
+        // packedGap: how far the one-transform reconstruction of x and y lies from the two
+        // single-channel ones it replaced, over the same leaves (it should be rounding).
+        window.__autoRung = {
+            solve: (sp, tol, scale) => solveAutoRung(sp, tol, scale),
+            packedGap: (x, y, M) => {
+                const [px, py] = autoRungReconstructXY(x, y, M);
+                const sx = autoRungReconstruct(Float64Array.from(x), M),
+                    sy = autoRungReconstruct(Float64Array.from(y), M);
+                let gap = 0;
+                for (let i = 0; i < M; i++)
+                    gap = Math.max(gap, Math.abs(px[i] - sx[i]), Math.abs(py[i] - sy[i]));
+                return gap;
+            }
+        };
+
         function applyAutoRung(indices, opts) {
             const list = indices && indices.length
             ? indices
@@ -10693,7 +10833,9 @@
         // carries the shared orbit; existing per-shape orbits are cleared so the group
         // has exactly one.
         function groupActive() {
-            const sel = selectedIndices().filter(i => state.subpaths[i] && state.subpaths[i].leafX);
+            // (a held shape is a shape: asking it for leaves only to test that it has some would
+            // convert it, and grouping needs none — see CONVERT ON TOUCH)
+            const sel = selectedIndices().filter(i => state.subpaths[i] && (state.subpaths[i]._lazy || state.subpaths[i].leafX));
             if (sel.length < 2)
                 return {
                     ok: false,
@@ -11846,6 +11988,14 @@
                 return;
             for (const i of idx) {
                 const sp = state.subpaths[i];
+                // A held shape (CONVERT ON TOUCH) moves as its outline, in new arrays (undo
+                // snapshots share the old ones): moving a crowded selection is no reason to
+                // convert it. It has no leaves or motion to carry.
+                if (sp && sp._lazy) {
+                    const lz = sp._lazy;
+                    makeLazy(sp, Float64Array.from(lz.x, x => x + dx), Float64Array.from(lz.y, y => y + dy), lz.scale);
+                    continue;
+                }
                 if (!sp || !sp.leafX)
                     continue;
                 for (let k = 0; k < sp.leafX.length; k++) {
@@ -11870,6 +12020,11 @@
                 return;
             for (const i of idx) {
                 const sp = state.subpaths[i];
+                if (sp && sp._lazy) { // held: scaled as its outline, as nudgeIndices
+                    const lz = sp._lazy;
+                    makeLazy(sp, Float64Array.from(lz.x, x => cx + (x - cx) * s), Float64Array.from(lz.y, y => cy + (y - cy) * s), lz.scale);
+                    continue;
+                }
                 if (!sp || !sp.leafX)
                     continue;
                 for (let k = 0; k < sp.leafX.length; k++) {
@@ -11893,6 +12048,20 @@
                 d = -Infinity;
             for (const i of idx) {
                 const sp = state.subpaths[i];
+                // A held shape (CONVERT ON TOUCH) answers with its outline's box: boxing a
+                // selection is no reason to convert it.
+                if (sp && sp._lazy) {
+                    const bx = sp._lazy.box;
+                    if (bx[0] < a)
+                        a = bx[0];
+                    if (bx[2] > b)
+                        b = bx[2];
+                    if (bx[1] < c)
+                        c = bx[1];
+                    if (bx[3] > d)
+                        d = bx[3];
+                    continue;
+                }
                 if (!sp || !sp.leafX)
                     continue;
                 for (let k = 0; k < sp.leafX.length; k++) {
@@ -12392,7 +12561,7 @@
             const units = [];
             for (const i of selectedIndices()) {
                 const sp = state.subpaths[i];
-                if (!sp || !sp.leafX || sp.leafX.length < 2)
+                if (!sp || (!sp._lazy && (!sp.leafX || sp.leafX.length < 2)))
                     continue;
                 if (sp.gid != null) {
                     let u = byGid.get(sp.gid);
@@ -12783,6 +12952,15 @@
                 return false;
             for (const i of sel) {
                 const sp = state.subpaths[i];
+                // held: moved as its outline, as nudgeIndices does (a drag of a crowded
+                // selection is no reason to convert it)
+                if (sp._lazy) {
+                    if (dx || dy) {
+                        const lz = sp._lazy;
+                        makeLazy(sp, Float64Array.from(lz.x, x => x + dx), Float64Array.from(lz.y, y => y + dy), lz.scale);
+                    }
+                    continue;
+                }
                 if (!sp.leafX)
                     continue;
                 for (let k = 0; k < sp.leafX.length; k++) {
@@ -15334,6 +15512,16 @@
             name: 'bt-roundoff',
             title: 'round off the whole contour — the track above picks the band',
             show: () => selectedIndices().length > 0
+        }, // GROUP, SECOND (22 Oct 2026, Tom: "move the group button next to the rotate button
+        // selection to the bottom panel"). It stood beside the rotate grip, the one control on
+        // the box's top edge that is not a handle; the panel is where the box's actions live,
+        // so it lives there too. Second, so round off keeps the head of the row and its place.
+        // Shown on the switch's old condition: two or more units selected, or a group selected
+        // to break. The glyph and the gold-when-grouped state came with it (drawBoxButton).
+        {
+            name: 'bt-group',
+            title: 'group the selection, or ungroup it',
+            show: () => selectionUnitCount() >= 2 || selectionIsGrouped()
         }, // straighten flattens RUNS of selected leaves, so one leaf is never enough
         {
             name: 'bt-straighten',
@@ -15438,6 +15626,12 @@
             // lock's one promise is that no drag writes to the document — so the scene view's
             // answer is the right one and it is now the only one.
             if (!handlesVisible())
+                return null;
+            // …OR WHEN IT HAS BEEN PUT AWAY. A double-click on a shape hides the panel and the
+            // next one brings it back (see the canvas's dblclick). Everything that asks whether
+            // the panel is up asks here, so the track, the buttons, their hit tests and the
+            // height the fit reserves all go together.
+            if (state.panelHidden)
                 return null;
             const H = handlePoints();
             if (!H)
@@ -15980,6 +16174,19 @@
             // bars and the dashed group box went to the toolbar as SVG — and the group icon's
             // fallback `else` went with them, which is why this is a plain `if`: an unknown name
             // now draws an empty button rather than silently drawing a group icon.
+            // The group switch's glyph, carried down from the rotate grip unchanged: one filled
+            // square for the selection, and a ring round it when the selection already IS a
+            // group, so the button says the state as well as the action.
+            if (b.name === 'bt-group') {
+                const grouped = selectionIsGrouped();
+                ctx.fillRect(-3.8, -3.8, 7.6, 7.6);
+                if (grouped) {
+                    ctx.lineWidth = 1.3;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 7.4, 0, TAU);
+                    ctx.stroke();
+                }
+            }
             if (b.name === 'bt-straighten') {
                 ctx.beginPath();
                 ctx.moveTo(-4.5, 4.5);
@@ -16329,7 +16536,13 @@
         // Drawn only when it can DO something — two or more units selected, or a group selected
         // to break — for the reason BOX_BUTTONS gives: a button that is present but inert is a
         // question you have to answer, and one that is absent is not.
+        // MOVED TO THE PANEL (22 Oct 2026): the switch is a button in the panel's row now
+        // (BOX_BUTTONS 'bt-group'). Returning null takes it off the grip everywhere at once —
+        // the draw pass, the hit test and the cursor map all ask this function — as
+        // propsButtonPos did for the properties switch. The body is kept below the return,
+        // unreached, so putting it back beside the grip is one line.
         function groupButtonPos() {
+            return null;
             // No mode test. The switch appears when it can DO something and not otherwise, and
             // that condition — two or more units, or a group to break — already answers the edit
             // view honestly: the mode isolates one shape, so the count is one and the button is
@@ -21980,9 +22193,10 @@
                 return null;
             for (let r = AUTO_RUNG_MIN; r <= AUTO_RUNG_MAX; r++) {
                 const N = 1 << r;
-                if (autoRungAliasAt(ref, N) > AUTO_ALIAS_THR)
+                const rs = ref.resample(N); // one resample, both tests
+                if (autoRungAliasAt(ref, N, rs) > AUTO_ALIAS_THR)
                     continue;
-                const dev = autoRungDeviationAt(ref, N);
+                const dev = autoRungDeviationAt(ref, N, rs);
                 if (dev.pct >= AUTO_TOL_DEFAULT && dev.peakPct >= AUTO_TOL_PEAK)
                     return {
                         rung: r,
@@ -23173,10 +23387,14 @@
                     mxx = -Infinity,
                     mny = Infinity,
                     mxy = -Infinity;
+                // A held shape (CONVERT ON TOUCH) is measured and moved by its outline, so a
+                // second file arriving does not convert the first.
+                const xsOf = sp => sp._lazy ? sp._lazy.x : sp.refX,
+                    ysOf = sp => sp._lazy ? sp._lazy.y : sp.refY;
                 for (const sp of shapes)
-                    for (let i = 0; i < sp.refX.length; i++) {
-                        const x = sp.refX[i],
-                            y = sp.refY[i];
+                    for (let i = 0, X = xsOf(sp), Y = ysOf(sp); i < X.length; i++) {
+                        const x = X[i],
+                            y = Y[i];
                         if (x < mnx)
                             mnx = x;
                         if (x > mxx)
@@ -23192,6 +23410,13 @@
                     halfH = Math.max(1e-6, (mxy - mny) / 2);
                 const s = (cell / 2) * 0.88 / Math.max(halfW, halfH); // fit into the cell with padding
                 for (const sp of shapes) {
+                    if (sp._lazy) {
+                        // New arrays, not the old ones written over: undo snapshots share them.
+                        const lz = sp._lazy;
+                        makeLazy(sp, Float64Array.from(lz.x, x => (x - bcx) * s + ccx),
+                        Float64Array.from(lz.y, y => (y - bcy) * s + ccy), lz.scale);
+                        continue;
+                    }
                     for (let i = 0; i < sp.refX.length; i++) {
                         sp.refX[i] = (sp.refX[i] - bcx) * s + ccx;
                         sp.refY[i] = (sp.refY[i] - bcy) * s + ccy;
@@ -23317,6 +23542,14 @@
             by: new Map()
         };
         lazyStats.held = () => state.subpaths.reduce((n, sp) => n + (sp && sp._lazy ? 1 : 0), 0);
+        // One full render, timed: the measure for drawing a crowded page (drawAll.now is the
+        // untimed, uncached path, so nothing from the camera cache stands in for the work).
+        lazyStats.frameMs = () => {
+            const t0 = performance.now();
+            drawAll.now();
+            ctx.getImageData(0, 0, 1, 1); // wait for the raster, which drawAll.now only queues
+            return performance.now() - t0;
+        };
         window.__lazy = lazyStats;
 
         function makeLazy(sp, x, y, scale) {
@@ -24008,7 +24241,7 @@
             // needs — rather than the shape's extent.
             let _maxP = 0;
             const _perims = state.subpaths.map(sp => {
-                if (!sp.refX && !sp.leafX)
+                if (sp._lazy || (!sp.refX && !sp.leafX))
                     return 0;
                 const xs = sp.refX || sp.leafX,
                     ys = sp.refY || sp.leafY;
@@ -24023,6 +24256,11 @@
                 if (!affected.has(i))
                     continue;
                 const sp = state.subpaths[i];
+                // A held shape (CONVERT ON TOUCH) converts at state.N, which an all-shapes
+                // change sets below, so it takes the new count when it is converted and need not
+                // be converted now. A change aimed at a selection converts what it names.
+                if (targetAll && sp._lazy)
+                    continue;
                 if (!sp.refX && !sp.leafX)
                     continue;
                 const tN = shapeTargetN(i); // this shape's proportional leaf count
@@ -25917,7 +26155,7 @@
             // strip left empty at the bottom.
             if (state.editMode)
                 return 0;
-            if (!selectedIndices().length)
+            if (!selectedIndices().length || state.panelHidden)
                 return 0;
             let btns = [];
             try {
@@ -26158,6 +26396,9 @@
                 if (!include(sp))
                     continue;
                 const s = state.subpaths[sp];
+                // a held shape shows no leaves outside edit mode (see leafOwners)
+                if (!state.editMode && s._lazy)
+                    continue;
                 if (!s.leafX)
                     continue;
                 if (moving) {
@@ -33519,11 +33760,12 @@
                 // outline: cull, the LOD dot, fill and stroke, as the Path2D fast path below does
                 // for a resting shape. Anything that needs the shape's leaves — selected, edit
                 // mode, an instrument overlay, a Cauchy view, motion — falls through, and the
-                // first read of sp.leafX below converts it.
+                // first read of sp.leafX below converts it. BEING SELECTED is not one of those:
+                // a select-all on a crowded file would otherwise convert the page. The halo is
+                // drawn from the outline; a tool that reads the leaves converts the shape.
                 if (sp._lazy && !state.editMode && !state.interiorFill && !state.leafColorBlend
                 && !state.ringHighlight && state.cauchyView !== 1 && state.cauchyView !== 4
-                && state.cauchyView !== 5 && !(_frameMotion && effectiveMotion(sp))
-                && !(state.activeSet && state.activeSet.has(spi))) {
+                && state.cauchyView !== 5 && !(_frameMotion && effectiveMotion(sp))) {
                     const lz = sp._lazy,
                         bx = lz.box;
                     const ax = _cx + (bx[0] * _invHR - _vpx) * drawScale;
@@ -33535,7 +33777,7 @@
                         continue;
                     const _wpx = bxx - ax,
                         _hpx = byy - ay;
-                    if (CHROME && _wpx < 4 && _hpx < 4) {
+                    if (CHROME && _wpx < 4 && _hpx < 4 && !(state.activeSet && state.activeSet.has(spi))) {
                         const dimmed = state.activeSet && state.activeSet.size > 0;
                         _setScreenTF();
                         ctx.globalAlpha = dimmed ? 0.3
@@ -33563,6 +33805,12 @@
                         ctx.globalAlpha = _a0;
                     }
                     const spLW = (sp.lineWidth != null) ? sp.lineWidth : state.lineWidth;
+                    // the selection halo, as the Path2D fast path draws it
+                    if (CHROME && !state.playing && state.activeSet && state.activeSet.has(spi) && sp.gid == null) {
+                        ctx.strokeStyle = 'rgba(212,160,82,0.30)';
+                        ctx.lineWidth = (spLW + 6) / _worldA;
+                        ctx.stroke(p2);
+                    }
                     if (spLW > 0) {
                         ctx.strokeStyle = sp.stroke || 'rgba(212,160,82,1)';
                         ctx.lineWidth = spLW / _worldA;
@@ -39046,7 +39294,8 @@
                 let moved = false;
                 for (let i = 0; i < state.subpaths.length; i++) {
                     const sp = state.subpaths[i];
-                    if (!sp || !sp.leafX)
+                    // a held shape has no rung to step from; it converts at state.N
+                    if (!sp || sp._lazy || !sp.leafX)
                         continue;
                     const r = Math.round(Math.log2(sp.leafX.length));
                     if (setShapeN(i, 1 << clamp(r + delta)))
@@ -59079,6 +59328,29 @@
             const FIT_DP = 2;
             // The reconstruction, as points in the export's own coordinate system.
             const samplePts = sp2 => {
+                // A held shape (CONVERT ON TOUCH) is written from the outline it arrived as: the
+                // file's own geometry, and no reason to convert a page to save it.
+                if (sp2._lazy) {
+                    const lz = sp2._lazy,
+                        pts = [];
+                    for (let i = 0; i < lz.x.length; i++) {
+                        const [px, py] = w2svg(lz.x[i], lz.y[i]);
+                        const x = +px,
+                            y = +py;
+                        const last = pts[pts.length - 1];
+                        if (!last || Math.hypot(x - last.x, y - last.y) > 1e-9)
+                            pts.push({
+                                x,
+                                y
+                            });
+                    }
+                    if (pts.length > 1)
+                        pts.push({
+                            x: pts[0].x,
+                            y: pts[0].y
+                        });
+                    return pts;
+                }
                 const N2 = sp2.leafX.length;
                 const M2 = Math.min(2048, Math.max(384, N2 * 2));
                 const ax = reconstruct1D(sp2.leafX, M2),
@@ -59141,15 +59413,8 @@
                 return '  <g>\n' + head + '  ' + body.trim() + '\n  </g>';
             };
             for (const sp of state.subpaths) {
-                if (!sp.leafX || sp.leafX.length < 2)
+                if (!sp._lazy && (!sp.leafX || sp.leafX.length < 2))
                     continue;
-                const N = sp.leafX.length;
-                const M = ceilPow2(Math.min(2048, Math.max(384, N * 2)));
-                // The per-leaf colour branch below still needs the raw samples (a colour changes
-                // along the contour, and only a polyline can carry that natively), so the
-                // reconstruction is kept whether or not the geometry is written as cubics.
-                const cx = reconstruct1D(sp.leafX, M),
-                    cy = reconstruct1D(sp.leafY, M);
                 let d = contourD(sp);
                 if (!d)
                     continue;
@@ -59171,6 +59436,13 @@
                 // the file stays portable — no custom format. Consecutive same-colour segments merge
                 // into one polyline to keep the file small. Falls back to the plain stroke otherwise.
                 if (state.leafColorBlend) {
+                    // The per-leaf colour needs the raw samples (a colour changes along the
+                    // contour, and only a polyline can carry that natively). They used to be
+                    // reconstructed for every shape on every export and read only here.
+                    const N = sp.leafX.length;
+                    const M = ceilPow2(Math.min(2048, Math.max(384, N * 2)));
+                    const cx = reconstruct1D(sp.leafX, M),
+                        cy = reconstruct1D(sp.leafY, M);
                     const col = reconstructColors(N, M, sp);
                     paths.push(metaWrap(sp, `  <path d="${d.trim()}" ${fill} stroke="none" fill-rule="evenodd"/>`));
                     const segs = [];
@@ -59927,6 +60199,30 @@
             }
             if (drawMode)
                 return;
+            // ── A DOUBLE-CLICK ON A SHAPE PUTS THE PANEL AWAY, AND BRINGS IT BACK ──────────
+            // (22 Oct 2026, Tom: "toggle the bottom panel visible/not-visible with double
+            // clicking the shape".) The panel sits under the selection, over whatever is drawn
+            // below it; this gets it out of the way without losing the selection, and the same
+            // gesture returns it. Off the shape (empty canvas) the gesture does nothing, and a
+            // double-click on the panel or a grip belongs to that control, as below.
+            //
+            // Not in the lab view: there a double-click on a shape opens the edit view, and
+            // that gesture is older and stays. The flag is the session's, not saved: a reload
+            // starts with the panel showing.
+            if (!LAB && !state.editMode) {
+                const rp = cv.getBoundingClientRect();
+                const px = e.clientX - rp.left,
+                    py = e.clientY - rp.top;
+                if (handleAt(px, py))
+                    return;
+                if (findShapeAt(px, py, rp.width, rp.height) >= 0) {
+                    e.preventDefault();
+                    state.panelHidden = !state.panelHidden;
+                    flashStatus(state.panelHidden ? 'panel hidden — double-click the shape to bring it back' : 'panel shown');
+                    drawAll();
+                }
+                return;
+            }
             // Everything below this line is a way INTO the edit view — the grouped-member
             // branch, the built-shape branch, the leaf circles, the fit. With the lab off
             // there is nowhere for the gesture to go, so the double-click means nothing at
@@ -71451,7 +71747,12 @@
             }
         };
         window.__box = {
-            group: () => groupButtonPos(),
+            // the group button's place in the panel's row, or null while it is not shown
+            group: () => {
+                const rows = sliderRows();
+                return (rows && rows.buttons && rows.buttons.find(b => b.name === 'bt-group')) || null;
+            },
+            panelUp: () => !!sliderRows(),
             grouped: () => selectionIsGrouped(),
             units: () => selectionUnitCount(),
             press: () => runBoxButton('bt-group'),
