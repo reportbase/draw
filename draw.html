@@ -7167,8 +7167,10 @@
                 for (let i = 0; i < state.subpaths.length; i++)
                     out.push(i);
             } else if (state.activeSet && state.activeSet.size > 0) {
+                // A held shape (CONVERT ON TOUCH) has no leaves to show until something converts
+                // it, and asking for them would: selecting a crowded page is not that something.
                 for (const i of state.activeSet)
-                    if (state.subpaths[i])
+                    if (state.subpaths[i] && !state.subpaths[i]._lazy)
                         out.push(i);
             }
             return out;
@@ -7180,7 +7182,8 @@
         function leavesShownFor(sp) {
             if (state.editMode || state.editMotion || state.editLeafMotion || state.leavesAll)
                 return true;
-            return !!(state.activeSet && state.activeSet.size > 0 && state.activeSet.has(sp));
+            return !!(state.activeSet && state.activeSet.size > 0 && state.activeSet.has(sp)
+            && !(state.subpaths[sp] && state.subpaths[sp]._lazy)); // held: no leaves yet, as leafOwners
         }
 
         function forEachLeaf(visitor) {
@@ -10830,7 +10833,9 @@
         // carries the shared orbit; existing per-shape orbits are cleared so the group
         // has exactly one.
         function groupActive() {
-            const sel = selectedIndices().filter(i => state.subpaths[i] && state.subpaths[i].leafX);
+            // (a held shape is a shape: asking it for leaves only to test that it has some would
+            // convert it, and grouping needs none — see CONVERT ON TOUCH)
+            const sel = selectedIndices().filter(i => state.subpaths[i] && (state.subpaths[i]._lazy || state.subpaths[i].leafX));
             if (sel.length < 2)
                 return {
                     ok: false,
@@ -11983,6 +11988,14 @@
                 return;
             for (const i of idx) {
                 const sp = state.subpaths[i];
+                // A held shape (CONVERT ON TOUCH) moves as its outline, in new arrays (undo
+                // snapshots share the old ones): moving a crowded selection is no reason to
+                // convert it. It has no leaves or motion to carry.
+                if (sp && sp._lazy) {
+                    const lz = sp._lazy;
+                    makeLazy(sp, Float64Array.from(lz.x, x => x + dx), Float64Array.from(lz.y, y => y + dy), lz.scale);
+                    continue;
+                }
                 if (!sp || !sp.leafX)
                     continue;
                 for (let k = 0; k < sp.leafX.length; k++) {
@@ -12007,6 +12020,11 @@
                 return;
             for (const i of idx) {
                 const sp = state.subpaths[i];
+                if (sp && sp._lazy) { // held: scaled as its outline, as nudgeIndices
+                    const lz = sp._lazy;
+                    makeLazy(sp, Float64Array.from(lz.x, x => cx + (x - cx) * s), Float64Array.from(lz.y, y => cy + (y - cy) * s), lz.scale);
+                    continue;
+                }
                 if (!sp || !sp.leafX)
                     continue;
                 for (let k = 0; k < sp.leafX.length; k++) {
@@ -12030,6 +12048,20 @@
                 d = -Infinity;
             for (const i of idx) {
                 const sp = state.subpaths[i];
+                // A held shape (CONVERT ON TOUCH) answers with its outline's box: boxing a
+                // selection is no reason to convert it.
+                if (sp && sp._lazy) {
+                    const bx = sp._lazy.box;
+                    if (bx[0] < a)
+                        a = bx[0];
+                    if (bx[2] > b)
+                        b = bx[2];
+                    if (bx[1] < c)
+                        c = bx[1];
+                    if (bx[3] > d)
+                        d = bx[3];
+                    continue;
+                }
                 if (!sp || !sp.leafX)
                     continue;
                 for (let k = 0; k < sp.leafX.length; k++) {
@@ -12529,7 +12561,7 @@
             const units = [];
             for (const i of selectedIndices()) {
                 const sp = state.subpaths[i];
-                if (!sp || !sp.leafX || sp.leafX.length < 2)
+                if (!sp || (!sp._lazy && (!sp.leafX || sp.leafX.length < 2)))
                     continue;
                 if (sp.gid != null) {
                     let u = byGid.get(sp.gid);
@@ -12920,6 +12952,15 @@
                 return false;
             for (const i of sel) {
                 const sp = state.subpaths[i];
+                // held: moved as its outline, as nudgeIndices does (a drag of a crowded
+                // selection is no reason to convert it)
+                if (sp._lazy) {
+                    if (dx || dy) {
+                        const lz = sp._lazy;
+                        makeLazy(sp, Float64Array.from(lz.x, x => x + dx), Float64Array.from(lz.y, y => y + dy), lz.scale);
+                    }
+                    continue;
+                }
                 if (!sp.leafX)
                     continue;
                 for (let k = 0; k < sp.leafX.length; k++) {
@@ -23346,10 +23387,14 @@
                     mxx = -Infinity,
                     mny = Infinity,
                     mxy = -Infinity;
+                // A held shape (CONVERT ON TOUCH) is measured and moved by its outline, so a
+                // second file arriving does not convert the first.
+                const xsOf = sp => sp._lazy ? sp._lazy.x : sp.refX,
+                    ysOf = sp => sp._lazy ? sp._lazy.y : sp.refY;
                 for (const sp of shapes)
-                    for (let i = 0; i < sp.refX.length; i++) {
-                        const x = sp.refX[i],
-                            y = sp.refY[i];
+                    for (let i = 0, X = xsOf(sp), Y = ysOf(sp); i < X.length; i++) {
+                        const x = X[i],
+                            y = Y[i];
                         if (x < mnx)
                             mnx = x;
                         if (x > mxx)
@@ -23365,6 +23410,13 @@
                     halfH = Math.max(1e-6, (mxy - mny) / 2);
                 const s = (cell / 2) * 0.88 / Math.max(halfW, halfH); // fit into the cell with padding
                 for (const sp of shapes) {
+                    if (sp._lazy) {
+                        // New arrays, not the old ones written over: undo snapshots share them.
+                        const lz = sp._lazy;
+                        makeLazy(sp, Float64Array.from(lz.x, x => (x - bcx) * s + ccx),
+                        Float64Array.from(lz.y, y => (y - bcy) * s + ccy), lz.scale);
+                        continue;
+                    }
                     for (let i = 0; i < sp.refX.length; i++) {
                         sp.refX[i] = (sp.refX[i] - bcx) * s + ccx;
                         sp.refY[i] = (sp.refY[i] - bcy) * s + ccy;
@@ -23490,6 +23542,14 @@
             by: new Map()
         };
         lazyStats.held = () => state.subpaths.reduce((n, sp) => n + (sp && sp._lazy ? 1 : 0), 0);
+        // One full render, timed: the measure for drawing a crowded page (drawAll.now is the
+        // untimed, uncached path, so nothing from the camera cache stands in for the work).
+        lazyStats.frameMs = () => {
+            const t0 = performance.now();
+            drawAll.now();
+            ctx.getImageData(0, 0, 1, 1); // wait for the raster, which drawAll.now only queues
+            return performance.now() - t0;
+        };
         window.__lazy = lazyStats;
 
         function makeLazy(sp, x, y, scale) {
@@ -24181,7 +24241,7 @@
             // needs — rather than the shape's extent.
             let _maxP = 0;
             const _perims = state.subpaths.map(sp => {
-                if (!sp.refX && !sp.leafX)
+                if (sp._lazy || (!sp.refX && !sp.leafX))
                     return 0;
                 const xs = sp.refX || sp.leafX,
                     ys = sp.refY || sp.leafY;
@@ -24196,6 +24256,11 @@
                 if (!affected.has(i))
                     continue;
                 const sp = state.subpaths[i];
+                // A held shape (CONVERT ON TOUCH) converts at state.N, which an all-shapes
+                // change sets below, so it takes the new count when it is converted and need not
+                // be converted now. A change aimed at a selection converts what it names.
+                if (targetAll && sp._lazy)
+                    continue;
                 if (!sp.refX && !sp.leafX)
                     continue;
                 const tN = shapeTargetN(i); // this shape's proportional leaf count
@@ -26331,6 +26396,9 @@
                 if (!include(sp))
                     continue;
                 const s = state.subpaths[sp];
+                // a held shape shows no leaves outside edit mode (see leafOwners)
+                if (!state.editMode && s._lazy)
+                    continue;
                 if (!s.leafX)
                     continue;
                 if (moving) {
@@ -33692,11 +33760,12 @@
                 // outline: cull, the LOD dot, fill and stroke, as the Path2D fast path below does
                 // for a resting shape. Anything that needs the shape's leaves — selected, edit
                 // mode, an instrument overlay, a Cauchy view, motion — falls through, and the
-                // first read of sp.leafX below converts it.
+                // first read of sp.leafX below converts it. BEING SELECTED is not one of those:
+                // a select-all on a crowded file would otherwise convert the page. The halo is
+                // drawn from the outline; a tool that reads the leaves converts the shape.
                 if (sp._lazy && !state.editMode && !state.interiorFill && !state.leafColorBlend
                 && !state.ringHighlight && state.cauchyView !== 1 && state.cauchyView !== 4
-                && state.cauchyView !== 5 && !(_frameMotion && effectiveMotion(sp))
-                && !(state.activeSet && state.activeSet.has(spi))) {
+                && state.cauchyView !== 5 && !(_frameMotion && effectiveMotion(sp))) {
                     const lz = sp._lazy,
                         bx = lz.box;
                     const ax = _cx + (bx[0] * _invHR - _vpx) * drawScale;
@@ -33708,7 +33777,7 @@
                         continue;
                     const _wpx = bxx - ax,
                         _hpx = byy - ay;
-                    if (CHROME && _wpx < 4 && _hpx < 4) {
+                    if (CHROME && _wpx < 4 && _hpx < 4 && !(state.activeSet && state.activeSet.has(spi))) {
                         const dimmed = state.activeSet && state.activeSet.size > 0;
                         _setScreenTF();
                         ctx.globalAlpha = dimmed ? 0.3
@@ -33736,6 +33805,12 @@
                         ctx.globalAlpha = _a0;
                     }
                     const spLW = (sp.lineWidth != null) ? sp.lineWidth : state.lineWidth;
+                    // the selection halo, as the Path2D fast path draws it
+                    if (CHROME && !state.playing && state.activeSet && state.activeSet.has(spi) && sp.gid == null) {
+                        ctx.strokeStyle = 'rgba(212,160,82,0.30)';
+                        ctx.lineWidth = (spLW + 6) / _worldA;
+                        ctx.stroke(p2);
+                    }
                     if (spLW > 0) {
                         ctx.strokeStyle = sp.stroke || 'rgba(212,160,82,1)';
                         ctx.lineWidth = spLW / _worldA;
@@ -39219,7 +39294,8 @@
                 let moved = false;
                 for (let i = 0; i < state.subpaths.length; i++) {
                     const sp = state.subpaths[i];
-                    if (!sp || !sp.leafX)
+                    // a held shape has no rung to step from; it converts at state.N
+                    if (!sp || sp._lazy || !sp.leafX)
                         continue;
                     const r = Math.round(Math.log2(sp.leafX.length));
                     if (setShapeN(i, 1 << clamp(r + delta)))
@@ -59252,6 +59328,29 @@
             const FIT_DP = 2;
             // The reconstruction, as points in the export's own coordinate system.
             const samplePts = sp2 => {
+                // A held shape (CONVERT ON TOUCH) is written from the outline it arrived as: the
+                // file's own geometry, and no reason to convert a page to save it.
+                if (sp2._lazy) {
+                    const lz = sp2._lazy,
+                        pts = [];
+                    for (let i = 0; i < lz.x.length; i++) {
+                        const [px, py] = w2svg(lz.x[i], lz.y[i]);
+                        const x = +px,
+                            y = +py;
+                        const last = pts[pts.length - 1];
+                        if (!last || Math.hypot(x - last.x, y - last.y) > 1e-9)
+                            pts.push({
+                                x,
+                                y
+                            });
+                    }
+                    if (pts.length > 1)
+                        pts.push({
+                            x: pts[0].x,
+                            y: pts[0].y
+                        });
+                    return pts;
+                }
                 const N2 = sp2.leafX.length;
                 const M2 = Math.min(2048, Math.max(384, N2 * 2));
                 const ax = reconstruct1D(sp2.leafX, M2),
@@ -59314,15 +59413,8 @@
                 return '  <g>\n' + head + '  ' + body.trim() + '\n  </g>';
             };
             for (const sp of state.subpaths) {
-                if (!sp.leafX || sp.leafX.length < 2)
+                if (!sp._lazy && (!sp.leafX || sp.leafX.length < 2))
                     continue;
-                const N = sp.leafX.length;
-                const M = ceilPow2(Math.min(2048, Math.max(384, N * 2)));
-                // The per-leaf colour branch below still needs the raw samples (a colour changes
-                // along the contour, and only a polyline can carry that natively), so the
-                // reconstruction is kept whether or not the geometry is written as cubics.
-                const cx = reconstruct1D(sp.leafX, M),
-                    cy = reconstruct1D(sp.leafY, M);
                 let d = contourD(sp);
                 if (!d)
                     continue;
@@ -59344,6 +59436,13 @@
                 // the file stays portable — no custom format. Consecutive same-colour segments merge
                 // into one polyline to keep the file small. Falls back to the plain stroke otherwise.
                 if (state.leafColorBlend) {
+                    // The per-leaf colour needs the raw samples (a colour changes along the
+                    // contour, and only a polyline can carry that natively). They used to be
+                    // reconstructed for every shape on every export and read only here.
+                    const N = sp.leafX.length;
+                    const M = ceilPow2(Math.min(2048, Math.max(384, N * 2)));
+                    const cx = reconstruct1D(sp.leafX, M),
+                        cy = reconstruct1D(sp.leafY, M);
                     const col = reconstructColors(N, M, sp);
                     paths.push(metaWrap(sp, `  <path d="${d.trim()}" ${fill} stroke="none" fill-rule="evenodd"/>`));
                     const segs = [];

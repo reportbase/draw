@@ -304,7 +304,8 @@ try {
    of its own, with every CDN blocked, because the importer must not need one (the path-data
    polyfill is inlined; without it a 200-path file took 40 s): 300 shapes load held; clicking
    the one in the middle converts that one and no other; the autosave keeps the rest held, and
-   a reload brings them back held. Clicking reaches every shape through the hit test, so a pass
+   a reload brings them back held; select-all and the SVG export keep them held, and the export
+   writes all 300. Clicking reaches every shape through the hit test, so a pass
    that reads every shape's leaves shows up here as the count dropping to 0. */
 current = 'crowded import';
 {
@@ -345,6 +346,20 @@ current = 'crowded import';
                              null, { timeout: 15000 });
     await cp.reload({ waitUntil: 'load' });
     await cp.waitForFunction(() => window.__lazy && window.__lazy.held() === 299, null, { timeout: 30000 });
+    // Whole-page actions leave held shapes held: select-all draws their halos from the
+    // outlines, and the SVG export writes them from the outlines too.
+    await cp.mouse.click(box.x + 5, box.y + box.height - 5);
+    await cp.keyboard.press('ControlOrMeta+a');
+    await cp.waitForTimeout(600);
+    const heldAll = await cp.evaluate(() => window.__lazy.held());
+    if (heldAll !== 299) throw new Error(`select-all left ${heldAll} of 299 held`);
+    const [dl] = await Promise.all([cp.waitForEvent('download', { timeout: 30000 }),
+      cp.evaluate(() => document.getElementById('bExportSvg').click())]);
+    const out = await readFile(await dl.path(), 'utf8');
+    const npaths = (out.match(/<path /g) || []).length;
+    if (npaths !== 300) throw new Error(`the export wrote ${npaths} paths, not 300`);
+    const heldExp = await cp.evaluate(() => window.__lazy.held());
+    if (heldExp !== 299) throw new Error(`exporting left ${heldExp} of 299 held`);
   } catch (e){
     failures.push(`[crowded import] ${e.message.split('\n')[0]}`);
   }
