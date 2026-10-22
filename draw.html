@@ -3202,7 +3202,7 @@
                     <circle cx="11" cy="11" r="2"/>
                 </svg>
             </button>
-            <button id="bDrawLine" class="icon-btn" title="draw straight line segments (sharp corners — these Gibbs-ring)">
+            <button id="bDrawLine" class="icon-btn" title="draw straight lines and polygons, exact: click each corner; click the start point (or Enter, or double-click) to close a polygon; two points, or Shift with Enter or double-click, make an open line. They stay exact until you turn them into leaves to sculpt.">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="3 17 9 7 14 14 21 5"/>
                     <circle cx="3" cy="17" r="1.6"/>
@@ -6936,6 +6936,11 @@
                     if (state.subpaths[j] && state.subpaths[j].motion)
                         return state.subpaths[j].motion.leafX.length;
             }
+            // An exact shape (EXACT SHAPES) has no leaves, and asking for them would convert it:
+            // it reports the count it would convert at.
+            const _a = state.activeSp >= 0 ? state.subpaths[state.activeSp] : null;
+            if (_a && _a._lazy && _a._lazy.exact)
+                return state.N;
             if (state.activeSp >= 0 && state.subpaths[state.activeSp] && state.subpaths[state.activeSp].leafX) {
                 return state.subpaths[state.activeSp].leafX.length;
             }
@@ -11144,7 +11149,8 @@
                 // this runs over every shape and must not convert them all.
                 const LX = sp && sp._lazy ? sp._lazy.x : sp && sp.leafX,
                     LY = sp && sp._lazy ? sp._lazy.y : sp && sp.leafY;
-                if (!sp || !LX || LX.length < 3)
+                const OPEN = !!(sp && sp._lazy && sp._lazy.open); // a line: no inside, no closing edge (EXACT SHAPES)
+                if (!sp || !LX || LX.length < (OPEN ? 2 : 3))
                     continue;
                 const N = LX.length;
                 const xs = new Float64Array(N),
@@ -11174,13 +11180,18 @@
                     if (((ys[i] > py) !== (ys[j] > py)) &&
                     (px < (xs[j] - xs[i]) * (py - ys[i]) / (ys[j] - ys[i]) + xs[i]))
                         inS = !inS;
-                if (inS) {
+                if (inS && !OPEN) {
                     inside.push(spi);
                     continue;
                 }
                 let d = Infinity;
-                for (let i = 0, j = N - 1; i < N; j = i++)
+                for (let i = OPEN ? 1 : 0, j = OPEN ? 0 : N - 1; i < N; j = i++)
                     d = Math.min(d, segDistPx(px, py, xs[j], ys[j], xs[i], ys[i]));
+                // a line is all edge: within reach of it is ON it, as inside is for a ring
+                if (OPEN && d < OUTLINE_TOL) {
+                    inside.push(spi);
+                    continue;
+                }
                 if (d < OUTLINE_TOL)
                     near.push({
                         spi,
@@ -14588,6 +14599,13 @@
         // of the word getting bigger. Leaf-count weighted so a 2048-leaf shape does not drag
         // the pivot away from an 8-leaf one — this is a centroid of GEOMETRY, not of samples.
         function selectionPivot(sel) {
+            // A held or exact shape turns about its box's middle: its leaves' centroid would
+            // convert it (THE HELD RECORD, EXACT SHAPES).
+            const one = sel.length === 1 ? state.subpaths[sel[0]] : null;
+            if (one && one._lazy) {
+                const b = one._lazy.box;
+                return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+            }
             if (sel.length === 1)
                 return signalCentroid(state.subpaths[sel[0]]);
             const b = artworkBounds(new Set(sel));
@@ -15543,6 +15561,12 @@
             name: 'bt-group',
             title: 'group the selection, or ungroup it',
             show: () => selectionUnitCount() >= 2 || selectionIsGrouped()
+        }, // TO LEAVES (EXACT SHAPES): an exact polygon or line becomes leaves, to sculpt. Shown
+        // only while the selection holds one; a leaf tool reaching for one does the same.
+        {
+            name: 'bt-toleaves',
+            title: 'turn the exact shapes in the selection into leaves, to sculpt them (their corners will round)',
+            show: () => selectedIndices().some(i => state.subpaths[i] && state.subpaths[i]._lazy && state.subpaths[i]._lazy.exact)
         }, // straighten flattens RUNS of selected leaves, so one leaf is never enough
         {
             name: 'bt-straighten',
@@ -16162,6 +16186,23 @@
                 toggleGroupSelection();
                 return;
             }
+            if (name === 'bt-toleaves') {
+                let n = 0;
+                for (const i of selectedIndices()) {
+                    const sp = state.subpaths[i];
+                    if (sp && sp._lazy && sp._lazy.exact) {
+                        materializeLazy(sp);
+                        n++;
+                    }
+                }
+                if (n) {
+                    pushHistory();
+                    updateStatus();
+                    drawAll();
+                    flashStatus(n + (n > 1 ? ' shapes' : ' shape') + ' turned into leaves — sculpt away');
+                }
+                return;
+            }
         }
 
         // The three action buttons, drawn in the same gold vocabulary as the handles so the
@@ -16197,6 +16238,15 @@
             // The group switch's glyph, carried down from the rotate grip unchanged: one filled
             // square for the selection, and a ring round it when the selection already IS a
             // group, so the button says the state as well as the action.
+            if (b.name === 'bt-toleaves') {
+                // the leaves: eight dots on a ring
+                for (let q = 0; q < 8; q++) {
+                    const a = q * Math.PI / 4;
+                    ctx.beginPath();
+                    ctx.arc(5.6 * Math.cos(a), 5.6 * Math.sin(a), 1.25, 0, TAU);
+                    ctx.fill();
+                }
+            }
             if (b.name === 'bt-group') {
                 const grouped = selectionIsGrouped();
                 ctx.fillRect(-3.8, -3.8, 7.6, 7.6);
@@ -16808,6 +16858,7 @@
             'bt-straighten': 'pointer',
             'bt-smooth': 'pointer',
             'bt-group': 'pointer',
+            'bt-toleaves': 'pointer',
             'bt-roundoff': 'pointer',
             'bt-mirror-v': 'pointer',
             'bt-mirror-h': 'pointer',
@@ -16959,6 +17010,105 @@
         }
 
         let handleDrag = null;
+
+        // ── EXACT VERTICES ───────────────────────────────────────────────────────────────
+        // One exact shape selected (EXACT SHAPES) shows its corners, and a corner drags. They
+        // are box furniture like the grips, shown when the grips are (not under the lock) and
+        // asked for first, so a corner of a rectangle wins over the grip on top of it. A drag
+        // starts from new arrays with the shape's map baked in (undo snapshots share the old
+        // ones), moves one point, and is one history entry.
+        let vertexDrag = null;
+        const VERTEX_HIT_PX = 8;
+        function exactSelected() {
+            const sel = selectedIndices();
+            if (sel.length !== 1)
+                return -1;
+            const sp = state.subpaths[sel[0]];
+            return (sp && sp._lazy && sp._lazy.exact) ? sel[0] : -1;
+        }
+        function exactVertexAt(px, py) {
+            if (state.locked || !handlesVisible())
+                return null;
+            const spi = exactSelected();
+            if (spi < 0)
+                return null;
+            const r = cv.getBoundingClientRect();
+            const lz = state.subpaths[spi]._lazy,
+                X = lz.x,
+                Y = lz.y;
+            let best = null,
+                bd = VERTEX_HIT_PX;
+            for (let k = 0; k < X.length; k++) {
+                const q = worldToPx(X[k], Y[k], r.width, r.height);
+                const d = Math.hypot(q.x - px, q.y - py);
+                if (d <= bd) {
+                    bd = d;
+                    best = {
+                        spi,
+                        k
+                    };
+                }
+            }
+            return best;
+        }
+        function beginVertexDrag(v) {
+            const sp = state.subpaths[v.spi],
+                lz = sp._lazy;
+            makeLazy(sp, Float64Array.from(lz.x), Float64Array.from(lz.y), lz.scale, null, lz);
+            vertexDrag = {
+                spi: v.spi,
+                k: v.k,
+                moved: false
+            };
+            cv.style.cursor = 'move';
+        }
+        function updateVertexDrag(mx, my) {
+            const sp = state.subpaths[vertexDrag.spi],
+                lz = sp && sp._lazy;
+            if (!lz)
+                return;
+            const r = cv.getBoundingClientRect();
+            const p = pxToWorld(mx, my, r.width, r.height);
+            lz.rx[vertexDrag.k] = p.x;
+            lz.ry[vertexDrag.k] = p.y;
+            lz._box = lz._box0 = null; // the outline changed in place: its box and path go
+            sp._lazyP2d = null;
+            vertexDrag.moved = true;
+            drawAll();
+        }
+        function endVertexDrag() {
+            const moved = vertexDrag.moved;
+            vertexDrag = null;
+            cv.style.cursor = '';
+            if (moved) {
+                pushHistory();
+                updateStatus();
+            }
+            drawAll();
+        }
+        function drawExactVertices(w, h) {
+            if (state.locked || !handlesVisible())
+                return;
+            const spi = exactSelected();
+            if (spi < 0)
+                return;
+            const lz = state.subpaths[spi]._lazy;
+            const HP = Math.max(3, HANDLE_PX() - 1);
+            ctx.save();
+            ctx.setLineDash([]);
+            ctx.lineWidth = 1.2;
+            for (let k = 0; k < lz.x.length; k++) {
+                const q = worldToPx(lz.x[k], lz.y[k], w, h);
+                const on = vertexDrag && vertexDrag.k === k;
+                ctx.fillStyle = on ? '#d4a052' : '#0e0e13';
+                ctx.strokeStyle = 'rgba(232,228,238,0.95)';
+                ctx.beginPath();
+                ctx.rect(q.x - HP, q.y - HP, HP * 2, HP * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
 
         function beginHandleDrag(name, mx, my, e) {
             const r = cv.getBoundingClientRect();
@@ -23623,12 +23773,16 @@
         // the autosave — reads x and y, which are the outline under m, worked out on first
         // read and kept until m changes again; box is its bounding box, the same way (and
         // for a plain move, the arrived box shifted, with no points touched).
-        function lazyRecord(rx, ry, scale, m) {
+        function lazyRecord(rx, ry, scale, m, kind) {
             return {
                 rx,
                 ry,
                 m: m || null,
                 scale: scale || 0,
+                // EXACT SHAPES (see loadExactShape): an outline that is the shape, not a held
+                // import of one. exact: it converts only when asked to; open: a line, not a ring.
+                exact: !!(kind && kind.exact),
+                open: !!(kind && kind.open),
                 ver: 0, // bumped by every change of m (the rung worker's answers check it)
                 _x: null,
                 _y: null,
@@ -23728,10 +23882,10 @@
             lz.ver++;
         }
 
-        function makeLazy(sp, x, y, scale, m) {
+        function makeLazy(sp, x, y, scale, m, kind) {
             // scale: the fit scale the load measured, kept so a conversion solves its rung
             // where the load would have, without measuring the page again for every shape.
-            sp._lazy = lazyRecord(x, y, scale, m);
+            sp._lazy = lazyRecord(x, y, scale, m, kind);
             sp._lazyP2d = null;
             for (const key of LAZY_KEYS) {
                 Object.defineProperty(sp, key, {
@@ -23754,7 +23908,7 @@
         // import goes back to being held. Returns the shape, for use inside a map.
         function relazy(raw, sp) {
             if (raw && raw.x && raw.x.length >= 2)
-                makeLazy(sp, raw.x, raw.y, raw.scale, raw.m);
+                makeLazy(sp, raw.x, raw.y, raw.scale, raw.m, raw);
             return sp;
         }
 
@@ -23772,7 +23926,16 @@
                 delete sp[key];
             sp._lazy = null;
             sp._lazyP2d = null;
-            const ref = arcLengthResample(raw.x, raw.y, REF_SAMPLES);
+            // A line has no inside, and leaves are a ring: it becomes the ring that runs out
+            // along the line and back, so the leaves lie on it.
+            let RX = raw.x,
+                RY = raw.y;
+            if (raw.open) {
+                const n = RX.length;
+                RX = Float64Array.from([...RX, ...Array.from(RX).slice(1, n - 1).reverse()]);
+                RY = Float64Array.from([...RY, ...Array.from(RY).slice(1, n - 1).reverse()]);
+            }
+            const ref = arcLengthResample(RX, RY, REF_SAMPLES);
             if (sp.srcCoV === undefined)
                 sp.srcCoV = ref.srcCoV;
             sp.refX = ref.x;
@@ -23991,7 +24154,9 @@
                         x: sp._lazy.rx,
                         y: sp._lazy.ry,
                         m: sp._lazy.m,
-                        scale: sp._lazy.scale
+                        scale: sp._lazy.scale,
+                        exact: sp._lazy.exact,
+                        open: sp._lazy.open
                     } : null,
                     leafX: sp._lazy ? null : sp.leafX ? Float64Array.from(sp.leafX) : null,
                     leafY: sp._lazy ? null : sp.leafY ? Float64Array.from(sp.leafY) : null,
@@ -24680,7 +24845,12 @@
             // across subpaths. If all subpaths share an N, show one value; if they
             // diverge, show the range.
             let nStr;
-            if (state.activeSp >= 0 && state.subpaths[state.activeSp] && state.subpaths[state.activeSp].leafX) {
+            const _act = state.activeSp >= 0 ? state.subpaths[state.activeSp] : null;
+            if (_act && _act._lazy && _act._lazy.exact) {
+                // an exact shape has no leaves to count (EXACT SHAPES); say what it is instead
+                nStr = (_act._lazy.open ? 'exact line, ' : 'exact polygon, ') + _act._lazy.rx.length + ' points'
+                + ' <span style="color:var(--fg-muted)">(signal ' + (state.activeSp + 1) + ')</span>';
+            } else if (state.activeSp >= 0 && state.subpaths[state.activeSp] && state.subpaths[state.activeSp].leafX) {
                 nStr = 'N=' + state.subpaths[state.activeSp].leafX.length
                 + ' <span style="color:var(--fg-muted)">(signal ' + (state.activeSp + 1) + ')</span>';
             } else if (state.subpaths.length > 1) {
@@ -33830,6 +34000,8 @@
                 drawGuides(w, h);
             if (CHROME)
                 drawTransformHandles(w, h);
+            if (CHROME)
+                drawExactVertices(w, h); // over the grips: a corner wins (EXACT VERTICES)
             // The smoothing slider moved to the END of this function — see the note there. It
             // is a control, and a control that anything can be painted over is a control you
             // have to move the artwork to use.
@@ -34103,7 +34275,8 @@
                         p2.moveTo(lz.rx[0], lz.ry[0]);
                         for (let i = 1; i < lz.rx.length; i++)
                             p2.lineTo(lz.rx[i], lz.ry[i]);
-                        p2.closePath();
+                        if (!lz.open) // a line is not a ring
+                            p2.closePath();
                         sp._lazyP2d = p2;
                         sp._lazyP2dOf = lz.rx;
                     }
@@ -34111,7 +34284,7 @@
                     const _lm = lz.m;
                     if (_lm)
                         ctx.transform(_lm[0], _lm[1], _lm[2], _lm[3], _lm[4], _lm[5]);
-                    if (state.showFills && sp.fill && sp.fill.color) {
+                    if (state.showFills && sp.fill && sp.fill.color && !lz.open) {
                         const _a0 = ctx.globalAlpha;
                         ctx.globalAlpha = (sp.fill.opacity != null ? sp.fill.opacity : 1);
                         ctx.fillStyle = sp.fill.color;
@@ -34131,7 +34304,7 @@
                     // __lazy.frameMs). A held shape strokes only when it has a stroke of its own (the
                     // SVG painted one, or the line controls set one) or has no fill to be seen by.
                     // Converting the shape (clicking it, a leaf tool) gives it the outline back.
-                    const ownLine = !!sp.stroke || sp.lineWidth != null || !(state.showFills && sp.fill && sp.fill.color);
+                    const ownLine = !!sp.stroke || sp.lineWidth != null || lz.exact || !(state.showFills && sp.fill && sp.fill.color);
                     if (spLW > 0 && ownLine) {
                         ctx.strokeStyle = sp.stroke || 'rgba(212,160,82,1)';
                         ctx.lineWidth = spLW / _worldA;
@@ -35158,7 +35331,8 @@
                 // runs over every shape on every click, and must not convert them all.
                 const LX = sp._lazy ? sp._lazy.x : sp.leafX,
                     LY = sp._lazy ? sp._lazy.y : sp.leafY;
-                if (!LX || LX.length < 3)
+                const OPEN = !!(sp && sp._lazy && sp._lazy.open); // a line: no inside, no closing edge (EXACT SHAPES)
+                if (!LX || LX.length < (OPEN ? 2 : 3))
                     continue;
                 const N = LX.length;
                 const xs = new Float64Array(N),
@@ -35192,11 +35366,15 @@
                     (px < (xs[j] - xs[i]) * (py - ys[i]) / (ys[j] - ys[i]) + xs[i]))
                         inside = !inside;
                 }
-                if (inside)
+                if (inside && !OPEN)
                     return spi;
                 // Otherwise track nearest outline.
-                for (let i = 0, j = N - 1; i < N; j = i++) {
+                for (let i = OPEN ? 1 : 0, j = OPEN ? 0 : N - 1; i < N; j = i++) {
                     const d = segDistPx(px, py, xs[j], ys[j], xs[i], ys[i]);
+                    // a line is all edge: within reach of it is ON it, and it is topmost here,
+                    // so it wins as a ring's inside would (EXACT SHAPES)
+                    if (OPEN && d < OUTLINE_TOL)
+                        return spi;
                     if (d < nearD) {
                         nearD = d;
                         nearHit = spi;
@@ -35214,7 +35392,8 @@
             // An unconverted shape is tested on its imported outline, as in findShapeAt.
             const LX = sp._lazy ? sp._lazy.x : sp.leafX,
                 LY = sp._lazy ? sp._lazy.y : sp.leafY;
-            if (!LX || LX.length < 3)
+            const OPEN = !!(sp && sp._lazy && sp._lazy.open); // a line: no inside, no closing edge (EXACT SHAPES)
+            if (!LX || LX.length < (OPEN ? 2 : 3))
                 return false;
             const N = LX.length;
             const xs = new Float64Array(N),
@@ -35244,9 +35423,9 @@
                 (px < (xs[j] - xs[i]) * (py - ys[i]) / (ys[j] - ys[i]) + xs[i]))
                     inside = !inside;
             }
-            if (inside)
+            if (inside && !OPEN)
                 return true;
-            for (let i = 0, j = N - 1; i < N; j = i++) {
+            for (let i = OPEN ? 1 : 0, j = OPEN ? 0 : N - 1; i < N; j = i++) {
                 if (segDistPx(px, py, xs[j], ys[j], xs[i], ys[i]) <= tol)
                     return true;
             }
@@ -36454,6 +36633,13 @@
             // own cursors, and resizing through them is deliberate in every mode.
             {
                 const rr = cv.getBoundingClientRect();
+                // an exact shape's corner first, over the grip that may sit on it (EXACT VERTICES)
+                const vtx = exactVertexAt(e.clientX - rr.left, e.clientY - rr.top);
+                if (vtx) {
+                    beginVertexDrag(vtx);
+                    e.preventDefault();
+                    return;
+                }
                 const hName = handleAt(e.clientX - rr.left, e.clientY - rr.top);
                 if (hName && beginHandleDrag(hName, e.clientX - rr.left, e.clientY - rr.top, e)) {
                     e.preventDefault();
@@ -36630,8 +36816,9 @@
                 };
                 if (lineMode) {
                     // Straight-line pen: click to drop each corner vertex. Clicking near the
-                    // start point (or Enter / double-click) closes and commits the polygon.
-                    // Corners are kept sharp (no smoothing) so they Gibbs-ring.
+                    // start point (or Enter / double-click) closes and commits the polygon; two
+                    // points, or Shift with Enter / double-click, commit an open line. Either is
+                    // an exact shape, its corners sharp and its edges straight (EXACT SHAPES).
                     if (!drawStroke) {
                         drawStroke = [p0];
                         drawStroke._usedStraight = true;
@@ -36640,7 +36827,7 @@
                         const start = drawStroke[0];
                         const near = Math.hypot(p0.x - start.x, p0.y - start.y) < 12;
                         if (near && drawStroke.length >= 3) {
-                            commitLineShape();
+                            commitLineShape(false); // closed on its start: a polygon
                             return;
                         }
                         drawStroke.push(p0);
@@ -37317,6 +37504,11 @@
                 (e.clientY - rb.top) - lockTap.my) > LONG_PRESS_MOVE_TOL)
                     cancelLeafLongPress();
             }
+            if (vertexDrag) {
+                const rr = cv.getBoundingClientRect();
+                updateVertexDrag(e.clientX - rr.left, e.clientY - rr.top);
+                return;
+            }
             if (handleDrag) {
                 const rr = cv.getBoundingClientRect();
                 updateHandleDrag(e.clientX - rr.left, e.clientY - rr.top, e);
@@ -37868,6 +38060,10 @@
             }
             cancelBrowserLongPress(); // the press ended; whatever it armed is off
             cancelShapeLongPress(); // …and so is the shape hold it may have armed instead
+            if (vertexDrag) {
+                endVertexDrag();
+                return;
+            }
             if (handleDrag) {
                 endHandleDrag();
                 return;
@@ -58945,8 +59141,8 @@
                 setDrawMode(false);
                 return;
             }
-            if (e.key === 'Enter' && drawMode && lineMode && drawAnchors && drawAnchors.length >= 3) {
-                commitLineShape();
+            if (e.key === 'Enter' && drawMode && lineMode && drawAnchors && drawAnchors.length >= 2) {
+                commitLineShape(e.shiftKey); // Shift keeps it open, a line (EXACT SHAPES)
                 return;
             }
             // 'm' works the motion circle, the same way you'd work the position circle:
@@ -59705,6 +59901,17 @@
             // they do not, so a pathological contour still exports rather than exporting wrong.
             const contourD = sp2 => {
                 const pts = samplePts(sp2);
+                // An exact shape (EXACT SHAPES) is written as its own corners joined by straight
+                // segments — what it is — not fitted with curves; a line is left open.
+                if (sp2._lazy && sp2._lazy.exact) {
+                    const q = pts.slice(0, -1); // samplePts closes the ring; the shape says whether it is one
+                    if (q.length < 2)
+                        return '';
+                    let d2 = '';
+                    for (let i = 0; i < q.length; i++)
+                        d2 += (i === 0 ? 'M' : 'L') + q[i].x.toFixed(2) + ' ' + q[i].y.toFixed(2) + ' ';
+                    return d2 + (sp2._lazy.open ? '' : 'Z');
+                }
                 if (pts.length < 4)
                     return '';
                 let segs = null;
@@ -59754,7 +59961,7 @@
                         d = mem.map(contourD).join(' ');
                     }
                 }
-                const fill = (sp.fill && sp.fill.color)
+                const fill = (sp.fill && sp.fill.color && !(sp._lazy && sp._lazy.open)) // a line is never filled
                 ? `fill="${sp.fill.color}" fill-opacity="${sp.fill.opacity != null ? sp.fill.opacity : 1}"`
                 : 'fill="none"';
                 // Per-leaf colour: when colour display is on, bake the reconstructed boundary colour
@@ -60345,8 +60552,26 @@
             URL.revokeObjectURL(url);
         }
 
+        // A .tvf holds leaves, and 3d and games read it. An exact shape (EXACT SHAPES) is saved
+        // as the leaves it would become, from a converted COPY: saving must not turn the shape
+        // in the drawing into leaves. (A held import is converted in place, as before.)
+        function tvfSubject(sp) {
+            if (!(sp && sp._lazy && sp._lazy.exact))
+                return sp;
+            const c = {};
+            for (const k of Object.keys(sp))
+                if (!LAZY_KEYS.includes(k))
+                    c[k] = sp[k];
+            const lz = sp._lazy;
+            makeLazy(c, lz.x, lz.y, lz.scale, null, {
+                open: lz.open
+            });
+            materializeLazy(c);
+            return c;
+        }
         $('bSaveTvf').addEventListener('click', () => {
-            if (state.subpaths.length === 0 || !state.subpaths[0].leafX) {
+            const S0 = state.subpaths[0];
+            if (state.subpaths.length === 0 || !(S0._lazy || S0.leafX)) {
                 $('status').innerHTML = '<span style="color:var(--red)">nothing to save — load an svg first</span>';
                 return;
             }
@@ -60355,7 +60580,7 @@
 
             if (S === 1) {
                 // Single subpath: one file, no number suffix
-                const text = encodeSubpathAsTVF(state.subpaths[0], {
+                const text = encodeSubpathAsTVF(tvfSubject(state.subpaths[0]), {
                     svgName: state.svgName,
                     sculpted: !!state.subpaths[0].dirty,
                 });
@@ -60378,7 +60603,7 @@
             // count in the status line is now the count that actually left the browser.
             const blocks = [];
             for (let i = 0; i < S; i++) {
-                blocks.push(encodeSubpathAsTVF(state.subpaths[i], {
+                blocks.push(encodeSubpathAsTVF(tvfSubject(state.subpaths[i]), {
                     svgName: state.svgName,
                     sculpted: !!state.subpaths[i].dirty,
                     subpathIndex: i,
@@ -60422,7 +60647,7 @@
             const live = idx.filter(i => state.subpaths[i] && state.subpaths[i].leafX);
             if (!live.length)
                 return null;
-            const blocks = live.map((i, n) => encodeSubpathAsTVF(state.subpaths[i], {
+            const blocks = live.map((i, n) => encodeSubpathAsTVF(tvfSubject(state.subpaths[i]), {
                 svgName: state.svgName,
                 sculpted: !!state.subpaths[i].dirty,
                 subpathIndex: live.length > 1 ? n : null,
@@ -60503,12 +60728,69 @@
                 updateStatus();
             drawAll();
         }
-        // Commit the click-placed straight-line polygon as a sharp-cornered shape.
-        function commitLineShape() {
-            const verts = drawAnchors ? drawAnchors.slice() : null;
+        // ── EXACT SHAPES ─────────────────────────────────────────────────────────────
+        // (22 Oct 2026, Tom: "leafs are great, unit you need to draw a straight line, which most
+        // people would regard as rather basic.") Leaves are a band-limited ring: they cannot
+        // hold a corner or a straight run, only ring around one. So the line pen no longer turns
+        // what it draws into leaves. Its polygon, or its line, stays the exact outline it was
+        // clicked as: a held record (THE HELD RECORD) marked exact, and open for a line, which is
+        // drawn as a stroke and never filled or closed. It moves, turns, resizes, groups, aligns
+        // and exports exactly; its corners can be dragged (EXACT VERTICES). It becomes leaves
+        // only when asked — the panel's "to leaves" button, or a leaf tool reaching for it —
+        // and is sculptable from then on. Clicking it, selecting it, the status line and the
+        // readouts do not convert it, as they do not convert a held import.
+        function loadExactShape(worldPts, append, open) {
+            const sp = {
+                refLength: 0,
+                source: open ? 'line' : 'polygon',
+                dirty: false
+            };
+            makeLazy(sp, Float64Array.from(worldPts, p => p.x), Float64Array.from(worldPts, p => p.y), 0, null, {
+                exact: true,
+                open
+            });
+            if (append && state.subpaths.length) {
+                state.subpaths.push(sp);
+                state.svgName = (state.svgName ? state.svgName + ' + ' : '') + 'drawn';
+            } else {
+                state.subpaths = [sp];
+                state.svgName = 'drawn shape';
+                state.view.zoom = 1;
+                state.view.panX = 0;
+                state.view.panY = 0;
+            }
+            state.lastLoadInfo = {
+                totalElements: state.subpaths.length,
+                multiSubpath: state.subpaths.length > 1,
+                subpathCount: state.subpaths.length
+            };
+            state.selected.clear();
+            rebuildSignalSelect();
+            centerShape(state.subpaths.length - 1);
+            updateStatus();
+            drawAll();
+            pushHistory();
+        }
+
+        // Commit the click-placed vertices as an exact shape (EXACT SHAPES). Closed — a
+        // polygon — when it was closed on its start point, or finished with three or more
+        // points; open — a line — when finished with two, or with Shift held. A double-click's
+        // second click lands where its first did, so points within a few pixels of the one
+        // before are one point.
+        function commitLineShape(open) {
+            let verts = drawAnchors ? drawAnchors.slice() : null;
             drawStroke = null;
             drawAnchors = null;
-            if (verts && verts.length >= 3) {
+            if (verts) {
+                const kept = [];
+                for (const p of verts)
+                    if (!kept.length || Math.hypot(p.x - kept[kept.length - 1].x, p.y - kept[kept.length - 1].y) > 3)
+                        kept.push(p);
+                if (kept.length > 2 && Math.hypot(kept[0].x - kept[kept.length - 1].x, kept[0].y - kept[kept.length - 1].y) <= 3)
+                    kept.pop(); // the start point clicked again
+                verts = kept;
+            }
+            if (verts && verts.length >= 2) {
                 const r = cv.getBoundingClientRect();
                 const wpts = verts.map(p => {
                     const w = pxToWorld(p.x, p.y, r.width, r.height);
@@ -60517,7 +60799,7 @@
                         y: w.y
                     };
                 });
-                loadDrawnStroke(wpts, drawAppend, true); // straight=true → keep corners (they ring)
+                loadExactShape(wpts, drawAppend, !!open || verts.length === 2);
             }
             setDrawMode(false);
         }
@@ -60525,9 +60807,9 @@
         $('bDrawLine').addEventListener('click', () => setDrawMode(!(drawMode && lineMode), true));
         // Double-click closes a line-pen polygon.
         cv.addEventListener('dblclick', e => {
-            if (drawMode && lineMode && drawAnchors && drawAnchors.length >= 3) {
+            if (drawMode && lineMode && drawAnchors && drawAnchors.length >= 2) {
                 e.preventDefault();
-                commitLineShape();
+                commitLineShape(e.shiftKey); // Shift keeps it open, a line (EXACT SHAPES)
                 return;
             }
             if (drawMode)
@@ -69395,7 +69677,7 @@
                 // An unconverted shape (CONVERT ON TOUCH) is saved as its import, under `lz`, and
                 // comes back unconverted; its outline is its only geometry, so dropRefs keeps it.
                 subpaths: state.subpaths.filter(sp => sp && (sp._lazy || (sp.leafX && sp.leafX.length >= 2))).map(sp => ({
-                    lz: sp._lazy ? 1 : 0,
+                    lz: sp._lazy ? (sp._lazy.exact ? (sp._lazy.open ? 3 : 2) : 1) : 0, // 2 exact, 3 exact line
                     ls: sp._lazy ? sp._lazy.scale : 0,
                     x: sp._lazy ? '' : _f32b64(sp.leafX),
                     y: sp._lazy ? '' : _f32b64(sp.leafY),
@@ -69516,7 +69798,9 @@
                     const lz = sp.lz && RX && RY ? {
                         x: RX,
                         y: RY,
-                        scale: +sp.ls || 0
+                        scale: +sp.ls || 0,
+                        exact: sp.lz >= 2,
+                        open: sp.lz === 3
                     } : null;
                     const X = lz ? null : _b64f32(sp.x),
                         Y = lz ? null : _b64f32(sp.y);
