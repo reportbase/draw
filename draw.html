@@ -14047,6 +14047,9 @@
             if (!el)
                 return;
             el.textContent = msg;
+            // forget what updateStatus last wrote, or it finds the line "unchanged" when the
+            // flash ends and leaves the flash standing
+            el._html = null;
             if (_flashTimer)
                 clearTimeout(_flashTimer);
             _flashTimer = setTimeout(() => {
@@ -15561,12 +15564,19 @@
             name: 'bt-group',
             title: 'group the selection, or ungroup it',
             show: () => selectionUnitCount() >= 2 || selectionIsGrouped()
-        }, // TO LEAVES (EXACT SHAPES): an exact polygon or line becomes leaves, to sculpt. Shown
-        // only while the selection holds one; a leaf tool reaching for one does the same.
+        }, // THE MODE SWITCH (EXACT SHAPES; 22 Oct 2026, Tom: "its not obvious how to toggle
+        // between the two modes"). A shape is held one of two ways: EXACT, its corners and
+        // straight edges as drawn, or LEAVES, the unit circle pushed and pulled. The switch says
+        // which in words, both words always on it and the one that holds lit, because a mode
+        // you cannot see is a mode you cannot find; and a press goes either way. It was a
+        // one-way "to leaves" button with a glyph, which told you neither what the shape was
+        // nor that there was a way back. Wide (wide: half-widths of a square button), so the
+        // words fit. Shown for any selection that holds a shape it can switch.
         {
-            name: 'bt-toleaves',
-            title: 'turn the exact shapes in the selection into leaves, to sculpt them (their corners will round)',
-            show: () => selectedIndices().some(i => state.subpaths[i] && state.subpaths[i]._lazy && state.subpaths[i]._lazy.exact)
+            name: 'bt-mode',
+            wide: 3.4,
+            title: 'exact or leaves: exact keeps straight edges and corners; leaves sculpt',
+            show: () => selectedIndices().some(i => modeSwitchable(state.subpaths[i]))
         }, // straighten flattens RUNS of selected leaves, so one leaf is never enough
         {
             name: 'bt-straighten',
@@ -15828,17 +15838,21 @@
                 // under the middle of the one above rather than hanging off its left end.
                 for (let i = 0; i < btns.length; i += per) {
                     const rowBtns = btns.slice(i, i + per);
-                    const totalW = rowBtns.length * br * 2 + (rowBtns.length - 1) * bg;
+                    // hw: a button's half-width; square ones are br, the mode switch wider
+                    const hwOf = b => br * (b.wide || 1);
+                    const totalW = rowBtns.reduce((t, b) => t + hwOf(b) * 2, 0) + (rowBtns.length - 1) * bg;
                     const y = y0b + dir * (i / per) * (br * 2 + bg);
-                    let x = cx - totalW / 2 + br;
+                    let x = cx - totalW / 2;
                     for (const b of rowBtns) {
+                        const hw = hwOf(b);
                         out.buttons.push({
                             ...b,
-                            cx: x,
+                            cx: x + hw,
                             cy: y,
-                            r: br
+                            r: br,
+                            hw
                         });
-                        x += br * 2 + bg;
+                        x += hw * 2 + bg;
                     }
                 }
             }
@@ -15849,7 +15863,7 @@
             if (!rows)
                 return null;
             for (const b of rows.buttons) {
-                if (Math.abs(px - b.cx) <= b.r + 2 && Math.abs(py - b.cy) <= b.r + 2)
+                if (Math.abs(px - b.cx) <= (b.hw || b.r) + 2 && Math.abs(py - b.cy) <= b.r + 2)
                     return b.name;
             }
             return null;
@@ -16186,29 +16200,167 @@
                 toggleGroupSelection();
                 return;
             }
-            if (name === 'bt-toleaves') {
-                let n = 0;
-                for (const i of selectedIndices()) {
-                    const sp = state.subpaths[i];
-                    if (sp && sp._lazy && sp._lazy.exact) {
-                        materializeLazy(sp);
-                        n++;
-                    }
-                }
-                if (n) {
-                    pushHistory();
-                    updateStatus();
-                    drawAll();
-                    flashStatus(n + (n > 1 ? ' shapes' : ' shape') + ' turned into leaves — sculpt away');
-                }
+            if (name === 'bt-mode') {
+                switchShapeMode();
                 return;
             }
+        }
+
+        // ── THE MODE SWITCH (EXACT SHAPES) ──────────────────────────────────────────
+        // Which shapes it can switch: a held shape (its outline is already exact, it only has
+        // to be marked so) and a shape of leaves. Not a text run's glyphs: the run is filled as
+        // one even-odd path, which the held renderer does not draw. Asked of _lazy first, since
+        // reading leafX off a held shape would convert it.
+        function modeSwitchable(sp) {
+            if (!sp || sp.textRun)
+                return false;
+            if (sp._lazy)
+                return true;
+            return !!(sp.leafX && sp.leafX.length >= 3);
+        }
+        // 'exact' when every switchable shape in the selection is exact, 'leaves' when none is,
+        // 'mixed' otherwise (the switch then lights neither word).
+        function selectionShapeMode() {
+            let ex = 0,
+                lv = 0;
+            for (const i of selectedIndices()) {
+                const sp = state.subpaths[i];
+                if (!modeSwitchable(sp))
+                    continue;
+                if (sp._lazy && sp._lazy.exact)
+                    ex++;
+                else
+                    lv++;
+            }
+            return ex && !lv ? 'exact' : (lv && !ex ? 'leaves' : 'mixed');
+        }
+        // Leaves (or a held outline) to an exact polygon. The outline is sampled finely and the
+        // samples thinned by Douglas–Peucker to half a screen pixel, so what you see is what is
+        // kept: a square of leaves comes back as its corners and a little more where the leaves
+        // had rounded them, a circle as as many sides as it takes to look round at this zoom.
+        // Per-leaf data (colours, motion) has no leaves to hang on any more and goes; undo has it.
+        function makeShapeExact(sp) {
+            let X, Y;
+            if (sp._lazy) {
+                X = sp._lazy.x;
+                Y = sp._lazy.y;
+            } else {
+                const N = sp.leafX.length;
+                const M = ceilPow2(Math.min(8192, Math.max(1024, N * 16)));
+                X = reconstruct1D(sp.leafX, M);
+                Y = reconstruct1D(sp.leafY, M);
+            }
+            const ring = [];
+            for (let i = 0; i < X.length; i++) {
+                const q = ring[ring.length - 1];
+                if (!q || q.x !== X[i] || q.y !== Y[i])
+                    ring.push({
+                        x: X[i],
+                        y: Y[i]
+                    });
+            }
+            while (ring.length > 1 && ring[0].x === ring[ring.length - 1].x && ring[0].y === ring[ring.length - 1].y)
+                ring.pop();
+            const r = cv.getBoundingClientRect();
+            const a = pxToWorld(0, 0, r.width, r.height),
+                b = pxToWorld(0.5, 0, r.width, r.height);
+            const eps = Math.abs(b.x - a.x) || 1e-4;
+            const pts = ring.length >= 4 ? rdpClosed(ring, eps) : ring;
+            if (pts.length < 3)
+                return false;
+            const xs = Float64Array.from(pts, q => q.x),
+                ys = Float64Array.from(pts, q => q.y);
+            if (sp._lazy) {
+                for (const key of LAZY_KEYS)
+                    delete sp[key];
+                sp._lazy = null;
+            }
+            for (const key of LAZY_KEYS)
+                delete sp[key];
+            sp.leafColor = null;
+            sp.leafMotion = null;
+            makeLazy(sp, xs, ys, 0, null, {
+                exact: true
+            });
+            return true;
+        }
+        // A press: an all-exact selection becomes leaves; anything else becomes exact.
+        function switchShapeMode() {
+            const toLeaves = selectionShapeMode() === 'exact';
+            let n = 0;
+            for (const i of selectedIndices()) {
+                const sp = state.subpaths[i];
+                if (!modeSwitchable(sp))
+                    continue;
+                if (toLeaves) {
+                    materializeLazy(sp);
+                    n++;
+                } else if (!(sp._lazy && sp._lazy.exact) && makeShapeExact(sp))
+                    n++;
+            }
+            if (!n)
+                return;
+            pushHistory();
+            updateStatus();
+            drawAll();
+            const what = n + (n > 1 ? ' shapes' : ' shape');
+            flashStatus(toLeaves ? what + ' now leaves: sculpt away (corners round off)'
+            : what + ' now exact: straight edges, drag a corner to move it');
+        }
+        // Both words, always: "exact" and "leaves" side by side, the one that holds filled gold.
+        function drawModeSwitch(b, hot) {
+            const mode = selectionShapeMode();
+            const r = b.r,
+                hw = b.hw || r;
+            ctx.save();
+            ctx.setLineDash([]);
+            const x0 = b.cx - hw,
+                y0 = b.cy - r;
+            const pill = () => {
+                ctx.beginPath();
+                if (ctx.roundRect)
+                    ctx.roundRect(x0, y0, hw * 2, r * 2, r);
+                else
+                    ctx.rect(x0, y0, hw * 2, r * 2);
+            };
+            pill();
+            ctx.fillStyle = hot ? 'rgba(212,160,82,0.22)' : 'rgba(14,14,19,0.9)';
+            ctx.fill();
+            const lit = mode === 'exact' ? 0 : (mode === 'leaves' ? 1 : -1);
+            if (lit >= 0) {
+                ctx.save();
+                pill();
+                ctx.clip();
+                ctx.fillStyle = '#d4a052';
+                ctx.fillRect(lit ? b.cx : x0, y0, hw, r * 2);
+                ctx.restore();
+            }
+            pill();
+            ctx.strokeStyle = hot ? '#f0c080' : 'rgba(212,160,82,0.55)';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(b.cx, y0 + 3);
+            ctx.lineTo(b.cx, y0 + r * 2 - 3);
+            ctx.stroke();
+            ctx.font = '600 ' + Math.round(r * 0.95) + 'px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const word = (t, x, on) => {
+                ctx.fillStyle = on ? '#14141a' : (hot ? '#f6d9a8' : 'rgba(212,160,82,0.9)');
+                ctx.fillText(t, x, b.cy + 0.5);
+            };
+            word('exact', b.cx - hw / 2, lit === 0);
+            word('leaves', b.cx + hw / 2, lit === 1);
+            ctx.restore();
         }
 
         // The three action buttons, drawn in the same gold vocabulary as the handles so the
         // whole assembly reads as one object rather than as furniture plus a toolbar.
         function drawBoxButton(b, hot) {
             const r = b.r;
+            if (b.name === 'bt-mode')
+                return drawModeSwitch(b, hot);
             ctx.save();
             ctx.setLineDash([]);
             ctx.beginPath();
@@ -16238,15 +16390,6 @@
             // The group switch's glyph, carried down from the rotate grip unchanged: one filled
             // square for the selection, and a ring round it when the selection already IS a
             // group, so the button says the state as well as the action.
-            if (b.name === 'bt-toleaves') {
-                // the leaves: eight dots on a ring
-                for (let q = 0; q < 8; q++) {
-                    const a = q * Math.PI / 4;
-                    ctx.beginPath();
-                    ctx.arc(5.6 * Math.cos(a), 5.6 * Math.sin(a), 1.25, 0, TAU);
-                    ctx.fill();
-                }
-            }
             if (b.name === 'bt-group') {
                 const grouped = selectionIsGrouped();
                 ctx.fillRect(-3.8, -3.8, 7.6, 7.6);
@@ -16408,8 +16551,8 @@
                 let x0 = rows.list[0].ax - PLATE_PAD,
                     x1 = rows.list[0].bx + PLATE_PAD;
                 for (const b of rows.buttons) {
-                    x0 = Math.min(x0, b.cx - b.r - 10);
-                    x1 = Math.max(x1, b.cx + b.r + 10);
+                    x0 = Math.min(x0, b.cx - (b.hw || b.r) - 10);
+                    x1 = Math.max(x1, b.cx + (b.hw || b.r) + 10);
                 }
                 // The text needs a column of its own, so a narrow selection box widens the plate
                 // while the help is up — symmetrically, so the tracks do not appear to slide
@@ -16858,7 +17001,7 @@
             'bt-straighten': 'pointer',
             'bt-smooth': 'pointer',
             'bt-group': 'pointer',
-            'bt-toleaves': 'pointer',
+            'bt-mode': 'pointer',
             'bt-roundoff': 'pointer',
             'bt-mirror-v': 'pointer',
             'bt-mirror-h': 'pointer',
@@ -16920,7 +17063,7 @@
                             return t.name;
                     }
                     for (const b of rows.buttons) {
-                        if (Math.abs(px - b.cx) <= b.r + 2 && Math.abs(py - b.cy) <= b.r + 2)
+                        if (Math.abs(px - b.cx) <= (b.hw || b.r) + 2 && Math.abs(py - b.cy) <= b.r + 2)
                             return b.name;
                     }
                 }
@@ -24851,7 +24994,7 @@
                 nStr = (_act._lazy.open ? 'exact line, ' : 'exact polygon, ') + _act._lazy.rx.length + ' points'
                 + ' <span style="color:var(--fg-muted)">(signal ' + (state.activeSp + 1) + ')</span>';
             } else if (state.activeSp >= 0 && state.subpaths[state.activeSp] && state.subpaths[state.activeSp].leafX) {
-                nStr = 'N=' + state.subpaths[state.activeSp].leafX.length
+                nStr = 'leaves, N=' + state.subpaths[state.activeSp].leafX.length
                 + ' <span style="color:var(--fg-muted)">(signal ' + (state.activeSp + 1) + ')</span>';
             } else if (state.subpaths.length > 1) {
                 // Unconverted shapes (CONVERT ON TOUCH) hold no leaves yet and are left out.
@@ -72346,6 +72489,12 @@
                 return (rows && rows.buttons && rows.buttons.find(b => b.name === 'bt-group')) || null;
             },
             panelUp: () => !!sliderRows(),
+            // any panel button's place by name (the mode switch: 'bt-mode'), or null
+            button: name => {
+                const rows = sliderRows();
+                return (rows && rows.buttons && rows.buttons.find(b => b.name === name)) || null;
+            },
+            mode: () => selectionShapeMode(), // 'exact', 'leaves' or 'mixed'
             handles: () => handlePoints(), // the box's grips in canvas pixels, for driving a drag
             grouped: () => selectionIsGrouped(),
             units: () => selectionUnitCount(),
