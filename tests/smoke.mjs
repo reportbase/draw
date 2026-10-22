@@ -304,7 +304,8 @@ try {
    of its own, with every CDN blocked, because the importer must not need one (the path-data
    polyfill is inlined; without it a 200-path file took 40 s): 300 shapes load held; clicking
    the one in the middle converts that one and no other; the autosave keeps the rest held, and
-   a reload brings them back held; select-all and the SVG export keep them held, and the export
+   a reload brings them back held; the rung worker answers for all 300 exactly as the page would,
+   and a converted shape takes its answer; select-all and the SVG export keep them held, and the export
    writes all 300. Clicking reaches every shape through the hit test, so a pass
    that reads every shape's leaves shows up here as the count dropping to 0. */
 current = 'crowded import';
@@ -337,11 +338,17 @@ current = 'crowded import';
     await cp.waitForFunction(() => window.__lazy && window.__lazy.held() === 300, null, { timeout: 30000 });
     const status = await cp.evaluate(() => document.getElementById('status').textContent);
     if (!/300 as imported/.test(status)) throw new Error('status: ' + status);
+    // The rung worker answers for every held shape in the background, and each answer is the
+    // one the page computes itself from the same outline. Then clicking a shape uses its answer.
+    await cp.waitForFunction(() => window.__lazy.solvedAhead >= 300, null, { timeout: 60000 });
+    const ahead = await cp.evaluate(() => window.__lazy.checkAhead());
+    if (ahead.n !== 300 || ahead.differ !== 0) throw new Error(`rung worker: ${ahead.differ} of ${ahead.n} answers differ from the page's own`);
     const box = await cp.locator('#cv').boundingBox();
     await cp.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await cp.waitForTimeout(600);
     const held = await cp.evaluate(() => window.__lazy.held());
     if (held !== 299) throw new Error(`clicking one shape left ${held} of 300 held, not 299`);
+    if (!(await cp.evaluate(() => window.__lazy.presolved))) throw new Error('the clicked shape did not take the worker\'s answer');
     await cp.waitForFunction(() => ((localStorage.getItem('tangent.scene.v1') || '').match(/"lz":1/g) || []).length === 299,
                              null, { timeout: 15000 });
     await cp.reload({ waitUntil: 'load' });
@@ -368,10 +375,12 @@ current = 'crowded import';
 }
 
 /* The group button lives in the panel under the selection (BOX_BUTTONS 'bt-group'), no longer
-   beside the rotate grip, and a double-click on a shape puts the panel away and brings it back.
-   Three shapes, all selected: the button is in the panel's row, pressing it groups them, a
-   double-click on the middle shape hides the panel and a second shows it again. */
-current = 'panel: group button and double-click';
+   beside the rotate grip, and the menu's "selection panel" switch (#tSelPanel) puts the panel away
+   and brings it back; a double-click on a shape no longer does. Three shapes, all selected: the
+   button is in the panel's row and pressing it groups them; a double-click leaves the panel up;
+   the switch hides it and shows it again. And the selected tile in the shape browser is opaque
+   (its gold wash lies on the chip's fill), so it reads over any drawing behind the strip. */
+current = 'panel: group button and menu switch';
 {
   const gp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   gp.on('pageerror', e => failures.push(`[panel] ${e.message}`));
@@ -396,14 +405,20 @@ current = 'panel: group button and double-click';
     const mid = [box.x + box.width / 2, box.y + box.height / 2];
     await gp.mouse.dblclick(...mid);
     await gp.waitForTimeout(400);
-    if (await gp.evaluate(() => window.__box.panelUp())) throw new Error('a double-click on the shape left the panel up');
-    await gp.mouse.dblclick(...mid);
-    await gp.waitForTimeout(400);
-    if (!(await gp.evaluate(() => window.__box.panelUp()))) throw new Error('a second double-click did not bring the panel back');
+    if (!(await gp.evaluate(() => window.__box.panelUp()))) throw new Error('a double-click on the shape put the panel away');
+    const flip = () => gp.evaluate(() => { const t = document.getElementById('tSelPanel'); t.checked = !t.checked; t.dispatchEvent(new Event('change')); });
+    await flip();
+    await gp.waitForTimeout(300);
+    if (await gp.evaluate(() => window.__box.panelUp())) throw new Error('the menu switch left the panel up');
+    await flip();
+    await gp.waitForTimeout(300);
+    if (!(await gp.evaluate(() => window.__box.panelUp()))) throw new Error('the menu switch did not bring the panel back');
+    const tileBg = await gp.evaluate(() => { const t = document.querySelector('.shape-tile.active'); return t ? getComputedStyle(t).backgroundColor : 'no active tile'; });
+    if (!/^rgb\(/.test(tileBg)) throw new Error('the selected tile is see-through: ' + tileBg);
   } catch (e){
     failures.push(`[panel] ${e.message.split('\n')[0]}`);
   }
-  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} panel: group button and double-click`);
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} panel: group button and menu switch`);
   await gp.close();
 }
 
