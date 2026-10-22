@@ -8,14 +8,1211 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
     <!--
-      SVG 2 getPathData() polyfill (Jarek Foksa, MIT). Adds .getPathData() to
-      SVGPathElement on browsers that don't have it natively (currently
-      Firefox and Safari). Used by parseSvgToPolyline to walk path segments
-      and split paths cleanly at M commands instead of guessing subpath
-      boundaries from step-distance heuristics. If the CDN is unreachable,
-      the parser falls back to the legacy heuristic path.
+      SVG 2 getPathData() polyfill, path-data-polyfill 1.0.10 (Jarosław Foksa, MIT License,
+      Copyright (c) 2015 Jarosław Foksa; https://github.com/jarek-foksa/path-data-polyfill).
+      Adds .getPathData() to SVGPathElement, which no browser ships natively — Chrome
+      included, not only Firefox and Safari. parseSvgToPolyline walks path segments with it
+      and splits paths cleanly at M commands.
+
+      INLINED, not loaded from the CDN as it was. Without it every <path> falls to the legacy
+      tracer, which samples the outline through getPointAtLength, and that is not a little
+      slower: a 200-path file took 40 s against 1.2 s with the polyfill (measured in headless
+      Chromium with the CDN blocked). A blocker, a captive portal or a flaky connection was
+      enough to put a user there without a word. 32 KB against a page of 3.9 MB is the
+      cheaper side of that trade. The source is the package's path-data-polyfill.js, unchanged.
     -->
-    <script src="https://cdn.jsdelivr.net/npm/path-data-polyfill@1.0.10/path-data-polyfill.min.js"></script>
+    <script>
+// @info
+//   Polyfill for SVG getPathData() and setPathData() methods. Based on:
+//   - SVGPathSeg polyfill by Philip Rogers (MIT License)
+//     https://github.com/progers/pathseg
+//   - SVGPathNormalizer by Tadahisa Motooka (MIT License)
+//     https://github.com/motooka/SVGPathNormalizer/tree/master/src
+//   - arcToCubicCurves() by Dmitry Baranovskiy (MIT License)
+//     https://github.com/DmitryBaranovskiy/raphael/blob/v2.1.1/raphael.core.js#L1837
+// @author
+//   Jarosław Foksa
+// @license
+//   MIT License
+(function() {
+  var clonePathData = function(pathData) {
+    return pathData.map( function(seg) {
+      return {type: seg.type, values: Array.prototype.slice.call(seg.values)}
+    });
+  };
+
+  // @info
+  //   Takes any path data, returns path data that consists only from absolute commands.
+  var absolutizePathData = function(pathData) {
+    var absolutizedPathData = [];
+
+    var currentX = null;
+    var currentY = null;
+
+    var subpathX = null;
+    var subpathY = null;
+
+    pathData.forEach( function(seg) {
+      var type = seg.type;
+
+      if (type === "M") {
+        var x = seg.values[0];
+        var y = seg.values[1];
+
+        absolutizedPathData.push({type: "M", values: [x, y]});
+
+        subpathX = x;
+        subpathY = y;
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "m") {
+        var x = currentX + seg.values[0];
+        var y = currentY + seg.values[1];
+
+        absolutizedPathData.push({type: "M", values: [x, y]});
+
+        subpathX = x;
+        subpathY = y;
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "L") {
+        var x = seg.values[0];
+        var y = seg.values[1];
+
+        absolutizedPathData.push({type: "L", values: [x, y]});
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "l") {
+        var x = currentX + seg.values[0];
+        var y = currentY + seg.values[1];
+
+        absolutizedPathData.push({type: "L", values: [x, y]});
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "C") {
+        var x1 = seg.values[0];
+        var y1 = seg.values[1];
+        var x2 = seg.values[2];
+        var y2 = seg.values[3];
+        var x = seg.values[4];
+        var y = seg.values[5];
+
+        absolutizedPathData.push({type: "C", values: [x1, y1, x2, y2, x, y]});
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "c") {
+        var x1 = currentX + seg.values[0];
+        var y1 = currentY + seg.values[1];
+        var x2 = currentX + seg.values[2];
+        var y2 = currentY + seg.values[3];
+        var x = currentX + seg.values[4];
+        var y = currentY + seg.values[5];
+
+        absolutizedPathData.push({type: "C", values: [x1, y1, x2, y2, x, y]});
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "Q") {
+        var x1 = seg.values[0];
+        var y1 = seg.values[1];
+        var x = seg.values[2];
+        var y = seg.values[3];
+
+        absolutizedPathData.push({type: "Q", values: [x1, y1, x, y]});
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "q") {
+        var x1 = currentX + seg.values[0];
+        var y1 = currentY + seg.values[1];
+        var x = currentX + seg.values[2];
+        var y = currentY + seg.values[3];
+
+        absolutizedPathData.push({type: "Q", values: [x1, y1, x, y]});
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "A") {
+        var x = seg.values[5];
+        var y = seg.values[6];
+
+        absolutizedPathData.push({
+          type: "A",
+          values: [seg.values[0], seg.values[1], seg.values[2], seg.values[3], seg.values[4], x, y]
+        });
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "a") {
+        var x = currentX + seg.values[5];
+        var y = currentY + seg.values[6];
+
+        absolutizedPathData.push({
+          type: "A",
+          values: [seg.values[0], seg.values[1], seg.values[2], seg.values[3], seg.values[4], x, y]
+        });
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "H") {
+        var x = seg.values[0];
+        absolutizedPathData.push({type: "H", values: [x]});
+        currentX = x;
+      }
+
+      else if (type === "h") {
+        var x = currentX + seg.values[0];
+        absolutizedPathData.push({type: "H", values: [x]});
+        currentX = x;
+      }
+
+      else if (type === "V") {
+        var y = seg.values[0];
+        absolutizedPathData.push({type: "V", values: [y]});
+        currentY = y;
+      }
+
+      else if (type === "v") {
+        var y = currentY + seg.values[0];
+        absolutizedPathData.push({type: "V", values: [y]});
+        currentY = y;
+      }
+
+      else if (type === "S") {
+        var x2 = seg.values[0];
+        var y2 = seg.values[1];
+        var x = seg.values[2];
+        var y = seg.values[3];
+
+        absolutizedPathData.push({type: "S", values: [x2, y2, x, y]});
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "s") {
+        var x2 = currentX + seg.values[0];
+        var y2 = currentY + seg.values[1];
+        var x = currentX + seg.values[2];
+        var y = currentY + seg.values[3];
+
+        absolutizedPathData.push({type: "S", values: [x2, y2, x, y]});
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "T") {
+        var x = seg.values[0];
+        var y = seg.values[1]
+
+        absolutizedPathData.push({type: "T", values: [x, y]});
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "t") {
+        var x = currentX + seg.values[0];
+        var y = currentY + seg.values[1]
+
+        absolutizedPathData.push({type: "T", values: [x, y]});
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (type === "Z" || type === "z") {
+        absolutizedPathData.push({type: "Z", values: []});
+
+        currentX = subpathX;
+        currentY = subpathY;
+      }
+    });
+
+    return absolutizedPathData;
+  };
+
+  // @info
+  //   Takes path data that consists only from absolute commands, returns path data that consists only from
+  //   "M", "L", "C" and "Z" commands.
+  var reducePathData = function(pathData) {
+    var reducedPathData = [];
+    var lastType = null;
+
+    var lastControlX = null;
+    var lastControlY = null;
+
+    var currentX = null;
+    var currentY = null;
+
+    var subpathX = null;
+    var subpathY = null;
+
+    pathData.forEach( function(seg) {
+      if (seg.type === "M") {
+        var x = seg.values[0];
+        var y = seg.values[1];
+
+        reducedPathData.push({type: "M", values: [x, y]});
+
+        subpathX = x;
+        subpathY = y;
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (seg.type === "C") {
+        var x1 = seg.values[0];
+        var y1 = seg.values[1];
+        var x2 = seg.values[2];
+        var y2 = seg.values[3];
+        var x = seg.values[4];
+        var y = seg.values[5];
+
+        reducedPathData.push({type: "C", values: [x1, y1, x2, y2, x, y]});
+
+        lastControlX = x2;
+        lastControlY = y2;
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (seg.type === "L") {
+        var x = seg.values[0];
+        var y = seg.values[1];
+
+        reducedPathData.push({type: "L", values: [x, y]});
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (seg.type === "H") {
+        var x = seg.values[0];
+
+        reducedPathData.push({type: "L", values: [x, currentY]});
+
+        currentX = x;
+      }
+
+      else if (seg.type === "V") {
+        var y = seg.values[0];
+
+        reducedPathData.push({type: "L", values: [currentX, y]});
+
+        currentY = y;
+      }
+
+      else if (seg.type === "S") {
+        var x2 = seg.values[0];
+        var y2 = seg.values[1];
+        var x = seg.values[2];
+        var y = seg.values[3];
+
+        var cx1, cy1;
+
+        if (lastType === "C" || lastType === "S") {
+          cx1 = currentX + (currentX - lastControlX);
+          cy1 = currentY + (currentY - lastControlY);
+        }
+        else {
+          cx1 = currentX;
+          cy1 = currentY;
+        }
+
+        reducedPathData.push({type: "C", values: [cx1, cy1, x2, y2, x, y]});
+
+        lastControlX = x2;
+        lastControlY = y2;
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (seg.type === "T") {
+        var x = seg.values[0];
+        var y = seg.values[1];
+
+        var x1, y1;
+
+        if (lastType === "Q" || lastType === "T") {
+          x1 = currentX + (currentX - lastControlX);
+          y1 = currentY + (currentY - lastControlY);
+        }
+        else {
+          x1 = currentX;
+          y1 = currentY;
+        }
+
+        var cx1 = currentX + 2 * (x1 - currentX) / 3;
+        var cy1 = currentY + 2 * (y1 - currentY) / 3;
+        var cx2 = x + 2 * (x1 - x) / 3;
+        var cy2 = y + 2 * (y1 - y) / 3;
+
+        reducedPathData.push({type: "C", values: [cx1, cy1, cx2, cy2, x, y]});
+
+        lastControlX = x1;
+        lastControlY = y1;
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (seg.type === "Q") {
+        var x1 = seg.values[0];
+        var y1 = seg.values[1];
+        var x = seg.values[2];
+        var y = seg.values[3];
+
+        var cx1 = currentX + 2 * (x1 - currentX) / 3;
+        var cy1 = currentY + 2 * (y1 - currentY) / 3;
+        var cx2 = x + 2 * (x1 - x) / 3;
+        var cy2 = y + 2 * (y1 - y) / 3;
+
+        reducedPathData.push({type: "C", values: [cx1, cy1, cx2, cy2, x, y]});
+
+        lastControlX = x1;
+        lastControlY = y1;
+
+        currentX = x;
+        currentY = y;
+      }
+
+      else if (seg.type === "A") {
+        var r1 = Math.abs(seg.values[0]);
+        var r2 = Math.abs(seg.values[1]);
+        var angle = seg.values[2];
+        var largeArcFlag = seg.values[3];
+        var sweepFlag = seg.values[4];
+        var x = seg.values[5];
+        var y = seg.values[6];
+
+        if (r1 === 0 || r2 === 0) {
+          reducedPathData.push({type: "C", values: [currentX, currentY, x, y, x, y]});
+
+          currentX = x;
+          currentY = y;
+        }
+        else {
+          if (currentX !== x || currentY !== y) {
+            var curves = arcToCubicCurves(currentX, currentY, x, y, r1, r2, angle, largeArcFlag, sweepFlag);
+
+            curves.forEach( function(curve) {
+              reducedPathData.push({type: "C", values: curve});
+            });
+
+            currentX = x;
+            currentY = y;
+          }
+        }
+      }
+
+      else if (seg.type === "Z") {
+        reducedPathData.push(seg);
+
+        currentX = subpathX;
+        currentY = subpathY;
+      }
+
+      lastType = seg.type;
+    });
+
+    return reducedPathData;
+  };
+
+  // @info
+  //   Get an array of corresponding cubic bezier curve parameters for given arc curve paramters.
+  var arcToCubicCurves = function(x1, y1, x2, y2, r1, r2, angle, largeArcFlag, sweepFlag, _recursive) {
+    var degToRad = function(degrees) {
+      return (Math.PI * degrees) / 180;
+    };
+
+    var rotate = function(x, y, angleRad) {
+      var X = x * Math.cos(angleRad) - y * Math.sin(angleRad);
+      var Y = x * Math.sin(angleRad) + y * Math.cos(angleRad);
+      return {x: X, y: Y};
+    };
+
+    var angleRad = degToRad(angle);
+    var params = [];
+    var f1, f2, cx, cy;
+
+    if (_recursive) {
+      f1 = _recursive[0];
+      f2 = _recursive[1];
+      cx = _recursive[2];
+      cy = _recursive[3];
+    }
+    else {
+      var p1 = rotate(x1, y1, -angleRad);
+      x1 = p1.x;
+      y1 = p1.y;
+
+      var p2 = rotate(x2, y2, -angleRad);
+      x2 = p2.x;
+      y2 = p2.y;
+
+      var x = (x1 - x2) / 2;
+      var y = (y1 - y2) / 2;
+      var h = (x * x) / (r1 * r1) + (y * y) / (r2 * r2);
+
+      if (h > 1) {
+        h = Math.sqrt(h);
+        r1 = h * r1;
+        r2 = h * r2;
+      }
+
+      var sign;
+
+      if (largeArcFlag === sweepFlag) {
+        sign = -1;
+      }
+      else {
+        sign = 1;
+      }
+
+      var r1Pow = r1 * r1;
+      var r2Pow = r2 * r2;
+
+      var left = r1Pow * r2Pow - r1Pow * y * y - r2Pow * x * x;
+      var right = r1Pow * y * y + r2Pow * x * x;
+
+      var k = sign * Math.sqrt(Math.abs(left/right));
+
+      cx = k * r1 * y / r2 + (x1 + x2) / 2;
+      cy = k * -r2 * x / r1 + (y1 + y2) / 2;
+
+      f1 = Math.asin(parseFloat(((y1 - cy) / r2).toFixed(9)));
+      f2 = Math.asin(parseFloat(((y2 - cy) / r2).toFixed(9)));
+
+      if (x1 < cx) {
+        f1 = Math.PI - f1;
+      }
+      if (x2 < cx) {
+        f2 = Math.PI - f2;
+      }
+
+      if (f1 < 0) {
+        f1 = Math.PI * 2 + f1;
+      }
+      if (f2 < 0) {
+        f2 = Math.PI * 2 + f2;
+      }
+
+      if (sweepFlag && f1 > f2) {
+        f1 = f1 - Math.PI * 2;
+      }
+      if (!sweepFlag && f2 > f1) {
+        f2 = f2 - Math.PI * 2;
+      }
+    }
+
+    var df = f2 - f1;
+
+    if (Math.abs(df) > (Math.PI * 120 / 180)) {
+      var f2old = f2;
+      var x2old = x2;
+      var y2old = y2;
+
+      if (sweepFlag && f2 > f1) {
+        f2 = f1 + (Math.PI * 120 / 180) * (1);
+      }
+      else {
+        f2 = f1 + (Math.PI * 120 / 180) * (-1);
+      }
+
+      x2 = cx + r1 * Math.cos(f2);
+      y2 = cy + r2 * Math.sin(f2);
+      params = arcToCubicCurves(x2, y2, x2old, y2old, r1, r2, angle, 0, sweepFlag, [f2, f2old, cx, cy]);
+    }
+
+    df = f2 - f1;
+
+    var c1 = Math.cos(f1);
+    var s1 = Math.sin(f1);
+    var c2 = Math.cos(f2);
+    var s2 = Math.sin(f2);
+    var t = Math.tan(df / 4);
+    var hx = 4 / 3 * r1 * t;
+    var hy = 4 / 3 * r2 * t;
+
+    var m1 = [x1, y1];
+    var m2 = [x1 + hx * s1, y1 - hy * c1];
+    var m3 = [x2 + hx * s2, y2 - hy * c2];
+    var m4 = [x2, y2];
+
+    m2[0] = 2 * m1[0] - m2[0];
+    m2[1] = 2 * m1[1] - m2[1];
+
+    if (_recursive) {
+      return [m2, m3, m4].concat(params);
+    }
+    else {
+      params = [m2, m3, m4].concat(params);
+
+      var curves = [];
+
+      for (var i = 0; i < params.length; i+=3) {
+        var r1 = rotate(params[i][0], params[i][1], angleRad);
+        var r2 = rotate(params[i+1][0], params[i+1][1], angleRad);
+        var r3 = rotate(params[i+2][0], params[i+2][1], angleRad);
+        curves.push([r1.x, r1.y, r2.x, r2.y, r3.x, r3.y]);
+      }
+
+      return curves;
+    }
+  };
+
+  let isPathDataSupported = SVGPathElement.prototype.getPathData !== undefined &&
+                            SVGPathElement.prototype.setPathData !== undefined;
+
+  // Apply the polyfill if the native implementation of setPathData() accepts only SVGPathSegment instances
+  // https://github.com/w3c/svgwg/issues/974
+  // https://github.com/w3c/editing/issues/483
+  // https://bugzilla.mozilla.org/show_bug.cgi?id=1954044#c18
+  if (isPathDataSupported) {
+    try {
+      document.createElementNS("http://www.w3.org/2000/svg", "path").setPathData([{type: "M", values: [0, 0]}]);
+    }
+    catch (error) {
+      isPathDataSupported = false;
+    }
+  }
+
+  if (isPathDataSupported === false) {
+    var commandsMap = {
+      "Z":"Z", "M":"M", "L":"L", "C":"C", "Q":"Q", "A":"A", "H":"H", "V":"V", "S":"S", "T":"T",
+      "z":"Z", "m":"m", "l":"l", "c":"c", "q":"q", "a":"a", "h":"h", "v":"v", "s":"s", "t":"t"
+    };
+
+    var Source = function(string) {
+      this._string = string;
+      this._currentIndex = 0;
+      this._endIndex = this._string.length;
+      this._prevCommand = null;
+      this._skipOptionalSpaces();
+    };
+
+    var isIE = window.navigator.userAgent.indexOf("MSIE ") !== -1;
+
+    Source.prototype = {
+      parseSegment: function() {
+        var char = this._string[this._currentIndex];
+        var command = commandsMap[char] ? commandsMap[char] : null;
+
+        if (command === null) {
+          // Possibly an implicit command. Not allowed if this is the first command.
+          if (this._prevCommand === null) {
+            return null;
+          }
+
+          // Check for remaining coordinates in the current command.
+          if (
+            (char === "+" || char === "-" || char === "." || (char >= "0" && char <= "9")) && this._prevCommand !== "Z"
+          ) {
+            if (this._prevCommand === "M") {
+              command = "L";
+            }
+            else if (this._prevCommand === "m") {
+              command = "l";
+            }
+            else {
+              command = this._prevCommand;
+            }
+          }
+          else {
+            command = null;
+          }
+
+          if (command === null) {
+            return null;
+          }
+        }
+        else {
+          this._currentIndex += 1;
+        }
+
+        this._prevCommand = command;
+
+        var values = null;
+        var cmd = command.toUpperCase();
+
+        if (cmd === "H" || cmd === "V") {
+          values = [this._parseNumber()];
+        }
+        else if (cmd === "M" || cmd === "L" || cmd === "T") {
+          values = [this._parseNumber(), this._parseNumber()];
+        }
+        else if (cmd === "S" || cmd === "Q") {
+          values = [this._parseNumber(), this._parseNumber(), this._parseNumber(), this._parseNumber()];
+        }
+        else if (cmd === "C") {
+          values = [
+            this._parseNumber(),
+            this._parseNumber(),
+            this._parseNumber(),
+            this._parseNumber(),
+            this._parseNumber(),
+            this._parseNumber()
+          ];
+        }
+        else if (cmd === "A") {
+          values = [
+            this._parseNumber(),
+            this._parseNumber(),
+            this._parseNumber(),
+            this._parseArcFlag(),
+            this._parseArcFlag(),
+            this._parseNumber(),
+            this._parseNumber()
+          ];
+        }
+        else if (cmd === "Z") {
+          this._skipOptionalSpaces();
+          values = [];
+        }
+
+        if (values === null || values.indexOf(null) >= 0) {
+          // Unknown command or known command with invalid values
+          return null;
+        }
+        else {
+          return {type: command, values: values};
+        }
+      },
+
+      hasMoreData: function() {
+        return this._currentIndex < this._endIndex;
+      },
+
+      peekSegmentType: function() {
+        var char = this._string[this._currentIndex];
+        return commandsMap[char] ? commandsMap[char] : null;
+      },
+
+      initialCommandIsMoveTo: function() {
+        // If the path is empty it is still valid, so return true.
+        if (!this.hasMoreData()) {
+          return true;
+        }
+
+        var command = this.peekSegmentType();
+        // Path must start with moveTo.
+        return command === "M" || command === "m";
+      },
+
+      _isCurrentSpace: function() {
+        var char = this._string[this._currentIndex];
+        return char <= " " && (char === " " || char === "\n" || char === "\t" || char === "\r" || char === "\f");
+      },
+
+      _skipOptionalSpaces: function() {
+        while (this._currentIndex < this._endIndex && this._isCurrentSpace()) {
+          this._currentIndex += 1;
+        }
+
+        return this._currentIndex < this._endIndex;
+      },
+
+      _skipOptionalSpacesOrDelimiter: function() {
+        if (
+          this._currentIndex < this._endIndex &&
+          !this._isCurrentSpace() &&
+          this._string[this._currentIndex] !== ","
+        ) {
+          return false;
+        }
+
+        if (this._skipOptionalSpaces()) {
+          if (this._currentIndex < this._endIndex && this._string[this._currentIndex] === ",") {
+            this._currentIndex += 1;
+            this._skipOptionalSpaces();
+          }
+        }
+        return this._currentIndex < this._endIndex;
+      },
+
+      // Parse a number from an SVG path. This very closely follows genericParseNumber(...) from
+      // Source/core/svg/SVGParserUtilities.cpp.
+      // Spec: http://www.w3.org/TR/SVG11/single-page.html#paths-PathDataBNF
+      _parseNumber: function() {
+        var exponent = 0;
+        var integer = 0;
+        var frac = 1;
+        var decimal = 0;
+        var sign = 1;
+        var expsign = 1;
+        var startIndex = this._currentIndex;
+
+        this._skipOptionalSpaces();
+
+        // Read the sign.
+        if (this._currentIndex < this._endIndex && this._string[this._currentIndex] === "+") {
+          this._currentIndex += 1;
+        }
+        else if (this._currentIndex < this._endIndex && this._string[this._currentIndex] === "-") {
+          this._currentIndex += 1;
+          sign = -1;
+        }
+
+        if (
+          this._currentIndex === this._endIndex ||
+          (
+            (this._string[this._currentIndex] < "0" || this._string[this._currentIndex] > "9") &&
+            this._string[this._currentIndex] !== "."
+          )
+        ) {
+          // The first character of a number must be one of [0-9+-.].
+          return null;
+        }
+
+        // Read the integer part, build right-to-left.
+        var startIntPartIndex = this._currentIndex;
+
+        while (
+          this._currentIndex < this._endIndex &&
+          this._string[this._currentIndex] >= "0" &&
+          this._string[this._currentIndex] <= "9"
+        ) {
+          this._currentIndex += 1; // Advance to first non-digit.
+        }
+
+        if (this._currentIndex !== startIntPartIndex) {
+          var scanIntPartIndex = this._currentIndex - 1;
+          var multiplier = 1;
+
+          while (scanIntPartIndex >= startIntPartIndex) {
+            integer += multiplier * (this._string[scanIntPartIndex] - "0");
+            scanIntPartIndex -= 1;
+            multiplier *= 10;
+          }
+        }
+
+        // Read the decimals.
+        if (this._currentIndex < this._endIndex && this._string[this._currentIndex] === ".") {
+          this._currentIndex += 1;
+
+          // There must be a least one digit following the .
+          if (
+            this._currentIndex >= this._endIndex ||
+            this._string[this._currentIndex] < "0" ||
+            this._string[this._currentIndex] > "9"
+          ) {
+            return null;
+          }
+
+          while (
+            this._currentIndex < this._endIndex &&
+            this._string[this._currentIndex] >= "0" &&
+            this._string[this._currentIndex] <= "9"
+          ) {
+            frac *= 10;
+            decimal += (this._string.charAt(this._currentIndex) - "0") / frac;
+            this._currentIndex += 1;
+          }
+        }
+
+        // Read the exponent part.
+        if (
+          this._currentIndex !== startIndex &&
+          this._currentIndex + 1 < this._endIndex &&
+          (this._string[this._currentIndex] === "e" || this._string[this._currentIndex] === "E") &&
+          (this._string[this._currentIndex + 1] !== "x" && this._string[this._currentIndex + 1] !== "m")
+        ) {
+          this._currentIndex += 1;
+
+          // Read the sign of the exponent.
+          if (this._string[this._currentIndex] === "+") {
+            this._currentIndex += 1;
+          }
+          else if (this._string[this._currentIndex] === "-") {
+            this._currentIndex += 1;
+            expsign = -1;
+          }
+
+          // There must be an exponent.
+          if (
+            this._currentIndex >= this._endIndex ||
+            this._string[this._currentIndex] < "0" ||
+            this._string[this._currentIndex] > "9"
+          ) {
+            return null;
+          }
+
+          while (
+            this._currentIndex < this._endIndex &&
+            this._string[this._currentIndex] >= "0" &&
+            this._string[this._currentIndex] <= "9"
+          ) {
+            exponent *= 10;
+            exponent += (this._string[this._currentIndex] - "0");
+            this._currentIndex += 1;
+          }
+        }
+
+        var number = integer + decimal;
+        number *= sign;
+
+        if (exponent) {
+          number *= Math.pow(10, expsign * exponent);
+        }
+
+        if (startIndex === this._currentIndex) {
+          return null;
+        }
+
+        this._skipOptionalSpacesOrDelimiter();
+
+        return number;
+      },
+
+      _parseArcFlag: function() {
+        if (this._currentIndex >= this._endIndex) {
+          return null;
+        }
+
+        var flag = null;
+        var flagChar = this._string[this._currentIndex];
+
+        this._currentIndex += 1;
+
+        if (flagChar === "0") {
+          flag = 0;
+        }
+        else if (flagChar === "1") {
+          flag = 1;
+        }
+        else {
+          return null;
+        }
+
+        this._skipOptionalSpacesOrDelimiter();
+        return flag;
+      }
+    };
+
+    var parsePathDataString = function(string) {
+      if (!string || string.length === 0) return [];
+
+      var source = new Source(string);
+      var pathData = [];
+
+      if (source.initialCommandIsMoveTo()) {
+        while (source.hasMoreData()) {
+          var pathSeg = source.parseSegment();
+
+          if (pathSeg === null) {
+            break;
+          }
+          else {
+            pathData.push(pathSeg);
+          }
+        }
+      }
+
+      return pathData;
+    }
+
+    var setAttribute = SVGPathElement.prototype.setAttribute;
+    var setAttributeNS = SVGPathElement.prototype.setAttributeNS;
+    var removeAttribute = SVGPathElement.prototype.removeAttribute;
+    var removeAttributeNS = SVGPathElement.prototype.removeAttributeNS;
+
+    var $cachedPathData = window.Symbol ? Symbol() : "__cachedPathData";
+    var $cachedNormalizedPathData = window.Symbol ? Symbol() : "__cachedNormalizedPathData";
+
+    SVGPathElement.prototype.setAttribute = function(name, value) {
+      if (name === "d") {
+        this[$cachedPathData] = null;
+        this[$cachedNormalizedPathData] = null;
+      }
+
+      setAttribute.call(this, name, value);
+    };
+
+    SVGPathElement.prototype.setAttributeNS = function(namespace, name, value) {
+      if (name === "d") {
+        var namespaceURI = "http://www.w3.org/2000/svg";
+
+        if (namespace) {
+          for (var attribute of this.ownerSVGElement.attributes) {
+            if (attribute.name === `xmlns:${namespace}`) {
+              namespaceURI = attribute.value;
+            }
+          }
+        }
+
+        if (namespaceURI === "http://www.w3.org/2000/svg") {
+          this[$cachedPathData] = null;
+          this[$cachedNormalizedPathData] = null;
+        }
+      }
+
+      setAttributeNS.call(this, namespace, name, value);
+    };
+
+    SVGPathElement.prototype.removeAttribute = function(name, value) {
+      if (name === "d") {
+        this[$cachedPathData] = null;
+        this[$cachedNormalizedPathData] = null;
+      }
+
+      removeAttribute.call(this, name);
+    };
+
+    SVGPathElement.prototype.removeAttributeNS = function(namespace, name) {
+      if (name === "d") {
+        var namespaceURI = "http://www.w3.org/2000/svg";
+
+        if (namespace) {
+          for (var attribute of this.ownerSVGElement.attributes) {
+            if (attribute.name === `xmlns:${namespace}`) {
+              namespaceURI = attribute.value;
+            }
+          }
+        }
+
+        if (namespaceURI === "http://www.w3.org/2000/svg") {
+          this[$cachedPathData] = null;
+          this[$cachedNormalizedPathData] = null;
+        }
+      }
+
+      removeAttributeNS.call(this, namespace, name);
+    };
+
+    SVGPathElement.prototype.getPathData = function(options) {
+      if (options && options.normalize) {
+        if (this[$cachedNormalizedPathData]) {
+          return clonePathData(this[$cachedNormalizedPathData]);
+        }
+        else {
+          var pathData;
+
+          if (this[$cachedPathData]) {
+            pathData = clonePathData(this[$cachedPathData]);
+          }
+          else {
+            pathData = parsePathDataString(this.getAttribute("d") || "");
+            this[$cachedPathData] = clonePathData(pathData);
+          }
+
+          var normalizedPathData = reducePathData(absolutizePathData(pathData));
+          this[$cachedNormalizedPathData] = clonePathData(normalizedPathData);
+          return normalizedPathData;
+        }
+      }
+      else {
+        if (this[$cachedPathData]) {
+          return clonePathData(this[$cachedPathData]);
+        }
+        else {
+          var pathData = parsePathDataString(this.getAttribute("d") || "");
+          this[$cachedPathData] = clonePathData(pathData);
+          return pathData;
+        }
+      }
+    };
+
+    SVGPathElement.prototype.setPathData = function(pathData) {
+      if (pathData.length === 0) {
+        if (isIE) {
+          // @bugfix https://github.com/mbostock/d3/issues/1737
+          this.setAttribute("d", "");
+        }
+        else {
+          this.removeAttribute("d");
+        }
+      }
+      else {
+        var d = "";
+
+        for (var i = 0, l = pathData.length; i < l; i += 1) {
+          var seg = pathData[i];
+
+          if (i > 0) {
+            d += " ";
+          }
+
+          d += seg.type;
+
+          if (seg.values && seg.values.length > 0) {
+            d += " " + seg.values.join(" ");
+          }
+        }
+
+        this.setAttribute("d", d);
+      }
+    };
+  }
+
+  if (!SVGRectElement.prototype.getPathData) {
+    SVGRectElement.prototype.getPathData = function(options) {
+      var x = this.x.baseVal.value;
+      var y = this.y.baseVal.value;
+      var width = this.width.baseVal.value;
+      var height = this.height.baseVal.value;
+      var rx = this.hasAttribute("rx") ? this.rx.baseVal.value : this.ry.baseVal.value;
+      var ry = this.hasAttribute("ry") ? this.ry.baseVal.value : this.rx.baseVal.value;
+
+      if (rx > width / 2) {
+        rx = width / 2;
+      }
+
+      if (ry > height / 2) {
+        ry = height / 2;
+      }
+
+      var pathData = [
+        {type: "M", values: [x+rx, y]},
+        {type: "H", values: [x+width-rx]},
+        {type: "A", values: [rx, ry, 0, 0, 1, x+width, y+ry]},
+        {type: "V", values: [y+height-ry]},
+        {type: "A", values: [rx, ry, 0, 0, 1, x+width-rx, y+height]},
+        {type: "H", values: [x+rx]},
+        {type: "A", values: [rx, ry, 0, 0, 1, x, y+height-ry]},
+        {type: "V", values: [y+ry]},
+        {type: "A", values: [rx, ry, 0, 0, 1, x+rx, y]},
+        {type: "Z", values: []}
+      ];
+
+      // Get rid of redundant "A" segs when either rx or ry is 0
+      pathData = pathData.filter(function(s) {
+        return s.type === "A" && (s.values[0] === 0 || s.values[1] === 0) ? false : true;
+      });
+
+      if (options && options.normalize === true) {
+        pathData = reducePathData(pathData);
+      }
+
+      return pathData;
+    };
+  }
+
+  if (!SVGCircleElement.prototype.getPathData) {
+    SVGCircleElement.prototype.getPathData = function(options) {
+      var cx = this.cx.baseVal.value;
+      var cy = this.cy.baseVal.value;
+      var r = this.r.baseVal.value;
+
+      var pathData = [
+        { type: "M",  values: [cx + r, cy] },
+        { type: "A",  values: [r, r, 0, 0, 1, cx, cy+r] },
+        { type: "A",  values: [r, r, 0, 0, 1, cx-r, cy] },
+        { type: "A",  values: [r, r, 0, 0, 1, cx, cy-r] },
+        { type: "A",  values: [r, r, 0, 0, 1, cx+r, cy] },
+        { type: "Z",  values: [] }
+      ];
+
+      if (options && options.normalize === true) {
+        pathData = reducePathData(pathData);
+      }
+
+      return pathData;
+    };
+  }
+
+  if (!SVGEllipseElement.prototype.getPathData) {
+    SVGEllipseElement.prototype.getPathData = function(options) {
+      var cx = this.cx.baseVal.value;
+      var cy = this.cy.baseVal.value;
+      var rx = this.rx.baseVal.value;
+      var ry = this.ry.baseVal.value;
+
+      var pathData = [
+        { type: "M",  values: [cx + rx, cy] },
+        { type: "A",  values: [rx, ry, 0, 0, 1, cx, cy+ry] },
+        { type: "A",  values: [rx, ry, 0, 0, 1, cx-rx, cy] },
+        { type: "A",  values: [rx, ry, 0, 0, 1, cx, cy-ry] },
+        { type: "A",  values: [rx, ry, 0, 0, 1, cx+rx, cy] },
+        { type: "Z",  values: [] }
+      ];
+
+      if (options && options.normalize === true) {
+        pathData = reducePathData(pathData);
+      }
+
+      return pathData;
+    };
+  }
+
+  if (!SVGLineElement.prototype.getPathData) {
+    SVGLineElement.prototype.getPathData = function() {
+      return [
+        { type: "M", values: [this.x1.baseVal.value, this.y1.baseVal.value] },
+        { type: "L", values: [this.x2.baseVal.value, this.y2.baseVal.value] }
+      ];
+    };
+  }
+
+  if (!SVGPolylineElement.prototype.getPathData) {
+    SVGPolylineElement.prototype.getPathData = function() {
+      var pathData = [];
+
+      for (var i = 0; i < this.points.numberOfItems; i += 1) {
+        var point = this.points.getItem(i);
+
+        pathData.push({
+          type: (i === 0 ? "M" : "L"),
+          values: [point.x, point.y]
+        });
+      }
+
+      return pathData;
+    };
+  }
+
+  if (!SVGPolygonElement.prototype.getPathData) {
+    SVGPolygonElement.prototype.getPathData = function() {
+      var pathData = [];
+
+      for (var i = 0; i < this.points.numberOfItems; i += 1) {
+        var point = this.points.getItem(i);
+
+        pathData.push({
+          type: (i === 0 ? "M" : "L"),
+          values: [point.x, point.y]
+        });
+      }
+
+      pathData.push({
+        type: "Z",
+        values: []
+      });
+
+      return pathData;
+    };
+  }
+})();
+    </script>
     <style>
         :root {
             --bg: #0a0a0d;
@@ -9086,7 +10283,8 @@
             const out = [];
             for (let i = 0; i < state.subpaths.length; i++) {
                 const sp = state.subpaths[i];
-                if (!sp || !sp.leafX || sp.leafX.length < 3)
+                // An unconverted shape has no rung yet; it is solved when it is converted.
+                if (!sp || sp._lazy || !sp.leafX || sp.leafX.length < 3)
                     continue;
                 let a = Infinity,
                     b = -Infinity,
@@ -9143,14 +10341,16 @@
                 const list = visibleForRung(AUTO_RUNG_RESOLVE_MAX);
                 if (!list.length)
                     return;
-                const before = state.subpaths.map(sp => (sp.leafX ? sp.leafX.length : 0));
+                // (unconverted shapes count as 0 here and below, and are not solved: see CONVERT ON TOUCH)
+                const before = state.subpaths.map(sp => (!sp._lazy && sp.leafX ? sp.leafX.length : 0));
                 applyAutoRung(list, {
                     raiseOnly: true
                 });
                 let up = 0,
                     down = 0;
                 for (let i = 0; i < state.subpaths.length; i++) {
-                    const n = state.subpaths[i] && state.subpaths[i].leafX ? state.subpaths[i].leafX.length : 0;
+                    const sp = state.subpaths[i];
+                    const n = sp && !sp._lazy && sp.leafX ? sp.leafX.length : 0;
                     if (n > before[i])
                         up++;
                     else if (n < before[i])
@@ -9227,7 +10427,9 @@
             const scale = (opts && opts.scale) || pxPerWorld();
             for (const i of list) {
                 const sp = state.subpaths[i];
-                if (!sp || (!sp.refX && !sp.leafX))
+                // A shape not yet converted has no rung to choose; it is solved when it is
+                // converted (materializeLazy), at the scale a load would have used.
+                if (!sp || sp._lazy || (!sp.refX && !sp.leafX))
                     continue;
                 const sol = solveAutoRung(sp, state.autoRungTol, scale);
                 if (!sol)
@@ -9781,9 +10983,13 @@
                 near = [];
             for (let spi = state.subpaths.length - 1; spi >= 0; spi--) {
                 const sp = state.subpaths[spi];
-                if (!sp || !sp.leafX || sp.leafX.length < 3)
+                // An unconverted shape is tested on its imported outline (CONVERT ON TOUCH):
+                // this runs over every shape and must not convert them all.
+                const LX = sp && sp._lazy ? sp._lazy.x : sp && sp.leafX,
+                    LY = sp && sp._lazy ? sp._lazy.y : sp && sp.leafY;
+                if (!sp || !LX || LX.length < 3)
                     continue;
-                const N = sp.leafX.length;
+                const N = LX.length;
                 const xs = new Float64Array(N),
                     ys = new Float64Array(N);
                 let minx = Infinity,
@@ -9791,7 +10997,7 @@
                     maxx = -Infinity,
                     maxy = -Infinity;
                 for (let k = 0; k < N; k++) {
-                    const q = worldToPx(sp.leafX[k], sp.leafY[k], w, h);
+                    const q = worldToPx(LX[k], LY[k], w, h);
                     xs[k] = q.x;
                     ys[k] = q.y;
                     if (q.x < minx)
@@ -13296,6 +14502,17 @@
                 if (exclude && exclude.has(i))
                     continue;
                 const sp = state.subpaths[i];
+                // An unconverted shape offers its imported outline's box (CONVERT ON TOUCH).
+                if (sp && sp._lazy) {
+                    const bx = sp._lazy.box;
+                    out.push({
+                        minx: bx[0],
+                        maxx: bx[2],
+                        miny: bx[1],
+                        maxy: bx[3]
+                    });
+                    continue;
+                }
                 if (!sp || !sp.leafX || sp.leafX.length < 2)
                     continue;
                 let a = Infinity,
@@ -16187,8 +17404,8 @@
         //      in <defs> and instantiate them via <use> — without expansion
         //      these are invisible to querySelectorAll('path,...').
         //
-        //   3. For each <path>: use SVG 2's getPathData() (native in Chrome,
-        //      polyfilled in Firefox/Safari via path-data-polyfill in <head>)
+        //   3. For each <path>: use SVG 2's getPathData() (native in no browser;
+        //      supplied by path-data-polyfill, inlined in <head>)
         //      to walk the path's commands and split into per-subpath fragments
         //      at every M command. Each fragment becomes its own temporary
         //      <path> element. This replaces the previous 4×-mean-step heuristic.
@@ -21889,6 +23106,18 @@
                 }
             }
             layoutFilesOnGrid(); // pack each file's shapes into its own grid cell
+            // A crowded file is held as it arrived and converted shape by shape when touched
+            // (CONVERT ON TOUCH). A compound's contours fill as one even-odd run built from their
+            // leaves, so they convert now, as before.
+            if (newSubs.length >= LAZY_MIN_SHAPES) {
+                for (const sp of newSubs)
+                    if (sp.textRun == null && sp.refX && sp.refX.length >= 2)
+                        makeLazy(sp, sp.refX, sp.refY);
+                const fit = fitPxPerWorld(); // measured once, with every shape on the page
+                for (const sp of newSubs)
+                    if (sp._lazy)
+                        sp._lazy.scale = fit;
+            }
             resampleFromReference();
             state.view.zoom = 1;
             state.view.panX = 0;
@@ -22009,7 +23238,9 @@
             let maxP = 0;
             const perims = [];
             for (const sp of state.subpaths) {
-                if (!sp.refX) {
+                // A shape still held as its import (see CONVERT ON TOUCH) is skipped by both
+                // passes: asking for its refX would convert it, which is the work being deferred.
+                if (sp._lazy || !sp.refX) {
                     perims.push(0);
                     continue;
                 }
@@ -22029,7 +23260,7 @@
             // next person to reach for size-scaling should find the reasoning attached.)
             let i = 0;
             for (const sp of state.subpaths) {
-                if (!sp.refX) {
+                if (sp._lazy || !sp.refX) {
                     i++;
                     continue;
                 }
@@ -22051,6 +23282,137 @@
                 applyAutoRung(null, {
                     scale: fitPxPerWorld()
                 });
+        }
+
+        // ── CONVERT ON TOUCH ─────────────────────────────────────────────────────
+        // A leaf shape and a Bézier path are two ways to hold one outline, each better at
+        // different things: leaves for smooth forms, morphing, symmetry and pushing many
+        // points at once; Béziers for corners, straight runs and type. An import used to turn
+        // every path into leaves on arrival — a 768-point resample, the auto-rung's FFT search
+        // and a reconstruction per shape — and on an illustrator's file most of those shapes
+        // are never touched. Measured on fill-only files: about 4 ms a shape, 12.5 s for 3,000
+        // and 31 s for 8,000, nearly all of it the rung search and the resampling.
+        //
+        // So a crowded import keeps each shape as the outline it arrived as (the flattened
+        // polyline, already fitted to the world) and converts it the first time anything asks
+        // for its leaves or its reference. The four arrays are accessors on the shape until
+        // then: every one of the editor's readers of sp.leafX still gets leaves, correctly,
+        // without knowing this exists — the conversion is one shape at a time and only where
+        // the shape is used. The renderer draws an unconverted shape straight from its outline
+        // (drawShapeContours), and undo and the autosave carry it unconverted, because those
+        // three touch every shape and would otherwise convert the lot.
+        //
+        // What it changes: an unconverted shape is drawn from its source outline, not from
+        // its band-limited reconstruction, so its corners are the file's. Converting it (select
+        // it, or use a tool that reads its leaves) gives it the reconstruction, exactly as a
+        // load used to. Small files (fewer than LAZY_MIN_SHAPES) load as they always did.
+        const LAZY_MIN_SHAPES = 150;
+        const LAZY_KEYS = ['leafX', 'leafY', 'refX', 'refY'];
+        // Test hook: how many shapes were held, how many converted, and (with trace on) which
+        // caller converted them — the way to find a pass that converts everything by accident.
+        const lazyStats = {
+            made: 0,
+            converted: 0,
+            trace: false,
+            by: new Map()
+        };
+        lazyStats.held = () => state.subpaths.reduce((n, sp) => n + (sp && sp._lazy ? 1 : 0), 0);
+        window.__lazy = lazyStats;
+
+        function makeLazy(sp, x, y, scale) {
+            let mnx = Infinity,
+                mny = Infinity,
+                mxx = -Infinity,
+                mxy = -Infinity;
+            for (let i = 0; i < x.length; i++) {
+                const X = x[i],
+                    Y = y[i];
+                if (X < mnx)
+                    mnx = X;
+                if (X > mxx)
+                    mxx = X;
+                if (Y < mny)
+                    mny = Y;
+                if (Y > mxy)
+                    mxy = Y;
+            }
+            // scale: the fit scale the load measured, kept so a conversion solves its rung
+            // where the load would have, without measuring the page again for every shape.
+            sp._lazy = {
+                x,
+                y,
+                scale: scale || 0,
+                box: [mnx, mny, mxx, mxy]
+            };
+            sp._lazyP2d = null;
+            for (const key of LAZY_KEYS) {
+                Object.defineProperty(sp, key, {
+                    configurable: true,
+                    enumerable: true,
+                    get() {
+                        materializeLazy(this);
+                        return this[key];
+                    },
+                    set(v) {
+                        materializeLazy(this);
+                        this[key] = v;
+                    }
+                });
+            }
+            lazyStats.made++;
+        }
+
+        // A shape rebuilt from a record (an undo snapshot, the autosave) that was held as its
+        // import goes back to being held. Returns the shape, for use inside a map.
+        function relazy(raw, sp) {
+            if (raw && raw.x && raw.x.length >= 2)
+                makeLazy(sp, raw.x, raw.y, raw.scale);
+            return sp;
+        }
+
+        // The load's own steps, for one shape: resampleFromReference's two passes, then the
+        // auto-rung at the fit scale, as resampleFromReference asks for it.
+        function materializeLazy(sp) {
+            const raw = sp._lazy;
+            if (!raw)
+                return;
+            if (lazyStats.trace) {
+                const at = (new Error().stack || '').split('\n')[3] || '?';
+                lazyStats.by.set(at.trim(), (lazyStats.by.get(at.trim()) || 0) + 1);
+            }
+            for (const key of LAZY_KEYS)
+                delete sp[key];
+            sp._lazy = null;
+            sp._lazyP2d = null;
+            const ref = arcLengthResample(raw.x, raw.y, REF_SAMPLES);
+            if (sp.srcCoV === undefined)
+                sp.srcCoV = ref.srcCoV;
+            sp.refX = ref.x;
+            sp.refY = ref.y;
+            const N = leafCountForPerimeter(0, 0, state.N);
+            const r = arcLengthResample(ref.x, ref.y, N);
+            sp.leafX = r.x;
+            sp.leafY = r.y;
+            remapPerLeafData(sp, 0, N);
+            sp.dirty = false;
+            lazyStats.converted++;
+            if (state.autoRung) {
+                const i = state.subpaths.indexOf(sp);
+                if (i >= 0) {
+                    // A record that lost the load's scale is measured once, for every shape
+                    // still held: measuring per conversion walks the page each time, and
+                    // converting a page's worth turns quadratic.
+                    if (!raw.scale) {
+                        raw.scale = fitPxPerWorld();
+                        for (const t of state.subpaths)
+                            if (t && t._lazy && !t._lazy.scale)
+                                t._lazy.scale = raw.scale;
+                    }
+                    applyAutoRung([i], {
+                        scale: raw.scale
+                    });
+                }
+            }
         }
 
         // Commit the current bridge curve as the signal's new reference. Called
@@ -22081,11 +23443,19 @@
             return {
                 N: state.N,
                 activeSp: state.activeSp,
+                // A shape not yet converted (CONVERT ON TOUCH) is snapshotted as its import:
+                // reading its leaves here would convert every shape on the page at load. The
+                // import's arrays are never written, so the snapshot can share them.
                 subpaths: state.subpaths.map(sp => ({
-                    leafX: sp.leafX ? Float64Array.from(sp.leafX) : null,
-                    leafY: sp.leafY ? Float64Array.from(sp.leafY) : null,
-                    refX: sp.refX ? Float64Array.from(sp.refX) : null,
-                    refY: sp.refY ? Float64Array.from(sp.refY) : null,
+                    lazy: sp._lazy ? {
+                        x: sp._lazy.x,
+                        y: sp._lazy.y,
+                        scale: sp._lazy.scale
+                    } : null,
+                    leafX: sp._lazy ? null : sp.leafX ? Float64Array.from(sp.leafX) : null,
+                    leafY: sp._lazy ? null : sp.leafY ? Float64Array.from(sp.leafY) : null,
+                    refX: sp._lazy ? null : sp.refX ? Float64Array.from(sp.refX) : null,
+                    refY: sp._lazy ? null : sp.refY ? Float64Array.from(sp.refY) : null,
                     source: sp.source,
                     fromTvf: sp.fromTvf,
                     dirty: sp.dirty,
@@ -22127,7 +23497,7 @@
 
         function applySnapshot(snap) {
             state.N = snap.N;
-            state.subpaths = snap.subpaths.map(sp => ({
+            state.subpaths = snap.subpaths.map(sp => relazy(sp.lazy, {
                 leafX: sp.leafX ? Float64Array.from(sp.leafX) : null,
                 leafY: sp.leafY ? Float64Array.from(sp.leafY) : null,
                 refX: sp.refX ? Float64Array.from(sp.refX) : null,
@@ -22739,13 +24109,17 @@
             if (state.lastLoadInfo) {
                 const i = state.lastLoadInfo;
                 if (i.subpathCount && i.subpathCount > 1) {
-                    let totalLeaves = 0;
+                    let totalLeaves = 0,
+                        held = 0;
                     for (const sp of state.subpaths) {
-                        if (sp.leafX)
+                        if (sp._lazy)
+                            held++; // not converted yet (CONVERT ON TOUCH): no leaves to count
+                        else if (sp.leafX)
                             totalLeaves += sp.leafX.length;
                     }
                     extra += ' · <span style="color:var(--violet)">' + i.subpathCount
-                    + ' subpaths, ' + totalLeaves + ' leaves total</span>';
+                    + ' subpaths, ' + totalLeaves + ' leaves total'
+                    + (held ? ', ' + held + ' as imported' : '') + '</span>';
                 } else if (i.totalElements > 1) {
                     extra += ' · <span style="color:var(--fg-muted)">' + i.totalElements
                     + ' elements</span>';
@@ -22764,10 +24138,12 @@
                 nStr = 'N=' + state.subpaths[state.activeSp].leafX.length
                 + ' <span style="color:var(--fg-muted)">(signal ' + (state.activeSp + 1) + ')</span>';
             } else if (state.subpaths.length > 1) {
-                const Ns = state.subpaths.map(s => s.leafX ? s.leafX.length : 0).filter(n => n > 0);
+                // Unconverted shapes (CONVERT ON TOUCH) hold no leaves yet and are left out.
+                const Ns = state.subpaths.map(s => !s._lazy && s.leafX ? s.leafX.length : 0).filter(n => n > 0);
                 const minN = Math.min(...Ns),
                     maxN = Math.max(...Ns);
-                nStr = (minN === maxN) ? ('N=' + minN + '/signal') : ('N=' + minN + '–' + maxN);
+                nStr = !Ns.length ? 'N=' + state.N + ' on conversion'
+                : (minN === maxN) ? ('N=' + minN + '/signal') : ('N=' + minN + '–' + maxN);
             } else if (state.subpaths.length === 1 && state.subpaths[0].leafX) {
                 // Report the shape's OWN leaf count, not state.N. state.N is the anchor for
                 // "all signals" operations and drifts away from the truth the moment a shape
@@ -23225,7 +24601,7 @@
             // A GROUP IS DRAWN AS THE THING IT IS. The picture is every member, framed together
             // in one shared box — a cat looks like a cat in the strip, not like whichever of its
             // fourteen parts happened to lead. A lone shape is the same call with one member.
-            const sps = (ent ? ent.members : [idx]).map(i => state.subpaths[i]).filter(s => s && s.leafX && s.leafX.length >= 2);
+            const sps = (ent ? ent.members : [idx]).map(i => state.subpaths[i]).filter(s => s && (s._lazy || (s.leafX && s.leafX.length >= 2)));
             if (!sps.length)
                 return;
             let c = tile.querySelector('canvas');
@@ -24365,7 +25741,7 @@
             const S = canvas.offsetWidth || (canvas.width / (devicePixelRatio || 1));
             const k = canvas.width / S;
             c.setTransform(k, 0, 0, k, 0, 0);
-            const parts = (sps || []).filter(s => s && s.leafX && s.leafX.length >= 2);
+            const parts = (sps || []).filter(s => s && (s._lazy || (s.leafX && s.leafX.length >= 2)));
             if (!parts.length)
                 return;
             // A member of a group carries the group's shared orbit on the LEADER, not on itself
@@ -24383,9 +25759,12 @@
                 minY = Infinity,
                 maxY = -Infinity;
             for (const s of parts) {
-                const M = ceilPow2(Math.min(cap, Math.max(64, s.leafX.length * 2)));
-                const px = reconstruct1D(s.leafX, M),
-                    py = reconstruct1D(s.leafY, M);
+                // An unconverted shape is pictured from its imported outline (CONVERT ON TOUCH):
+                // a thumbnail scrolling past is not a reason to convert it.
+                const lz = s._lazy;
+                const M = lz ? lz.x.length : ceilPow2(Math.min(cap, Math.max(64, s.leafX.length * 2)));
+                const px = lz ? lz.x : reconstruct1D(s.leafX, M),
+                    py = lz ? lz.y : reconstruct1D(s.leafY, M);
                 for (let i = 0; i < M; i++) {
                     if (px[i] < minX)
                         minX = px[i];
@@ -32136,6 +33515,67 @@
             };
             for (let spi = 0; spi < state.subpaths.length; spi++) {
                 const sp = state.subpaths[spi];
+                // A shape still held as its import (CONVERT ON TOUCH) is drawn from its source
+                // outline: cull, the LOD dot, fill and stroke, as the Path2D fast path below does
+                // for a resting shape. Anything that needs the shape's leaves — selected, edit
+                // mode, an instrument overlay, a Cauchy view, motion — falls through, and the
+                // first read of sp.leafX below converts it.
+                if (sp._lazy && !state.editMode && !state.interiorFill && !state.leafColorBlend
+                && !state.ringHighlight && state.cauchyView !== 1 && state.cauchyView !== 4
+                && state.cauchyView !== 5 && !(_frameMotion && effectiveMotion(sp))
+                && !(state.activeSet && state.activeSet.has(spi))) {
+                    const lz = sp._lazy,
+                        bx = lz.box;
+                    const ax = _cx + (bx[0] * _invHR - _vpx) * drawScale;
+                    const bxx = _cx + (bx[2] * _invHR - _vpx) * drawScale;
+                    const ay = _cy - (bx[3] * _invHR - _vpy) * drawScale;
+                    const byy = _cy - (bx[1] * _invHR - _vpy) * drawScale;
+                    const marg = state.lineWidth + 8;
+                    if (bxx < -marg || ax > w + marg || byy < -marg || ay > h + marg)
+                        continue;
+                    const _wpx = bxx - ax,
+                        _hpx = byy - ay;
+                    if (CHROME && _wpx < 4 && _hpx < 4) {
+                        const dimmed = state.activeSet && state.activeSet.size > 0;
+                        _setScreenTF();
+                        ctx.globalAlpha = dimmed ? 0.3
+                        : (state.showFills && sp.fill && sp.fill.opacity != null ? Math.max(0.4, sp.fill.opacity) : 1);
+                        ctx.fillStyle = (state.showFills && sp.fill) ? sp.fill.color : (sp.stroke || 'rgba(212,160,82,1)');
+                        ctx.fillRect(ax, ay, Math.max(1.2, _wpx), Math.max(1.2, _hpx));
+                        ctx.globalAlpha = 1;
+                        continue;
+                    }
+                    let p2 = sp._lazyP2d;
+                    if (!p2) {
+                        p2 = new Path2D();
+                        p2.moveTo(lz.x[0], lz.y[0]);
+                        for (let i = 1; i < lz.x.length; i++)
+                            p2.lineTo(lz.x[i], lz.y[i]);
+                        p2.closePath();
+                        sp._lazyP2d = p2;
+                    }
+                    _setWorldTF();
+                    if (state.showFills && sp.fill && sp.fill.color) {
+                        const _a0 = ctx.globalAlpha;
+                        ctx.globalAlpha = (sp.fill.opacity != null ? sp.fill.opacity : 1);
+                        ctx.fillStyle = sp.fill.color;
+                        ctx.fill(p2, 'evenodd');
+                        ctx.globalAlpha = _a0;
+                    }
+                    const spLW = (sp.lineWidth != null) ? sp.lineWidth : state.lineWidth;
+                    if (spLW > 0) {
+                        ctx.strokeStyle = sp.stroke || 'rgba(212,160,82,1)';
+                        ctx.lineWidth = spLW / _worldA;
+                        const spSO = (sp.strokeOpacity != null) ? sp.strokeOpacity : 1;
+                        if (spSO > 0) {
+                            const _a1 = ctx.globalAlpha;
+                            ctx.globalAlpha = Math.min(1, spSO);
+                            ctx.stroke(p2);
+                            ctx.globalAlpha = _a1;
+                        }
+                    }
+                    continue;
+                }
                 if (!sp.leafX || sp.leafX.length < 2)
                     continue;
                 // Motion has two layers, both purely visual (sp.leafX/leafY are never touched):
@@ -32934,7 +34374,8 @@
             const _hitBySp = new Array(state.subpaths.length);
             for (let i = 0; i < state.subpaths.length; i++) {
                 const sp = state.subpaths[i];
-                _hitBySp[i] = (sp && sp.leafX) ? leafHitRadius(sp, _hitScale) : 0;
+                // an unconverted shape (CONVERT ON TOUCH) has no leaves to grab
+                _hitBySp[i] = (sp && !sp._lazy && sp.leafX) ? leafHitRadius(sp, _hitScale) : 0;
             }
             let best = null,
                 bestDist = Infinity;
@@ -33138,9 +34579,13 @@
                 nearD = OUTLINE_TOL;
             for (let spi = state.subpaths.length - 1; spi >= 0; spi--) {
                 const sp = state.subpaths[spi];
-                if (!sp.leafX || sp.leafX.length < 3)
+                // An unconverted shape is hit on its imported outline (CONVERT ON TOUCH): this
+                // runs over every shape on every click, and must not convert them all.
+                const LX = sp._lazy ? sp._lazy.x : sp.leafX,
+                    LY = sp._lazy ? sp._lazy.y : sp.leafY;
+                if (!LX || LX.length < 3)
                     continue;
-                const N = sp.leafX.length;
+                const N = LX.length;
                 const xs = new Float64Array(N),
                     ys = new Float64Array(N);
                 let minx = Infinity,
@@ -33148,7 +34593,7 @@
                     maxx = -Infinity,
                     maxy = -Infinity;
                 for (let k = 0; k < N; k++) {
-                    const p = worldToPx(sp.leafX[k], sp.leafY[k], w, h);
+                    const p = worldToPx(LX[k], LY[k], w, h);
                     xs[k] = p.x;
                     ys[k] = p.y;
                     if (p.x < minx)
@@ -33189,9 +34634,14 @@
         // True if (px,py) lies inside a shape's leaf polygon, or within tol px of its
         // outline. Shared by the move hit-test.
         function shapeContainsPx(sp, px, py, w, h, tol) {
-            if (!sp || !sp.leafX || sp.leafX.length < 3)
+            if (!sp)
                 return false;
-            const N = sp.leafX.length;
+            // An unconverted shape is tested on its imported outline, as in findShapeAt.
+            const LX = sp._lazy ? sp._lazy.x : sp.leafX,
+                LY = sp._lazy ? sp._lazy.y : sp.leafY;
+            if (!LX || LX.length < 3)
+                return false;
+            const N = LX.length;
             const xs = new Float64Array(N),
                 ys = new Float64Array(N);
             let minx = Infinity,
@@ -33199,7 +34649,7 @@
                 maxx = -Infinity,
                 maxy = -Infinity;
             for (let k = 0; k < N; k++) {
-                const p = worldToPx(sp.leafX[k], sp.leafY[k], w, h);
+                const p = worldToPx(LX[k], LY[k], w, h);
                 xs[k] = p.x;
                 ys[k] = p.y;
                 if (p.x < minx)
@@ -34067,7 +35517,11 @@
                 return out;
             for (let spi = 0; spi < state.subpaths.length; spi++) {
                 const sp = state.subpaths[spi];
-                if (!sp || !sp.leafX || sp.leafX.length < 1)
+                // An unconverted shape is tested on its imported outline (CONVERT ON TOUCH):
+                // this runs over every shape and must not convert them all.
+                const LX = sp && sp._lazy ? sp._lazy.x : sp && sp.leafX,
+                    LY = sp && sp._lazy ? sp._lazy.y : sp && sp.leafY;
+                if (!sp || !LX || LX.length < 1)
                     continue;
                 // The centroid of the LEAVES, not of the bounding box: a crescent's box centre sits
                 // in the empty part of the crescent, and a loop drawn round the crescent would miss
@@ -34075,11 +35529,11 @@
                 // shape's own material.
                 let cx = 0,
                     cy = 0;
-                for (let k = 0; k < sp.leafX.length; k++) {
-                    cx += sp.leafX[k];
-                    cy += sp.leafY[k];
+                for (let k = 0; k < LX.length; k++) {
+                    cx += LX[k];
+                    cy += LY[k];
                 }
-                const q = worldToPx(cx / sp.leafX.length, cy / sp.leafX.length, w, h);
+                const q = worldToPx(cx / LX.length, cy / LX.length, w, h);
                 if (pointInPoly(q.x, q.y, pts))
                     out.push(spi);
             }
@@ -34090,14 +35544,18 @@
             const out = [];
             for (let spi = 0; spi < state.subpaths.length; spi++) {
                 const sp = state.subpaths[spi];
-                if (!sp || !sp.leafX || sp.leafX.length < 1)
+                // An unconverted shape is tested on its imported outline (CONVERT ON TOUCH):
+                // this runs over every shape and must not convert them all.
+                const LX = sp && sp._lazy ? sp._lazy.x : sp && sp.leafX,
+                    LY = sp && sp._lazy ? sp._lazy.y : sp && sp.leafY;
+                if (!sp || !LX || LX.length < 1)
                     continue;
                 let bx0 = Infinity,
                     by0 = Infinity,
                     bx1 = -Infinity,
                     by1 = -Infinity;
-                for (let k = 0; k < sp.leafX.length; k++) {
-                    const p = worldToPx(sp.leafX[k], sp.leafY[k], w, h);
+                for (let k = 0; k < LX.length; k++) {
+                    const p = worldToPx(LX[k], LY[k], w, h);
                     if (p.x < bx0)
                         bx0 = p.x;
                     if (p.x > bx1)
@@ -37520,7 +38978,8 @@
             let lo = Infinity,
                 hi = -Infinity;
             const consider = sp => {
-                if (!sp || !sp.leafX)
+                // An unconverted shape holds no leaves yet, so it has no count to report.
+                if (!sp || sp._lazy || !sp.leafX)
                     return;
                 const n = sp.leafX.length;
                 if (n < lo)
@@ -37728,7 +39187,7 @@
             let sp = null;
             for (let i = 0; i < state.subpaths.length; i++) {
                 const t = state.subpaths[i];
-                if (t && t.leafX && isSpActive(i) !== false && (!sp || t.leafX.length > sp.leafX.length))
+                if (t && !t._lazy && t.leafX && isSpActive(i) !== false && (!sp || t.leafX.length > sp.leafX.length))
                     sp = t;
             }
             if (!sp) {
@@ -58050,6 +59509,20 @@
                 if (indexSet && !indexSet.has(i))
                     continue;
                 const sp = state.subpaths[i];
+                // An unconverted shape answers with its outline's box (CONVERT ON TOUCH); asking
+                // for its leaves would convert it, and this runs over every shape.
+                if (sp && sp._lazy) {
+                    const b = sp._lazy.box;
+                    if (b[0] < minx)
+                        minx = b[0];
+                    if (b[1] < miny)
+                        miny = b[1];
+                    if (b[2] > maxx)
+                        maxx = b[2];
+                    if (b[3] > maxy)
+                        maxy = b[3];
+                    continue;
+                }
                 if (!sp || !sp.leafX)
                     continue;
                 for (let k = 0; k < sp.leafX.length; k++) {
@@ -67314,11 +68787,15 @@
                 nextTextRun: state.nextTextRun || 0,
                 textStyle: state.textStyle || null,
                 droppedRefs: !!dropRefs,
-                subpaths: state.subpaths.filter(sp => sp && sp.leafX && sp.leafX.length >= 2).map(sp => ({
-                    x: _f32b64(sp.leafX),
-                    y: _f32b64(sp.leafY),
-                    rx: dropRefs ? '' : _f32b64(sp.refX),
-                    ry: dropRefs ? '' : _f32b64(sp.refY),
+                // An unconverted shape (CONVERT ON TOUCH) is saved as its import, under `lz`, and
+                // comes back unconverted; its outline is its only geometry, so dropRefs keeps it.
+                subpaths: state.subpaths.filter(sp => sp && (sp._lazy || (sp.leafX && sp.leafX.length >= 2))).map(sp => ({
+                    lz: sp._lazy ? 1 : 0,
+                    ls: sp._lazy ? sp._lazy.scale : 0,
+                    x: sp._lazy ? '' : _f32b64(sp.leafX),
+                    y: sp._lazy ? '' : _f32b64(sp.leafY),
+                    rx: sp._lazy ? _f32b64(sp._lazy.x) : dropRefs ? '' : _f32b64(sp.refX),
+                    ry: sp._lazy ? _f32b64(sp._lazy.y) : dropRefs ? '' : _f32b64(sp.refY),
                     src: sp.source || null,
                     dirty: !!sp.dirty,
                     coV: sp.srcCoV != null ? sp.srcCoV : null,
@@ -67429,11 +68906,16 @@
                 return false;
             try {
                 state.subpaths = d.subpaths.map(sp => {
-                    const X = _b64f32(sp.x),
-                        Y = _b64f32(sp.y);
                     const RX = _b64f32(sp.rx),
                         RY = _b64f32(sp.ry);
-                    return {
+                    const lz = sp.lz && RX && RY ? {
+                        x: RX,
+                        y: RY,
+                        scale: +sp.ls || 0
+                    } : null;
+                    const X = lz ? null : _b64f32(sp.x),
+                        Y = lz ? null : _b64f32(sp.y);
+                    return relazy(lz, {
                         leafX: X,
                         leafY: Y,
                         refX: RX || X.slice(),
@@ -67464,7 +68946,7 @@
                         motion: null,
                         leafMotion: null,
                         leafColor: sp.leafColor || null,
-                    };
+                    });
                 });
             } catch (_) {
                 return false;
