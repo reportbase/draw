@@ -135,6 +135,29 @@ try {
     if (!(e < 1e-9)) throw new Error('resample misses the curve by ' + e);
   });
 
+  /* The auto-rung reads x and y through ONE transform of z = x + iy (autoRungReconstructXY),
+     where it used to take two single-channel ones. The reconstruction is linear, the top mode's
+     mirror is written so it stays so, and the two must agree to rounding at every rung the
+     ladder tries; a shape's own answer must not move either (a circle settles on the floor). */
+  await step('auto-rung: one transform for x and y', async () => {
+    const r = await page.evaluate(() => {
+      let seed = 11;
+      const R = () => (seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5;
+      let worst = 0;
+      for (const N of [256, 512, 1024, 2048]) {
+        const x = new Float64Array(N), y = new Float64Array(N);
+        for (let k = 0; k < N; k++) { x[k] = R(); y[k] = R(); }
+        worst = Math.max(worst, window.__autoRung.packedGap(x, y, 2048));
+      }
+      const n = 400, cx = new Float64Array(n + 1), cy = new Float64Array(n + 1);
+      for (let i = 0; i <= n; i++) { cx[i] = 0.5 * Math.cos(2 * Math.PI * i / n); cy[i] = 0.5 * Math.sin(2 * Math.PI * i / n); }
+      const sol = window.__autoRung.solve({ refX: cx, refY: cy, dirty: false }, undefined, 400);
+      return { worst, rung: sol && sol.rung, reason: sol && sol.reason };
+    });
+    if (!(r.worst < 1e-12)) throw new Error('one transform and two differ by ' + r.worst);
+    if (r.rung !== 8 || r.reason !== 'resolved') throw new Error(`a circle settled at rung ${r.rung} (${r.reason}), not 8`);
+  });
+
   /* TVF §8's three decoder test vectors, against the editor's own kernel at N = 8 … 1024:
      the invisible mode reads zero at every leaf, the band Gram is diag(N, N/2, …, N/2, N)
      with every band mode presented exactly, and the Lebesgue function peaks at home at the

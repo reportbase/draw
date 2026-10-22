@@ -9985,16 +9985,114 @@
             };
         }
 
+        // ── ONE SOURCE, EVERY RUNG ──────────────────────────────────────────────────
+        // The ladder resamples the same source outline at every rung it tries, and it used
+        // to do it twice per rung (once for the alias test, once for the deviation) and from
+        // scratch each time: the cumulative arc length of the source rebuilt, the source
+        // copied into a plain array first. The cumulative lengths depend on the source alone,
+        // so they are built once per shape here, and each rung's resample is shared by both
+        // of its tests. The arithmetic is tvf.arcLengthResample's, step for step, so every
+        // rung sees exactly the leaves it saw before.
+        function autoRungResampler(src) {
+            const X = src.x,
+                Y = src.y,
+                M = X.length;
+            const cum = new Float64Array(M + 1);
+            for (let i = 1; i <= M; i++) {
+                const j = i % M;
+                cum[i] = cum[i - 1] + Math.hypot(X[j] - X[i - 1], Y[j] - Y[i - 1]);
+            }
+            const total = cum[M];
+            return N => {
+                const outX = new Float64Array(N),
+                    outY = new Float64Array(N);
+                let seg = 0;
+                for (let k = 0; k < N; k++) {
+                    const t = ((k + 0.5) / N) * total;
+                    while (seg < M && cum[seg + 1] < t)
+                        seg++;
+                    const sLen = cum[seg + 1] - cum[seg];
+                    const u = sLen > 1e-12 ? (t - cum[seg]) / sLen : 0;
+                    const j = (seg + 1) % M;
+                    outX[k] = X[seg] * (1 - u) + X[j] * u;
+                    outY[k] = Y[seg] * (1 - u) + Y[j] * u;
+                }
+                return {
+                    x: outX,
+                    y: outY
+                };
+            };
+        }
+
+        // ── BOTH CHANNELS IN ONE TRANSFORM ──────────────────────────────────────────
+        // reconstructFFT reads one real channel: a forward transform of N, the half-shift and
+        // the half-weight top mode, an inverse of M. The ladder needs x and y at every rung,
+        // which was four transforms where two will do: the reconstruction is linear, so it
+        // can read z = x + iy and hand back x̂ + iŷ, the real part one channel and the
+        // imaginary part the other.
+        //
+        // Every step is complex-linear but one. The top mode, at ±N/2, is split in half for a
+        // real channel and its mirror CONJUGATED, and conjugation is not linear over complex
+        // input. It is linear in the real coefficient, though: for a real channel that bin is
+        // a real number X, and conj(X·w) = X·conj(w). So the mirror takes Z·conj(w), which is
+        // the same thing written so that it holds for x and y at once. Same sums otherwise;
+        // the answers differ from two separate transforms only at rounding.
+        function autoRungReconstructXY(x, y, M) {
+            const N = x.length;
+            if (!fftReconUsable(N, M))
+                return [autoRungReconstruct(Float64Array.from(x), M), autoRungReconstruct(Float64Array.from(y), M)];
+            const re = Float64Array.from(x),
+                im = Float64Array.from(y);
+            fftInPlace(re, im, false);
+            const shift = fftTable(2 * N); // half-shift twiddle e^{-imπ/N} = W_{2N}^m
+            const sr = new Float64Array(M),
+                si = new Float64Array(M);
+            // The signed frequency m runs 0 … N/2 then −N/2+1 … −1. With M ≥ N (the ladder's
+            // case) its slot is m or M + m and its twiddle m or 2N + m, so neither needs a
+            // modulo; a smaller M folds, and takes the general form.
+            const TWO_N = 2 * N,
+                H = N / 2,
+                inv = 1 / N,
+                fold = M < N;
+            for (let k = 0; k < N; k++) {
+                const m = (k <= H) ? k : k - N; // signed frequency
+                const t = m >= 0 ? m : TWO_N + m;
+                const tr = shift.cos[t],
+                    ti = shift.sin[t];
+                const a = re[k] * inv,
+                    b = im[k] * inv;
+                const idx = fold ? ((m % M) + M) % M : m >= 0 ? m : M + m;
+                if (k === H) {
+                    // Z·w/2 at +N/2, Z·conj(w)/2 at its mirror −N/2.
+                    sr[idx] += 0.5 * (a * tr - b * ti);
+                    si[idx] += 0.5 * (a * ti + b * tr);
+                    const mi = fold ? ((-m % M) + M) % M : M - m;
+                    sr[mi] += 0.5 * (a * tr + b * ti);
+                    si[mi] += 0.5 * (b * tr - a * ti);
+                    continue;
+                }
+                sr[idx] += a * tr - b * ti;
+                si[idx] += a * ti + b * tr;
+            }
+            fftInPlace(sr, si, true);
+            for (let i = 0; i < M; i++) {
+                sr[i] *= M; // undo the inverse transform's 1/M
+                si[i] *= M;
+            }
+            return [sr, si];
+        }
+
         // Full-rung reconstruction of the source + its diagonal. Built once per shape and
-        // reused across every candidate rung, so the ladder scan costs one reference.
+        // reused across every candidate rung, so the ladder scan costs one reference. It
+        // carries the source's resampler, so each rung's leaves come from the same lengths.
         function autoRungReference(sp) {
             const src = autoRungSource(sp);
             if (!src)
                 return null;
             const M = AUTO_RUNG_M;
-            const rs = arcLengthResample(Array.from(src.x), Array.from(src.y), FULL_RUNG_N);
-            const fx = autoRungReconstruct(Float64Array.from(rs.x), M);
-            const fy = autoRungReconstruct(Float64Array.from(rs.y), M);
+            const resample = autoRungResampler(src);
+            const rs = resample(FULL_RUNG_N);
+            const [fx, fy] = autoRungReconstructXY(rs.x, rs.y, M);
             let minX = 1e9,
                 minY = 1e9,
                 maxX = -1e9,
@@ -10011,6 +10109,7 @@
             }
             return {
                 src,
+                resample,
                 fx,
                 fy,
                 M,
@@ -10026,19 +10125,34 @@
         // The alignment search is proportional to M (a fixed ±6 was ±3° at M=720 and would
         // be ±0.75° here), and the peak is taken at the shift that minimizes RMS rather
         // than at its own best shift, so both numbers describe the same correspondence.
-        function autoRungDeviationAt(ref, N) {
-            const {src, fx, fy, M, diag} = ref;
-            const rs = arcLengthResample(Array.from(src.x), Array.from(src.y), N);
-            const rx = autoRungReconstruct(Float64Array.from(rs.x), M);
-            const ry = autoRungReconstruct(Float64Array.from(rs.y), M);
+        // rs: this rung's resample, when the caller already has it (the ladder shares one
+        // between the alias test and this one); otherwise it is taken here.
+        function autoRungDeviationAt(ref, N, rs) {
+            const {fx, fy, M, diag} = ref;
+            // The full rung IS the reference: the same leaves through the same transform give
+            // back fx and fy exactly, the shift search finds zero at no shift, and the four
+            // transforms and the search only confirmed it.
+            if (N === FULL_RUNG_N)
+                return {
+                    pct: 100,
+                    peakPct: 100,
+                    rms: 0,
+                    peak: 0,
+                };
+            if (!rs)
+                rs = ref.resample(N);
+            const [rx, ry] = autoRungReconstructXY(rs.x, rs.y, M);
             const SHIFT = Math.max(6, Math.round(M / 120));
             let bestSum = Infinity,
                 bestShift = 0;
+            // The wrap is taken by splitting the sum where i + sh passes M, rather than by a
+            // modulo per sample: the same terms added in the same order.
             for (let s = -SHIFT; s <= SHIFT; s++) {
                 const sh = ((s % M) + M) % M;
                 let sum = 0;
-                for (let i = 0; i < M; i++) {
-                    const j = (i + sh) % M;
+                for (let i = 0, j = sh; i < M; i++, j++) {
+                    if (j === M)
+                        j = 0;
                     const dx = rx[i] - fx[j],
                         dy = ry[i] - fy[j];
                     sum += dx * dx + dy * dy;
@@ -10050,12 +10164,16 @@
             }
             const bestRms = Math.sqrt(bestSum / M);
             let peak = 0;
-            for (let i = 0; i < M; i++) {
-                const j = (i + bestShift) % M;
-                const d = Math.hypot(rx[i] - fx[j], ry[i] - fy[j]);
+            for (let i = 0, j = bestShift; i < M; i++, j++) {
+                if (j === M)
+                    j = 0;
+                const dx = rx[i] - fx[j],
+                    dy = ry[i] - fy[j];
+                const d = dx * dx + dy * dy; // compared squared; the root taken once, below
                 if (d > peak)
                     peak = d;
             }
+            peak = Math.sqrt(peak);
             return {
                 pct: Math.max(0, 100 * (1 - bestRms / diag)),
                 peakPct: Math.max(0, 100 * (1 - peak / diag)),
@@ -10078,11 +10196,12 @@
         // an otherwise excellent score; the alias flag is the local signal that catches
         // it. Auto requires BOTH to pass — that is the settling ladder's own criterion,
         // now driving the rung instead of merely reporting on it.
-        function autoRungAliasAt(ref, N) {
-            const rs = arcLengthResample(Array.from(ref.src.x), Array.from(ref.src.y), N);
+        function autoRungAliasAt(ref, N, rs) {
+            if (!rs)
+                rs = ref.resample(N);
             const ind = aliasIndicators({
-                leafX: Float64Array.from(rs.x),
-                leafY: Float64Array.from(rs.y)
+                leafX: rs.x,
+                leafY: rs.y
             });
             if (!ind)
                 return 0;
@@ -10155,9 +10274,10 @@
                 // contour it rejects every low rung outright, so the expensive measurement only
                 // runs on the two or three rungs that could actually win. The order does not
                 // change the answer: whichever rung is returned has passed all three.
-                if (autoRungAliasAt(ref, N) > AUTO_ALIAS_THR)
+                const rs = ref.resample(N); // one resample, both tests
+                if (autoRungAliasAt(ref, N, rs) > AUTO_ALIAS_THR)
                     continue;
-                const dev = autoRungDeviationAt(ref, N);
+                const dev = autoRungDeviationAt(ref, N, rs);
                 lastPct = dev.pct;
                 // The acuity gate is measured on the RMS, not the peak, and that is not a
                 // softening — it is the only form of the gate that can be satisfied. The peak
@@ -10414,6 +10534,23 @@
             const fit = 0.92 * Math.min(w / bw, h / bh) / (state.hRun || 1);
             return Math.max(now, fit) * LOAD_ZOOM_HEADROOM;
         }
+        // Test hook: the solver on a shape-like object ({refX, refY} or {leafX, leafY}), so a
+        // check can hold its answers to a recorded set and time it without a page of shapes.
+        // packedGap: how far the one-transform reconstruction of x and y lies from the two
+        // single-channel ones it replaced, over the same leaves (it should be rounding).
+        window.__autoRung = {
+            solve: (sp, tol, scale) => solveAutoRung(sp, tol, scale),
+            packedGap: (x, y, M) => {
+                const [px, py] = autoRungReconstructXY(x, y, M);
+                const sx = autoRungReconstruct(Float64Array.from(x), M),
+                    sy = autoRungReconstruct(Float64Array.from(y), M);
+                let gap = 0;
+                for (let i = 0; i < M; i++)
+                    gap = Math.max(gap, Math.abs(px[i] - sx[i]), Math.abs(py[i] - sy[i]));
+                return gap;
+            }
+        };
+
         function applyAutoRung(indices, opts) {
             const list = indices && indices.length
             ? indices
@@ -21980,9 +22117,10 @@
                 return null;
             for (let r = AUTO_RUNG_MIN; r <= AUTO_RUNG_MAX; r++) {
                 const N = 1 << r;
-                if (autoRungAliasAt(ref, N) > AUTO_ALIAS_THR)
+                const rs = ref.resample(N); // one resample, both tests
+                if (autoRungAliasAt(ref, N, rs) > AUTO_ALIAS_THR)
                     continue;
-                const dev = autoRungDeviationAt(ref, N);
+                const dev = autoRungDeviationAt(ref, N, rs);
                 if (dev.pct >= AUTO_TOL_DEFAULT && dev.peakPct >= AUTO_TOL_PEAK)
                     return {
                         rung: r,
