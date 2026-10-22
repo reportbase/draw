@@ -12007,8 +12007,7 @@
                 // snapshots share the old ones): moving a crowded selection is no reason to
                 // convert it. It has no leaves or motion to carry.
                 if (sp && sp._lazy) {
-                    const lz = sp._lazy;
-                    makeLazy(sp, Float64Array.from(lz.x, x => x + dx), Float64Array.from(lz.y, y => y + dy), lz.scale);
+                    lazyXform(sp, [1, 0, 0, 1, dx, dy]);
                     continue;
                 }
                 if (!sp || !sp.leafX)
@@ -12036,8 +12035,7 @@
             for (const i of idx) {
                 const sp = state.subpaths[i];
                 if (sp && sp._lazy) { // held: scaled as its outline, as nudgeIndices
-                    const lz = sp._lazy;
-                    makeLazy(sp, Float64Array.from(lz.x, x => cx + (x - cx) * s), Float64Array.from(lz.y, y => cy + (y - cy) * s), lz.scale);
+                    lazyXform(sp, [s, 0, 0, s, cx - cx * s, cy - cy * s]);
                     continue;
                 }
                 if (!sp || !sp.leafX)
@@ -12970,10 +12968,8 @@
                 // held: moved as its outline, as nudgeIndices does (a drag of a crowded
                 // selection is no reason to convert it)
                 if (sp._lazy) {
-                    if (dx || dy) {
-                        const lz = sp._lazy;
-                        makeLazy(sp, Float64Array.from(lz.x, x => x + dx), Float64Array.from(lz.y, y => y + dy), lz.scale);
-                    }
+                    if (dx || dy)
+                        lazyXform(sp, [1, 0, 0, 1, dx, dy]);
                     continue;
                 }
                 if (!sp.leafX)
@@ -14618,6 +14614,11 @@
             const [pcx, pcy] = pivot || selectionPivot(sel);
             for (const i of sel) {
                 const sp = state.subpaths[i];
+                // a held shape is resized as its map, without converting (THE HELD RECORD)
+                if (sp._lazy) {
+                    lazyXform(sp, [fx, 0, 0, fy, pcx - pcx * fx, pcy - pcy * fy]);
+                    continue;
+                }
                 if (!sp.leafX)
                     continue;
                 const cx = pcx,
@@ -14647,6 +14648,11 @@
             const [pcx, pcy] = pivot || selectionPivot(sel); // one pivot for the selection — see selectionPivot
             for (const i of sel) {
                 const sp = state.subpaths[i];
+                // a held shape is turned as its map, without converting (THE HELD RECORD)
+                if (sp._lazy) {
+                    lazyXform(sp, [ca, sa, -sa, ca, pcx - pcx * ca + pcy * sa, pcy - pcx * sa - pcy * ca]);
+                    continue;
+                }
                 if (!sp.leafX)
                     continue;
                 const cx = pcx,
@@ -23426,10 +23432,7 @@
                 const s = (cell / 2) * 0.88 / Math.max(halfW, halfH); // fit into the cell with padding
                 for (const sp of shapes) {
                     if (sp._lazy) {
-                        // New arrays, not the old ones written over: undo snapshots share them.
-                        const lz = sp._lazy;
-                        makeLazy(sp, Float64Array.from(lz.x, x => (x - bcx) * s + ccx),
-                        Float64Array.from(lz.y, y => (y - bcy) * s + ccy), lz.scale);
+                        lazyXform(sp, [s, 0, 0, s, ccx - bcx * s, ccy - bcy * s]);
                         continue;
                     }
                     for (let i = 0; i < sp.refX.length; i++) {
@@ -23559,6 +23562,20 @@
             by: new Map()
         };
         lazyStats.held = () => state.subpaths.reduce((n, sp) => n + (sp && sp._lazy ? 1 : 0), 0);
+        // Convert the first held shape that has been moved, turned or resized (THE HELD RECORD)
+        // and give its held box and the box of the leaves it became: the two should agree.
+        lazyStats.convertMoved = () => {
+            const sp = state.subpaths.find(t => t && t._lazy && t._lazy.m);
+            if (!sp)
+                return null;
+            const held = sp._lazy.box.slice();
+            const X = sp.leafX,
+                Y = sp.leafY; // the read converts it
+            return {
+                held,
+                leaves: [Math.min(...X), Math.min(...Y), Math.max(...X), Math.max(...Y)]
+            };
+        };
         // Every answer the rung worker has delivered, solved again here from the same outline:
         // how many there are and how many differ in any figure (the claim is none).
         lazyStats.checkAhead = () => {
@@ -23593,31 +23610,128 @@
         };
         window.__lazy = lazyStats;
 
-        function makeLazy(sp, x, y, scale) {
+        // ── THE HELD RECORD ──────────────────────────────────────────────────────────
+        // A held shape keeps the outline it arrived as (rx, ry, never written: undo snapshots
+        // share them) and one affine map m = [a, b, c, d, e, f] (x' = a·x + c·y + e,
+        // y' = b·x + d·y + f; null is the identity) that moving, aligning, resizing and
+        // rotating compose into, an O(1) change a shape with nothing allocated. A drag of
+        // two thousand held shapes used to write two thousand new outlines a step and the
+        // renderer built two thousand paths again; now the renderer draws the one cached path
+        // under m, and nothing is rebuilt.
+        //
+        // Whatever reads the outline itself — hit tests, the export, thumbnails, conversion,
+        // the autosave — reads x and y, which are the outline under m, worked out on first
+        // read and kept until m changes again; box is its bounding box, the same way (and
+        // for a plain move, the arrived box shifted, with no points touched).
+        function lazyRecord(rx, ry, scale, m) {
+            return {
+                rx,
+                ry,
+                m: m || null,
+                scale: scale || 0,
+                ver: 0, // bumped by every change of m (the rung worker's answers check it)
+                _x: null,
+                _y: null,
+                _box: null,
+                _box0: null,
+                get x() {
+                    if (!this.m)
+                        return this.rx;
+                    if (!this._x)
+                        lazyBake(this);
+                    return this._x;
+                },
+                get y() {
+                    if (!this.m)
+                        return this.ry;
+                    if (!this._y)
+                        lazyBake(this);
+                    return this._y;
+                },
+                get box() {
+                    if (!this._box)
+                        this._box = lazyBoxOf(this);
+                    return this._box;
+                }
+            };
+        }
+        function lazyBake(lz) {
+            const [a, b, c, d, e, f] = lz.m,
+                n = lz.rx.length;
+            const X = new Float64Array(n),
+                Y = new Float64Array(n);
+            for (let i = 0; i < n; i++) {
+                const x = lz.rx[i],
+                    y = lz.ry[i];
+                X[i] = a * x + c * y + e;
+                Y[i] = b * x + d * y + f;
+            }
+            lz._x = X;
+            lz._y = Y;
+        }
+        function lazyBoxOf(lz) {
+            if (!lz._box0) {
+                let mnx = Infinity,
+                    mny = Infinity,
+                    mxx = -Infinity,
+                    mxy = -Infinity;
+                for (let i = 0; i < lz.rx.length; i++) {
+                    const X = lz.rx[i],
+                        Y = lz.ry[i];
+                    if (X < mnx)
+                        mnx = X;
+                    if (X > mxx)
+                        mxx = X;
+                    if (Y < mny)
+                        mny = Y;
+                    if (Y > mxy)
+                        mxy = Y;
+                }
+                lz._box0 = [mnx, mny, mxx, mxy];
+            }
+            const m = lz.m,
+                b0 = lz._box0;
+            if (!m)
+                return b0;
+            if (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1)
+                return [b0[0] + m[4], b0[1] + m[5], b0[2] + m[4], b0[3] + m[5]];
+            const X = lz.x,
+                Y = lz.y;
             let mnx = Infinity,
                 mny = Infinity,
                 mxx = -Infinity,
                 mxy = -Infinity;
-            for (let i = 0; i < x.length; i++) {
-                const X = x[i],
-                    Y = y[i];
-                if (X < mnx)
-                    mnx = X;
-                if (X > mxx)
-                    mxx = X;
-                if (Y < mny)
-                    mny = Y;
-                if (Y > mxy)
-                    mxy = Y;
+            for (let i = 0; i < X.length; i++) {
+                if (X[i] < mnx)
+                    mnx = X[i];
+                if (X[i] > mxx)
+                    mxx = X[i];
+                if (Y[i] < mny)
+                    mny = Y[i];
+                if (Y[i] > mxy)
+                    mxy = Y[i];
             }
+            return [mnx, mny, mxx, mxy];
+        }
+        // Compose t (same layout as m) after the shape's map. The rung worker's answer was for
+        // the outline as it was, so it goes (a resize changes what the acuity gate sees).
+        function lazyXform(sp, t) {
+            const lz = sp._lazy,
+                m = lz.m || [1, 0, 0, 1, 0, 0];
+            lz.m = [
+                t[0] * m[0] + t[2] * m[1], t[1] * m[0] + t[3] * m[1],
+                t[0] * m[2] + t[2] * m[3], t[1] * m[2] + t[3] * m[3],
+                t[0] * m[4] + t[2] * m[5] + t[4], t[1] * m[4] + t[3] * m[5] + t[5]
+            ];
+            lz._x = lz._y = lz._box = null;
+            lz.sol = lz.solKey = null;
+            lz.ver++;
+        }
+
+        function makeLazy(sp, x, y, scale, m) {
             // scale: the fit scale the load measured, kept so a conversion solves its rung
             // where the load would have, without measuring the page again for every shape.
-            sp._lazy = {
-                x,
-                y,
-                scale: scale || 0,
-                box: [mnx, mny, mxx, mxy]
-            };
+            sp._lazy = lazyRecord(x, y, scale, m);
             sp._lazyP2d = null;
             for (const key of LAZY_KEYS) {
                 Object.defineProperty(sp, key, {
@@ -23640,7 +23754,7 @@
         // import goes back to being held. Returns the shape, for use inside a map.
         function relazy(raw, sp) {
             if (raw && raw.x && raw.x.length >= 2)
-                makeLazy(sp, raw.x, raw.y, raw.scale);
+                makeLazy(sp, raw.x, raw.y, raw.scale, raw.m);
             return sp;
         }
 
@@ -23775,8 +23889,8 @@
                     for (const r of e.data) {
                         const job = _rungPending.get(r.id);
                         _rungPending.delete(r.id);
-                        if (!job || !r.sol)
-                            continue;
+                        if (!job || !r.sol || job.lz.ver !== job.ver)
+                            continue; // dropped, or the shape was moved since (THE HELD RECORD)
                         job.lz.sol = r.sol;
                         job.lz.solKey = job.key;
                         lazyStats.solvedAhead++;
@@ -23826,6 +23940,7 @@
                 const id = ++_rungSeq;
                 _rungPending.set(id, {
                     lz,
+                    ver: lz.ver,
                     key: rungWorkerKey(lz.scale)
                 });
                 jobs.push({
@@ -23873,8 +23988,9 @@
                 // import's arrays are never written, so the snapshot can share them.
                 subpaths: state.subpaths.map(sp => ({
                     lazy: sp._lazy ? {
-                        x: sp._lazy.x,
-                        y: sp._lazy.y,
+                        x: sp._lazy.rx,
+                        y: sp._lazy.ry,
+                        m: sp._lazy.m,
                         scale: sp._lazy.scale
                     } : null,
                     leafX: sp._lazy ? null : sp.leafX ? Float64Array.from(sp.leafX) : null,
@@ -33979,16 +34095,22 @@
                         ctx.globalAlpha = 1;
                         continue;
                     }
+                    // The path is the arrived outline, built once; the shape's map goes on the
+                    // canvas transform (THE HELD RECORD), so moving it rebuilds nothing.
                     let p2 = sp._lazyP2d;
-                    if (!p2) {
+                    if (!p2 || sp._lazyP2dOf !== lz.rx) {
                         p2 = new Path2D();
-                        p2.moveTo(lz.x[0], lz.y[0]);
-                        for (let i = 1; i < lz.x.length; i++)
-                            p2.lineTo(lz.x[i], lz.y[i]);
+                        p2.moveTo(lz.rx[0], lz.ry[0]);
+                        for (let i = 1; i < lz.rx.length; i++)
+                            p2.lineTo(lz.rx[i], lz.ry[i]);
                         p2.closePath();
                         sp._lazyP2d = p2;
+                        sp._lazyP2dOf = lz.rx;
                     }
                     _setWorldTF();
+                    const _lm = lz.m;
+                    if (_lm)
+                        ctx.transform(_lm[0], _lm[1], _lm[2], _lm[3], _lm[4], _lm[5]);
                     if (state.showFills && sp.fill && sp.fill.color) {
                         const _a0 = ctx.globalAlpha;
                         ctx.globalAlpha = (sp.fill.opacity != null ? sp.fill.opacity : 1);
@@ -34003,7 +34125,14 @@
                         ctx.lineWidth = (spLW + 6) / _worldA;
                         ctx.stroke(p2);
                     }
-                    if (spLW > 0) {
+                    // NO DEFAULT OUTLINE ON A HELD FILLED SHAPE (22 Oct 2026, Tom, "4": drop the outline
+                    // stroke on crowded files). The editor's gold outline is its own furniture, not
+                    // the file's, and on a crowded page it was a third of the frame (measured with
+                    // __lazy.frameMs). A held shape strokes only when it has a stroke of its own (the
+                    // SVG painted one, or the line controls set one) or has no fill to be seen by.
+                    // Converting the shape (clicking it, a leaf tool) gives it the outline back.
+                    const ownLine = !!sp.stroke || sp.lineWidth != null || !(state.showFills && sp.fill && sp.fill.color);
+                    if (spLW > 0 && ownLine) {
                         ctx.strokeStyle = sp.stroke || 'rgba(212,160,82,1)';
                         ctx.lineWidth = spLW / _worldA;
                         const spSO = (sp.strokeOpacity != null) ? sp.strokeOpacity : 1;
@@ -34013,6 +34142,12 @@
                             ctx.stroke(p2);
                             ctx.globalAlpha = _a1;
                         }
+                    }
+                    if (_lm) {
+                        // The canvas is under world·m, which neither flag describes: put it back
+                        // to screen, the state _tfWorld = false promises.
+                        ctx.setTransform(_S, 0, 0, _S, 0, 0);
+                        _tfWorld = false;
                     }
                     continue;
                 }
@@ -71927,6 +72062,7 @@
                 return (rows && rows.buttons && rows.buttons.find(b => b.name === 'bt-group')) || null;
             },
             panelUp: () => !!sliderRows(),
+            handles: () => handlePoints(), // the box's grips in canvas pixels, for driving a drag
             grouped: () => selectionIsGrouped(),
             units: () => selectionUnitCount(),
             press: () => runBoxButton('bt-group'),
