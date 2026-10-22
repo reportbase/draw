@@ -306,7 +306,8 @@ try {
    the one in the middle converts that one and no other; the autosave keeps the rest held, and
    a reload brings them back held; the rung worker answers for all 300 exactly as the page would,
    and a converted shape takes its answer; select-all and the SVG export keep them held, and the export
-   writes all 300. Clicking reaches every shape through the hit test, so a pass
+   writes all 300; turning and resizing the selection keeps them held, and a turned shape converts
+   where it was drawn. Clicking reaches every shape through the hit test, so a pass
    that reads every shape's leaves shows up here as the count dropping to 0. */
 current = 'crowded import';
 {
@@ -367,6 +368,17 @@ current = 'crowded import';
     if (npaths !== 300) throw new Error(`the export wrote ${npaths} paths, not 300`);
     const heldExp = await cp.evaluate(() => window.__lazy.held());
     if (heldExp !== 299) throw new Error(`exporting left ${heldExp} of 299 held`);
+    // Turning and resizing a held selection (the , and ] keys, the same calls the box's grips
+    // make) keeps it held, and a shape converted afterwards lands where it was drawn.
+    for (const k of [',', ',', ']']) await cp.keyboard.press(k);
+    await cp.waitForTimeout(300);
+    const heldXf = await cp.evaluate(() => window.__lazy.held());
+    if (heldXf !== 299) throw new Error(`turning and resizing left ${heldXf} of 299 held`);
+    const cm = await cp.evaluate(() => window.__lazy.convertMoved());
+    if (!cm) throw new Error('no held shape was turned');
+    const span = Math.max(cm.held[2] - cm.held[0], cm.held[3] - cm.held[1]);
+    const off = Math.max(...cm.held.map((v, i) => Math.abs(v - cm.leaves[i])));
+    if (!(off < 0.05 * span)) throw new Error(`a turned shape converted ${off} off its held box (span ${span})`);
   } catch (e){
     failures.push(`[crowded import] ${e.message.split('\n')[0]}`);
   }
