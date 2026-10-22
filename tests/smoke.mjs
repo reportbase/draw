@@ -352,6 +352,46 @@ current = 'crowded import';
   await cp.close();
 }
 
+/* The group button lives in the panel under the selection (BOX_BUTTONS 'bt-group'), no longer
+   beside the rotate grip, and a double-click on a shape puts the panel away and brings it back.
+   Three shapes, all selected: the button is in the panel's row, pressing it groups them, a
+   double-click on the middle shape hides the panel and a second shows it again. */
+current = 'panel: group button and double-click';
+{
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  gp.on('pageerror', e => failures.push(`[panel] ${e.message}`));
+  await gp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await gp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await gp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+      + '<rect x="110" y="10" width="80" height="80" fill="#48c"/><circle cx="250" cy="50" r="40" fill="#4c8"/></svg>';
+    await gp.setInputFiles('#fLoad', { name: 'three.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+    await gp.waitForTimeout(1500);
+    const box = await gp.locator('#cv').boundingBox();
+    await gp.mouse.click(box.x + 20, box.y + box.height - 20);
+    await gp.keyboard.press('ControlOrMeta+a');
+    await gp.waitForTimeout(600);
+    const g = await gp.evaluate(() => window.__box.group());
+    if (!g) throw new Error('no group button in the panel with three shapes selected');
+    await gp.mouse.click(box.x + g.cx, box.y + g.cy);
+    await gp.waitForTimeout(400);
+    if (!(await gp.evaluate(() => window.__box.grouped()))) throw new Error('the panel button did not group the selection');
+    const mid = [box.x + box.width / 2, box.y + box.height / 2];
+    await gp.mouse.dblclick(...mid);
+    await gp.waitForTimeout(400);
+    if (await gp.evaluate(() => window.__box.panelUp())) throw new Error('a double-click on the shape left the panel up');
+    await gp.mouse.dblclick(...mid);
+    await gp.waitForTimeout(400);
+    if (!(await gp.evaluate(() => window.__box.panelUp()))) throw new Error('a second double-click did not bring the panel back');
+  } catch (e){
+    failures.push(`[panel] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} panel: group button and double-click`);
+  await gp.close();
+}
+
 /* The gallery pages: each must load without an uncaught error, and its first
    tile's edit button must produce a link that this editor opens. window.open is
    stubbed so the link can be followed here, in a page of our own. */
