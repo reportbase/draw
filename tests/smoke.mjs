@@ -506,6 +506,12 @@ current = 'exact shapes';
     await xp.keyboard.press('ControlOrMeta+z');
     await xp.waitForTimeout(300);
     if ((await held()) !== 2) throw new Error('undo did not bring the exact triangle back');
+    // With a mirror on, the axes are drawn from the selected shape's box; read off its leaves,
+    // that turned an exact shape back into leaves at the first frame.
+    await xp.evaluate(() => window._setMirrorMode('both'));
+    await xp.waitForTimeout(400);
+    if ((await held()) !== 2) throw new Error('a mirror turned the exact shapes into leaves');
+    await xp.evaluate(() => window._setMirrorMode('off'));
   } catch (e){
     failures.push(`[exact shapes] ${e.message.split('\n')[0]}`);
   }
