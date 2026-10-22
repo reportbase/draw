@@ -10571,7 +10571,10 @@
                 // converted (materializeLazy), at the scale a load would have used.
                 if (!sp || sp._lazy || (!sp.refX && !sp.leafX))
                     continue;
-                const sol = solveAutoRung(sp, state.autoRungTol, scale);
+                // A held shape converted after the worker answered for it (RUNG WORKER) brings the
+                // answer in; it is solveAutoRung's own, computed from the same outline.
+                const sol = (opts && opts.presolved && list.length === 1) ? opts.presolved
+                : solveAutoRung(sp, state.autoRungTol, scale);
                 if (!sol)
                     continue;
                 const held = sp.leafX ? sp.leafX.length : 0;
@@ -23331,6 +23334,7 @@
                 for (const sp of newSubs)
                     if (sp._lazy)
                         sp._lazy.scale = fit;
+                solveHeldAhead(newSubs); // the rung worker starts on them now (RUNG WORKER)
             }
             resampleFromReference();
             state.view.zoom = 1;
@@ -23538,10 +23542,36 @@
         const lazyStats = {
             made: 0,
             converted: 0,
+            solvedAhead: 0, // answers the rung worker has delivered
+            presolved: 0, // conversions that used one
             trace: false,
             by: new Map()
         };
         lazyStats.held = () => state.subpaths.reduce((n, sp) => n + (sp && sp._lazy ? 1 : 0), 0);
+        // Every answer the rung worker has delivered, solved again here from the same outline:
+        // how many there are and how many differ in any figure (the claim is none).
+        lazyStats.checkAhead = () => {
+            let n = 0,
+                differ = 0;
+            for (const sp of state.subpaths) {
+                const lz = sp && sp._lazy;
+                if (!lz || !lz.sol)
+                    continue;
+                n++;
+                const ref = arcLengthResample(lz.x, lz.y, REF_SAMPLES);
+                const mine = solveAutoRung({
+                    refX: ref.x,
+                    refY: ref.y,
+                    dirty: false
+                }, state.autoRungTol, lz.scale);
+                if (JSON.stringify(mine) !== JSON.stringify(lz.sol))
+                    differ++;
+            }
+            return {
+                n,
+                differ
+            };
+        };
         // One full render, timed: the measure for drawing a crowded page (drawAll.now is the
         // untimed, uncached path, so nothing from the camera cache stands in for the work).
         lazyStats.frameMs = () => {
@@ -23641,11 +23671,162 @@
                             if (t && t._lazy && !t._lazy.scale)
                                 t._lazy.scale = raw.scale;
                     }
+                    const pre = (raw.sol && raw.solKey === rungWorkerKey(raw.scale)) ? raw.sol : null;
+                    if (pre)
+                        lazyStats.presolved++;
                     applyAutoRung([i], {
-                        scale: raw.scale
+                        scale: raw.scale,
+                        presolved: pre
                     });
                 }
             }
+        }
+
+        // ── THE RUNG WORKER ──────────────────────────────────────────────────────────
+        // Converting a held shape is two resamples and one rung search, and the search is
+        // nearly all of it (about 1.4 ms a shape against a few hundredths for the resamples).
+        // The search reads nothing but the outline, the tolerance and the scale, so it can be
+        // done ahead of time, off the main thread, while the page is being looked at: a
+        // crowded load hands its held outlines to a worker, which runs solveAutoRung on each
+        // and sends back the answer — one small record a shape, not its arrays. A shape
+        // converted after its answer has arrived takes it instead of searching again, so a
+        // whole-page conversion (a .tvf save, a leaf tool over everything) costs the
+        // resamples alone.
+        //
+        // THE SAME CODE, NOT A COPY OF IT. The worker is built from the functions' own source
+        // (Function.prototype.toString) and the constants' current values, and it loads
+        // tvf-core.js itself, so an answer from the worker is the answer the main thread
+        // would compute from the same outline, to the bit. The key records what the answer
+        // depended on (the tolerance, the comparison grid, the transform switch, the scale);
+        // an answer whose key no longer matches is ignored and the shape is solved as before.
+        //
+        // Nothing waits for it. If the worker cannot be made (a page opened from disk, a
+        // browser without workers) or fails, every shape is solved on conversion exactly as
+        // it was; if a shape is converted before its answer arrives, the answer is dropped.
+        let _rungWorker = null,
+            _rungWorkerFailed = false,
+            _rungSeq = 0;
+        const _rungPending = new Map(); // job id → { lz } (the held record the job was cut from)
+        function rungWorkerKey(scale) {
+            return [state.autoRungTol, AUTO_RUNG_M, _fftReconOn, scale].join('|');
+        }
+        function rungWorker() {
+            if (_rungWorker || _rungWorkerFailed)
+                return _rungWorker;
+            try {
+                const consts = {
+                    AUTO_TOL_DEFAULT,
+                    NEW_SHAPE_MIN_N,
+                    AUTO_RUNG_MIN,
+                    AUTO_RUNG_MAX,
+                    AUTO_ALIAS_THR,
+                    AUTO_EXACT_EPS,
+                    AUTO_TOL_PEAK,
+                    AUTO_ACUITY_PX,
+                    FULL_RUNG_N,
+                    REF_SAMPLES,
+                    FFT_MIN_N,
+                    FFT_MIN_M,
+                    KMAT_MAX_ENTRY_CELLS,
+                    TAU
+                };
+                const fns = [autoRungResampler, autoRungReconstructXY, autoRungReconstruct, fftReconUsable,
+                    autoRungSource, autoRungReference, autoRungDeviationAt, autoRungAliasAt, aliasIndicators,
+                    solveAutoRung];
+                const src = [
+                    'importScripts(' + JSON.stringify(new URL('tvf-core.js', location.href).href) + ');',
+                    'const {fftTable, fftInPlace, isPow2, reconstructFFT} = TVF_CORE;',
+                    ...Object.entries(consts).map(([k, v]) => 'const ' + k + ' = ' + JSON.stringify(v) + ';'),
+                    'let AUTO_RUNG_M = 2048, _fftReconOn = true;',
+                    'function arcLengthResample(x, y, N) { return tvf.arcLengthResample(x, y, N); }',
+                    ...fns.map(f => f.toString()),
+                    // One job is one held outline. The reference is the load's own first pass
+                    // (resampleFromReference / materializeLazy), so the solver sees what it would.
+                    'onmessage = e => {',
+                    '    const m = e.data;',
+                    '    AUTO_RUNG_M = m.M;',
+                    '    _fftReconOn = m.fft;',
+                    '    postMessage(m.jobs.map(j => {',
+                    '        try {',
+                    '            const ref = arcLengthResample(j.x, j.y, REF_SAMPLES);',
+                    '            return { id: j.id, sol: solveAutoRung({ refX: ref.x, refY: ref.y, dirty: false }, m.tol, j.scale) };',
+                    '        } catch (err) {',
+                    '            return { id: j.id, sol: null };',
+                    '        }',
+                    '    }));',
+                    '};'
+                ].join('\n');
+                const url = URL.createObjectURL(new Blob([src], {
+                    type: 'text/javascript'
+                }));
+                const w = new Worker(url);
+                w.onmessage = e => {
+                    for (const r of e.data) {
+                        const job = _rungPending.get(r.id);
+                        _rungPending.delete(r.id);
+                        if (!job || !r.sol)
+                            continue;
+                        job.lz.sol = r.sol;
+                        job.lz.solKey = job.key;
+                        lazyStats.solvedAhead++;
+                    }
+                };
+                w.onerror = () => {
+                    _rungWorkerFailed = true;
+                    _rungWorker = null;
+                    _rungPending.clear();
+                    try {
+                        w.terminate();
+                    } catch (_) {}
+                };
+                _rungWorker = w;
+            } catch (_) {
+                _rungWorkerFailed = true;
+            }
+            return _rungWorker;
+        }
+        // Hand the held shapes among `list` to the worker, a batch at a time so answers come
+        // back while the rest are still being worked on. Only while auto picks the rung (the
+        // answer is a rung) and while the transform is on (the worker carries no fallback for
+        // the direct sum).
+        function solveHeldAhead(list) {
+            if (!state.autoRung || !_fftReconOn)
+                return;
+            const w = rungWorker();
+            if (!w)
+                return;
+            const BATCH = 64;
+            let jobs = [];
+            const send = () => {
+                if (!jobs.length)
+                    return;
+                w.postMessage({
+                    M: AUTO_RUNG_M,
+                    fft: _fftReconOn,
+                    tol: state.autoRungTol,
+                    jobs
+                });
+                jobs = [];
+            };
+            for (const sp of list) {
+                const lz = sp && sp._lazy;
+                if (!lz || lz.sol || !lz.scale)
+                    continue;
+                const id = ++_rungSeq;
+                _rungPending.set(id, {
+                    lz,
+                    key: rungWorkerKey(lz.scale)
+                });
+                jobs.push({
+                    id,
+                    x: lz.x,
+                    y: lz.y,
+                    scale: lz.scale
+                });
+                if (jobs.length >= BATCH)
+                    send();
+            }
+            send();
         }
 
         // Commit the current bridge curve as the signal's new reference. Called

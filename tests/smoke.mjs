@@ -304,7 +304,8 @@ try {
    of its own, with every CDN blocked, because the importer must not need one (the path-data
    polyfill is inlined; without it a 200-path file took 40 s): 300 shapes load held; clicking
    the one in the middle converts that one and no other; the autosave keeps the rest held, and
-   a reload brings them back held; select-all and the SVG export keep them held, and the export
+   a reload brings them back held; the rung worker answers for all 300 exactly as the page would,
+   and a converted shape takes its answer; select-all and the SVG export keep them held, and the export
    writes all 300. Clicking reaches every shape through the hit test, so a pass
    that reads every shape's leaves shows up here as the count dropping to 0. */
 current = 'crowded import';
@@ -337,11 +338,17 @@ current = 'crowded import';
     await cp.waitForFunction(() => window.__lazy && window.__lazy.held() === 300, null, { timeout: 30000 });
     const status = await cp.evaluate(() => document.getElementById('status').textContent);
     if (!/300 as imported/.test(status)) throw new Error('status: ' + status);
+    // The rung worker answers for every held shape in the background, and each answer is the
+    // one the page computes itself from the same outline. Then clicking a shape uses its answer.
+    await cp.waitForFunction(() => window.__lazy.solvedAhead >= 300, null, { timeout: 60000 });
+    const ahead = await cp.evaluate(() => window.__lazy.checkAhead());
+    if (ahead.n !== 300 || ahead.differ !== 0) throw new Error(`rung worker: ${ahead.differ} of ${ahead.n} answers differ from the page's own`);
     const box = await cp.locator('#cv').boundingBox();
     await cp.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await cp.waitForTimeout(600);
     const held = await cp.evaluate(() => window.__lazy.held());
     if (held !== 299) throw new Error(`clicking one shape left ${held} of 300 held, not 299`);
+    if (!(await cp.evaluate(() => window.__lazy.presolved))) throw new Error('the clicked shape did not take the worker\'s answer');
     await cp.waitForFunction(() => ((localStorage.getItem('tangent.scene.v1') || '').match(/"lz":1/g) || []).length === 299,
                              null, { timeout: 15000 });
     await cp.reload({ waitUntil: 'load' });
