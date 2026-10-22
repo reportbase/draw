@@ -434,6 +434,68 @@ current = 'panel: group button and menu switch';
   await gp.close();
 }
 
+/* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,
+   edges straight, never leaves until asked. A triangle closed on its start point and a line of
+   two points finished by a double-click; both held exact through a click and a drag of a
+   corner; the SVG export writes them as straight segments (the triangle closed, the line open);
+   "to leaves" turns the triangle into leaves and undo brings the exact one back. */
+current = 'exact shapes';
+{
+  const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  xp.on('pageerror', e => failures.push(`[exact shapes] ${e.message}`));
+  await xp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await xp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await xp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const box = await xp.locator('#cv').boundingBox();
+    const P = (x, y) => [box.x + x, box.y + y];
+    const held = () => xp.evaluate(() => window.__lazy.held());
+    const svgPaths = async () => {
+      const [dl] = await Promise.all([xp.waitForEvent('download', { timeout: 30000 }),
+        xp.evaluate(() => document.getElementById('bExportSvg').click())]);
+      return (await readFile(await dl.path(), 'utf8')).match(/<path d="M[\d. ]+L[^"]*"/g) || [];
+    };
+    await xp.click('#bDrawLine');
+    for (const [x, y] of [[100, 600], [300, 600], [200, 450]]) await xp.mouse.click(...P(x, y));
+    await xp.mouse.click(...P(101, 601)); // the start point again closes it
+    await xp.click('#bDrawLine');
+    await xp.mouse.click(...P(500, 650));
+    await xp.mouse.dblclick(...P(800, 500));
+    await xp.waitForTimeout(300);
+    if ((await held()) !== 2) throw new Error(`drew 2 exact shapes, ${await held()} held`);
+    let paths = await svgPaths();
+    const tri = paths.find(d => /Z"$/.test(d)), line = paths.find(d => !/Z"$/.test(d));
+    if (!tri || tri.split('L').length !== 3) throw new Error('the triangle did not export as three straight sides: ' + tri);
+    if (!line || line.split('L').length !== 2) throw new Error('the line did not export as one open segment: ' + line);
+    await xp.mouse.click(...P(200, 560)); // select the triangle
+    await xp.waitForTimeout(300);
+    const status = await xp.evaluate(() => document.getElementById('status').textContent);
+    if (!/exact polygon, 3 points/.test(status)) throw new Error('status: ' + status.slice(0, 120));
+    await xp.mouse.move(...P(200, 450)); // its apex
+    await xp.mouse.down();
+    await xp.mouse.move(...P(260, 380), { steps: 6 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    if ((await held()) !== 2) throw new Error('dragging a corner converted the shape');
+    paths = await svgPaths();
+    const tri2 = paths.find(d => /Z"$/.test(d));
+    if (!tri2 || tri2 === tri) throw new Error('dragging the apex did not move it');
+    const btn = await xp.evaluate(() => { for (let y = 0; y < innerHeight; y += 2) for (let x = 0; x < innerWidth; x += 2) if (window.__box.hit(x, y) === 'bt-toleaves') return [x, y]; return null; });
+    if (!btn) throw new Error('no "to leaves" button with an exact shape selected');
+    await xp.mouse.click(...P(btn[0], btn[1]));
+    await xp.waitForTimeout(300);
+    if ((await held()) !== 1) throw new Error('"to leaves" did not turn the triangle into leaves');
+    await xp.keyboard.press('ControlOrMeta+z');
+    await xp.waitForTimeout(300);
+    if ((await held()) !== 2) throw new Error('undo did not bring the exact triangle back');
+  } catch (e){
+    failures.push(`[exact shapes] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} exact shapes: polygons and lines`);
+  await xp.close();
+}
+
 /* The gallery pages: each must load without an uncaught error, and its first
    tile's edit button must produce a link that this editor opens. window.open is
    stubbed so the link can be followed here, in a page of our own. */
