@@ -2874,7 +2874,12 @@
                          pins its resting colour to a literal white: the polarity block cannot reach either
                          value, so the strip says the same thing over a dark drawing and a pale one. */
                       color: #d4a052;
-                      background: rgba(212,160,82,0.14);
+                      /* THE WASH LIES ON THE CHIP, NOT INSTEAD OF IT (22 Oct 2026, Tom: "I cant see the
+                         bottom browser's selected icon. it is transparent"). The wash alone is 14% gold
+                         over nothing, so the selected tile — and only that one — was see-through: over a
+                         pale drawing its gold contour sat on the drawing itself and vanished. Layered on
+                         the chip's own opaque fill it reads the same over anything, like its neighbours. */
+                      background: linear-gradient(rgba(212,160,82,0.14), rgba(212,160,82,0.14)), var(--chip-bg);
                       border-color: rgba(212,160,82,0.5);
                       box-shadow: var(--chip-shadow-hover);
                     }
@@ -2883,7 +2888,7 @@
                        accent, the one state change a hover must never announce. */
                     .shape-tile.active:hover {
                       color: #f2d7a8;
-                      background: rgba(212,160,82,0.30);
+                      background: linear-gradient(rgba(212,160,82,0.30), rgba(212,160,82,0.30)), var(--chip-bg);
                       border-color: rgba(212,160,82,0.65);
                     }
                     .shape-tile.focused { }
@@ -4241,6 +4246,13 @@
                         <span style="opacity:0.45;">⌘V</span>
                     </button>
                 </div>
+                <!-- The panel under the selection (its smoothing track and buttons), shown or put
+                     away. It was a double-click on the shape for a day; Tom moved it here (22 Oct
+                     2026: "Move the toggle to the standard menu"). For the session, not saved. -->
+                <label class="toggle" style="display:flex;align-items:center;gap:6px;margin-top:8px;" title="the panel under the selected shapes — the smoothing track and the round off, group, straighten and smooth buttons. Off puts it away until you turn it back on.">
+                    <input type="checkbox" id="tSelPanel" checked>
+                    selection panel
+                </label>
             </div>
 
             <div class="group">
@@ -15630,10 +15642,9 @@
             // answer is the right one and it is now the only one.
             if (!handlesVisible())
                 return null;
-            // …OR WHEN IT HAS BEEN PUT AWAY. A double-click on a shape hides the panel and the
-            // next one brings it back (see the canvas's dblclick). Everything that asks whether
-            // the panel is up asks here, so the track, the buttons, their hit tests and the
-            // height the fit reserves all go together.
+            // …OR WHEN IT HAS BEEN PUT AWAY, by the "selection panel" switch in the menu's edit
+            // group (#tSelPanel). Everything that asks whether the panel is up asks here, so the
+            // track, the buttons, their hit tests and the height the fit reserves all go together.
             if (state.panelHidden)
                 return null;
             const H = handlePoints();
@@ -59663,6 +59674,12 @@
             downloadTextFile(svg, safeFileName(state.svgName, 'svg'));
         }
         $('bExportSvg').addEventListener('click', exportSvg);
+        // The selection panel's switch (see #tSelPanel). The only thing that moves the flag, so
+        // the box never needs syncing from elsewhere.
+        $('tSelPanel').addEventListener('change', e => {
+            state.panelHidden = !e.target.checked;
+            drawAll();
+        });
 
         // ── EXPORTING A MORPH ────────────────────────────────────────────────────────
         // exportSvg writes one frame. A morph is not one frame, and the reason it can be written
@@ -60380,30 +60397,6 @@
             }
             if (drawMode)
                 return;
-            // ── A DOUBLE-CLICK ON A SHAPE PUTS THE PANEL AWAY, AND BRINGS IT BACK ──────────
-            // (22 Oct 2026, Tom: "toggle the bottom panel visible/not-visible with double
-            // clicking the shape".) The panel sits under the selection, over whatever is drawn
-            // below it; this gets it out of the way without losing the selection, and the same
-            // gesture returns it. Off the shape (empty canvas) the gesture does nothing, and a
-            // double-click on the panel or a grip belongs to that control, as below.
-            //
-            // Not in the lab view: there a double-click on a shape opens the edit view, and
-            // that gesture is older and stays. The flag is the session's, not saved: a reload
-            // starts with the panel showing.
-            if (!LAB && !state.editMode) {
-                const rp = cv.getBoundingClientRect();
-                const px = e.clientX - rp.left,
-                    py = e.clientY - rp.top;
-                if (handleAt(px, py))
-                    return;
-                if (findShapeAt(px, py, rp.width, rp.height) >= 0) {
-                    e.preventDefault();
-                    state.panelHidden = !state.panelHidden;
-                    flashStatus(state.panelHidden ? 'panel hidden — double-click the shape to bring it back' : 'panel shown');
-                    drawAll();
-                }
-                return;
-            }
             // Everything below this line is a way INTO the edit view — the grouped-member
             // branch, the built-shape branch, the leaf circles, the fit. With the lab off
             // there is nowhere for the gesture to go, so the double-click means nothing at
