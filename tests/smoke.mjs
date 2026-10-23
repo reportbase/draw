@@ -722,7 +722,8 @@ current = 'exact shapes';
    sharp ones, outlined is a frame. A click in a frame's hole selects nothing; aligning goes by the
    outline as drawn (round corners included); a word made exact is a shape a letter with its
    counters as holes (read from the font where it can be fetched). A hole's corners drag, add and
-   remove like the outline's. */
+   remove like the outline's. The knife cuts a frame in two; the corner strip rounds, smooths and
+   sharpens every corner at once. */
 current = 'combining exact shapes';
 {
   const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -998,6 +999,40 @@ current = 'combining exact shapes';
       await xp.waitForTimeout(250);
     }
     if ((await xp.evaluate(() => window.__box.corners())).holes.length !== 0) throw new Error('the three-corner hole was not filled');
+    // THE KNIFE: a frame cut down its middle is two pieces of half its area each, exact
+    await fresh();
+    await rect(150, 300, 450, 600);
+    await rect(250, 400, 350, 500);
+    await xp.evaluate(() => window.__box.select([0, 1]));
+    await press('bt-subtract');
+    await xp.evaluate(() => window.__box.select([0]));
+    const fr0 = (await shapes())[0];
+    const whole = fr0.area - fr0.holes.reduce((t, h) => t + h.area, 0); // the frame's own area: its outline less its hole
+    await press('bt-knife');
+    await xp.mouse.move(...P(300, 250));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(300, 650), { steps: 5 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    const halves = await shapes();
+    if (halves.length !== 2 || halves.some(q => q.n !== 8 || q.holes.length || Math.abs(q.area - whole / 2) > 1e-6 * whole)) throw new Error('the frame cut: ' + JSON.stringify(halves.map(q => [q.n, q.area])));
+    // CORNERS, ALL AT ONCE: a square's corners all rounded by the radius, then all smooth,
+    // then all sharp
+    await fresh();
+    await rect(150, 300, 350, 500);
+    await xp.evaluate(() => window.__box.select([0]));
+    await press('bt-corners');
+    await xp.fill('#ctR', '0.05');
+    await xp.click('#ctRound');
+    let cq = (await shapes())[0];
+    if (!cq.round || cq.round.length !== 4 || cq.round.some(v => Math.abs(v - 0.05) > 1e-9)) throw new Error('round all: ' + JSON.stringify(cq.round));
+    await xp.click('#ctSmooth');
+    cq = (await shapes())[0];
+    if (!cq.smooth || cq.round) throw new Error('all smooth: ' + JSON.stringify(cq));
+    await xp.click('#ctSharp');
+    cq = (await shapes())[0];
+    if (cq.smooth || cq.round || cq.n !== 4) throw new Error('all sharp: ' + JSON.stringify(cq));
+    await xp.click('#ctClose');
   } catch (e){
     failures.push(`[combining exact shapes] ${e.message.split('\n')[0]}`);
   }

@@ -3137,7 +3137,7 @@
         }
         #shapeTool.open { display: flex; }
         /* THE OFFSET STRIP, styled as the shape tool's */
-        #offsetTool {
+        #offsetTool, #cornersTool {
             position: fixed;
             z-index: 60;
             display: none;
@@ -3151,8 +3151,8 @@
             color: var(--fg);
             white-space: nowrap;
         }
-        #offsetTool.open { display: flex; }
-        #offsetTool button {
+        #offsetTool.open, #cornersTool.open { display: flex; }
+        #offsetTool button, #cornersTool button {
             background: transparent;
             color: var(--fg);
             border: 1px solid var(--line2);
@@ -3163,8 +3163,8 @@
         }
         #offsetTool button.on { background: var(--gold); color: #14141a; border-color: var(--gold); }
         #offsetTool button:disabled { opacity: 0.4; cursor: default; }
-        #offsetTool .lab { color: var(--fg-muted); margin: 0 2px 0 6px; }
-        #offsetTool input[type=number] {
+        #offsetTool .lab, #cornersTool .lab { color: var(--fg-muted); margin: 0 2px 0 6px; }
+        #offsetTool input[type=number], #cornersTool input[type=number] {
             width: 70px;
             background: transparent;
             color: var(--fg);
@@ -4170,6 +4170,15 @@
         <button type="button" id="otShrink" title="shrink each closed shape selected by the distance">shrink</button>
         <button type="button" id="otOutline" title="each outline selected made a shape as wide as the distance, filled with its line colour">outline</button>
         <button type="button" id="otClose" title="put the strip away (Escape)">×</button>
+    </div>
+    <!-- CORNERS, ALL AT ONCE: opened by the panel's corners button. -->
+    <div id="cornersTool" role="toolbar" aria-label="every corner at once">
+        <span class="lab">radius</span>
+        <input type="number" step="any" min="0" id="ctR" title="the radius, in world units (the grid's, as the corner box's)">
+        <button type="button" id="ctRound" title="every corner of each exact shape selected sharp and rounded by the radius">round all</button>
+        <button type="button" id="ctSharp" title="every corner sharp: straight edges, no radii">all sharp</button>
+        <button type="button" id="ctSmooth" title="every corner smooth: the outline curves through them all">all smooth</button>
+        <button type="button" id="ctClose" title="put the strip away (Escape)">×</button>
     </div>
     <!-- A PICKED CORNER'S NUMBERS (EXACT SHAPES): shown beside a picked corner. World units,
          the grid's. -->
@@ -15868,6 +15877,19 @@
             name: 'bt-offset',
             title: 'offset: grow, shrink, or make the outline a shape',
             show: () => selectionHasExact(false)
+        }, // CORNERS, ALL AT ONCE
+        {
+            name: 'bt-corners',
+            title: 'corners: round them all, or make them all sharp or all smooth',
+            show: () => selectionHasExact(false)
+        }, // THE KNIFE: any closed exact shape
+        {
+            name: 'bt-knife',
+            title: 'knife: drag a line across to cut',
+            show: () => selectedIndices().some(i => {
+                const lz = state.subpaths[i] && state.subpaths[i]._lazy;
+                return lz && lz.exact && !lz.open;
+            })
         }, // straighten flattens RUNS of selected leaves, so one leaf is never enough
         {
             name: 'bt-straighten',
@@ -16521,6 +16543,14 @@
             }
             if (name === 'bt-offset') {
                 setOffsetTool(!$('offsetTool').classList.contains('open'));
+                return;
+            }
+            if (name === 'bt-corners') {
+                setCornersTool(!$('cornersTool').classList.contains('open'));
+                return;
+            }
+            if (name === 'bt-knife') {
+                setKnife(!knifeMode);
                 return;
             }
             if (name === 'bt-union' || name === 'bt-subtract' || name === 'bt-intersect') {
@@ -17421,6 +17451,27 @@
                     ctx.fillRect(6.3, -1.6, 1.2, 3.2);
                 }
             }
+            // CORNERS, ALL AT ONCE: a square with its corners rounded
+            if (b.name === 'bt-corners') {
+                ctx.lineWidth = 1.3;
+                ctx.beginPath();
+                if (ctx.roundRect)
+                    ctx.roundRect(-6, -6, 12, 12, 4);
+                else
+                    ctx.rect(-6, -6, 12, 12);
+                ctx.stroke();
+            }
+            // THE KNIFE: a square cut across by a line, lit while armed
+            if (b.name === 'bt-knife') {
+                ctx.lineWidth = 1;
+                ctx.strokeRect(-5, -5, 10, 10);
+                ctx.lineWidth = 1.6;
+                ctx.strokeStyle = knifeMode ? '#e86050' : ctx.strokeStyle;
+                ctx.beginPath();
+                ctx.moveTo(-8, 7);
+                ctx.lineTo(8, -7);
+                ctx.stroke();
+            }
             // OFFSET AND OUTLINE: a square, and the same grown round it, dashed
             if (b.name === 'bt-offset') {
                 ctx.lineWidth = 1;
@@ -18069,6 +18120,8 @@
             'bt-subtract': 'pointer',
             'bt-intersect': 'pointer',
             'bt-offset': 'pointer',
+            'bt-corners': 'pointer',
+            'bt-knife': 'pointer',
             'bt-roundoff': 'pointer',
             'bt-mirror-v': 'pointer',
             'bt-mirror-h': 'pointer',
@@ -20563,6 +20616,333 @@
                 });
             return out;
         }
+        // A twentieth of the selection's size, to one figure: where the offset and corner strips
+        // start their distance and radius.
+        function selectionNiceSize() {
+            let x0 = Infinity,
+                x1 = -Infinity,
+                y0 = Infinity,
+                y1 = -Infinity;
+            for (const i of selectedIndices()) {
+                const lz = state.subpaths[i] && state.subpaths[i]._lazy;
+                if (!lz)
+                    continue;
+                const b = lz.box;
+                x0 = Math.min(x0, b[0]);
+                y0 = Math.min(y0, b[1]);
+                x1 = Math.max(x1, b[2]);
+                y1 = Math.max(y1, b[3]);
+            }
+            const sz = Math.max(x1 - x0, y1 - y0);
+            const v = isFinite(sz) && sz > 0 ? sz / 20 : 0.05;
+            const p = Math.pow(10, Math.floor(Math.log10(v)));
+            return Math.round(v / p) * p;
+        }
+        // ── CORNERS, ALL AT ONCE (23 Oct 2026, Tom: "1,2") ────────────────────────────
+        // A strip, as the offset strip, opened from the panel: a radius and three actions on
+        // every exact shape selected, each corner of the outline at once. Round all: every
+        // corner sharp and rounded by the radius (each clamped to what its edges leave room
+        // for, as one corner's is). All sharp: straight edges, no radii. All smooth: the
+        // outline curves through every corner. A hole's corners go sharp or smooth with the
+        // outline's (a hole holds no radii). One undo step.
+        const cornersCfg = {
+            r: null
+        };
+        function setAllCorners(kind, r) {
+            const sel = selectedIndices().filter(i => {
+                const sp = state.subpaths[i];
+                return sp && sp._lazy && sp._lazy.exact;
+            });
+            if (!sel.length || (kind === 'round' && !(r > 0)))
+                return false;
+            for (const i of sel) {
+                const sp = state.subpaths[i],
+                    lz = sp._lazy,
+                    n = lz.x.length;
+                const X = Array.from(lz.x),
+                    Y = Array.from(lz.y);
+                let R = null,
+                    Sm = null;
+                if (kind === 'round') {
+                    R = new Float64Array(n).fill(r);
+                    if (lz.open) {
+                        R[0] = 0;
+                        R[n - 1] = 0;
+                    }
+                } else if (kind === 'smooth')
+                    Sm = new Uint8Array(n).fill(1);
+                bakeExact(sp, X, Y, R, Sm);
+                if (kind !== 'round' && sp._lazy.holes) {
+                    const holes = holesCopy(sp._lazy);
+                    for (const h of holes)
+                        h.smooth = kind === 'smooth' ? new Array(h.x.length).fill(1) : null;
+                    rebakeHoles(sp, holes);
+                }
+            }
+            pickedVertex = null;
+            pushHistory();
+            scheduleSave();
+            updateStatus();
+            drawAll();
+            flashStatus(sel.length + (sel.length === 1 ? ' shape: ' : ' shapes: ')
+            + (kind === 'round' ? 'every corner rounded by ' + fmtLen(r) : kind === 'smooth' ? 'every corner smooth' : 'every corner sharp'));
+            return true;
+        }
+        // The strips under the bar take turns: opening one puts the others away.
+        function closeStripsBut(keep) {
+            if (keep !== 'shape' && typeof shapeTool !== 'undefined' && shapeTool)
+                setShapeTool(false);
+            if (keep !== 'offset')
+                setOffsetTool(false);
+            if (keep !== 'corners')
+                setCornersTool(false);
+            if (keep !== 'knife' && knifeMode)
+                setKnife(false);
+        }
+        function placeStrip(strip) {
+            const bar = document.querySelector('.topbar');
+            const br = bar ? bar.getBoundingClientRect() : {
+                bottom: 52
+            };
+            strip.style.top = (br.bottom + 8) + 'px';
+            strip.style.left = Math.max(8, (innerWidth - strip.offsetWidth) / 2) + 'px';
+        }
+        function setCornersTool(on) {
+            const strip = $('cornersTool');
+            if (!strip)
+                return;
+            if (on) {
+                closeStripsBut('corners');
+                if (!(cornersCfg.r > 0))
+                    cornersCfg.r = selectionNiceSize();
+            }
+            strip.classList.toggle('open', !!on);
+            if (on) {
+                placeStrip(strip);
+                $('ctR').value = +(+cornersCfg.r).toPrecision(6);
+            }
+        }
+        (function() {
+            const strip = $('cornersTool');
+            if (!strip)
+                return;
+            strip.addEventListener('click', e => {
+                const act = ({
+                    ctRound: 'round',
+                    ctSharp: 'sharp',
+                    ctSmooth: 'smooth'
+                })[e.target.id];
+                if (act)
+                    setAllCorners(act, +cornersCfg.r);
+                if (e.target.id === 'ctClose')
+                    setCornersTool(false);
+            });
+            $('ctR').addEventListener('input', e => {
+                const v = +e.target.value;
+                if (v > 0)
+                    cornersCfg.r = v;
+            });
+            window.addEventListener('keydown', e => {
+                if (e.key === 'Escape' && strip.classList.contains('open'))
+                    setCornersTool(false);
+            });
+        })();
+
+        // ── THE KNIFE (23 Oct 2026, Tom: "1,2") ──────────────────────────────────────
+        // Armed from the panel: the next drag on the canvas is a cut. Every closed exact shape
+        // selected that the line crosses (every one on the page when none is selected) is cut
+        // right across along the line through it, each side of the line its own shape or
+        // shapes, as the halves of a boolean with a half-plane (ringsBoolean): straight-edged
+        // pieces stay exact, curved ones are fitted again, holes go with the side they are on
+        // or are cut too. Shift holds the line to 45° steps. One cut, then the knife is put
+        // down; Escape puts it down unused. One undo step.
+        // var, not let: drawAll reads these, and may run before this line does at load
+        var knifeMode = false,
+            knifeDrag = null;
+        function setKnife(on) {
+            if (on)
+                closeStripsBut('knife');
+            knifeMode = !!on;
+            knifeDrag = null;
+            cv.style.cursor = on ? 'crosshair' : '';
+            if (on)
+                flashStatus('knife: drag a line across the shapes to cut them (Shift: 45° steps, Escape: put it down)');
+            drawAll();
+        }
+        // One ring of a boolean's answer, as an exact outline: its corners as they are when no
+        // curve reached it (the grown hairs of a union tidied away), else fitted to two pixels.
+        function finishBooleanRing(P, halfPx) {
+            if (Math.abs(ringArea(P)) < halfPx * halfPx * 4)
+                return null;
+            let x0 = Infinity,
+                x1 = -Infinity;
+            for (const p of P) {
+                x0 = Math.min(x0, p.x);
+                x1 = Math.max(x1, p.x);
+            }
+            const T = tidyPoly(P, Math.max(1e-6 * (x1 - x0), 1e-12));
+            if (T.length < 3)
+                return null;
+            if (!P.some(p => p.c))
+                return {
+                    x: Float64Array.from(T, q => q.x),
+                    y: Float64Array.from(T, q => q.y),
+                    smooth: null
+                };
+            const rs = arcLengthResample(T.map(q => q.x), T.map(q => q.y), 1024);
+            const o = fitExactOutline(Float64Array.from(rs.x), Float64Array.from(rs.y), 4 * halfPx);
+            return o && o.x.length >= 3 ? o : null;
+        }
+        // Cut along the line through a and b (world points); returns the pieces made.
+        function knifeCut(a, b) {
+            const dx = b.x - a.x,
+                dy = b.y - a.y,
+                L0 = Math.hypot(dx, dy);
+            if (!(L0 > 0))
+                return 0;
+            const ux = dx / L0,
+                uy = dy / L0,
+                nx = -uy,
+                ny = ux;
+            const closedExact = i => {
+                const sp = state.subpaths[i];
+                return sp && sp._lazy && sp._lazy.exact && !sp._lazy.open && sp._lazy.x.length >= 3;
+            };
+            let idx = selectedIndices().filter(closedExact);
+            if (!idx.length)
+                idx = state.subpaths.map((_, i) => i).filter(closedExact);
+            const r = cv.getBoundingClientRect();
+            const w0 = pxToWorld(0, 0, r.width, r.height),
+                w1 = pxToWorld(0.5, 0, r.width, r.height);
+            const halfPx = Math.abs(w1.x - w0.x) || 1e-4;
+            // does the drawn segment cross a ring's edge
+            const crosses = R => {
+                for (let i = 0, n = R.length; i < n; i++) {
+                    const p = R[i],
+                        q = R[(i + 1) % n];
+                    const ex = q.x - p.x,
+                        ey = q.y - p.y;
+                    const den = dx * ey - dy * ex;
+                    if (den === 0)
+                        continue;
+                    const t = ((p.x - a.x) * ey - (p.y - a.y) * ex) / den,
+                        s2 = ((p.x - a.x) * dy - (p.y - a.y) * dx) / den;
+                    if (t >= 0 && t <= 1 && s2 >= 0 && s2 <= 1)
+                        return true;
+                }
+                return false;
+            };
+            const made = new Map();
+            for (const i of idx) {
+                const sp = state.subpaths[i];
+                const br = booleanRings(sp);
+                if (!br.rings.some(crosses))
+                    continue;
+                const bx = sp._lazy.box;
+                const L = 4 * (Math.hypot(bx[2] - bx[0], bx[3] - bx[1]) + Math.hypot((bx[0] + bx[2]) / 2 - a.x, (bx[1] + bx[3]) / 2 - a.y) + L0);
+                const half = sgn => [{
+                    x: a.x - ux * L,
+                    y: a.y - uy * L
+                }, {
+                    x: a.x + ux * L,
+                    y: a.y + uy * L
+                }, {
+                    x: a.x + ux * L + sgn * nx * L,
+                    y: a.y + uy * L + sgn * ny * L
+                }, {
+                    x: a.x - ux * L + sgn * nx * L,
+                    y: a.y - uy * L + sgn * ny * L
+                }];
+                const outs = [];
+                for (const sgn of [1, -1])
+                    for (const Rg of ringsToRegions(ringsBoolean(br.rings, [half(sgn)], 'and'))) {
+                        const o = finishBooleanRing(Rg.outer, halfPx);
+                        if (!o)
+                            continue;
+                        o.holes = Rg.holes.map(h => finishBooleanRing(h, halfPx)).filter(Boolean);
+                        outs.push(o);
+                    }
+                if (outs.length >= 2)
+                    made.set(i, outs);
+            }
+            if (!made.size)
+                return 0;
+            if (state.editMode) {
+                state._editPrevView = null;
+                exitEditMode();
+            }
+            const next = [],
+                fresh = [];
+            state.subpaths.forEach((sp, i) => {
+                if (!made.has(i)) {
+                    next.push(sp);
+                    return;
+                }
+                for (const o of made.get(i)) {
+                    const ns = {
+                        refLength: 0,
+                        source: 'polygon',
+                        dirty: false,
+                        stroke: sp.stroke || null,
+                        strokeOpacity: sp.strokeOpacity != null ? sp.strokeOpacity : null,
+                        lineStyle: sp.lineStyle && sp.lineStyle.dash ? {
+                            dash: sp.lineStyle.dash,
+                            arrows: 0
+                        } : null,
+                        lineWidth: sp.lineWidth != null ? sp.lineWidth : null,
+                        smoothing: sp.smoothing != null ? sp.smoothing : null,
+                        fill: sp.fill ? {
+                            color: sp.fill.color,
+                            opacity: sp.fill.opacity
+                        } : null,
+                        gname: sp.gname || null,
+                        note: sp.note || null
+                    };
+                    makeLazy(ns, o.x, o.y, 0, null, {
+                        exact: true,
+                        smooth: o.smooth,
+                        holes: o.holes.length ? o.holes : null
+                    });
+                    fresh.push(next.length);
+                    next.push(ns);
+                }
+            });
+            state.subpaths = next;
+            state.selected.clear();
+            pickedVertex = null;
+            rebuildSignalSelect(); // resets the selection, so the pieces are selected after it
+            state.activeSet = new Set(fresh);
+            state.activeSp = fresh.length === 1 ? fresh[0] : -1;
+            state.isolateHide = false;
+            updateStatus();
+            drawAll();
+            pushHistory();
+            scheduleSave();
+            return fresh.length;
+        }
+        function drawKnifeLine() {
+            const d = knifeDrag;
+            ctx.save();
+            ctx.setLineDash([6, 4]);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = 'rgba(232,96,80,0.95)';
+            ctx.beginPath();
+            ctx.moveTo(d.a.x, d.a.y);
+            ctx.lineTo(d.b.x, d.b.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(232,96,80,0.95)';
+            for (const q of [d.a, d.b]) {
+                ctx.beginPath();
+                ctx.arc(q.x, q.y, 3, 0, TAU);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+        window.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && knifeMode)
+                setKnife(false);
+        });
         // The strip's settings: the distance (world units, the corner box's), and the joins.
         const offsetCfg = {
             d: null, // set from the selection's size when the strip first opens
@@ -20771,29 +21151,10 @@
             const strip = $('offsetTool');
             if (!strip)
                 return;
-            if (on && !(offsetCfg.d > 0)) {
-                // a twentieth of the selection's size, rounded to one figure
-                let x0 = Infinity,
-                    x1 = -Infinity,
-                    y0 = Infinity,
-                    y1 = -Infinity;
-                for (const i of selectedIndices()) {
-                    const lz = state.subpaths[i] && state.subpaths[i]._lazy;
-                    if (!lz)
-                        continue;
-                    const b = lz.box;
-                    x0 = Math.min(x0, b[0]);
-                    y0 = Math.min(y0, b[1]);
-                    x1 = Math.max(x1, b[2]);
-                    y1 = Math.max(y1, b[3]);
-                }
-                const s = Math.max(x1 - x0, y1 - y0);
-                const v = isFinite(s) && s > 0 ? s / 20 : 0.05;
-                const p = Math.pow(10, Math.floor(Math.log10(v)));
-                offsetCfg.d = Math.round(v / p) * p;
-            }
-            if (on && shapeTool)
-                setShapeTool(false);
+            if (on && !(offsetCfg.d > 0))
+                offsetCfg.d = selectionNiceSize();
+            if (on)
+                closeStripsBut('offset');
             strip.classList.toggle('open', !!on);
             if (on) {
                 const bar = document.querySelector('.topbar');
@@ -38406,6 +38767,8 @@
                 drawMeasurements(w, h); // MEASUREMENTS ON SCREEN
             if (CHROME && pushDrag)
                 drawPushRing(); // PUSH AND PULL
+            if (CHROME && knifeDrag)
+                drawKnifeLine(); // THE KNIFE
             // In-progress pencil stroke (canvas space).
             if (CHROME && drawMode && drawStroke && drawStroke.length > 1) {
                 ctx.save();
@@ -40903,6 +41266,21 @@
         cv.addEventListener('mousedown', e => {
             if (e.button !== 0)
                 return;
+            // THE KNIFE, armed, takes the press before anything else: the drag is the cut
+            if (knifeMode) {
+                e.preventDefault();
+                const rr = cv.getBoundingClientRect();
+                const p = {
+                    x: e.clientX - rr.left,
+                    y: e.clientY - rr.top
+                };
+                knifeDrag = {
+                    a: p,
+                    b: p
+                };
+                drawAll();
+                return;
+            }
             // THE SHAPE TOOL takes the press before anything else: it is a drawing tool
             if (shapeTool) {
                 e.preventDefault();
@@ -41879,6 +42257,16 @@
                 updateExactPush(e.clientX - rr.left, e.clientY - rr.top);
                 return;
             }
+            if (knifeDrag) {
+                const rr = cv.getBoundingClientRect();
+                const p = {
+                    x: e.clientX - rr.left,
+                    y: e.clientY - rr.top
+                };
+                knifeDrag.b = e.shiftKey ? snap45(knifeDrag.a, p) : p;
+                drawAll();
+                return;
+            }
             if (shapeDrag) {
                 const rr = cv.getBoundingClientRect();
                 shapeDrag.b = snapScreenPoint({
@@ -42451,6 +42839,16 @@
             cancelShapeLongPress(); // …and so is the shape hold it may have armed instead
             if (pushDrag) {
                 endExactPush();
+                return;
+            }
+            if (knifeDrag) {
+                const d = knifeDrag;
+                const rr = cv.getBoundingClientRect();
+                const A = pxToWorld(d.a.x, d.a.y, rr.width, rr.height),
+                    B = pxToWorld(d.b.x, d.b.y, rr.width, rr.height);
+                const n = Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y) >= 4 ? knifeCut(A, B) : 0;
+                setKnife(false);
+                flashStatus(n ? 'cut: ' + n + ' pieces' : 'the knife crossed no closed exact shape');
                 return;
             }
             if (shapeDrag) {
@@ -65276,7 +65674,7 @@
             if (on && drawMode)
                 setDrawMode(false);
             if (on)
-                setOffsetTool(false); // the two strips share the place under the bar
+                closeStripsBut('shape'); // the strips share the place under the bar
             shapeTool = !!on;
             shapeDrag = null;
             const b = $('bDrawShape');
