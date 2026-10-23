@@ -684,6 +684,17 @@ current = 'exact shapes';
       // the square's path: four corners, one of them smooth, so cubics (C) beside straight lines (L)
       if (!all.some(d => / C[\d.-]+ /.test(d) && / L[\d.-]+ /.test(d))) throw new Error('a smooth corner was not exported as a curve');
     }
+    // Leaves to exact with few corners: a square of leaves comes back as its four corners.
+    await xp.keyboard.press('Escape');
+    await xp.click('#bShapes');
+    await xp.click('#shapeGrid .shape-pick[data-shape="square"]');
+    await xp.waitForTimeout(400);
+    const sqSw = await xp.evaluate(() => { const b = window.__box.button('bt-mode'); return b && [b.cx, b.cy]; });
+    if (!sqSw) throw new Error('no mode switch on the added square');
+    await xp.mouse.click(...P(sqSw[0], sqSw[1]));
+    await xp.waitForTimeout(400);
+    const sqc = await xp.evaluate(() => window.__box.corners());
+    if (!sqc || sqc.pts.length !== 4 || sqc.smooth) throw new Error('a square of leaves made exact: ' + (sqc ? sqc.pts.length + ' corners' : 'not exact'));
   } catch (e){
     failures.push(`[exact shapes] ${e.message.split('\n')[0]}`);
   }

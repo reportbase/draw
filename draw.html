@@ -16374,42 +16374,57 @@
             }
             return ex && !lv ? 'exact' : (lv && !ex ? 'leaves' : 'mixed');
         }
-        // Leaves (or a held outline) to an exact polygon. The outline is sampled finely and the
-        // samples thinned by Douglas–Peucker to half a screen pixel, so what you see is what is
-        // kept: a square of leaves comes back as its corners and a little more where the leaves
-        // had rounded them, a circle as as many sides as it takes to look round at this zoom.
-        // Per-leaf data (colours, motion) has no leaves to hang on any more and goes; undo has it.
+        // LEAVES TO EXACT, WITH FEW CORNERS (23 Oct 2026, Tom: "1"). The outline is sampled
+        // finely and fitted with as few corners as hold it to two screen pixels (fitExactOutline):
+        // sharp where it turns hard (a point the leaves had), smooth elsewhere (SMOOTH CORNERS),
+        // straight where it runs straight. The maple, 176 corners as a polygon, comes back as 55
+        // (a square of leaves as 4, a hexagon as 6), and looks the same. A held import that is a
+        // polygon of a couple of dozen corners or fewer (within half a pixel) keeps them, exact. Per-leaf data
+        // (colours, motion) has no leaves to hang on any more and goes; undo has it.
         function makeShapeExact(sp) {
-            let X, Y;
-            if (sp._lazy) {
-                X = sp._lazy.x;
-                Y = sp._lazy.y;
-            } else {
-                const N = sp.leafX.length;
-                const M = ceilPow2(Math.min(8192, Math.max(1024, N * 16)));
-                X = reconstruct1D(sp.leafX, M);
-                Y = reconstruct1D(sp.leafY, M);
-            }
-            const ring = [];
-            for (let i = 0; i < X.length; i++) {
-                const q = ring[ring.length - 1];
-                if (!q || q.x !== X[i] || q.y !== Y[i])
-                    ring.push({
-                        x: X[i],
-                        y: Y[i]
-                    });
-            }
-            while (ring.length > 1 && ring[0].x === ring[ring.length - 1].x && ring[0].y === ring[ring.length - 1].y)
-                ring.pop();
             const r = cv.getBoundingClientRect();
             const a = pxToWorld(0, 0, r.width, r.height),
                 b = pxToWorld(0.5, 0, r.width, r.height);
-            const eps = Math.abs(b.x - a.x) || 1e-4;
-            const pts = ring.length >= 4 ? rdpClosed(ring, eps) : ring;
-            if (pts.length < 3)
+            const tol = Math.abs(b.x - a.x) || 1e-4; // half a pixel
+            let SX,
+                SY,
+                out = null;
+            if (sp._lazy) {
+                const X = sp._lazy.x,
+                    Y = sp._lazy.y;
+                const ring = [];
+                for (let i = 0; i < X.length; i++) {
+                    const q = ring[ring.length - 1];
+                    if (!q || q.x !== X[i] || q.y !== Y[i])
+                        ring.push({
+                            x: X[i],
+                            y: Y[i]
+                        });
+                }
+                while (ring.length > 1 && ring[0].x === ring[ring.length - 1].x && ring[0].y === ring[ring.length - 1].y)
+                    ring.pop();
+                const poly = ring.length >= 4 ? rdpClosed(ring, tol) : ring;
+                if (poly.length >= 3 && poly.length <= 24)
+                    out = {
+                        x: Float64Array.from(poly, q => q.x),
+                        y: Float64Array.from(poly, q => q.y),
+                        smooth: null
+                    };
+                else {
+                    const rs = arcLengthResample(Array.from(X), Array.from(Y), 1024);
+                    SX = Float64Array.from(rs.x);
+                    SY = Float64Array.from(rs.y);
+                }
+            } else {
+                const N = sp.leafX.length;
+                const M = ceilPow2(Math.min(4096, Math.max(1024, N * 4)));
+                SX = reconstruct1D(sp.leafX, M);
+                SY = reconstruct1D(sp.leafY, M);
+            }
+            if (!out)
+                out = fitExactOutline(SX, SY, 4 * tol); // two pixels: leaves ripple, and a corner chasing a ripple is noise
+            if (!out || out.x.length < 3)
                 return false;
-            const xs = Float64Array.from(pts, q => q.x),
-                ys = Float64Array.from(pts, q => q.y);
             if (sp._lazy) {
                 for (const key of LAZY_KEYS)
                     delete sp[key];
@@ -16419,10 +16434,238 @@
                 delete sp[key];
             sp.leafColor = null;
             sp.leafMotion = null;
-            makeLazy(sp, xs, ys, 0, null, {
-                exact: true
+            makeLazy(sp, out.x, out.y, 0, null, {
+                exact: true,
+                smooth: out.smooth
             });
             return true;
+        }
+        // Fit a closed outline, given as fine samples (SX, SY, no repeated end), with sharp and
+        // smooth corners at some of its samples, to within tol everywhere.
+        //   1. Sharp corners where the outline turns hard: over a window of ±1% of the samples
+        //      the direction turns by more than 40°, the most-turning sample of its stretch.
+        //   2. Then, until every sample is within tol of the fitted outline, a smooth corner goes
+        //      in at the sample worst off (at least four corners; at most 240, past which the
+        //      outline is a polygon of its samples thinned to tol, as before).
+        //   3. An edge whose samples lie within tol of its chord and which is long (a tenth of the
+        //      outline's size) is a straight run: both its ends turn sharp, and 2 runs again.
+        //   4. A sharp corner between two straight runs moves to where their lines cross: leaves
+        //      round a corner off, and the corner the lines point at is the one that was meant.
+        function fitExactOutline(SX, SY, tol) {
+            const N = SX.length;
+            if (N < 8)
+                return null;
+            let x0 = Infinity,
+                y0 = Infinity,
+                x1 = -Infinity,
+                y1 = -Infinity;
+            for (let i = 0; i < N; i++) {
+                x0 = Math.min(x0, SX[i]);
+                x1 = Math.max(x1, SX[i]);
+                y0 = Math.min(y0, SY[i]);
+                y1 = Math.max(y1, SY[i]);
+            }
+            const D = Math.hypot(x1 - x0, y1 - y0);
+            if (!(D > 0))
+                return null;
+            const w = Math.max(2, Math.round(N / 100));
+            const turn = new Float64Array(N);
+            for (let i = 0; i < N; i++) {
+                const p = (i - w + N) % N,
+                    q = (i + w) % N;
+                let t = Math.abs(Math.atan2(SY[q] - SY[i], SX[q] - SX[i]) - Math.atan2(SY[i] - SY[p], SX[i] - SX[p]));
+                if (t > Math.PI)
+                    t = TAU - t;
+                turn[i] = t;
+            }
+            // 1. the hard turns, one a stretch
+            let nodes = [];
+            for (let i = 0; i < N; i++) {
+                if (turn[i] < 0.7)
+                    continue;
+                let best = true;
+                for (let d = -2 * w; d <= 2 * w && best; d++)
+                    if (d && (turn[(i + d + N) % N] > turn[i] || (turn[(i + d + N) % N] === turn[i] && d < 0)))
+                        best = false;
+                if (best)
+                    nodes.push({
+                        i,
+                        sharp: true
+                    });
+            }
+            const gapAfter = k => {
+                const a = nodes[k].i,
+                    b = nodes[(k + 1) % nodes.length].i;
+                return ((b - a + N) % N) || N;
+            };
+            if (!nodes.length)
+                nodes.push({
+                    i: 0,
+                    sharp: false
+                });
+            while (nodes.length < 4) {
+                let k = 0;
+                for (let j = 1; j < nodes.length; j++)
+                    if (gapAfter(j) > gapAfter(k))
+                        k = j;
+                nodes.splice(k + 1, 0, {
+                    i: (nodes[k].i + Math.floor(gapAfter(k) / 2)) % N,
+                    sharp: false
+                });
+                nodes.sort((p, q) => p.i - q.i);
+            }
+            // The fitted outline along edge k, as a polyline of 24 steps, and the worst sample.
+            const worst = () => {
+                const n = nodes.length;
+                const X = nodes.map(q => SX[q.i]),
+                    Y = nodes.map(q => SY[q.i]),
+                    S = nodes.map(q => q.sharp ? 0 : 1);
+                let we = -1,
+                    wi = -1,
+                    errs = new Float64Array(n);
+                for (let k = 0; k < n; k++) {
+                    const j = (k + 1) % n;
+                    const cc = edgeCtrl(X, Y, S, false, k, j);
+                    const px = [],
+                        py = [];
+                    for (let q = 0; q <= 24; q++) {
+                        const t = q / 24,
+                            u = 1 - t;
+                        if (cc) {
+                            px.push(u * u * u * X[k] + 3 * u * u * t * cc.c1x + 3 * u * t * t * cc.c2x + t * t * t * X[j]);
+                            py.push(u * u * u * Y[k] + 3 * u * u * t * cc.c1y + 3 * u * t * t * cc.c2y + t * t * t * Y[j]);
+                        } else {
+                            px.push(X[k] + (X[j] - X[k]) * t);
+                            py.push(Y[k] + (Y[j] - Y[k]) * t);
+                        }
+                    }
+                    const span = gapAfter(k);
+                    for (let d = 1; d < span; d++) {
+                        const si = (nodes[k].i + d) % N;
+                        let best = Infinity;
+                        for (let q = 0; q < 24; q++) {
+                            const ax = px[q],
+                                ay = py[q],
+                                bx = px[q + 1] - ax,
+                                by = py[q + 1] - ay;
+                            const L2 = bx * bx + by * by;
+                            let t = L2 > 0 ? ((SX[si] - ax) * bx + (SY[si] - ay) * by) / L2 : 0;
+                            t = t < 0 ? 0 : (t > 1 ? 1 : t);
+                            const e = Math.hypot(SX[si] - ax - bx * t, SY[si] - ay - by * t);
+                            if (e < best)
+                                best = e;
+                        }
+                        if (best > errs[k])
+                            errs[k] = best;
+                        if (best > we) {
+                            we = best;
+                            wi = si;
+                        }
+                    }
+                }
+                return {
+                    we,
+                    wi,
+                    errs
+                };
+            };
+            const refine = () => {
+                for (let guard = 0; guard < 400; guard++) {
+                    const W = worst();
+                    if (W.we <= tol || W.wi < 0)
+                        return true;
+                    if (nodes.length >= 240)
+                        return false;
+                    nodes.push({
+                        i: W.wi,
+                        sharp: false
+                    });
+                    nodes.sort((p, q) => p.i - q.i);
+                }
+                return false;
+            };
+            let ok = refine();
+            // 3. straight runs
+            if (ok) {
+                let changed = false;
+                const n = nodes.length;
+                for (let k = 0; k < n; k++) {
+                    const j = (k + 1) % n;
+                    const ax = SX[nodes[k].i],
+                        ay = SY[nodes[k].i],
+                        bx = SX[nodes[j].i],
+                        by = SY[nodes[j].i];
+                    const len = Math.hypot(bx - ax, by - ay);
+                    if (len < 0.1 * D)
+                        continue;
+                    let fits = true;
+                    const span = gapAfter(k);
+                    for (let d = 1; d < span && fits; d++) {
+                        const si = (nodes[k].i + d) % N;
+                        if (Math.abs((SX[si] - ax) * (by - ay) - (SY[si] - ay) * (bx - ax)) / len > tol)
+                            fits = false;
+                    }
+                    if (fits && (!nodes[k].sharp || !nodes[j].sharp)) {
+                        nodes[k].sharp = nodes[j].sharp = true;
+                        changed = true;
+                    }
+                }
+                if (changed)
+                    ok = refine();
+            }
+            if (!ok) {
+                // too much detail for corners: the samples thinned to tol, as a polygon
+                const ring = Array.from(SX, (x, i) => ({
+                    x,
+                    y: SY[i]
+                }));
+                const poly = rdpClosed(ring, tol);
+                return {
+                    x: Float64Array.from(poly, q => q.x),
+                    y: Float64Array.from(poly, q => q.y),
+                    smooth: null
+                };
+            }
+            const n = nodes.length;
+            const X = Float64Array.from(nodes, q => SX[q.i]),
+                Y = Float64Array.from(nodes, q => SY[q.i]);
+            // 4. a sharp corner between two straight runs, at the crossing of their lines (drawn
+            // from each neighbour through a sample three windows before the rounding)
+            const straightEdge = k => nodes[k].sharp && nodes[(k + 1) % n].sharp;
+            for (let k = 0; k < n; k++) {
+                const pk = (k - 1 + n) % n,
+                    nk = (k + 1) % n;
+                if (!(nodes[k].sharp && straightEdge(pk) && straightEdge(k)))
+                    continue;
+                const ia = (nodes[k].i - 3 * w + N) % N,
+                    ib = (nodes[k].i + 3 * w) % N;
+                if (gapAfter(pk) <= 3 * w || gapAfter(k) <= 3 * w)
+                    continue;
+                const A = [X[pk], Y[pk]],
+                    B = [SX[ia], SY[ia]],
+                    C = [X[nk], Y[nk]],
+                    E = [SX[ib], SY[ib]];
+                const ux = B[0] - A[0],
+                    uy = B[1] - A[1],
+                    vx = E[0] - C[0],
+                    vy = E[1] - C[1];
+                const den = ux * vy - uy * vx;
+                if (Math.abs(den) < 0.26 * Math.hypot(ux, uy) * Math.hypot(vx, vy))
+                    continue;
+                const t = ((C[0] - A[0]) * vy - (C[1] - A[1]) * vx) / den;
+                const Ix = A[0] + ux * t,
+                    Iy = A[1] + uy * t;
+                if (Math.hypot(Ix - X[k], Iy - Y[k]) > 0.04 * D)
+                    continue;
+                X[k] = Ix;
+                Y[k] = Iy;
+            }
+            const S = Uint8Array.from(nodes, q => q.sharp ? 0 : 1);
+            return {
+                x: X,
+                y: Y,
+                smooth: hasSmooth(S) ? S : null
+            };
         }
         // A press: an all-exact selection becomes leaves; anything else becomes exact.
         function switchShapeMode() {
@@ -17411,6 +17654,41 @@
         // corner along the straight line to the next one. A radius (ROUNDED CORNERS) applies at
         // a sharp corner whose two edges are both straight.
         //
+        // The control points of the edge from corner a to corner b (= a + 1), or null when it is
+        // straight (both ends sharp). The one rule for a curved edge, so what is drawn, exported
+        // and fitted (fitExactOutline) agree.
+        function edgeCtrl(X, Y, S, open, a, b) {
+            const n = X.length,
+                sm = k => !!(S && S[k]);
+            if (!sm(a) && !sm(b))
+                return null;
+            const pa = (open && a === 0) ? -1 : (a - 1 + n) % n,
+                nb = (open && b === n - 1) ? -1 : (b + 1) % n;
+            let c1x,
+                c1y,
+                c2x,
+                c2y;
+            if (sm(a) && pa >= 0) {
+                c1x = X[a] + (X[b] - X[pa]) / 6;
+                c1y = Y[a] + (Y[b] - Y[pa]) / 6;
+            } else {
+                c1x = X[a] + (X[b] - X[a]) / 3;
+                c1y = Y[a] + (Y[b] - Y[a]) / 3;
+            }
+            if (sm(b) && nb >= 0) {
+                c2x = X[b] - (X[nb] - X[a]) / 6;
+                c2y = Y[b] - (Y[nb] - Y[a]) / 6;
+            } else {
+                c2x = X[b] - (X[b] - X[a]) / 3;
+                c2y = Y[b] - (Y[b] - Y[a]) / 3;
+            }
+            return {
+                c1x,
+                c1y,
+                c2x,
+                c2y
+            };
+        }
         // The outline as segments, the one description every consumer reads: drawing (onto a
         // path), the SVG export and the points leaves are made from. start is where it begins;
         // each segment arrives at a corner: 'L' a straight edge, 'A' a straight edge ending in
@@ -17433,33 +17711,14 @@
             };
             const segs = [];
             const arrive = (a, b) => {
-                if (sm(a) || sm(b)) {
-                    const pa = prev(a),
-                        nb = next(b);
-                    let c1x,
-                        c1y,
-                        c2x,
-                        c2y;
-                    if (sm(a) && pa >= 0) {
-                        c1x = X[a] + (X[b] - X[pa]) / 6;
-                        c1y = Y[a] + (Y[b] - Y[pa]) / 6;
-                    } else {
-                        c1x = X[a] + (X[b] - X[a]) / 3;
-                        c1y = Y[a] + (Y[b] - Y[a]) / 3;
-                    }
-                    if (sm(b) && nb >= 0) {
-                        c2x = X[b] - (X[nb] - X[a]) / 6;
-                        c2y = Y[b] - (Y[nb] - Y[a]) / 6;
-                    } else {
-                        c2x = X[b] - (X[b] - X[a]) / 3;
-                        c2y = Y[b] - (Y[b] - Y[a]) / 3;
-                    }
+                const cc = edgeCtrl(X, Y, S, open, a, b);
+                if (cc) {
                     segs.push({
                         type: 'C',
-                        c1x,
-                        c1y,
-                        c2x,
-                        c2y,
+                        c1x: cc.c1x,
+                        c1y: cc.c1y,
+                        c2x: cc.c2x,
+                        c2y: cc.c2y,
                         x: X[b],
                         y: Y[b]
                     });
