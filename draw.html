@@ -11899,6 +11899,7 @@
                     } : null,
                     stroke: sp.stroke || null,
                     strokeOpacity: sp.strokeOpacity != null ? sp.strokeOpacity : null,
+                    lineStyle: sp.lineStyle || null, // dashes and arrowheads (LINE STYLE)
                     lineWidth: sp.lineWidth != null ? sp.lineWidth : null,
                     smoothing: sp.smoothing != null ? sp.smoothing : null,
                     textRun: sp.textRun != null ? runRemap.get(sp.textRun) : null,
@@ -12278,6 +12279,7 @@
                     } : null,
                     stroke: sp.stroke || null,
                     strokeOpacity: sp.strokeOpacity != null ? sp.strokeOpacity : null,
+                    lineStyle: sp.lineStyle || null, // dashes and arrowheads (LINE STYLE)
                     lineWidth: sp.lineWidth != null ? sp.lineWidth : null,
                     smoothing: sp.smoothing != null ? sp.smoothing : null,
                     textRun: sp.textRun != null ? runRemap.get(sp.textRun) : null,
@@ -12665,6 +12667,7 @@
                 } : null,
                 stroke: src.stroke || null,
                 strokeOpacity: src.strokeOpacity != null ? src.strokeOpacity : null,
+                lineStyle: src.lineStyle || null, // dashes and arrowheads (LINE STYLE)
                 lineWidth: src.lineWidth != null ? src.lineWidth : null,
                 smoothing: src.smoothing != null ? src.smoothing : null,
                 gname: (src.gname || (src.gid != null && (groupLeaderSp(src.gid) || {}).gname)) || null,
@@ -13686,6 +13689,7 @@
                 } : null,
                 stroke: sp.stroke || null,
                 strokeOpacity: sp.strokeOpacity != null ? sp.strokeOpacity : null,
+                lineStyle: sp.lineStyle || null, // dashes and arrowheads (LINE STYLE)
                 lineWidth: sp.lineWidth != null ? sp.lineWidth : null,
                 smoothing: sp.smoothing != null ? sp.smoothing : null,
                 // A copy is the same thing again, so it is called the same thing and is for the
@@ -13743,6 +13747,7 @@
                     } : null,
                     stroke: c.stroke || null,
                     strokeOpacity: c.strokeOpacity != null ? c.strokeOpacity : null,
+                    lineStyle: c.lineStyle || null, // dashes and arrowheads (LINE STYLE)
                     lineWidth: c.lineWidth != null ? c.lineWidth : null,
                     smoothing: c.smoothing != null ? c.smoothing : null,
                     gname: c.gname || null,
@@ -15697,6 +15702,31 @@
             wide: 3.4,
             title: 'exact or leaves: exact keeps straight edges and corners; leaves sculpt',
             show: () => selectedIndices().some(i => modeSwitchable(state.subpaths[i]))
+        }, // LINE STYLE: solid, dashed, dotted (any exact shape); arrowheads (an exact line)
+        {
+            name: 'bt-dash',
+            title: 'line: solid, dashed or dotted',
+            show: () => selectionHasExact(false)
+        },
+        {
+            name: 'bt-arrow',
+            title: 'arrowheads: none, at the end, at both ends, at the start',
+            show: () => selectionHasExact(true)
+        }, // COMBINING EXACT SHAPES: two or more closed exact shapes selected
+        {
+            name: 'bt-union',
+            title: 'union: one shape covering them all',
+            show: () => booleanCandidates().length >= 2
+        },
+        {
+            name: 'bt-subtract',
+            title: 'subtract: the others cut out of the lowest',
+            show: () => booleanCandidates().length >= 2
+        },
+        {
+            name: 'bt-intersect',
+            title: 'intersect: only where they all overlap',
+            show: () => booleanCandidates().length >= 2
         }, // straighten flattens RUNS of selected leaves, so one leaf is never enough
         {
             name: 'bt-straighten',
@@ -16344,6 +16374,14 @@
                 switchShapeMode();
                 return;
             }
+            if (name === 'bt-dash' || name === 'bt-arrow') {
+                stepLineStyle(name === 'bt-dash' ? 'dash' : 'arrow');
+                return;
+            }
+            if (name === 'bt-union' || name === 'bt-subtract' || name === 'bt-intersect') {
+                combineExactShapes(name === 'bt-union' ? 'or' : name === 'bt-subtract' ? 'sub' : 'and');
+                return;
+            }
         }
 
         // ── THE MODE SWITCH (EXACT SHAPES) ──────────────────────────────────────────
@@ -16774,6 +16812,58 @@
             // The group switch's glyph, carried down from the rotate grip unchanged: one filled
             // square for the selection, and a ring round it when the selection already IS a
             // group, so the button says the state as well as the action.
+            // LINE STYLE: the selection's own dash, and its own heads, so the button shows the state
+            if (b.name === 'bt-dash') {
+                const sp0 = state.subpaths[selectedIndices().find(i => state.subpaths[i] && state.subpaths[i]._lazy && state.subpaths[i]._lazy.exact)];
+                const d = lineStyleOf(sp0).dash;
+                ctx.setLineDash(d === 'dash' ? [3, 2.2] : d === 'dot' ? [0.1, 2.6] : []);
+                ctx.beginPath();
+                ctx.moveTo(-6.5, 0);
+                ctx.lineTo(6.5, 0);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            if (b.name === 'bt-arrow') {
+                const sp0 = state.subpaths[selectedIndices().find(i => state.subpaths[i] && state.subpaths[i]._lazy && state.subpaths[i]._lazy.open)];
+                const a = lineStyleOf(sp0).arrows;
+                ctx.beginPath();
+                ctx.moveTo(-6.5, 0);
+                ctx.lineTo(6.5, 0);
+                ctx.stroke();
+                const headAt = (x, dir) => {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x - dir * 4, -3);
+                    ctx.lineTo(x - dir * 4, 3);
+                    ctx.closePath();
+                    ctx.fill();
+                };
+                if (a === 1 || a === 2)
+                    headAt(7, 1);
+                if (a === 2 || a === 3)
+                    headAt(-7, -1);
+                if (!a) { // none: the line with two plain ends
+                    ctx.fillRect(-7.5, -1.6, 1.2, 3.2);
+                    ctx.fillRect(6.3, -1.6, 1.2, 3.2);
+                }
+            }
+            // COMBINING EXACT SHAPES: two overlapping squares, the answer filled
+            if (b.name === 'bt-union' || b.name === 'bt-subtract' || b.name === 'bt-intersect') {
+                ctx.lineWidth = 1;
+                ctx.strokeRect(-6.5, -6.5, 8, 8);
+                ctx.strokeRect(-1.5, -1.5, 8, 8);
+                ctx.beginPath();
+                if (b.name === 'bt-union') {
+                    ctx.rect(-6.5, -6.5, 8, 8);
+                    ctx.rect(-1.5, -1.5, 8, 8);
+                    ctx.fill('nonzero');
+                } else if (b.name === 'bt-subtract') {
+                    ctx.rect(-6.5, -6.5, 8, 8);
+                    ctx.rect(-1.5, -1.5, 3, 3);
+                    ctx.fill('evenodd');
+                } else
+                    ctx.fillRect(-1.5, -1.5, 3, 3);
+            }
             if (b.name === 'bt-group') {
                 const grouped = selectionIsGrouped();
                 ctx.fillRect(-3.8, -3.8, 7.6, 7.6);
@@ -17386,6 +17476,11 @@
             'bt-smooth': 'pointer',
             'bt-group': 'pointer',
             'bt-mode': 'pointer',
+            'bt-dash': 'pointer',
+            'bt-arrow': 'pointer',
+            'bt-union': 'pointer',
+            'bt-subtract': 'pointer',
+            'bt-intersect': 'pointer',
             'bt-roundoff': 'pointer',
             'bt-mirror-v': 'pointer',
             'bt-mirror-h': 'pointer',
@@ -18779,6 +18874,673 @@
             $('ceSharp').addEventListener('click', () => smooth(false));
             $('ceSmooth').addEventListener('click', () => smooth(true));
         })();
+
+        // ── PUSH AND PULL (23 Oct 2026, Tom: "1,2,3") ────────────────────────────────
+        // An exact shape sculpted the way leaves are: a press on its outline (not on a corner,
+        // a ring or a round handle) and a drag move the corners near it with the pointer, all
+        // of it under the press and less with distance, none past the brush's reach (a quarter
+        // of the shape's size on screen, 40 to 200 pixels): weight (1 − (d/reach)²)². Where no
+        // corner is near enough to carry the pull, a smooth corner is put in under the press
+        // first, so a bump can be drawn out of a straight edge (on a straight edge it changes
+        // nothing until it moves: its tangent is the edge). One undo step a drag.
+        let pushDrag = null;
+        const PUSH_HIT_PX = 8;
+        // The edge (from corner i) and the point on it nearest p, sampled along the drawn edge.
+        function nearestOnExact(lz, p) {
+            const X = lz.x,
+                Y = lz.y,
+                n = X.length,
+                S = lz.smooth;
+            const edges = lz.open ? n - 1 : n;
+            let best = null;
+            for (let i = 0; i < edges; i++) {
+                const j = (i + 1) % n;
+                const cc = edgeCtrl(X, Y, S, lz.open, i, j);
+                for (let q = 0; q <= 24; q++) {
+                    const t = q / 24,
+                        u = 1 - t;
+                    const x = cc ? u * u * u * X[i] + 3 * u * u * t * cc.c1x + 3 * u * t * t * cc.c2x + t * t * t * X[j] : X[i] + (X[j] - X[i]) * t;
+                    const y = cc ? u * u * u * Y[i] + 3 * u * u * t * cc.c1y + 3 * u * t * t * cc.c2y + t * t * t * Y[j] : Y[i] + (Y[j] - Y[i]) * t;
+                    const d = Math.hypot(x - p.x, y - p.y);
+                    if (!best || d < best.d)
+                        best = {
+                            i,
+                            t,
+                            x,
+                            y,
+                            d
+                        };
+                }
+            }
+            return best;
+        }
+        function exactPushAt(px, py) {
+            if (state.locked || !handlesVisible())
+                return null;
+            const spi = exactSelected();
+            if (spi < 0)
+                return null;
+            const r = cv.getBoundingClientRect();
+            const w = pxToWorld(px, py, r.width, r.height);
+            const near = nearestOnExact(state.subpaths[spi]._lazy, w);
+            if (!near || near.d > PUSH_HIT_PX * worldPerPx())
+                return null;
+            return {
+                spi,
+                near,
+                px,
+                py
+            };
+        }
+        function pushReachPx(lz) {
+            const r = cv.getBoundingClientRect();
+            const b = lz.box,
+                a = worldToPx(b[0], b[1], r.width, r.height),
+                c = worldToPx(b[2], b[3], r.width, r.height);
+            return Math.max(40, Math.min(200, 0.25 * Math.hypot(c.x - a.x, c.y - a.y)));
+        }
+        function beginExactPush(hit) {
+            const sp = state.subpaths[hit.spi],
+                lz = sp._lazy;
+            const r = cv.getBoundingClientRect();
+            const reach = pushReachPx(lz);
+            let X = Array.from(lz.x),
+                Y = Array.from(lz.y),
+                R = lzRoundBaked(lz),
+                Sm = lz.smooth ? Array.from(lz.smooth) : null;
+            const weightOf = (x, y) => {
+                const q = worldToPx(x, y, r.width, r.height);
+                const d = Math.hypot(q.x - hit.px, q.y - hit.py) / reach;
+                return d >= 1 ? 0 : (1 - d * d) * (1 - d * d);
+            };
+            // no corner near enough to carry the pull: one goes in under the press, smooth
+            if (!X.some((x, k) => weightOf(x, Y[k]) >= 0.5)) {
+                const k = hit.near.i + 1;
+                X.splice(k, 0, hit.near.x);
+                Y.splice(k, 0, hit.near.y);
+                R = roundSplice(R, k, true);
+                Sm = cornerSplice(Sm || new Array(X.length - 1).fill(0), k, true, 1);
+            }
+            bakeExact(sp, X, Y, R, Sm);
+            const nl = sp._lazy;
+            pushDrag = {
+                spi: hit.spi,
+                sp,
+                px: hit.px,
+                py: hit.py,
+                reach,
+                bx: Float64Array.from(nl.rx),
+                by: Float64Array.from(nl.ry),
+                w: Float64Array.from(nl.rx, (x, k) => weightOf(x, nl.ry[k])),
+                moved: false
+            };
+            pickedVertex = null;
+            cv.style.cursor = 'grabbing';
+            drawAll();
+        }
+        function updateExactPush(mx, my) {
+            const D = pushDrag,
+                lz = D.sp._lazy;
+            if (!lz)
+                return;
+            const r = cv.getBoundingClientRect();
+            const a = pxToWorld(D.px, D.py, r.width, r.height),
+                b = pxToWorld(mx, my, r.width, r.height);
+            const dx = b.x - a.x,
+                dy = b.y - a.y;
+            for (let k = 0; k < lz.rx.length; k++) {
+                lz.rx[k] = D.bx[k] + D.w[k] * dx;
+                lz.ry[k] = D.by[k] + D.w[k] * dy;
+            }
+            lz._box = lz._box0 = null;
+            D.sp._lazyP2d = null;
+            D.moved = true;
+            D.mx = mx;
+            D.my = my;
+            drawAll();
+        }
+        function endExactPush() {
+            const moved = pushDrag.moved;
+            pushDrag = null;
+            cv.style.cursor = '';
+            if (moved) {
+                pushHistory();
+                scheduleSave();
+                updateStatus();
+            }
+            drawAll();
+        }
+        function drawPushRing() {
+            if (!pushDrag)
+                return;
+            const D = pushDrag;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(212,160,82,0.55)';
+            ctx.setLineDash([5, 4]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(D.mx != null ? D.mx : D.px, D.my != null ? D.my : D.py, D.reach, 0, TAU);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // ── LINE STYLE (23 Oct 2026, Tom: "1,2,3") ─────────────────────────────────────
+        // An exact shape's line can be solid, dashed or dotted, and an exact line (open) can end
+        // in arrowheads: sp.lineStyle = {dash: null | 'dash' | 'dot', arrows: 0 none, 1 at the
+        // end, 2 at both ends, 3 at the start}. Dashes and heads are sized by the line's width,
+        // so a heavier line gets longer dashes and bigger heads, on screen and in the SVG alike.
+        function lineStyleOf(sp) {
+            const L = sp && sp.lineStyle;
+            return {
+                dash: L && (L.dash === 'dash' || L.dash === 'dot') ? L.dash : null,
+                arrows: L && L.arrows >= 1 && L.arrows <= 3 ? L.arrows : 0
+            };
+        }
+        // the dash pattern for a line w wide (in whatever units w is in), or [] for solid
+        function dashPattern(dash, w) {
+            if (dash === 'dash')
+                return [4 * w, 3 * w];
+            if (dash === 'dot')
+                return [0.001 * w, 2 * w];
+            return [];
+        }
+        // The arrowheads of an exact line, each three points (tip, left, right), in the units
+        // of X and Y: a head len long, pointing along the line where it ends (the curve's own
+        // direction there when it bends).
+        function exactArrowHeads(X, Y, R, S, arrows, len) {
+            if (!arrows || X.length < 2)
+                return [];
+            const E = exactSegs(X, Y, R, true, S);
+            const head = (tx, ty, fx, fy) => {
+                let dx = tx - fx,
+                    dy = ty - fy;
+                const L = Math.hypot(dx, dy);
+                if (!(L > 0))
+                    return null;
+                dx /= L;
+                dy /= L;
+                const bx = tx - dx * len,
+                    by = ty - dy * len,
+                    hw = 0.42 * len;
+                return [[tx, ty], [bx - dy * hw, by + dx * hw], [bx + dy * hw, by - dx * hw]];
+            };
+            const out = [];
+            const n = X.length;
+            if (arrows === 1 || arrows === 2) {
+                const g = E.segs[E.segs.length - 1];
+                const from = g.type === 'C' ? [g.c2x, g.c2y] : [X[n - 2], Y[n - 2]];
+                const h = head(X[n - 1], Y[n - 1], from[0], from[1]);
+                if (h)
+                    out.push(h);
+            }
+            if (arrows === 2 || arrows === 3) {
+                const g = E.segs[0];
+                const from = g.type === 'C' ? [g.c1x, g.c1y] : [X[1], Y[1]];
+                const h = head(X[0], Y[0], from[0], from[1]);
+                if (h)
+                    out.push(h);
+            }
+            return out;
+        }
+        function selectionHasExact(open) {
+            return selectedIndices().some(i => {
+                const sp = state.subpaths[i];
+                return sp && sp._lazy && sp._lazy.exact && (!open || sp._lazy.open);
+            });
+        }
+        // The panel's two style buttons: each press steps every exact shape selected on.
+        function stepLineStyle(what) {
+            const sel = selectedIndices().map(i => state.subpaths[i]).filter(sp => sp && sp._lazy && sp._lazy.exact && (what === 'dash' || sp._lazy.open));
+            if (!sel.length)
+                return;
+            const cur = lineStyleOf(sel[0]);
+            const next = what === 'dash'
+            ? ({
+                null: 'dash',
+                dash: 'dot',
+                dot: null
+            })[cur.dash]
+            : (cur.arrows + 1) % 4;
+            for (const sp of sel) {
+                const L = lineStyleOf(sp);
+                if (what === 'dash')
+                    L.dash = next;
+                else
+                    L.arrows = next;
+                sp.lineStyle = (L.dash || L.arrows) ? L : null;
+                sp._lazyP2d = null;
+            }
+            pushHistory();
+            scheduleSave();
+            drawAll();
+            flashStatus(what === 'dash'
+            ? 'line: ' + (next || 'solid')
+            : 'arrowheads: ' + ['none', 'at the end', 'at both ends', 'at the start'][next]);
+        }
+
+        // ── COMBINING EXACT SHAPES (23 Oct 2026, Tom: "1,2,3") ───────────────────────
+        // Union, subtract and intersect, on two or more closed exact shapes selected. Outlines
+        // of straight edges come out exact: the corners of the answer are the shapes' own and
+        // the points where their edges cross, nothing fitted. Where a curve takes part (a smooth
+        // or rounded corner) the outlines are sampled finely, clipped, and fitted again with as
+        // few corners as hold the answer to two pixels (fitExactOutline), as leaves are. Subtract
+        // takes the others from the lowest shape in the stack, the one drawn first. A union that
+        // would leave a hole, or a subtraction that would cut one, is refused: an exact shape is
+        // one ring, and a ring with a hole is two.
+        // Clipping is Greiner and Hormann's (1998): the crossings are put into both outlines,
+        // each marked as entering or leaving the other, and the answer walked off them.
+        function ringArea(P) {
+            let a = 0;
+            for (let i = 0, n = P.length; i < n; i++) {
+                const p = P[i],
+                    q = P[(i + 1) % n];
+                a += p.x * q.y - q.x * p.y;
+            }
+            return a / 2;
+        }
+        function ringContains(x, y, P) {
+            let inside = false;
+            for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+                const a = P[i],
+                    b = P[j];
+                if ((a.y > y) !== (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x)
+                    inside = !inside;
+            }
+            return inside;
+        }
+        // Greiner–Hormann on two simple closed polygons (arrays of {x, y}), op 'and' | 'or' |
+        // 'sub' (P less Q). Returns {polys} (each an array of {x, y}), or {hole: true} where the
+        // answer would be a ring with a hole in it; {apart: true} beside the polys of a union of
+        // two shapes that do not meet.
+        function ghClip(P0, Q0, op) {
+            let sx = 0;
+            for (const p of P0.concat(Q0))
+                sx = Math.max(sx, Math.abs(p.x), Math.abs(p.y));
+            const eps = 1e-9 * (sx || 1);
+            // Q nudged off P's lines, so no corner lies exactly on the other's edge. For a
+            // union Q is grown a hair about its middle instead: two shapes sharing an edge then
+            // overlap by a sliver and join, where a sideways nudge could part them.
+            let Q1;
+            if (op === 'or') {
+                let cx = 0,
+                    cy = 0;
+                for (const p of Q0) {
+                    cx += p.x;
+                    cy += p.y;
+                }
+                cx /= Q0.length;
+                cy /= Q0.length;
+                const g = 1 + 1e-7;
+                Q1 = Q0.map(p => ({
+                    x: cx + (p.x - cx) * g + eps * 0.7071,
+                    y: cy + (p.y - cy) * g + eps * 0.3333
+                }));
+            } else
+                Q1 = Q0.map(p => ({
+                    x: p.x + eps * 0.7071,
+                    y: p.y + eps * 0.3333
+                }));
+            const mk = pts => {
+                const nodes = pts.map(p => ({
+                    x: p.x,
+                    y: p.y,
+                    inter: false,
+                    entry: false,
+                    visited: false,
+                    alpha: 0,
+                    next: null,
+                    prev: null,
+                    neighbor: null
+                }));
+                for (let i = 0; i < nodes.length; i++) {
+                    nodes[i].next = nodes[(i + 1) % nodes.length];
+                    nodes[i].prev = nodes[(i - 1 + nodes.length) % nodes.length];
+                }
+                return nodes;
+            };
+            const P = mk(P0),
+                Q = mk(Q1);
+            const insertAfter = (a, node) => {
+                let c = a;
+                while (c.next.inter && c.next.alpha < node.alpha)
+                    c = c.next;
+                node.next = c.next;
+                node.prev = c;
+                c.next.prev = node;
+                c.next = node;
+            };
+            let count = 0;
+            for (let i = 0; i < P.length; i++) {
+                const a = P[i],
+                    a2 = P[(i + 1) % P.length];
+                for (let j = 0; j < Q.length; j++) {
+                    const b = Q[j],
+                        b2 = Q[(j + 1) % Q.length];
+                    const rx = a2.x - a.x,
+                        ry = a2.y - a.y,
+                        qx = b2.x - b.x,
+                        qy = b2.y - b.y;
+                    const den = rx * qy - ry * qx;
+                    if (den === 0)
+                        continue;
+                    const ta = ((b.x - a.x) * qy - (b.y - a.y) * qx) / den,
+                        tb = ((b.x - a.x) * ry - (b.y - a.y) * rx) / den;
+                    if (!(ta > 0 && ta < 1 && tb > 0 && tb < 1))
+                        continue;
+                    const x = a.x + rx * ta,
+                        y = a.y + ry * ta;
+                    const iP = {
+                        x,
+                        y,
+                        inter: true,
+                        entry: false,
+                        visited: false,
+                        alpha: ta
+                    },
+                        iQ = {
+                            x,
+                            y,
+                            inter: true,
+                            entry: false,
+                            visited: false,
+                            alpha: tb
+                        };
+                    iP.neighbor = iQ;
+                    iQ.neighbor = iP;
+                    insertAfter(a, iP);
+                    insertAfter(b, iQ);
+                    count++;
+                }
+            }
+            if (!count) {
+                // no crossing: one inside the other, or apart
+                const pInQ = ringContains(P0[0].x, P0[0].y, Q1),
+                    qInP = ringContains(Q1[0].x, Q1[0].y, P0);
+                if (op === 'and')
+                    return {
+                        polys: pInQ ? [P0] : qInP ? [Q0] : []
+                    };
+                if (op === 'or')
+                    return pInQ ? {
+                        polys: [Q0]
+                    } : qInP ? {
+                        polys: [P0]
+                    } : {
+                        polys: [P0, Q0],
+                        apart: true
+                    };
+                return pInQ ? {
+                    polys: []
+                } : qInP ? {
+                    hole: true
+                } : {
+                    polys: [P0]
+                };
+            }
+            // entry flags: does the walk enter the other polygon here
+            const mark = (list, other, flip) => {
+                let inside = ringContains(list[0].x, list[0].y, other);
+                let c = list[0];
+                do {
+                    if (c.inter) {
+                        c.entry = !inside;
+                        if (flip)
+                            c.entry = !c.entry;
+                        inside = !inside;
+                    }
+                    c = c.next;
+                } while (c !== list[0]);
+            };
+            mark(P, Q1, op === 'or' || op === 'sub');
+            mark(Q, P0, op === 'or');
+            const polys = [];
+            for (;;) {
+                let s = null,
+                    c = P[0];
+                do {
+                    if (c.inter && !c.visited) {
+                        s = c;
+                        break;
+                    }
+                    c = c.next;
+                } while (c !== P[0]);
+                if (!s)
+                    break;
+                const poly = [];
+                let cur = s;
+                do {
+                    cur.visited = true;
+                    cur.neighbor.visited = true;
+                    const fwd = cur.entry;
+                    do {
+                        poly.push({
+                            x: cur.x,
+                            y: cur.y
+                        });
+                        cur = fwd ? cur.next : cur.prev;
+                    } while (!cur.inter);
+                    cur = cur.neighbor;
+                } while (!cur.visited);
+                if (poly.length >= 3)
+                    polys.push(poly);
+            }
+            return {
+                polys
+            };
+        }
+
+        // A clipped outline tidied: corners closer than tol to the last kept merged, and corners
+        // on a straight run between their neighbours (within tol) dropped.
+        function tidyPoly(P, tol) {
+            let pts = [];
+            for (const p of P)
+                if (!pts.length || Math.hypot(p.x - pts[pts.length - 1].x, p.y - pts[pts.length - 1].y) > tol)
+                    pts.push(p);
+            while (pts.length > 1 && Math.hypot(pts[0].x - pts[pts.length - 1].x, pts[0].y - pts[pts.length - 1].y) <= tol)
+                pts.pop();
+            let changed = true;
+            while (changed && pts.length > 3) {
+                changed = false;
+                for (let i = 0; i < pts.length && pts.length > 3; i++) {
+                    const a = pts[(i - 1 + pts.length) % pts.length],
+                        b = pts[i],
+                        c = pts[(i + 1) % pts.length];
+                    const L = Math.hypot(c.x - a.x, c.y - a.y);
+                    const d = L > 0 ? Math.abs((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / L : 0;
+                    if (d <= tol) {
+                        pts.splice(i, 1);
+                        changed = true;
+                        i--;
+                    }
+                }
+            }
+            return pts;
+        }
+        // The closed exact shapes selected, lowest in the stack first.
+        function booleanCandidates() {
+            return selectedIndices().slice().sort((a, b) => a - b).filter(i => {
+                const sp = state.subpaths[i];
+                return sp && sp._lazy && sp._lazy.exact && !sp._lazy.open && sp._lazy.x.length >= 3;
+            });
+        }
+        // One shape's outline as points, and whether it was straight-edged throughout.
+        function booleanOutline(sp) {
+            const lz = sp._lazy;
+            const R = lzRoundBaked(lz);
+            if (!R && !hasSmooth(lz.smooth))
+                return {
+                    pts: Array.from(lz.x, (x, i) => ({
+                        x,
+                        y: lz.y[i]
+                    })),
+                    curved: false
+                };
+            const d = exactDense(lz.x, lz.y, R, false, lz.smooth);
+            return {
+                pts: Array.from(d.x, (x, i) => ({
+                    x,
+                    y: d.y[i]
+                })),
+                curved: true
+            };
+        }
+        // a ring inside another: the answer has a hole
+        function polysNest(polys) {
+            for (let i = 0; i < polys.length; i++)
+                for (let j = 0; j < polys.length; j++)
+                    if (i !== j && ringContains(polys[i][0].x, polys[i][0].y, polys[j]))
+                        return true;
+            return false;
+        }
+        // The pieces of op over the outlines, the first the base; null with a reason where the
+        // answer has a hole.
+        function combineOutlines(outs, op) {
+            let pieces = [outs[0]];
+            for (let k = 1; k < outs.length; k++) {
+                const Q = outs[k];
+                if (op === 'or') {
+                    // join Q with every piece it meets; the rest stay as they are
+                    let merged = Q;
+                    const keep = [];
+                    for (const P of pieces) {
+                        const r = ghClip(P, merged, 'or');
+                        if (r.apart)
+                            keep.push(P);
+                        else if (r.polys.length !== 1)
+                            return {
+                                why: 'the union would leave a hole'
+                            };
+                        else
+                            merged = r.polys[0];
+                    }
+                    pieces = keep.concat([merged]);
+                } else {
+                    const next = [];
+                    for (const P of pieces) {
+                        const r = ghClip(P, Q, op);
+                        if (r.hole || (op === 'sub' && polysNest(r.polys)))
+                            return {
+                                why: 'that would cut a hole'
+                            };
+                        next.push(...r.polys);
+                    }
+                    pieces = next;
+                }
+            }
+            return {
+                pieces
+            };
+        }
+        function combineExactShapes(op) {
+            const idx = booleanCandidates();
+            if (idx.length < 2)
+                return false;
+            const shapes = idx.map(i => state.subpaths[i]);
+            const outs = shapes.map(booleanOutline);
+            const curved = outs.some(o => o.curved);
+            const res = combineOutlines(outs.map(o => o.pts), op);
+            const name = {
+                or: 'union',
+                sub: 'subtract',
+                and: 'intersect'
+            }[op];
+            if (res.why) {
+                flashStatus(name + ': ' + res.why + ', and an exact shape is one ring');
+                return false;
+            }
+            const r = cv.getBoundingClientRect();
+            const a = pxToWorld(0, 0, r.width, r.height),
+                b = pxToWorld(0.5, 0, r.width, r.height);
+            const halfPx = Math.abs(b.x - a.x) || 1e-4;
+            const made = [];
+            for (const P of res.pieces) {
+                if (Math.abs(ringArea(P)) < halfPx * halfPx * 4)
+                    continue; // a sliver where two edges ran together
+                let out = null;
+                if (!curved) {
+                    let x0 = Infinity,
+                        x1 = -Infinity;
+                    for (const p of P) {
+                        x0 = Math.min(x0, p.x);
+                        x1 = Math.max(x1, p.x);
+                    }
+                    // the grown hair of a union (ghClip) and nothing more
+                    const T = tidyPoly(P, Math.max(1e-6 * (x1 - x0), 1e-12));
+                    if (T.length >= 3)
+                        out = {
+                            x: Float64Array.from(T, q => q.x),
+                            y: Float64Array.from(T, q => q.y),
+                            smooth: null
+                        };
+                } else {
+                    const rs = arcLengthResample(P.map(q => q.x), P.map(q => q.y), 1024);
+                    out = fitExactOutline(Float64Array.from(rs.x), Float64Array.from(rs.y), 4 * halfPx);
+                }
+                if (out && out.x.length >= 3)
+                    made.push(out);
+            }
+            if (!made.length) {
+                // nothing to leave in their place: the shapes stay, rather than vanish
+                flashStatus(name + ': ' + (op === 'and' ? 'they have no part in common' : 'nothing would be left'));
+                return false;
+            }
+            const base = shapes[0];
+            const style = {
+                stroke: base.stroke || null,
+                strokeOpacity: base.strokeOpacity != null ? base.strokeOpacity : null,
+                lineStyle: base.lineStyle ? {
+                    dash: base.lineStyle.dash,
+                    arrows: 0
+                } : null,
+                lineWidth: base.lineWidth != null ? base.lineWidth : null,
+                smoothing: base.smoothing != null ? base.smoothing : null,
+                fill: base.fill ? {
+                    color: base.fill.color,
+                    opacity: base.fill.opacity
+                } : null
+            };
+            if (style.lineStyle && !style.lineStyle.dash)
+                style.lineStyle = null;
+            const fresh = made.map(o => {
+                const sp = Object.assign({
+                    refLength: 0,
+                    source: 'polygon',
+                    dirty: false
+                }, style);
+                makeLazy(sp, o.x, o.y, 0, null, {
+                    exact: true,
+                    smooth: o.smooth
+                });
+                return sp;
+            });
+            // the answer takes the base's place in the stack; the shapes it came from go
+            const at = idx[0];
+            const gone = new Set(idx);
+            const next = [];
+            state.subpaths.forEach((sp, i) => {
+                if (i === at)
+                    next.push(...fresh);
+                if (!gone.has(i))
+                    next.push(sp);
+            });
+            if (state.editMode) {
+                state._editPrevView = null;
+                exitEditMode();
+            }
+            state.subpaths = next;
+            state.selected.clear();
+            pickedVertex = null;
+            rebuildSignalSelect(); // resets the selection, so the answer is selected after it
+            state.activeSet = new Set(fresh.map((_, k) => at + k));
+            state.activeSp = fresh.length === 1 ? at : -1;
+            state.isolateHide = false;
+            updateStatus();
+            drawAll();
+            pushHistory();
+            scheduleSave();
+            flashStatus(name + ': ' + fresh.length + ' shape' + (fresh.length === 1 ? '' : 's'));
+            return true;
+        }
 
         // Make a corner sharp or smooth (SMOOTH CORNERS), and its mirrored partners with it. A
         // corner made smooth gives up its radius: a curve has no corner to round.
@@ -26281,6 +27043,7 @@
                     } : null,
                     stroke: sp.stroke || null,
                     strokeOpacity: sp.strokeOpacity != null ? sp.strokeOpacity : null,
+                    lineStyle: sp.lineStyle || null, // dashes and arrowheads (LINE STYLE)
                     lineWidth: sp.lineWidth != null ? sp.lineWidth : null,
                     textRun: sp.textRun != null ? sp.textRun : null,
                     smoothing: sp.smoothing != null ? sp.smoothing : null,
@@ -26328,6 +27091,7 @@
                 } : null,
                 stroke: sp.stroke || null,
                 strokeOpacity: sp.strokeOpacity != null ? sp.strokeOpacity : null,
+                lineStyle: sp.lineStyle || null, // dashes and arrowheads (LINE STYLE)
                 lineWidth: sp.lineWidth != null ? sp.lineWidth : null,
                 textRun: sp.textRun != null ? sp.textRun : null,
                 smoothing: sp.smoothing != null ? sp.smoothing : null,
@@ -26961,7 +27725,7 @@
                 // an exact shape has no leaves to count (EXACT SHAPES); say what it is instead
                 nStr = (_act._lazy.open ? 'exact line, ' : 'exact polygon, ') + _act._lazy.rx.length + ' points'
                 + ' <span style="color:var(--fg-muted)">(signal ' + (state.activeSp + 1) + ')</span>';
-            } else if (state.activeSp >= 0 && state.subpaths[state.activeSp] && state.subpaths[state.activeSp].leafX) {
+            } else if (state.activeSp >= 0 && state.subpaths[state.activeSp] && !state.subpaths[state.activeSp]._lazy && state.subpaths[state.activeSp].leafX) {
                 nStr = 'leaves, N=' + state.subpaths[state.activeSp].leafX.length
                 + ' <span style="color:var(--fg-muted)">(signal ' + (state.activeSp + 1) + ')</span>';
             } else if (state.subpaths.length > 1) {
@@ -26971,6 +27735,10 @@
                     maxN = Math.max(...Ns);
                 nStr = !Ns.length ? 'N=' + state.N + ' on conversion'
                 : (minN === maxN) ? ('N=' + minN + '/signal') : ('N=' + minN + '–' + maxN);
+            } else if (state.subpaths.length === 1 && state.subpaths[0]._lazy) {
+                // a held shape alone: asking its leafX would convert it (CONVERT ON TOUCH)
+                const lz = state.subpaths[0]._lazy;
+                nStr = lz.exact ? (lz.open ? 'exact line, ' : 'exact polygon, ') + lz.rx.length + ' points' : 'N=' + state.N + ' on conversion';
             } else if (state.subpaths.length === 1 && state.subpaths[0].leafX) {
                 // Report the shape's OWN leaf count, not state.N. state.N is the anchor for
                 // "all signals" operations and drifts away from the truth the moment a shape
@@ -36231,6 +36999,8 @@
                 drawPointGuides(); // SNAPPING POINTS
             if (CHROME && (shapeDrag || vertexDrag || (drawMode && lineMode)))
                 drawMeasurements(w, h); // MEASUREMENTS ON SCREEN
+            if (CHROME && pushDrag)
+                drawPushRing(); // PUSH AND PULL
             // In-progress pencil stroke (canvas space).
             if (CHROME && drawMode && drawStroke && drawStroke.length > 1) {
                 ctx.save();
@@ -36441,7 +37211,29 @@
                         if (spSO > 0) {
                             const _a1 = ctx.globalAlpha;
                             ctx.globalAlpha = Math.min(1, spSO);
+                            // LINE STYLE: dashes, and arrowheads on an exact line
+                            const LS = lz.exact ? lineStyleOf(sp) : null;
+                            if (LS && LS.dash) {
+                                ctx.setLineDash(dashPattern(LS.dash, spLW / _worldA));
+                                if (LS.dash === 'dot')
+                                    ctx.lineCap = 'round';
+                            }
                             ctx.stroke(p2);
+                            if (LS && LS.dash) {
+                                ctx.setLineDash([]);
+                                ctx.lineCap = 'butt';
+                            }
+                            if (LS && LS.arrows && lz.open) {
+                                ctx.fillStyle = ctx.strokeStyle;
+                                for (const t of exactArrowHeads(lz.rx, lz.ry, lz.round, lz.smooth, LS.arrows, Math.max(9, 3.5 * spLW) / _worldA)) {
+                                    ctx.beginPath();
+                                    ctx.moveTo(t[0][0], t[0][1]);
+                                    ctx.lineTo(t[1][0], t[1][1]);
+                                    ctx.lineTo(t[2][0], t[2][1]);
+                                    ctx.closePath();
+                                    ctx.fill();
+                                }
+                            }
                             ctx.globalAlpha = _a1;
                         }
                     }
@@ -38789,6 +39581,13 @@
                     return;
                 }
                 pickedVertex = null;
+                // on an exact shape's outline: push and pull (PUSH AND PULL)
+                const ph = exactPushAt(e.clientX - rr.left, e.clientY - rr.top);
+                if (ph) {
+                    beginExactPush(ph);
+                    e.preventDefault();
+                    return;
+                }
                 const hName = handleAt(e.clientX - rr.left, e.clientY - rr.top);
                 if (hName && beginHandleDrag(hName, e.clientX - rr.left, e.clientY - rr.top, e)) {
                     e.preventDefault();
@@ -39659,6 +40458,11 @@
                 (e.clientY - rb.top) - lockTap.my) > LONG_PRESS_MOVE_TOL)
                     cancelLeafLongPress();
             }
+            if (pushDrag) {
+                const rr = cv.getBoundingClientRect();
+                updateExactPush(e.clientX - rr.left, e.clientY - rr.top);
+                return;
+            }
             if (shapeDrag) {
                 const rr = cv.getBoundingClientRect();
                 shapeDrag.b = snapScreenPoint({
@@ -40229,6 +41033,10 @@
             }
             cancelBrowserLongPress(); // the press ended; whatever it armed is off
             cancelShapeLongPress(); // …and so is the shape hold it may have armed instead
+            if (pushDrag) {
+                endExactPush();
+                return;
+            }
             if (shapeDrag) {
                 finishShapeDrag();
                 return;
@@ -62197,11 +63005,25 @@
                     // of what was on screen. Width 0 exports as stroke="none".
                     const sw = lineWidthOf(sp);
                     const so = strokeOpacityOf(sp);
+                    // LINE STYLE: an exact shape's dashes as stroke-dasharray, an exact line's
+                    // arrowheads as filled triangles beside it, sized by the line as on screen
+                    const LS = (sp._lazy && sp._lazy.exact) ? lineStyleOf(sp) : null;
+                    const dashAttr = (LS && LS.dash && sw > 0)
+                    ? ` stroke-dasharray="${dashPattern(LS.dash, sw).map(v => +v.toFixed(3)).join(' ')}"` + (LS.dash === 'dot' ? ' stroke-linecap="round"' : '')
+                    : '';
                     const strokeAttr = sw > 0
                     ? `stroke="${sp.stroke || '#d4a052'}" stroke-width="${sw}"`
-                    + (so < 1 ? ` stroke-opacity="${so}"` : '')
+                    + (so < 1 ? ` stroke-opacity="${so}"` : '') + dashAttr
                     : 'stroke="none"';
                     paths.push(metaWrap(sp, `  <path d="${d.trim()}" ${fill} ${strokeAttr} fill-rule="evenodd"/>`));
+                    if (LS && LS.arrows && sp._lazy.open && sw > 0) {
+                        const lz3 = sp._lazy,
+                            R3 = lzRoundBaked(lz3);
+                        const X3 = Float64Array.from(lz3.x, x => half + (x - ox) * scale),
+                            Y3 = Float64Array.from(lz3.y, y => half - (y - oy) * scale);
+                        for (const t of exactArrowHeads(X3, Y3, R3 ? R3.map(r => r * scale) : null, lz3.smooth, LS.arrows, Math.max(9, 3.5 * sw)))
+                            paths.push(`  <path d="M${t.map(q => q[0].toFixed(2) + ' ' + q[1].toFixed(2)).join(' L')} Z" fill="${sp.stroke || '#d4a052'}" stroke="none"${so < 1 ? ` fill-opacity="${so}"` : ''}/>`);
+                    }
                 }
             }
             const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VB} ${VB}" width="${VB}" height="${VB}">\n${paths.join('\n')}\n</svg>\n`;
@@ -62723,6 +63545,11 @@
                     lines.push(`#meta radii:${Array.from(E.round, r => fmtSig(r, 8)).join(' ')}`);
                 if (E.smooth) // the smooth corners, by index from 0
                     lines.push(`#meta smooth:${Array.from(E.smooth).map((v, k) => v ? k : -1).filter(k => k >= 0).join(' ')}`);
+                const LS = lineStyleOf(subpath); // LINE STYLE
+                if (LS.dash)
+                    lines.push(`#meta dash:${LS.dash}`);
+                if (LS.arrows)
+                    lines.push(`#meta arrows:${['', 'end', 'both', 'start'][LS.arrows]}`);
             }
 
             // Canonical channel order: x channel first, then y. Both share the
@@ -66823,6 +67650,7 @@
                 const style = {
                     stroke: lead.stroke || null,
                     strokeOpacity: lead.strokeOpacity != null ? lead.strokeOpacity : null,
+                    lineStyle: lead.lineStyle || null, // dashes and arrowheads (LINE STYLE)
                     lineWidth: lead.lineWidth != null ? lead.lineWidth : null,
                     smoothing: lead.smoothing != null ? lead.smoothing : null
                 };
@@ -69093,12 +69921,22 @@
                                     smooth[k] = 1;
                             }
                         }
+                        const ar = ({
+                            end: 1,
+                            both: 2,
+                            start: 3
+                        })[meta.arrows] || 0;
+                        const da = (meta.dash === 'dash' || meta.dash === 'dot') ? meta.dash : null;
                         info = {
                             open,
                             x,
                             y,
                             round,
-                            smooth
+                            smooth,
+                            lineStyle: (da || ar) ? {
+                                dash: da,
+                                arrows: ar
+                            } : null
                         };
                     }
                 }
@@ -69141,6 +69979,8 @@
                 round: info.round ? Float64Array.from(info.round, r => r * s) : null,
                 smooth: info.smooth
             });
+            if (info.lineStyle)
+                sp.lineStyle = info.lineStyle;
         }
 
         function loadTvfFiles(files, append) {
@@ -72257,6 +73097,7 @@
                     } : null,
                     stroke: sp.stroke || null,
                     so: sp.strokeOpacity != null ? sp.strokeOpacity : null,
+                    lst: sp.lineStyle || null, // dashes and arrowheads (LINE STYLE)
                     lw: sp.lineWidth != null ? sp.lineWidth : null,
                     sm: sp.smoothing != null ? sp.smoothing : null,
                     tr: sp.textRun != null ? sp.textRun : null,
@@ -72386,6 +73227,7 @@
                         } : null,
                         stroke: sp.stroke || null,
                         strokeOpacity: sp.so != null ? sp.so : null,
+                        lineStyle: sp.lst || null,
                         lineWidth: sp.lw != null ? sp.lw : null,
                         smoothing: sp.sm != null ? sp.sm : null,
                         textRun: sp.tr != null ? sp.tr : null,
@@ -74956,7 +75798,33 @@
             grouped: () => selectionIsGrouped(),
             units: () => selectionUnitCount(),
             press: () => runBoxButton('bt-group'),
-            hit: (x, y) => handleAt(x, y)
+            hit: (x, y) => handleAt(x, y),
+            // the shapes selected, each its corner count, its area in the page's units, smooth or not
+            shapes: () => selectedIndices().map(i => {
+                const sp = state.subpaths[i],
+                    lz = sp && sp._lazy;
+                if (!lz)
+                    return null;
+                return {
+                    n: lz.x.length,
+                    area: Math.abs(ringArea(Array.from(lz.x, (x, k) => ({
+                        x,
+                        y: lz.y[k]
+                    })))),
+                    smooth: hasSmooth(lz.smooth),
+                    exact: lz.exact
+                };
+            }),
+            count: () => state.subpaths.length,
+            // select these shapes, as a marquee would
+            select: idx => {
+                state.activeSet = new Set(idx);
+                state.activeSp = idx.length === 1 ? idx[0] : -1;
+                state.isolateHide = false;
+                state.selected.clear();
+                drawAll();
+            },
+            held: () => state.subpaths.map(sp => !!(sp && sp._lazy))
         };
         window.__motion = {
             sync: () => syncMotionClock(),

@@ -712,6 +712,114 @@ current = 'exact shapes';
   await xp.close();
 }
 
+/* Combining exact shapes, their line style, and push and pull. Two overlapping squares drawn
+   with the shape tool: union, subtract and intersect each give one exact shape of the right area
+   (exact: its corners are the squares' own and their crossings), undo brings the two back; a
+   square inside another cannot be subtracted (it would cut a hole) and two apart have nothing in
+   common. A dashed outline exports with a dash array and an open line's arrowheads as filled
+   paths. Pressing a square's edge and pulling puts a smooth bump in it. */
+current = 'combining exact shapes';
+{
+  const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  xp.on('pageerror', e => failures.push(`[combining exact shapes] ${e.message}`));
+  await xp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await xp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await xp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const box = await xp.locator('#cv').boundingBox();
+    const P = (x, y) => [box.x + x, box.y + y];
+    const status = () => xp.evaluate(() => document.getElementById('status').textContent);
+    const fresh = async () => {
+      await xp.mouse.click(...P(20, 780));
+      await xp.keyboard.press('ControlOrMeta+a');
+      await xp.keyboard.press('Delete');
+      await xp.keyboard.press('Escape');
+      await xp.waitForTimeout(150);
+    };
+    const rect = async (x0, y0, x1, y1) => {
+      await xp.click('#bDrawShape');
+      await xp.mouse.move(...P(x0, y0));
+      await xp.mouse.down();
+      await xp.mouse.move(...P(x1, y1), { steps: 5 });
+      await xp.mouse.up();
+      await xp.waitForTimeout(200);
+    };
+    const press = async name => {
+      const bt = await xp.evaluate(n => window.__box.button(n), name);
+      if (!bt) throw new Error('no ' + name + ' button');
+      await xp.mouse.click(...P(bt.cx, bt.cy));
+      await xp.waitForTimeout(300);
+    };
+    const shapes = () => xp.evaluate(() => window.__box.shapes());
+    await fresh();
+    await rect(150, 300, 350, 500);
+    await rect(250, 400, 450, 600);
+    await xp.evaluate(() => window.__box.select([0, 1]));
+    const two = await shapes();
+    if (two.length !== 2 || !two.every(q => q && q.exact && q.n === 4)) throw new Error('two exact squares: ' + JSON.stringify(two));
+    const A = two[0].area, Q = A / 4; // they overlap by a quarter
+    for (const [name, n, area] of [['bt-union', 8, 2 * A - Q], ['bt-subtract', 6, A - Q], ['bt-intersect', 4, Q]]) {
+      await press(name);
+      const r = await shapes();
+      if (r.length !== 1 || !r[0].exact || r[0].n !== n || Math.abs(r[0].area - area) > 1e-6 * A)
+        throw new Error(name + ': ' + JSON.stringify(r) + ', expected ' + n + ' corners and area ' + area);
+      await xp.keyboard.press('ControlOrMeta+z');
+      await xp.waitForTimeout(250);
+      if ((await xp.evaluate(() => window.__lazy.held())) !== 2) throw new Error('undo did not bring the two squares back after ' + name);
+      await xp.evaluate(() => window.__box.select([0, 1]));
+    }
+    await fresh();
+    await rect(150, 300, 450, 600);
+    await rect(250, 400, 350, 500);
+    await xp.evaluate(() => window.__box.select([0, 1]));
+    await press('bt-subtract');
+    if ((await xp.evaluate(() => window.__box.count())) !== 2 || !/hole/.test(await status())) throw new Error('a hole was cut: ' + (await status()).slice(0, 80));
+    await fresh();
+    await rect(100, 300, 200, 400);
+    await rect(300, 300, 400, 400);
+    await xp.evaluate(() => window.__box.select([0, 1]));
+    await press('bt-intersect');
+    if ((await xp.evaluate(() => window.__box.count())) !== 2) throw new Error('intersecting shapes apart removed them');
+    // line style: a dashed square, an open line with arrowheads at both ends
+    await xp.evaluate(() => window.__box.select([0]));
+    await press('bt-dash');
+    await xp.click('#bDrawLine');
+    await xp.mouse.click(...P(500, 650));
+    await xp.keyboard.down('Shift');
+    await xp.mouse.dblclick(...P(800, 500));
+    await xp.keyboard.up('Shift');
+    await xp.waitForTimeout(300);
+    await xp.evaluate(() => window.__box.select([2]));
+    await press('bt-arrow');
+    await press('bt-arrow');
+    const [dl] = await Promise.all([xp.waitForEvent('download', { timeout: 30000 }), xp.evaluate(() => document.getElementById('bExportSvg').click())]);
+    const svg = await readFile(await dl.path(), 'utf8');
+    if (!/stroke-dasharray="/.test(svg)) throw new Error('the dashed square exported without a dash array');
+    if ((svg.match(/<path d="M[^"]*Z" fill="[^"]*" stroke="none"/g) || []).length !== 2) throw new Error('the line did not export two arrowheads');
+    // push and pull: press the middle of a square's top edge and pull it up
+    await fresh();
+    await rect(150, 300, 350, 500);
+    await xp.evaluate(() => window.__box.select([0]));
+    await xp.waitForTimeout(150);
+    const c0 = await xp.evaluate(() => window.__box.corners());
+    const top = Math.min(...c0.pts.map(q => q.y)), xs = c0.pts.map(q => q.x);
+    const mx = (Math.min(...xs) + Math.max(...xs)) / 2 - 30; // off the edge's ring
+    await xp.mouse.move(...P(mx, top));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(mx, top - 50), { steps: 6 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    const c1 = await xp.evaluate(() => window.__box.corners());
+    if (!c1 || c1.pts.length !== 5 || !c1.smooth || !c1.smooth.some(v => v) || !(Math.min(...c1.pts.map(q => q.y)) < top - 20))
+      throw new Error('push and pull: ' + JSON.stringify(c1 && { n: c1.pts.length, smooth: c1.smooth }));
+  } catch (e){
+    failures.push(`[combining exact shapes] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} exact shapes: combining, line style, push and pull`);
+  await xp.close();
+}
+
 /* The gallery pages: each must load without an uncaught error, and its first
    tile's edit button must produce a link that this editor opens. window.open is
    stubbed so the link can be followed here, in a page of our own. */
