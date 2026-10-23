@@ -16865,31 +16865,7 @@
                         runs.add(sp.textRun);
                 }
                 if (runs.size) {
-                    const made = [];
-                    let letters = 0;
-                    for (const run of runs) {
-                        const r = textRunToExact(run);
-                        if (r) {
-                            made.push(r);
-                            letters += r.count;
-                        }
-                    }
-                    if (made.length) {
-                        rebuildSignalSelect(); // resets the selection, so the letters are selected after it
-                        const sel = new Set();
-                        for (const r of made)
-                            for (const sp of r.shapes)
-                                sel.add(state.subpaths.indexOf(sp));
-                        sel.delete(-1);
-                        state.activeSet = sel;
-                        state.activeSp = sel.size === 1 ? [...sel][0] : -1;
-                        state.isolateHide = false;
-                        pushHistory();
-                        scheduleSave();
-                        updateStatus();
-                        drawAll();
-                        flashStatus(letters + (letters === 1 ? ' letter' : ' letters') + ' now exact: their counters are holes; the text can no longer be retyped (undo has it)');
-                    }
+                    textRunsToExactFromFonts([...runs]);
                     return;
                 }
             }
@@ -16920,6 +16896,294 @@
             flashStatus(toLeaves ? what + ' now leaves: sculpt away (corners round off)'
             : what + ' now exact: straight edges, drag a corner to move it');
         }
+        // ── EXACT TEXT FROM THE FONT (23 Oct 2026, Tom: "1,2") ──────────────────────
+        // A word made exact is fitted, where the font's own file can be had, from the font's
+        // outlines rather than from the traced raster: straight stems straight, corners where
+        // the letter has them, curves as drawn, fitted to one screen pixel, not two. The file
+        // comes from the page's own web fonts, the same families from Fontsource on jsDelivr,
+        // or a font installed on the machine through the Local Font Access API (Chromium, which
+        // asks first); opentype.js (MIT) reads it, from cdnjs. When none of that is to be had (a
+        // system font with no file, the CDNs blocked, a letter the file lacks) the word is
+        // fitted from its trace, as before, and the status line says which.
+        const OPENTYPE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js';
+        // family → its Fontsource package and the weights it has (bold falls back to the
+        // nearest it has)
+        const FONT_FILES = {
+            'Inter': {
+                pkg: 'inter@5.1.0',
+                slug: 'inter',
+                w: [400, 700]
+            },
+            'Roboto': {
+                pkg: 'roboto@5.0.8',
+                slug: 'roboto',
+                w: [400, 700]
+            },
+            'DM Mono': {
+                pkg: 'dm-mono@5.0.8',
+                slug: 'dm-mono',
+                w: [400, 500]
+            },
+            'DM Serif Display': {
+                pkg: 'dm-serif-display@5.0.8',
+                slug: 'dm-serif-display',
+                w: [400]
+            }
+        };
+        let _opentype = null;
+        function loadOpentype() {
+            if (window.opentype)
+                return Promise.resolve(window.opentype);
+            if (_opentype)
+                return _opentype;
+            _opentype = new Promise((ok, no) => {
+                const sc = document.createElement('script');
+                sc.src = OPENTYPE_URL;
+                sc.crossOrigin = 'anonymous';
+                const t = setTimeout(() => no(new Error('timed out')), 10000);
+                sc.onload = () => {
+                    clearTimeout(t);
+                    window.opentype ? ok(window.opentype) : no(new Error('no opentype'));
+                };
+                sc.onerror = () => {
+                    clearTimeout(t);
+                    no(new Error('blocked'));
+                };
+                document.head.appendChild(sc);
+            }).catch(e => {
+                _opentype = null; // try again next time
+                throw e;
+            });
+            return _opentype;
+        }
+        const _fontCache = new Map();
+        // The parsed font for a family and style, or null: {font, from}.
+        async function fontFileFor(family, bold, italic) {
+            const key = family + '|' + !!bold + '|' + !!italic;
+            if (_fontCache.has(key))
+                return _fontCache.get(key);
+            let out = null;
+            try {
+                const ot = await loadOpentype();
+                const F = FONT_FILES[family];
+                let buf = null,
+                    from = null;
+                if (F) {
+                    const want = bold ? 700 : 400;
+                    const wt = F.w.reduce((a, b) => Math.abs(b - want) < Math.abs(a - want) ? b : a);
+                    const url = 'https://cdn.jsdelivr.net/npm/@fontsource/' + F.pkg + '/files/' + F.slug + '-latin-' + wt + '-' + (italic ? 'italic' : 'normal') + '.woff';
+                    const r = await fetch(url);
+                    if (r.ok) {
+                        buf = await r.arrayBuffer();
+                        from = family;
+                    }
+                }
+                if (!buf && family !== 'system-ui' && typeof window.queryLocalFonts === 'function') {
+                    const all = await window.queryLocalFonts();
+                    const mine = all.filter(f => f.family === family);
+                    const score = f => {
+                        const st = (f.style || '').toLowerCase();
+                        return (/bold/.test(st) === !!bold ? 2 : 0) + (/italic|oblique/.test(st) === !!italic ? 2 : 0) + (/regular|^book$|^roman$/.test(st) ? 1 : 0);
+                    };
+                    mine.sort((p, q) => score(q) - score(p));
+                    if (mine.length) {
+                        buf = await (await mine[0].blob()).arrayBuffer();
+                        from = mine[0].fullName || family;
+                    }
+                }
+                if (buf)
+                    out = {
+                        font: ot.parse(buf),
+                        from
+                    };
+            }
+            catch (_) {
+                out = null;
+            }
+            _fontCache.set(key, out);
+            return out;
+        }
+        // The word's contours from the font, in the world, laid over its traced letters: the
+        // font's path at the raster size, placed by the traced word's box in the word's own frame
+        // (its angle taken out), so a word moved, turned or resized since it was typed is met
+        // where it is. null when the font lacks a letter of it.
+        function fontOutlinesFor(run, font) {
+            const idx = [];
+            state.subpaths.forEach((sp, i) => {
+                if (sp && !sp._lazy && sp.textRun === run && sp.leafX && sp.leafX.length >= 3)
+                    idx.push(i);
+            });
+            if (!idx.length)
+                return null;
+            const meta = state.subpaths[idx[0]].textMeta;
+            if (!meta || !meta.text)
+                return null;
+            for (const ch of meta.text)
+                if (ch.trim() && font.charToGlyph(ch).index === 0)
+                    return null;
+            const path = font.getPath(meta.text, 0, 0, 512, {
+                kerning: true
+            });
+            // the path's contours, each curve in steps
+            const rings = [];
+            let cur = null,
+                px = 0,
+                py = 0;
+            const steps = 24;
+            for (const c of path.commands) {
+                if (c.type === 'M') {
+                    if (cur && cur.length >= 3)
+                        rings.push(cur);
+                    cur = [[c.x, c.y]];
+                } else if (c.type === 'L')
+                    cur.push([c.x, c.y]);
+                else if (c.type === 'Q') {
+                    for (let q = 1; q <= steps; q++) {
+                        const t = q / steps,
+                            u = 1 - t;
+                        cur.push([u * u * px + 2 * u * t * c.x1 + t * t * c.x, u * u * py + 2 * u * t * c.y1 + t * t * c.y]);
+                    }
+                } else if (c.type === 'C') {
+                    for (let q = 1; q <= steps; q++) {
+                        const t = q / steps,
+                            u = 1 - t;
+                        cur.push([u * u * u * px + 3 * u * u * t * c.x1 + 3 * u * t * t * c.x2 + t * t * t * c.x,
+                        u * u * u * py + 3 * u * u * t * c.y1 + 3 * u * t * t * c.y2 + t * t * t * c.y]);
+                    }
+                } else if (c.type === 'Z') {
+                    if (cur && cur.length >= 3)
+                        rings.push(cur);
+                    cur = null;
+                }
+                if (c.x != null) {
+                    px = c.x;
+                    py = c.y;
+                }
+            }
+            if (cur && cur.length >= 3)
+                rings.push(cur);
+            if (!rings.length)
+                return null;
+            // the traced word's box in its own frame
+            const ang = meta.angle || 0,
+                ca = Math.cos(ang),
+                sa = Math.sin(ang);
+            const box = boxOfIndices(idx);
+            const cx = (box.minx + box.maxx) / 2,
+                cy = (box.miny + box.maxy) / 2;
+            let a0 = Infinity,
+                a1 = -Infinity,
+                b0 = Infinity,
+                b1 = -Infinity;
+            for (const i of idx) {
+                const sp = state.subpaths[i];
+                for (let k = 0; k < sp.leafX.length; k++) {
+                    const x = sp.leafX[k] - cx,
+                        y = sp.leafY[k] - cy;
+                    const u = x * ca + y * sa,
+                        v = -x * sa + y * ca;
+                    a0 = Math.min(a0, u);
+                    a1 = Math.max(a1, u);
+                    b0 = Math.min(b0, v);
+                    b1 = Math.max(b1, v);
+                }
+            }
+            let g0 = Infinity,
+                g1 = -Infinity,
+                h0 = Infinity,
+                h1 = -Infinity;
+            for (const R of rings)
+                for (const [x, y] of R) {
+                    g0 = Math.min(g0, x);
+                    g1 = Math.max(g1, x);
+                    h0 = Math.min(h0, -y);
+                    h1 = Math.max(h1, -y);
+                }
+            const sx = (a1 - a0) / Math.max(1e-9, g1 - g0),
+                sy = (b1 - b0) / Math.max(1e-9, h1 - h0);
+            const uc = (a0 + a1) / 2,
+                vc = (b0 + b1) / 2,
+                gc = (g0 + g1) / 2,
+                hc = (h0 + h1) / 2;
+            return rings.map(R => {
+                const n = R.length,
+                    X = new Float64Array(n),
+                    Y = new Float64Array(n);
+                for (let k = 0; k < n; k++) {
+                    const u = uc + (R[k][0] - gc) * sx,
+                        v = vc + (-R[k][1] - hc) * sy;
+                    X[k] = cx + u * ca - v * sa;
+                    Y[k] = cy + u * sa + v * ca;
+                }
+                // evenly along its length, as the fit wants its samples
+                const rs = arcLengthResample(Array.from(X), Array.from(Y), 1024);
+                return {
+                    x: Float64Array.from(rs.x),
+                    y: Float64Array.from(rs.y)
+                };
+            });
+        }
+        // The words, each from its font where it can be, else from its trace; one history step.
+        async function textRunsToExactFromFonts(runs) {
+            flashStatus('reading the font…');
+            const plans = [];
+            for (const run of runs) {
+                const lead = state.subpaths.find(sp => sp && !sp._lazy && sp.textRun === run && sp.textMeta);
+                let outlines = null,
+                    from = null;
+                if (lead) {
+                    const m = lead.textMeta;
+                    const F = await fontFileFor(m.family || 'system-ui', m.bold, m.italic);
+                    if (F) {
+                        try {
+                            outlines = fontOutlinesFor(run, F.font);
+                        } catch (_) {
+                            outlines = null;
+                        }
+                        if (outlines)
+                            from = F.from;
+                    }
+                }
+                plans.push({
+                    run,
+                    outlines,
+                    from
+                });
+            }
+            const made = [];
+            let letters = 0;
+            for (const pl of plans) {
+                const r = textRunToExact(pl.run, pl.outlines, pl.outlines ? 1 : 2);
+                if (r) {
+                    r.from = pl.from;
+                    made.push(r);
+                    letters += r.count;
+                }
+            }
+            if (!made.length) {
+                flashStatus('nothing to make exact');
+                return;
+            }
+            rebuildSignalSelect(); // resets the selection, so the letters are selected after it
+            const sel = new Set();
+            for (const r of made)
+                for (const sp of r.shapes)
+                    sel.add(state.subpaths.indexOf(sp));
+            sel.delete(-1);
+            state.activeSet = sel;
+            state.activeSp = sel.size === 1 ? [...sel][0] : -1;
+            state.isolateHide = false;
+            pushHistory();
+            scheduleSave();
+            updateStatus();
+            drawAll();
+            const fonts = [...new Set(made.filter(r => r.from).map(r => r.from))];
+            const traced = made.some(r => !r.from);
+            flashStatus(letters + (letters === 1 ? ' letter' : ' letters') + ' now exact'
+            + (fonts.length ? ', from the font (' + fonts.join(', ') + ')' : '')
+            + (traced ? (fonts.length ? '; some' : ',') + ' fitted from the trace (no font file to read)' : '')
+            + ': their counters are holes; the text can no longer be retyped (undo has it)');
+        }
         // TEXT TO EXACT SHAPES (23 Oct 2026, Tom: "1,2,3"). A word is traced from a raster into
         // one leaf loop per contour, filled together even-odd so a counter reads as a hole. Made
         // exact, each loop is fitted with few corners (fitExactOutline, as makeShapeExact does,
@@ -16928,7 +17192,7 @@
         // letter round it (HOLES); an island in a counter is a letter again. Each letter is one
         // exact shape, filled and lined as the word was, the letters grouped. The word's text
         // goes: an exact letter is a shape now, to combine, offset or reshape, not to retype.
-        function textRunToExact(run) {
+        function textRunToExact(run, outlines, tolPx) {
             const idx = [];
             state.subpaths.forEach((sp, i) => {
                 if (sp && !sp._lazy && sp.textRun === run && sp.leafX && sp.leafX.length >= 3)
@@ -16941,13 +17205,20 @@
                 b = pxToWorld(0.5, 0, r.width, r.height);
             const tol = Math.abs(b.x - a.x) || 1e-4;
             const loops = [];
-            for (const i of idx) {
+            // the contours: the font's own (EXACT TEXT FROM THE FONT), else the traced leaves
+            const sources = outlines || idx.map(i => {
                 const sp = state.subpaths[i];
                 const N = sp.leafX.length;
                 const M = ceilPow2(Math.min(4096, Math.max(1024, N * 4)));
-                const SX = reconstruct1D(sp.leafX, M),
-                    SY = reconstruct1D(sp.leafY, M);
-                const fit = fitExactOutline(SX, SY, 4 * tol);
+                return {
+                    x: reconstruct1D(sp.leafX, M),
+                    y: reconstruct1D(sp.leafY, M)
+                };
+            });
+            for (const src of sources) {
+                const SX = src.x,
+                    SY = src.y;
+                const fit = fitExactOutline(SX, SY, 2 * (tolPx || 2) * tol);
                 if (!fit || fit.x.length < 3)
                     continue;
                 // nested by the fine samples: a fitted outline's corners alone (an O's four
@@ -18536,6 +18807,22 @@
                     };
                 }
             }
+            // HOLE CORNERS, then the rings: the outline's and the holes'
+            const HB = lzHolesBaked(lz) || [];
+            HB.forEach((hl, h) => {
+                for (let k = 0; k < hl.x.length; k++) {
+                    const q = worldToPx(hl.x[k], hl.y[k], r.width, r.height);
+                    const d = Math.hypot(q.x - px, q.y - py);
+                    if (d <= bd) {
+                        bd = d;
+                        best = {
+                            spi,
+                            k,
+                            hole: h
+                        };
+                    }
+                }
+            });
             if (best)
                 return best;
             for (const m of exactMidpoints(lz, r.width, r.height)) {
@@ -18551,7 +18838,32 @@
                     };
                 }
             }
+            HB.forEach((hl, h) => {
+                for (const m of exactMidpoints(holeAsRecord(hl), r.width, r.height)) {
+                    const d = Math.hypot(m.px - px, m.py - py);
+                    if (d <= bd) {
+                        bd = d;
+                        best = {
+                            spi,
+                            k: m.k,
+                            mid: true,
+                            hole: h,
+                            x: m.x,
+                            y: m.y
+                        };
+                    }
+                }
+            });
             return best;
+        }
+        // a hole as exactMidpoints and the drawing of handles read a record
+        function holeAsRecord(hl) {
+            return {
+                x: hl.x,
+                y: hl.y,
+                open: false,
+                smooth: hl.smooth
+            };
         }
         // Every drag of a corner, a ring or a round handle starts from new arrays with the
         // shape's map baked in (undo snapshots share the old ones), so the record's own units
@@ -18569,6 +18881,8 @@
             });
         }
         function beginVertexDrag(v) {
+            if (v.hole != null)
+                return beginHoleDrag(v);
             const sp = state.subpaths[v.spi],
                 lz = sp._lazy;
             const X = Array.from(lz.x),
@@ -18664,6 +18978,19 @@
                 return;
             const r = cv.getBoundingClientRect();
             const k = vertexDrag.k;
+            if (vertexDrag.hole != null) { // HOLE CORNERS: the map is baked in, so the hole's units are the page's
+                const H = lz.holes && lz.holes[vertexDrag.hole];
+                if (!H)
+                    return;
+                const p = pxToWorld(mx, my, r.width, r.height);
+                H.x[k] = p.x;
+                H.y[k] = p.y;
+                lz._h = null;
+                sp._lazyP2d = null;
+                vertexDrag.moved = true;
+                drawAll();
+                return;
+            }
             if (vertexDrag.round) {
                 // the pointer's distance in along the bisector, less the gap, is the distance from
                 // the corner to the arc's middle; the radius follows from the corner's angle
@@ -18722,12 +19049,110 @@
         function pickedCorner() {
             const p = pickedVertex,
                 spi = exactSelected();
-            if (!p || spi < 0 || state.subpaths[spi] !== p.sp || p.sp._lazy !== p.lz || p.k >= p.lz.rx.length)
+            if (!p || p.hole != null || spi < 0 || state.subpaths[spi] !== p.sp || p.sp._lazy !== p.lz || p.k >= p.lz.rx.length)
                 return null;
             return {
                 spi,
                 k: p.k
             };
+        }
+        // ── HOLE CORNERS (23 Oct 2026, Tom: "1,2") ───────────────────────────────────
+        // A hole's corners have handles as the outline's do: drag one to move it, press the
+        // ring on a hole's edge to add one there, double-click one or pick it and press Delete
+        // to remove it; a hole of three corners losing one is filled. Picked hole corners have
+        // no radius handle or number box (a hole holds no radii); a smooth hole corner stays
+        // smooth. Every edit starts, as the outline's do, from the shape's map baked in.
+        function pickedHoleCorner() {
+            const p = pickedVertex,
+                spi = exactSelected();
+            if (!p || p.hole == null || spi < 0 || state.subpaths[spi] !== p.sp || p.sp._lazy !== p.lz)
+                return null;
+            const H = p.lz.holes && p.lz.holes[p.hole];
+            if (!H || p.k >= H.x.length)
+                return null;
+            return {
+                spi,
+                h: p.hole,
+                k: p.k
+            };
+        }
+        // The shape again, its map baked in, with holes as given (each {x, y, smooth}).
+        function rebakeHoles(sp, holes) {
+            const lz = sp._lazy;
+            makeLazy(sp, Float64Array.from(lz.x), Float64Array.from(lz.y), lz.scale, null, {
+                exact: true,
+                open: lz.open,
+                round: lzRoundBaked(lz),
+                smooth: lz.smooth,
+                holes: holes.length ? holes : null
+            });
+        }
+        function holesCopy(lz) {
+            return (lzHolesBaked(lz) || []).map(h => ({
+                x: Array.from(h.x),
+                y: Array.from(h.y),
+                smooth: h.smooth ? Array.from(h.smooth) : null
+            }));
+        }
+        function beginHoleDrag(v) {
+            const sp = state.subpaths[v.spi];
+            const holes = holesCopy(sp._lazy);
+            const H = holes[v.hole];
+            if (!H)
+                return;
+            if (v.mid) {
+                // a corner added on a curved edge is smooth, so the curve stays a curve
+                const n0 = H.x.length,
+                    i0 = (v.k - 1 + n0) % n0,
+                    j0 = v.k % n0;
+                const curved = !!(H.smooth && (H.smooth[i0] || H.smooth[j0]));
+                H.x.splice(v.k, 0, v.x);
+                H.y.splice(v.k, 0, v.y);
+                if (H.smooth)
+                    H.smooth.splice(v.k, 0, curved ? 1 : 0);
+            }
+            rebakeHoles(sp, holes);
+            vertexDrag = {
+                spi: v.spi,
+                k: v.k,
+                hole: v.hole,
+                moved: !!v.mid
+            };
+            pickedVertex = {
+                sp,
+                lz: sp._lazy,
+                k: v.k,
+                hole: v.hole
+            };
+            cv.style.cursor = 'move';
+            drawAll();
+        }
+        function removeHoleVertex(spi, h, k) {
+            const sp = state.subpaths[spi],
+                lz = sp && sp._lazy;
+            if (!lz || !lz.holes || !lz.holes[h])
+                return false;
+            const holes = holesCopy(lz);
+            const H = holes[h];
+            let msg;
+            if (H.x.length <= 3) {
+                holes.splice(h, 1);
+                msg = 'hole filled';
+            } else {
+                H.x.splice(k, 1);
+                H.y.splice(k, 1);
+                if (H.smooth)
+                    H.smooth.splice(k, 1);
+                msg = 'hole corner removed · ' + H.x.length + ' left';
+            }
+            rebakeHoles(sp, holes);
+            pickedVertex = null;
+            pushHistory();
+            scheduleSave();
+            updateStatus();
+            drawAll();
+            flashStatus(msg);
+            return true;
         }
         function removeExactVertex(spi, k) {
             const sp = state.subpaths[spi],
@@ -20479,10 +20904,38 @@
                     ctx.fill();
                     ctx.stroke();
                 }
+                for (const hl of lzHolesBaked(lz) || []) // HOLE CORNERS
+                    for (const m of exactMidpoints(holeAsRecord(hl), w, h)) {
+                        ctx.beginPath();
+                        ctx.arc(m.px, m.py, Math.max(2.5, HP - 1), 0, TAU);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
             }
+            const ph = pickedHoleCorner();
+            (lzHolesBaked(lz) || []).forEach((hl, hi) => {
+                for (let k = 0; k < hl.x.length; k++) {
+                    const q = worldToPx(hl.x[k], hl.y[k], w, h);
+                    const on = (vertexDrag && vertexDrag.hole === hi && vertexDrag.k === k) || (ph && ph.h === hi && ph.k === k);
+                    ctx.fillStyle = on ? '#d4a052' : '#0e0e13';
+                    ctx.strokeStyle = 'rgba(232,228,238,0.95)';
+                    ctx.beginPath();
+                    if (hl.smooth && hl.smooth[k]) {
+                        const D = HP * 1.35;
+                        ctx.moveTo(q.x, q.y - D);
+                        ctx.lineTo(q.x + D, q.y);
+                        ctx.lineTo(q.x, q.y + D);
+                        ctx.lineTo(q.x - D, q.y);
+                        ctx.closePath();
+                    } else
+                        ctx.rect(q.x - HP, q.y - HP, HP * 2, HP * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            });
             for (let k = 0; k < lz.x.length; k++) {
                 const q = worldToPx(lz.x[k], lz.y[k], w, h);
-                const on = (vertexDrag && vertexDrag.k === k) || (pk && pk.k === k);
+                const on = (vertexDrag && vertexDrag.hole == null && vertexDrag.k === k) || (pk && pk.k === k);
                 ctx.fillStyle = on ? '#d4a052' : '#0e0e13';
                 ctx.strokeStyle = 'rgba(232,228,238,0.95)';
                 // a rounded corner's square is drawn as a circle and a smooth one as a diamond, so
@@ -63181,6 +63634,12 @@
                     removeExactVertex(pc.spi, pc.k);
                     return;
                 }
+                const ph = pickedHoleCorner(); // HOLE CORNERS
+                if (ph) {
+                    e.preventDefault();
+                    removeHoleVertex(ph.spi, ph.h, ph.k);
+                    return;
+                }
             }
             if ((e.key === 'Delete' || e.key === 'Backspace') && !drawMode && !state.editMode
             && !_isEditableTarget(e.target)) {
@@ -65054,7 +65513,10 @@
                 const v = exactVertexAt(e.clientX - rr.left, e.clientY - rr.top);
                 if (v && !v.mid) {
                     e.preventDefault();
-                    removeExactVertex(v.spi, v.k);
+                    if (v.hole != null)
+                        removeHoleVertex(v.spi, v.hole, v.k);
+                    else
+                        removeExactVertex(v.spi, v.k);
                     return;
                 }
             }
@@ -76800,6 +77262,15 @@
                         y: m.py
                     })),
                     picked: pk ? pk.k : -1,
+                    // HOLE CORNERS: each hole's corners and rings, in canvas pixels, and the picked one
+                    holes: (lzHolesBaked(lz) || []).map(hl => ({
+                        pts: Array.from(hl.x, (x, i) => worldToPx(x, hl.y[i], r.width, r.height)),
+                        mids: exactMidpoints(holeAsRecord(hl), r.width, r.height).map(m => ({
+                            x: m.px,
+                            y: m.py
+                        }))
+                    })),
+                    pickedHole: (q => q ? [q.h, q.k] : null)(pickedHoleCorner()),
                     simp: selectionExactSimp(),
                     round: lz.round ? Array.from(lz.round) : null,
                     smooth: lz.smooth ? Array.from(lz.smooth) : null,

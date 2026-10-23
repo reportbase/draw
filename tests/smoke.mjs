@@ -721,7 +721,8 @@ current = 'exact shapes';
    by a distance with round joins keeps four corners rounded by that distance, shrunk keeps four
    sharp ones, outlined is a frame. A click in a frame's hole selects nothing; aligning goes by the
    outline as drawn (round corners included); a word made exact is a shape a letter with its
-   counters as holes. */
+   counters as holes (read from the font where it can be fetched). A hole's corners drag, add and
+   remove like the outline's. */
 current = 'combining exact shapes';
 {
   const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -738,6 +739,7 @@ current = 'combining exact shapes';
       await xp.mouse.click(...P(20, 780));
       await xp.keyboard.press('ControlOrMeta+a');
       await xp.keyboard.press('Delete');
+      await xp.keyboard.press('Delete'); // a group's first Delete ungroups it; the second removes the shapes
       await xp.keyboard.press('Escape');
       await xp.waitForTimeout(150);
     };
@@ -932,10 +934,70 @@ current = 'combining exact shapes';
     if (nText < 4) throw new Error('the text tool traced ' + nText + ' contours for "Bo"');
     await xp.evaluate(n => window.__box.select(Array.from({ length: n }, (_, i) => i)), nText);
     await press('bt-mode');
+    await xp.waitForFunction(() => /now exact/.test(document.getElementById('status').textContent), null, { timeout: 20000 });
     await xp.evaluate(() => window.__box.select(Array.from({ length: window.__box.count() }, (_, i) => i)));
     const letters = await shapes();
     const holes = letters.map(q => q && q.holes.length).sort();
     if (letters.length !== 2 || !letters.every(q => q && q.exact) || holes.join() !== '1,2') throw new Error('"Bo" made exact: ' + JSON.stringify(letters.map(q => q && { n: q.n, holes: q.holes.length })));
+    // EXACT TEXT FROM THE FONT: in a family whose file the page can fetch (a web font), the
+    // letters come from the font's outlines, and the status line says so
+    await fresh();
+    await xp.click('#bText');
+    const fams = await xp.evaluate(() => Array.from(document.getElementById('textPopFont').options, o => o.value));
+    const fam = ['Inter', 'DM Mono', 'Roboto', 'DM Serif Display'].find(f => fams.includes(f));
+    if (fam) {
+      await xp.selectOption('#textPopFont', fam);
+      await xp.fill('#textPopInput', 'Bo');
+      await xp.click('#textPopAdd');
+      await xp.waitForTimeout(1000);
+      await xp.keyboard.press('Escape');
+      const nf = await xp.evaluate(() => window.__box.count());
+      await xp.evaluate(n => window.__box.select(Array.from({ length: n }, (_, i) => i)), nf);
+      await press('bt-mode');
+      await xp.waitForFunction(() => /now exact/.test(document.getElementById('status').textContent), null, { timeout: 20000 });
+      const st = await xp.evaluate(() => document.getElementById('status').textContent);
+      if (!/from the font/.test(st)) throw new Error('"Bo" in ' + fam + ' was not read from the font: ' + st.slice(0, 120));
+      await xp.evaluate(() => window.__box.select(Array.from({ length: window.__box.count() }, (_, i) => i)));
+      const fl = (await shapes()).map(q => q && q.holes.length).sort();
+      if (fl.join() !== '1,2') throw new Error('"Bo" from the font: ' + JSON.stringify(fl));
+    } else
+      console.log('     (no web font among ' + fams.join(', ') + '; the font path was not tried)');
+    await xp.keyboard.press('Escape');
+    // HOLE CORNERS: drag one, add one from a hole edge's ring, remove one; a three-corner hole
+    // losing a corner is filled
+    await fresh();
+    await rect(150, 300, 450, 600);
+    await rect(250, 400, 350, 500);
+    await xp.evaluate(() => window.__box.select([0, 1]));
+    await press('bt-subtract');
+    await xp.evaluate(() => window.__box.select([0]));
+    await xp.waitForTimeout(150);
+    let hc = await xp.evaluate(() => window.__box.corners());
+    if (!hc || hc.holes.length !== 1 || hc.holes[0].pts.length !== 4) throw new Error('no hole corners on the frame');
+    const h0 = hc.holes[0].pts[0];
+    await xp.mouse.move(...P(h0.x, h0.y));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(h0.x + 20, h0.y + 15), { steps: 4 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(200);
+    hc = await xp.evaluate(() => window.__box.corners());
+    const h0b = hc.holes[0].pts[0];
+    if (Math.abs(h0b.x - h0.x - 20) > 1 || Math.abs(h0b.y - h0.y - 15) > 1 || hc.pts.length !== 4) throw new Error('a hole corner dragged: ' + JSON.stringify(h0b));
+    const hm = hc.holes[0].mids[1];
+    await xp.mouse.move(...P(hm.x, hm.y));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(hm.x - 10, hm.y + 20), { steps: 4 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(200);
+    if ((await xp.evaluate(() => window.__box.corners())).holes[0].pts.length !== 5) throw new Error('a hole corner was not added');
+    await xp.keyboard.press('Delete');
+    await xp.waitForTimeout(200);
+    for (let q = 0; q < 2; q++) {
+      const hp = (await xp.evaluate(() => window.__box.corners())).holes[0].pts[0];
+      await xp.mouse.dblclick(...P(hp.x, hp.y));
+      await xp.waitForTimeout(250);
+    }
+    if ((await xp.evaluate(() => window.__box.corners())).holes.length !== 0) throw new Error('the three-corner hole was not filled');
   } catch (e){
     failures.push(`[combining exact shapes] ${e.message.split('\n')[0]}`);
   }
