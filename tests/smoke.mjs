@@ -717,7 +717,9 @@ current = 'exact shapes';
    (exact: its corners are the squares' own and their crossings), undo brings the two back; a
    square subtracted from inside another leaves one shape with a hole, which the SVG, a .tvf and
    copy and paste all keep; two apart have nothing in common. A dashed outline exports with a dash array and an open line's arrowheads as filled
-   paths. Pressing a square's edge and pulling puts a smooth bump in it. */
+   paths. Pressing a square's edge and pulling puts a smooth bump in it. Offset: the square grown
+   by a distance with round joins keeps four corners rounded by that distance, shrunk keeps four
+   sharp ones, outlined is a frame. */
 current = 'combining exact shapes';
 {
   const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -836,6 +838,46 @@ current = 'combining exact shapes';
     const c1 = await xp.evaluate(() => window.__box.corners());
     if (!c1 || c1.pts.length !== 5 || !c1.smooth || !c1.smooth.some(v => v) || !(Math.min(...c1.pts.map(q => q.y)) < top - 20))
       throw new Error('push and pull: ' + JSON.stringify(c1 && { n: c1.pts.length, smooth: c1.smooth }));
+    // offset and outline: the square grown with round joins keeps its four corners, each rounded
+    // by the distance; shrunk, four sharp ones and less area; outlined, a frame (a hole inside)
+    await xp.keyboard.press('ControlOrMeta+z');
+    await xp.waitForTimeout(250);
+    await xp.evaluate(() => window.__box.select([0]));
+    await press('bt-offset');
+    if (!(await xp.evaluate(() => document.getElementById('offsetTool').classList.contains('open')))) throw new Error('the offset strip did not open');
+    await xp.fill('#otD', '0.05');
+    const sq0 = (await shapes())[0];
+    const offs = [];
+    for (const id of ['#otGrow', '#otShrink', '#otOutline']) {
+      await xp.click(id);
+      await xp.waitForTimeout(300);
+      offs.push((await shapes())[0]);
+      await xp.keyboard.press('ControlOrMeta+z');
+      await xp.waitForTimeout(250);
+      await xp.evaluate(() => window.__box.select([0]));
+    }
+    const [og, osh, oo] = offs;
+    if (!og || og.n !== 4 || !og.round || og.round.some(r => Math.abs(r - 0.05) > 1e-9) || !(og.area > sq0.area)) throw new Error('grown: ' + JSON.stringify(og));
+    if (!osh || osh.n !== 4 || osh.round || !(osh.area < sq0.area)) throw new Error('shrunk: ' + JSON.stringify(osh));
+    if (!oo || oo.n !== 4 || oo.holes.length !== 1 || oo.holes[0].n !== 4) throw new Error('outlined: ' + JSON.stringify(oo));
+    // a circle (a square rounded by half its side) outlined: a ring of a few smooth corners
+    await xp.click('#bDrawShape');
+    await xp.locator('#stRound').fill('0.5');
+    await xp.mouse.move(...P(600, 300));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(800, 500), { steps: 5 });
+    await xp.mouse.up();
+    await xp.evaluate(() => { const r = document.getElementById('stRound'); r.value = 0; r.dispatchEvent(new Event('input')); });
+    await xp.waitForTimeout(200);
+    const nAll = await xp.evaluate(() => window.__box.count());
+    await xp.evaluate(n => window.__box.select([n - 1]), nAll);
+    await press('bt-offset');
+    if (!(await xp.evaluate(() => document.getElementById('offsetTool').classList.contains('open')))) await press('bt-offset');
+    await xp.fill('#otD', '0.05');
+    await xp.click('#otOutline');
+    await xp.waitForTimeout(300);
+    const oc = (await shapes())[0];
+    if (!oc || !oc.smooth || oc.n > 8 || oc.holes.length !== 1 || oc.holes[0].n > 8) throw new Error('a circle outlined: ' + JSON.stringify(oc));
   } catch (e){
     failures.push(`[combining exact shapes] ${e.message.split('\n')[0]}`);
   }

@@ -3136,6 +3136,43 @@
             white-space: nowrap;
         }
         #shapeTool.open { display: flex; }
+        /* THE OFFSET STRIP, styled as the shape tool's */
+        #offsetTool {
+            position: fixed;
+            z-index: 60;
+            display: none;
+            gap: 6px;
+            align-items: center;
+            padding: 6px 8px;
+            background: var(--panel);
+            border: 1px solid var(--line2);
+            border-radius: 8px;
+            font: 12px system-ui, sans-serif;
+            color: var(--fg);
+            white-space: nowrap;
+        }
+        #offsetTool.open { display: flex; }
+        #offsetTool button {
+            background: transparent;
+            color: var(--fg);
+            border: 1px solid var(--line2);
+            border-radius: 6px;
+            padding: 3px 8px;
+            cursor: pointer;
+            font: inherit;
+        }
+        #offsetTool button.on { background: var(--gold); color: #14141a; border-color: var(--gold); }
+        #offsetTool button:disabled { opacity: 0.4; cursor: default; }
+        #offsetTool .lab { color: var(--fg-muted); margin: 0 2px 0 6px; }
+        #offsetTool input[type=number] {
+            width: 70px;
+            background: transparent;
+            color: var(--fg);
+            border: 1px solid var(--line2);
+            border-radius: 6px;
+            padding: 3px 6px;
+            font: inherit;
+        }
         #shapeTool button {
             background: transparent;
             color: var(--fg);
@@ -4121,6 +4158,18 @@
             <button type="button" id="stLess" title="one fewer">−</button><span id="stN">6</span><button type="button" id="stMore" title="one more">+</button></span>
         <span class="lab">round</span>
         <input type="range" id="stRound" min="0" max="0.5" step="0.01" value="0" title="how round the corners are: 0 sharp, the far end as round as the edges allow">
+    </div>
+    <!-- THE OFFSET STRIP (OFFSET AND OUTLINE): opened by the panel's offset button. -->
+    <div id="offsetTool" role="toolbar" aria-label="offset and outline">
+        <span class="lab">by</span>
+        <input type="number" step="any" min="0" id="otD" title="the distance, in world units (the grid's, as the corner box's)">
+        <span class="lab">joins</span>
+        <button type="button" data-join="round" class="on" title="corners grown round, arcs of the distance; a line's ends round">round</button>
+        <button type="button" data-join="sharp" title="corners kept sharp (cut square when very sharp); a line's ends square to its end">sharp</button>
+        <button type="button" id="otGrow" title="grow each closed shape selected by the distance">grow</button>
+        <button type="button" id="otShrink" title="shrink each closed shape selected by the distance">shrink</button>
+        <button type="button" id="otOutline" title="each outline selected made a shape as wide as the distance, filled with its line colour">outline</button>
+        <button type="button" id="otClose" title="put the strip away (Escape)">×</button>
     </div>
     <!-- A PICKED CORNER'S NUMBERS (EXACT SHAPES): shown beside a picked corner. World units,
          the grid's. -->
@@ -15775,6 +15824,11 @@
             name: 'bt-intersect',
             title: 'intersect: only where they all overlap',
             show: () => booleanCandidates().length >= 2
+        }, // OFFSET AND OUTLINE: any exact shape
+        {
+            name: 'bt-offset',
+            title: 'offset: grow, shrink, or make the outline a shape',
+            show: () => selectionHasExact(false)
         }, // straighten flattens RUNS of selected leaves, so one leaf is never enough
         {
             name: 'bt-straighten',
@@ -16426,6 +16480,10 @@
                 stepLineStyle(name === 'bt-dash' ? 'dash' : 'arrow');
                 return;
             }
+            if (name === 'bt-offset') {
+                setOffsetTool(!$('offsetTool').classList.contains('open'));
+                return;
+            }
             if (name === 'bt-union' || name === 'bt-subtract' || name === 'bt-intersect') {
                 combineExactShapes(name === 'bt-union' ? 'or' : name === 'bt-subtract' ? 'sub' : 'and');
                 return;
@@ -16902,6 +16960,19 @@
                     ctx.fillRect(-7.5, -1.6, 1.2, 3.2);
                     ctx.fillRect(6.3, -1.6, 1.2, 3.2);
                 }
+            }
+            // OFFSET AND OUTLINE: a square, and the same grown round it, dashed
+            if (b.name === 'bt-offset') {
+                ctx.lineWidth = 1;
+                ctx.fillRect(-3.5, -3.5, 7, 7);
+                ctx.setLineDash([2, 1.6]);
+                ctx.beginPath();
+                if (ctx.roundRect)
+                    ctx.roundRect(-7, -7, 14, 14, 3.5);
+                else
+                    ctx.rect(-7, -7, 14, 14);
+                ctx.stroke();
+                ctx.setLineDash([]);
             }
             // COMBINING EXACT SHAPES: two overlapping squares, the answer filled
             if (b.name === 'bt-union' || b.name === 'bt-subtract' || b.name === 'bt-intersect') {
@@ -17537,6 +17608,7 @@
             'bt-union': 'pointer',
             'bt-subtract': 'pointer',
             'bt-intersect': 'pointer',
+            'bt-offset': 'pointer',
             'bt-roundoff': 'pointer',
             'bt-mirror-v': 'pointer',
             'bt-mirror-h': 'pointer',
@@ -19254,7 +19326,8 @@
             const A = orientRings(A0),
                 B = orientRings(B0.map(R => R.map(p => ({
                     x: cx + (p.x - cx) * g + eps * 0.7071,
-                    y: cy + (p.y - cy) * g + eps * 0.3333
+                    y: cy + (p.y - cy) * g + eps * 0.3333,
+                    c: p.c
                 }))));
             // each ring as a loop of edges, every corner one shared object
             const edgesOf = rings => {
@@ -19262,7 +19335,8 @@
                 for (const R of rings) {
                     const V = R.map(p => ({
                         x: p.x,
-                        y: p.y
+                        y: p.y,
+                        c: p.c
                     }));
                     for (let i = 0; i < V.length; i++)
                         E.push({
@@ -19292,7 +19366,8 @@
                         continue;
                     const v = {
                         x: e.a.x + rx * ta,
-                        y: e.a.y + ry * ta
+                        y: e.a.y + ry * ta,
+                        c: !!(e.a.c || e.b.c || f.a.c || f.b.c) // on a curve (see ringPoints)
                     };
                     e.cuts.push({
                         t: ta,
@@ -19338,7 +19413,8 @@
                     used.add(c);
                     R.push({
                         x: c.a.x,
-                        y: c.a.y
+                        y: c.a.y,
+                        c: c.a.c
                     });
                     c = out.get(c.b);
                 }
@@ -19406,10 +19482,13 @@
                 x: X,
                 y: Y
             };
+            // each point marked as lying on a curve (c), and the mark carried through the
+            // booleans, so a ring of the answer that no curve reached stays exact
             return {
                 pts: Array.from(d.x, (x, i) => ({
                     x,
-                    y: d.y[i]
+                    y: d.y[i],
+                    c: curved
                 })),
                 curved
             };
@@ -19431,7 +19510,6 @@
                 return false;
             const shapes = idx.map(i => state.subpaths[i]);
             const ins = shapes.map(booleanRings);
-            const curved = ins.some(o => o.curved);
             let acc = ins[0].rings;
             for (let k = 1; k < ins.length; k++)
                 acc = ringsBoolean(acc, ins[k].rings, op);
@@ -19449,22 +19527,24 @@
             const finish = P => {
                 if (Math.abs(ringArea(P)) < halfPx * halfPx * 4)
                     return null;
-                if (!curved) {
-                    let x0 = Infinity,
-                        x1 = -Infinity;
-                    for (const p of P) {
-                        x0 = Math.min(x0, p.x);
-                        x1 = Math.max(x1, p.x);
-                    }
-                    // the grown hair of a union (ringsBoolean) and nothing more
-                    const T = tidyPoly(P, Math.max(1e-6 * (x1 - x0), 1e-12));
-                    return T.length >= 3 ? {
+                let x0 = Infinity,
+                    x1 = -Infinity;
+                for (const p of P) {
+                    x0 = Math.min(x0, p.x);
+                    x1 = Math.max(x1, p.x);
+                }
+                // the grown hair of a union (ringsBoolean) and nothing more: a curve's too, or
+                // the fit takes the hair for a corner
+                const T = tidyPoly(P, Math.max(1e-6 * (x1 - x0), 1e-12));
+                if (T.length < 3)
+                    return null;
+                if (!P.some(p => p.c))
+                    return {
                         x: Float64Array.from(T, q => q.x),
                         y: Float64Array.from(T, q => q.y),
                         smooth: null
-                    } : null;
-                }
-                const rs = arcLengthResample(P.map(q => q.x), P.map(q => q.y), 1024);
+                    };
+                const rs = arcLengthResample(T.map(q => q.x), T.map(q => q.y), 1024);
                 const o = fitExactOutline(Float64Array.from(rs.x), Float64Array.from(rs.y), 4 * halfPx);
                 return o && o.x.length >= 3 ? o : null;
             };
@@ -19540,6 +19620,623 @@
             flashStatus(name + ': ' + fresh.length + ' shape' + (fresh.length === 1 ? '' : 's') + (nh ? ', ' + nh + ' hole' + (nh === 1 ? '' : 's') : ''));
             return true;
         }
+
+        // ── OFFSET AND OUTLINE (23 Oct 2026, Tom: "3") ───────────────────────────────
+        // Grow or shrink a closed exact shape by a distance, or turn an outline (a line's, or a
+        // closed shape's) into a filled band that wide. All three are booleans with one band:
+        // the strip within d of the outline, made of a rectangle along each edge, a wedge
+        // filling the gap each corner opens on its outer side, and for a line a square cap at
+        // each end. Growing is the shape with the band; shrinking, the shape less it; outlining,
+        // the band itself (half the width each side). The wedge reaches the point where the two
+        // offset edges meet (the miter), or stops short of it at four times d (a bevel) when
+        // joins are sharp; when they are round, the corner at the miter is given the radius d
+        // and drawn as the arc the offset really is (ROUNDED CORNERS), so a straight-edged
+        // shape stays exact either way. A curved one is sampled finely, offset with short
+        // wedges, and fitted again (fitExactOutline).
+        // Rings unioned all at once: each a simple region turned anticlockwise. An edge piece is
+        // kept where its middle lies in none of the other rings; the kept pieces walked into
+        // rings, as ringsBoolean does for two. Each ring grown a hair about its own middle first
+        // (a different hair each), so rings that share an edge or a corner overlap and cross.
+        function ringsUnionAll(rings0) {
+            let sx = 0;
+            for (const R of rings0)
+                for (const p of R)
+                    sx = Math.max(sx, Math.abs(p.x), Math.abs(p.y));
+            const eps = 1e-9 * (sx || 1);
+            const rings = rings0.map((R0, ri) => {
+                const R = ringArea(R0) < 0 ? R0.slice().reverse() : R0;
+                let cx = 0,
+                    cy = 0;
+                for (const p of R) {
+                    cx += p.x;
+                    cy += p.y;
+                }
+                cx /= R.length;
+                cy /= R.length;
+                const g = 1 + 1e-7 * (1 + ((ri * 0.6180339887) % 1));
+                return R.map(p => ({
+                    x: cx + (p.x - cx) * g + eps * 0.7071,
+                    y: cy + (p.y - cy) * g + eps * 0.3333,
+                    c: p.c
+                }));
+            });
+            const boxes = rings.map(R => {
+                let a = Infinity,
+                    b = Infinity,
+                    c = -Infinity,
+                    d = -Infinity;
+                for (const p of R) {
+                    a = Math.min(a, p.x);
+                    c = Math.max(c, p.x);
+                    b = Math.min(b, p.y);
+                    d = Math.max(d, p.y);
+                }
+                return [a, b, c, d];
+            });
+            const E = [];
+            rings.forEach((R, ri) => {
+                const V = R.map(p => ({
+                    x: p.x,
+                    y: p.y,
+                    c: p.c
+                }));
+                for (let i = 0; i < V.length; i++) {
+                    const a = V[i],
+                        b = V[(i + 1) % V.length];
+                    E.push({
+                        ri,
+                        a,
+                        b,
+                        x0: Math.min(a.x, b.x),
+                        x1: Math.max(a.x, b.x),
+                        y0: Math.min(a.y, b.y),
+                        y1: Math.max(a.y, b.y),
+                        cuts: []
+                    });
+                }
+            });
+            // crossings, edges sorted by their left end so each meets only those it can reach
+            const order = E.slice().sort((p, q) => p.x0 - q.x0);
+            for (let i = 0; i < order.length; i++) {
+                const e = order[i];
+                const rx = e.b.x - e.a.x,
+                    ry = e.b.y - e.a.y;
+                for (let j = i + 1; j < order.length && order[j].x0 <= e.x1; j++) {
+                    const f = order[j];
+                    if (f.ri === e.ri || f.y0 > e.y1 || f.y1 < e.y0)
+                        continue;
+                    const qx = f.b.x - f.a.x,
+                        qy = f.b.y - f.a.y;
+                    const den = rx * qy - ry * qx;
+                    if (den === 0)
+                        continue;
+                    const dx = f.a.x - e.a.x,
+                        dy = f.a.y - e.a.y;
+                    const ta = (dx * qy - dy * qx) / den,
+                        tb = (dx * ry - dy * rx) / den;
+                    if (!(ta > 0 && ta < 1 && tb > 0 && tb < 1))
+                        continue;
+                    const v = {
+                        x: e.a.x + rx * ta,
+                        y: e.a.y + ry * ta,
+                        c: !!(e.a.c || e.b.c || f.a.c || f.b.c) // on a curve (see ringPoints)
+                    };
+                    e.cuts.push({
+                        t: ta,
+                        v
+                    });
+                    f.cuts.push({
+                        t: tb,
+                        v
+                    });
+                }
+            }
+            const keep = [];
+            for (const e of E) {
+                const pts = [e.a].concat(e.cuts.sort((p, q) => p.t - q.t).map(c => c.v), [e.b]);
+                for (let i = 0; i + 1 < pts.length; i++) {
+                    const p = pts[i],
+                        q = pts[i + 1];
+                    const mx = (p.x + q.x) / 2,
+                        my = (p.y + q.y) / 2;
+                    let inside = false;
+                    for (let r = 0; r < rings.length && !inside; r++) {
+                        const B = boxes[r];
+                        if (r !== e.ri && mx >= B[0] && mx <= B[2] && my >= B[1] && my <= B[3] && ringContains(mx, my, rings[r]))
+                            inside = true;
+                    }
+                    if (!inside)
+                        keep.push({
+                            a: p,
+                            b: q
+                        });
+                }
+            }
+            const out = new Map();
+            for (const k of keep)
+                out.set(k.a, k);
+            const res = [],
+                used = new Set();
+            for (const k of keep) {
+                if (used.has(k))
+                    continue;
+                const R = [];
+                let c = k;
+                while (c && !used.has(c)) {
+                    used.add(c);
+                    R.push({
+                        x: c.a.x,
+                        y: c.a.y,
+                        c: c.a.c
+                    });
+                    c = out.get(c.b);
+                }
+                if (R.length >= 3)
+                    res.push(R);
+            }
+            return res;
+        }
+        // The band within d of a ring (closed) or a run of points (open): its pieces, and the
+        // points where a round join's arc belongs (each corner's miter, each square cap's two
+        // corners). o.limit: how far a wedge may reach, in d; o.caps: a line's ends carried on
+        // by d (to be rounded); o.disks: a finely sampled outline's round joins, where a corner
+        // turns more than 15° a disc of radius d in place of the wedge, and a disc at each end.
+        function offsetBand(P0, closed, d, o) {
+            const limit = o.limit;
+            // repeated points dropped first: an edge of no length has no direction, and would
+            // leave a gap in the band (a corner rounded by half its edges samples its ends twice)
+            const P = [];
+            for (const p of P0)
+                if (!P.length || Math.hypot(p.x - P[P.length - 1].x, p.y - P[P.length - 1].y) > 1e-9 * d)
+                    P.push(p);
+            while (closed && P.length > 1 && Math.hypot(P[0].x - P[P.length - 1].x, P[0].y - P[P.length - 1].y) <= 1e-9 * d)
+                P.pop();
+            if (P.length < 2)
+                return {
+                    pieces: [],
+                    arcs: []
+                };
+            const n = P.length,
+                pieces = [],
+                arcs = [];
+            const m = closed ? n : n - 1;
+            const T = [];
+            for (let i = 0; i < m; i++) {
+                const a = P[i],
+                    b = P[(i + 1) % n];
+                const L = Math.hypot(b.x - a.x, b.y - a.y);
+                T.push(L > 0 ? {
+                    x: (b.x - a.x) / L,
+                    y: (b.y - a.y) / L
+                } : null);
+            }
+            for (let i = 0; i < m; i++) {
+                const t = T[i];
+                if (!t)
+                    continue;
+                let a = P[i],
+                    b = P[(i + 1) % n];
+                // a line's ends: square caps, the edge carried on by d
+                if (!closed && o.caps && i === 0)
+                    a = {
+                        x: a.x - t.x * d,
+                        y: a.y - t.y * d
+                    };
+                if (!closed && o.caps && i === m - 1)
+                    b = {
+                        x: b.x + t.x * d,
+                        y: b.y + t.y * d
+                    };
+                const nx = -t.y * d,
+                    ny = t.x * d;
+                pieces.push([{
+                    x: a.x + nx,
+                    y: a.y + ny
+                }, {
+                    x: b.x + nx,
+                    y: b.y + ny
+                }, {
+                    x: b.x - nx,
+                    y: b.y - ny
+                }, {
+                    x: a.x - nx,
+                    y: a.y - ny
+                }]);
+                if (!closed && o.caps && i === 0)
+                    arcs.push({
+                        x: a.x + nx,
+                        y: a.y + ny
+                    }, {
+                        x: a.x - nx,
+                        y: a.y - ny
+                    });
+                if (!closed && o.caps && i === m - 1)
+                    arcs.push({
+                        x: b.x + nx,
+                        y: b.y + ny
+                    }, {
+                        x: b.x - nx,
+                        y: b.y - ny
+                    });
+            }
+            // the wedges: at each corner between two edges, on the side the turn opens
+            for (let i = closed ? 0 : 1; i < (closed ? n : n - 1); i++) {
+                const t1 = T[(i - 1 + m) % m],
+                    t2 = T[i % m];
+                if (!t1 || !t2)
+                    continue;
+                const cr = t1.x * t2.y - t1.y * t2.x,
+                    dt = t1.x * t2.x + t1.y * t2.y;
+                if (Math.abs(cr) < 1e-12 && dt > 0)
+                    continue; // straight on: nothing opens
+                // the open side: right of the turn for a left turn, left for a right one
+                const s = cr > 0 ? -1 : 1;
+                const v = P[i];
+                if (o.disks && Math.atan2(Math.abs(cr), dt) > Math.PI / 12) {
+                    pieces.push(discAt(v, d));
+                    continue;
+                }
+                const n1 = {
+                    x: -t1.y * s,
+                    y: t1.x * s
+                },
+                    n2 = {
+                        x: -t2.y * s,
+                        y: t2.x * s
+                    };
+                const p1 = {
+                    x: v.x + n1.x * d,
+                    y: v.y + n1.y * d
+                },
+                    p2 = {
+                        x: v.x + n2.x * d,
+                        y: v.y + n2.y * d
+                    };
+                const k = 1 + n1.x * n2.x + n1.y * n2.y; // 1 + cos of the turn
+                const reach = k > 1e-12 ? Math.sqrt(2 / k) : Infinity; // the miter's distance, in d
+                if (reach <= limit) {
+                    const mp = {
+                        x: v.x + (n1.x + n2.x) / k * d,
+                        y: v.y + (n1.y + n2.y) / k * d
+                    };
+                    pieces.push([v, p1, mp, p2]);
+                    arcs.push(mp);
+                } else {
+                    // too sharp: cut square across at limit·d along the bisector
+                    let bx = n1.x + n2.x,
+                        by = n1.y + n2.y;
+                    const bl = Math.hypot(bx, by);
+                    if (bl < 1e-12) {
+                        bx = t1.x;
+                        by = t1.y;
+                    } else {
+                        bx /= bl;
+                        by /= bl;
+                    }
+                    const c = {
+                        x: v.x + bx * limit * d,
+                        y: v.y + by * limit * d
+                    };
+                    // the cut's ends, where the line across the bisector at c meets each offset edge
+                    const at = (p, tt) => {
+                        const den = tt.x * bx + tt.y * by;
+                        const u = Math.abs(den) > 1e-12 ? ((c.x - p.x) * bx + (c.y - p.y) * by) / den : 0;
+                        return {
+                            x: p.x + tt.x * u,
+                            y: p.y + tt.y * u
+                        };
+                    };
+                    pieces.push([v, p1, at(p1, t1), at(p2, t2), p2]);
+                }
+            }
+            if (o.disks && !closed && n >= 2)
+                pieces.push(discAt(P[0], d), discAt(P[n - 1], d));
+            return {
+                pieces,
+                arcs
+            };
+        }
+        // a disc of radius d about v, 48 sides drawn round it (so its edges touch the circle)
+        function discAt(v, d) {
+            const N = 48,
+                r = d / Math.cos(Math.PI / N),
+                out = [];
+            for (let k = 0; k < N; k++)
+                out.push({
+                    x: v.x + r * Math.cos((k + 0.5) * TAU / N),
+                    y: v.y + r * Math.sin((k + 0.5) * TAU / N)
+                });
+            return out;
+        }
+        // The strip's settings: the distance (world units, the corner box's), and the joins.
+        const offsetCfg = {
+            d: null, // set from the selection's size when the strip first opens
+            join: 'round'
+        };
+        // Grow, shrink or outline every exact shape selected (closed ones for grow and shrink),
+        // each replaced by what it makes, in its place in the stack and in its style. An outline
+        // is filled with the line's own colour: it is the line, made a shape.
+        function offsetSelection(kind, d) {
+            const want = selectedIndices().slice().sort((a, b) => a - b).filter(i => {
+                const sp = state.subpaths[i];
+                return sp && sp._lazy && sp._lazy.exact && (kind === 'outline' || !sp._lazy.open);
+            });
+            if (!want.length || !(d > 0))
+                return false;
+            const round = offsetCfg.join === 'round';
+            const dd = kind === 'outline' ? d / 2 : d;
+            const r = cv.getBoundingClientRect();
+            const a0 = pxToWorld(0, 0, r.width, r.height),
+                b0 = pxToWorld(0.5, 0, r.width, r.height);
+            const halfPx = Math.abs(b0.x - a0.x) || 1e-4;
+            const made = new Map(); // index → the shapes it becomes
+            let gone = 0;
+            for (const i of want) {
+                const sp = state.subpaths[i],
+                    lz = sp._lazy;
+                let rings,
+                    curved;
+                if (lz.open) {
+                    const R = lzRoundBaked(lz);
+                    curved = hasRound(R) || hasSmooth(lz.smooth);
+                    const D = curved ? exactDense(lz.x, lz.y, R, true, lz.smooth) : {
+                        x: lz.x,
+                        y: lz.y
+                    };
+                    rings = [Array.from(D.x, (x, k) => ({
+                        x,
+                        y: D.y[k],
+                        c: curved
+                    }))];
+                } else {
+                    const br = booleanRings(sp);
+                    rings = br.rings;
+                    curved = br.curved;
+                }
+                const pieces = [],
+                    arcs = [];
+                for (const R of rings) {
+                    // each ring by its own kind: a straight one exact (its round joins arcs at
+                    // the miters), a curved one sampled (its round joins discs)
+                    const cr = !!R[0].c;
+                    const B = offsetBand(R, !lz.open, dd, {
+                        limit: round && !cr ? 1e3 : 4,
+                        caps: round && !cr,
+                        disks: round && cr
+                    });
+                    if (cr)
+                        for (const pc of B.pieces)
+                            for (const q of pc)
+                                q.c = true;
+                    pieces.push(...B.pieces);
+                    if (!cr)
+                        arcs.push(...B.arcs);
+                }
+                const band = ringsUnionAll(pieces);
+                const res = kind === 'outline' ? band : ringsBoolean(rings, band, kind === 'grow' ? 'or' : 'sub');
+                let x0 = Infinity,
+                    x1 = -Infinity;
+                for (const R of res)
+                    for (const p of R) {
+                        x0 = Math.min(x0, p.x);
+                        x1 = Math.max(x1, p.x);
+                    }
+                const tol = Math.max(1e-6 * (x1 - x0), 1e-12);
+                // one ring of the answer: exact (its corners snapped onto the miters they are,
+                // given the radius d where joins are round), or fitted
+                const finish = (P, hole) => {
+                    if (Math.abs(ringArea(P)) < halfPx * halfPx * 4)
+                        return null;
+                    if (P.some(p => p.c)) {
+                        const T0 = tidyPoly(P, tol); // the grown hairs, which the fit would take for corners
+                        if (T0.length < 3)
+                            return null;
+                        const rs = arcLengthResample(T0.map(q => q.x), T0.map(q => q.y), 1024);
+                        const f = fitExactOutline(Float64Array.from(rs.x), Float64Array.from(rs.y), 4 * halfPx);
+                        return f && f.x.length >= 3 ? f : null;
+                    }
+                    const T = tidyPoly(P, tol);
+                    if (T.length < 3)
+                        return null;
+                    const X = Float64Array.from(T, q => q.x),
+                        Y = Float64Array.from(T, q => q.y),
+                        Rr = new Float64Array(T.length);
+                    for (let k = 0; k < T.length; k++)
+                        for (const m of arcs)
+                            if (Math.hypot(m.x - X[k], m.y - Y[k]) <= 100 * tol) {
+                                X[k] = m.x;
+                                Y[k] = m.y;
+                                if (round)
+                                    Rr[k] = dd;
+                                break;
+                            }
+                    if (!hasRound(Rr))
+                        return {
+                            x: X,
+                            y: Y,
+                            smooth: null,
+                            round: null
+                        };
+                    if (!hole)
+                        return {
+                            x: X,
+                            y: Y,
+                            smooth: null,
+                            round: Rr
+                        };
+                    // a hole holds no radii: its arcs drawn as smooth corners instead
+                    const Dn = exactDense(X, Y, Rr, false, null);
+                    const rs = arcLengthResample(Array.from(Dn.x), Array.from(Dn.y), 1024);
+                    const f = fitExactOutline(Float64Array.from(rs.x), Float64Array.from(rs.y), 4 * halfPx);
+                    return f && f.x.length >= 3 ? f : null;
+                };
+                const out = [];
+                for (const Rg of ringsToRegions(res)) {
+                    const o2 = finish(Rg.outer, false);
+                    if (!o2)
+                        continue;
+                    o2.holes = Rg.holes.map(h => finish(h, true)).filter(Boolean);
+                    out.push(o2);
+                }
+                if (!out.length)
+                    gone++;
+                made.set(i, out);
+            }
+            if (![...made.values()].some(v => v.length)) {
+                flashStatus(kind + ': nothing would be left; a smaller distance');
+                return false;
+            }
+            if (state.editMode) {
+                state._editPrevView = null;
+                exitEditMode();
+            }
+            const next = [],
+                fresh = [];
+            state.subpaths.forEach((sp, i) => {
+                if (!made.has(i)) {
+                    next.push(sp);
+                    return;
+                }
+                const outs = made.get(i);
+                if (!outs.length) {
+                    next.push(sp); // shrunk to nothing: it stays as it was
+                    return;
+                }
+                for (const o of outs) {
+                    const ns = {
+                        refLength: 0,
+                        source: 'polygon',
+                        dirty: false,
+                        stroke: sp.stroke || null,
+                        strokeOpacity: sp.strokeOpacity != null ? sp.strokeOpacity : null,
+                        lineStyle: sp.lineStyle && sp.lineStyle.dash ? {
+                            dash: sp.lineStyle.dash,
+                            arrows: 0
+                        } : null,
+                        lineWidth: sp.lineWidth != null ? sp.lineWidth : null,
+                        smoothing: sp.smoothing != null ? sp.smoothing : null,
+                        fill: kind === 'outline' ? {
+                            color: sp.stroke || '#d4a052',
+                            opacity: 1
+                        } : sp.fill ? {
+                            color: sp.fill.color,
+                            opacity: sp.fill.opacity
+                        } : null,
+                        gname: sp.gname || null,
+                        note: sp.note || null
+                    };
+                    makeLazy(ns, o.x, o.y, 0, null, {
+                        exact: true,
+                        round: o.round || null,
+                        smooth: o.smooth,
+                        holes: o.holes.length ? o.holes : null
+                    });
+                    fresh.push(next.length);
+                    next.push(ns);
+                }
+            });
+            state.subpaths = next;
+            state.selected.clear();
+            pickedVertex = null;
+            rebuildSignalSelect(); // resets the selection, so the answer is selected after it
+            state.activeSet = new Set(fresh);
+            state.activeSp = fresh.length === 1 ? fresh[0] : -1;
+            state.isolateHide = false;
+            updateStatus();
+            drawAll();
+            pushHistory();
+            scheduleSave();
+            flashStatus(kind + ' by ' + fmtLen(d) + ': ' + fresh.length + ' shape' + (fresh.length === 1 ? '' : 's')
+            + (gone ? ', ' + gone + ' too small to shrink left as it was' : ''));
+            return true;
+        }
+        // THE OFFSET STRIP, under the bar like the shape tool's: the distance, the joins, and
+        // the three actions. Opened by the panel's offset button; Escape or × puts it away.
+        function setOffsetTool(on) {
+            const strip = $('offsetTool');
+            if (!strip)
+                return;
+            if (on && !(offsetCfg.d > 0)) {
+                // a twentieth of the selection's size, rounded to one figure
+                let x0 = Infinity,
+                    x1 = -Infinity,
+                    y0 = Infinity,
+                    y1 = -Infinity;
+                for (const i of selectedIndices()) {
+                    const lz = state.subpaths[i] && state.subpaths[i]._lazy;
+                    if (!lz)
+                        continue;
+                    const b = lz.box;
+                    x0 = Math.min(x0, b[0]);
+                    y0 = Math.min(y0, b[1]);
+                    x1 = Math.max(x1, b[2]);
+                    y1 = Math.max(y1, b[3]);
+                }
+                const s = Math.max(x1 - x0, y1 - y0);
+                const v = isFinite(s) && s > 0 ? s / 20 : 0.05;
+                const p = Math.pow(10, Math.floor(Math.log10(v)));
+                offsetCfg.d = Math.round(v / p) * p;
+            }
+            if (on && shapeTool)
+                setShapeTool(false);
+            strip.classList.toggle('open', !!on);
+            if (on) {
+                const bar = document.querySelector('.topbar');
+                const br = bar ? bar.getBoundingClientRect() : {
+                    bottom: 52
+                };
+                strip.style.top = (br.bottom + 8) + 'px';
+                strip.style.left = Math.max(8, (innerWidth - strip.offsetWidth) / 2) + 'px';
+                syncOffsetTool();
+            }
+        }
+        function syncOffsetTool() {
+            const strip = $('offsetTool');
+            if (!strip)
+                return;
+            $('otD').value = +(+offsetCfg.d).toPrecision(6);
+            for (const b of strip.querySelectorAll('button[data-join]'))
+                b.classList.toggle('on', b.dataset.join === offsetCfg.join);
+            const closed = selectedIndices().some(i => {
+                const lz = state.subpaths[i] && state.subpaths[i]._lazy;
+                return lz && lz.exact && !lz.open;
+            });
+            $('otGrow').disabled = $('otShrink').disabled = !closed;
+            $('otOutline').disabled = !selectionHasExact(false);
+        }
+        (function() {
+            const strip = $('offsetTool');
+            if (!strip)
+                return;
+            strip.addEventListener('click', e => {
+                const j = e.target.closest('button[data-join]');
+                if (j) {
+                    offsetCfg.join = j.dataset.join;
+                    syncOffsetTool();
+                    return;
+                }
+                const act = ({
+                    otGrow: 'grow',
+                    otShrink: 'shrink',
+                    otOutline: 'outline'
+                })[e.target.id];
+                if (act) {
+                    offsetSelection(act, +offsetCfg.d);
+                    syncOffsetTool();
+                }
+                if (e.target.id === 'otClose')
+                    setOffsetTool(false);
+            });
+            $('otD').addEventListener('input', e => {
+                const v = +e.target.value;
+                if (v > 0)
+                    offsetCfg.d = v;
+            });
+            window.addEventListener('keydown', e => {
+                if (e.key === 'Escape' && strip.classList.contains('open'))
+                    setOffsetTool(false);
+            });
+        })();
 
         // Make a corner sharp or smooth (SMOOTH CORNERS), and its mirrored partners with it. A
         // corner made smooth gives up its radius: a curve has no corner to round.
@@ -63904,6 +64601,8 @@
         function setShapeTool(on) {
             if (on && drawMode)
                 setDrawMode(false);
+            if (on)
+                setOffsetTool(false); // the two strips share the place under the bar
             shapeTool = !!on;
             shapeDrag = null;
             const b = $('bDrawShape');
@@ -75919,6 +76618,8 @@
                         y: lz.y[k]
                     })))),
                     smooth: hasSmooth(lz.smooth),
+                    round: hasRound(lz.round) ? Array.from(lzRoundBaked(lz)) : null,
+                    open: lz.open,
                     exact: lz.exact,
                     holes: lz.holes ? lz.holes.map(h => ({ // HOLES: each its corner count and area
                         n: h.x.length,
@@ -75938,7 +76639,22 @@
                 state.selected.clear();
                 drawAll();
             },
-            held: () => state.subpaths.map(sp => !!(sp && sp._lazy))
+            held: () => state.subpaths.map(sp => !!(sp && sp._lazy)),
+            // the exact shapes selected as their corners (and their holes'), in world units
+            rings: () => selectedIndices().map(i => {
+                const lz = state.subpaths[i] && state.subpaths[i]._lazy;
+                return lz ? {
+                    x: Array.from(lz.x),
+                    y: Array.from(lz.y),
+                    round: lzRoundBaked(lz) ? Array.from(lzRoundBaked(lz)) : null,
+                    smooth: lz.smooth ? Array.from(lz.smooth) : null,
+                    holes: (lzHolesBaked(lz) || []).map(h => ({
+                        x: Array.from(h.x),
+                        y: Array.from(h.y),
+                        smooth: h.smooth ? Array.from(h.smooth) : null
+                    }))
+                } : null;
+            })
         };
         window.__motion = {
             sync: () => syncMotionClock(),
