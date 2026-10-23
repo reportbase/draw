@@ -608,6 +608,29 @@ current = 'exact shapes';
     if (!rc.round || !(rc.round[2] > 0) || rc.pts.length !== 4) throw new Error('the corner did not round: ' + JSON.stringify(rc.round));
     if (!(await svgPaths()).some(d => / A[\d.]+ [\d.]+ 0 0 [01] /.test(d))) throw new Error('the rounded corner was not exported as an arc');
     if ((await held()) !== 4) throw new Error('rounding converted a shape: ' + await held() + ' held');
+    // The shape tool: a rounded rectangle in one drag, exact, its corners arcs.
+    await xp.keyboard.press('Escape');
+    await xp.click('#bDrawShape');
+    if (!(await xp.evaluate(() => document.getElementById('shapeTool').classList.contains('open')))) throw new Error('the shape tool strip did not open');
+    await xp.locator('#stRound').fill('0.3');
+    await xp.mouse.move(...P(1000, 560));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(1200, 700), { steps: 6 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    if ((await held()) !== 5) throw new Error('the shape tool did not make an exact shape: ' + await held() + ' held');
+    if ((await svgPaths()).filter(d => / A[\d.]+ [\d.]+ 0 0 [01] /.test(d)).length < 2) throw new Error('the rounded rectangle has no arcs in the svg');
+    // A .tvf keeps them exact: saved with their corners beside the leaves, and loaded back exact.
+    const [tdl] = await Promise.all([xp.waitForEvent('download', { timeout: 30000 }), xp.evaluate(() => document.getElementById('bSaveTvf').click())]);
+    const tvfText = await readFile(await tdl.path(), 'utf8');
+    if ((tvfText.match(/#meta exact:/g) || []).length !== 5 || !/#meta radii:/.test(tvfText)) throw new Error('the .tvf does not carry the exact shapes');
+    if ((await held()) !== 5) throw new Error('saving a .tvf converted a shape');
+    const arcsBefore = (await svgPaths()).join('|');
+    await xp.setInputFiles('#fLoadTvf', { name: 'exact.tvf', mimeType: 'text/plain', buffer: Buffer.from(tvfText) });
+    await xp.waitForTimeout(800);
+    if ((await held()) !== 5) throw new Error('the .tvf did not load back exact: ' + await held() + ' held');
+    const arcsAfter = (await svgPaths()).join('|');
+    if (arcsAfter !== arcsBefore) { console.log('BEFORE', arcsBefore); console.log('AFTER ', arcsAfter); throw new Error('the exact shapes moved or changed on the way through a .tvf'); }
   } catch (e){
     failures.push(`[exact shapes] ${e.message.split('\n')[0]}`);
   }

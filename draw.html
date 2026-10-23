@@ -3083,6 +3083,35 @@
                       #orderPop .pop-grid { grid-template-columns: repeat(4, 42px) !important; }
                       #orderPop .pop-act { padding: 8px; }
                     }
+        /* THE SHAPE TOOL'S STRIP (EXACT SHAPES) */
+        #shapeTool {
+            position: fixed;
+            z-index: 60;
+            display: none;
+            gap: 6px;
+            align-items: center;
+            padding: 6px 8px;
+            background: var(--panel);
+            border: 1px solid var(--line2);
+            border-radius: 8px;
+            font: 12px system-ui, sans-serif;
+            color: var(--fg);
+            white-space: nowrap;
+        }
+        #shapeTool.open { display: flex; }
+        #shapeTool button {
+            background: transparent;
+            color: var(--fg);
+            border: 1px solid var(--line2);
+            border-radius: 6px;
+            padding: 3px 8px;
+            cursor: pointer;
+            font: inherit;
+        }
+        #shapeTool button.on { background: var(--gold); color: #14141a; border-color: var(--gold); }
+        #shapeTool .lab { color: var(--fg-muted); margin: 0 2px 0 6px; }
+        #shapeTool #stN { display: inline-block; min-width: 1.6em; text-align: center; }
+        #shapeTool input[type=range] { width: 90px; accent-color: var(--gold); }
     </style>
 </head>
 <body>
@@ -3209,6 +3238,15 @@
                     <circle cx="9" cy="7" r="1.6"/>
                     <circle cx="14" cy="14" r="1.6"/>
                     <circle cx="21" cy="5" r="1.6"/>
+                </svg>
+            </button>
+            <!-- THE SHAPE TOOL (EXACT SHAPES; 23 Oct 2026, Tom: "1,2"): an exact rectangle, polygon or
+                     star in one drag. The strip under the bar (#shapeTool) picks which, its sides and
+                     its corner rounding while the tool is on. -->
+            <button id="bDrawShape" class="icon-btn" title="drag out an exact shape: a rectangle corner to corner (Shift: a square), a polygon or star from its centre (Shift: turned in 15° steps). The strip under the bar picks the shape, its sides and how round its corners are.">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="3.5" width="12" height="10" rx="3"/>
+                    <path d="M17.5 10.5l1.4 3.2 3.4.3-2.6 2.2.8 3.3-3-1.8-3 1.8.8-3.3-2.6-2.2 3.4-.3z"/>
                 </svg>
             </button>
             <button id="bText" class="icon-btn" title="add text as outlined shapes — one signal per glyph contour, arriving as a single group">
@@ -4029,6 +4067,16 @@
                catalogue is a thing you close. The builder is a thing you keep open and work in,
                and now that a double-click on a built shape opens it, it needed a door of its
                own rather than a scroll to the bottom of somebody else's. -->
+    </div>
+    <!-- THE SHAPE TOOL'S STRIP (EXACT SHAPES): shown while #bDrawShape is on, under the bar. -->
+    <div id="shapeTool" role="toolbar" aria-label="the shape to drag out">
+        <button type="button" data-kind="rect" class="on" title="a rectangle, dragged corner to corner (Shift: a square)">rectangle</button>
+        <button type="button" data-kind="polygon" title="a regular polygon, dragged from its centre to a corner">polygon</button>
+        <button type="button" data-kind="star" title="a star, dragged from its centre to a point">star</button>
+        <span class="st-n"><span class="lab" id="stNLab">sides</span>
+            <button type="button" id="stLess" title="one fewer">−</button><span id="stN">6</span><button type="button" id="stMore" title="one more">+</button></span>
+        <span class="lab">round</span>
+        <input type="range" id="stRound" min="0" max="0.5" step="0.01" value="0" title="how round the corners are: 0 sharp, the far end as round as the edges allow">
     </div>
     <!-- THE BUILDER. Everything below was the bottom of the shapes popover until the link
          made it a workshop rather than a shelf: while it is linked, the sliders drive the
@@ -13732,6 +13780,15 @@
                 flashStatus('.tvf on the clipboard did not parse — ' + e.message);
                 return 0;
             }
+            // EXACT SHAPES IN A .tvf: each curve's corners, if it carries them, ride along
+            const exInfo = tvfExactInfo(text);
+            parsed.subpaths.forEach((sp, k) => {
+                if (exInfo[k]) {
+                    sp._ex = exInfo[k];
+                    sp._readX = Float64Array.from(sp.leafX);
+                    sp._readY = Float64Array.from(sp.leafY);
+                }
+            });
             const incoming = parsed.subpaths.filter(sp => sp.leafX && sp.leafX.length >= 3);
             if (!incoming.length)
                 return 0;
@@ -13749,7 +13806,7 @@
                     break;
             }
             if (wild && typeof fitSubpathsToWorld === 'function') {
-                const fitted = fitSubpathsToWorld(incoming.map(sp => ({
+                const fitted = tvfFitToWorld(incoming.map(sp => ({
                     x: sp.leafX,
                     y: sp.leafY
                 })));
@@ -13791,6 +13848,11 @@
                     gname: sp.gname || null,
                     note: sp.note || null,
                 });
+                if (sp._ex) {
+                    // the leaves as read and as placed (fitted, offset) give the corners' map
+                    const t = state.subpaths[state.subpaths.length - 1];
+                    tvfMakeExact(t, sp._ex, sp._readX, sp._readY);
+                }
                 made.push(state.subpaths.length - 1);
             }
             if (!targetN)
@@ -13830,8 +13892,8 @@
                 return 0;
             const N = state.subpaths.length;
             const idx = [];
-            for (let i = Math.max(0, N - n); i < N; i++)
-                if (state.subpaths[i] && state.subpaths[i].leafX)
+            for (let i = Math.max(0, N - n); i < N; i++) // _lazy first: leafX would convert a held or exact shape
+                if (state.subpaths[i] && (state.subpaths[i]._lazy || state.subpaths[i].leafX))
                     idx.push(i);
             if (!idx.length)
                 return 0;
@@ -34893,6 +34955,9 @@
                 ctx.restore();
             }
 
+            // The shape tool's drag, as it will land (THE SHAPE TOOL).
+            if (CHROME && shapeDrag)
+                drawShapeToolPreview();
             // In-progress pencil stroke (canvas space).
             if (CHROME && drawMode && drawStroke && drawStroke.length > 1) {
                 ctx.save();
@@ -37357,6 +37422,21 @@
         cv.addEventListener('mousedown', e => {
             if (e.button !== 0)
                 return;
+            // THE SHAPE TOOL takes the press before anything else: it is a drawing tool
+            if (shapeTool) {
+                e.preventDefault();
+                const rr = cv.getBoundingClientRect();
+                const p = {
+                    x: e.clientX - rr.left,
+                    y: e.clientY - rr.top
+                };
+                shapeDrag = {
+                    a: p,
+                    b: p,
+                    shift: e.shiftKey
+                };
+                return;
+            }
             // ── Mark placement, when armed: the click is a PUNCTURE, nothing else ──
             // Checked before every other claim on the press (handles, lock, leaves):
             // arming the mode is deliberate, so while it is lit the canvas has exactly
@@ -38299,6 +38379,16 @@
                 (e.clientY - rb.top) - lockTap.my) > LONG_PRESS_MOVE_TOL)
                     cancelLeafLongPress();
             }
+            if (shapeDrag) {
+                const rr = cv.getBoundingClientRect();
+                shapeDrag.b = {
+                    x: e.clientX - rr.left,
+                    y: e.clientY - rr.top
+                };
+                shapeDrag.shift = e.shiftKey;
+                drawAll();
+                return;
+            }
             if (vertexDrag) {
                 const rr = cv.getBoundingClientRect();
                 updateVertexDrag(e.clientX - rr.left, e.clientY - rr.top);
@@ -38857,6 +38947,10 @@
             }
             cancelBrowserLongPress(); // the press ended; whatever it armed is off
             cancelShapeLongPress(); // …and so is the shape hold it may have armed instead
+            if (shapeDrag) {
+                finishShapeDrag();
+                return;
+            }
             if (vertexDrag) {
                 endVertexDrag();
                 return;
@@ -61325,6 +61419,17 @@
                 lines.push(`#meta name:${String(subpath.gname).replace(/[\r\n]+/g, ' ')}`);
             if (subpath.note)
                 lines.push(`#meta note:${String(subpath.note).replace(/[\r\n]+/g, ' ')}`);
+            // AN EXACT SHAPE KEEPS ITS CORNERS (23 Oct 2026, Tom: "1,2"). The leaves below are
+            // what every reader reads (3d and games among them); beside them the corners, and the
+            // corner radii when any is rounded, so this editor can bring the shape back exact.
+            // Readers that do not know the tags skip them, as §2.5 asks of any #meta tag.
+            if (subpath._exactOut) {
+                const E = subpath._exactOut;
+                lines.push(`#meta exact:${E.open ? 'line' : 'polygon'}`);
+                lines.push(`#meta corners:${Array.from(E.x, (x, i) => fmtSig(x, 10) + ' ' + fmtSig(E.y[i], 10)).join(' ')}`);
+                if (E.round)
+                    lines.push(`#meta radii:${Array.from(E.round, r => fmtSig(r, 8)).join(' ')}`);
+            }
 
             // Canonical channel order: x channel first, then y. Both share the
             // single row of this 1D-as-2D representation.
@@ -61369,10 +61474,16 @@
                 if (!LAZY_KEYS.includes(k))
                     c[k] = sp[k];
             const lz = sp._lazy;
+            c._exactOut = {
+                open: lz.open,
+                x: lz.x,
+                y: lz.y,
+                round: lzRoundBaked(lz)
+            };
             makeLazy(c, lz.x, lz.y, lz.scale, null, {
                 exact: true,
                 open: lz.open,
-                round: lzRoundBaked(lz)
+                round: c._exactOut.round
             });
             materializeLazy(c);
             return c;
@@ -61452,7 +61563,8 @@
             const idx = state.editMode && state.activeSp >= 0
             ? [state.activeSp]
             : (selectedIndices().length ? selectedIndices() : state.subpaths.map((_, i) => i));
-            const live = idx.filter(i => state.subpaths[i] && state.subpaths[i].leafX);
+            // _lazy first: reading leafX off a held or exact shape converts it
+            const live = idx.filter(i => state.subpaths[i] && (state.subpaths[i]._lazy || state.subpaths[i].leafX));
             if (!live.length)
                 return null;
             const blocks = live.map((i, n) => encodeSubpathAsTVF(tvfSubject(state.subpaths[i]), {
@@ -61520,6 +61632,8 @@
         // already has shapes, a new stroke is ADDED as another subpath; otherwise it
         // starts the first shape.
         function setDrawMode(on, straight) {
+            if (on && shapeTool)
+                setShapeTool(false); // one drawing tool at a time
             drawMode = on;
             lineMode = on && !!straight;
             drawStroke = null;
@@ -61547,7 +61661,7 @@
         // only when asked — the panel's "to leaves" button, or a leaf tool reaching for it —
         // and is sculptable from then on. Clicking it, selecting it, the status line and the
         // readouts do not convert it, as they do not convert a held import.
-        function loadExactShape(worldPts, append, open) {
+        function loadExactShape(worldPts, append, open, round) {
             const sp = {
                 refLength: 0,
                 source: open ? 'line' : 'polygon',
@@ -61555,7 +61669,8 @@
             };
             makeLazy(sp, Float64Array.from(worldPts, p => p.x), Float64Array.from(worldPts, p => p.y), 0, null, {
                 exact: true,
-                open
+                open,
+                round: round || null
             });
             if (append && state.subpaths.length) {
                 state.subpaths.push(sp);
@@ -61585,6 +61700,190 @@
         // points; open — a line — when finished with two, or with Shift held. A double-click's
         // second click lands where its first did, so points within a few pixels of the one
         // before are one point.
+        // ── THE SHAPE TOOL (23 Oct 2026, Tom: "1,2") ────────────────────────────────
+        // An exact rectangle, polygon or star in one drag, its corners rounded as the strip says.
+        // A rectangle runs corner to corner (Shift: a square); a polygon or star from its centre
+        // to its first corner, so the drag sets its size and its turn (Shift: the turn in 15°
+        // steps). The rounding is a share of what each corner allows: 0 sharp, ½ the most the
+        // corner's two edges leave room for. One shape a drag, then the tool is put down, as the
+        // pens are. Escape puts it down too.
+        // var, not let: drawAll and setDrawMode read these, and either may run before this line
+        // does while the page is loading
+        var shapeTool = false,
+            shapeDrag = null;
+        const shapeToolCfg = {
+            kind: 'rect',
+            n: 6,
+            round: 0
+        };
+        function setShapeTool(on) {
+            if (on && drawMode)
+                setDrawMode(false);
+            shapeTool = !!on;
+            shapeDrag = null;
+            const b = $('bDrawShape');
+            if (b)
+                b.classList.toggle('active', shapeTool);
+            const strip = $('shapeTool');
+            if (strip) {
+                strip.classList.toggle('open', shapeTool);
+                if (shapeTool) {
+                    const bar = document.querySelector('.topbar');
+                    const br = bar ? bar.getBoundingClientRect() : {
+                        bottom: 52
+                    };
+                    strip.style.top = (br.bottom + 8) + 'px';
+                    strip.style.left = Math.max(8, (innerWidth - strip.offsetWidth) / 2) + 'px';
+                }
+            }
+            cv.style.cursor = shapeTool ? 'crosshair' : '';
+            drawAll();
+        }
+        function syncShapeToolStrip() {
+            const strip = $('shapeTool');
+            if (!strip)
+                return;
+            for (const b of strip.querySelectorAll('button[data-kind]'))
+                b.classList.toggle('on', b.dataset.kind === shapeToolCfg.kind);
+            const nw = strip.querySelector('.st-n');
+            if (nw)
+                nw.style.display = shapeToolCfg.kind === 'rect' ? 'none' : '';
+            $('stNLab').textContent = shapeToolCfg.kind === 'star' ? 'points' : 'sides';
+            $('stN').textContent = shapeToolCfg.n;
+        }
+        // The outline a drag from a to b makes, in canvas pixels, with each corner's radius.
+        function shapeToolOutline(a, b, shift) {
+            const pts = [];
+            const kind = shapeToolCfg.kind;
+            if (kind === 'rect') {
+                let w = b.x - a.x,
+                    h = b.y - a.y;
+                if (shift) {
+                    const m = Math.max(Math.abs(w), Math.abs(h));
+                    w = Math.sign(w || 1) * m;
+                    h = Math.sign(h || 1) * m;
+                }
+                pts.push({
+                    x: a.x,
+                    y: a.y
+                }, {
+                    x: a.x + w,
+                    y: a.y
+                }, {
+                    x: a.x + w,
+                    y: a.y + h
+                }, {
+                    x: a.x,
+                    y: a.y + h
+                });
+            } else {
+                const R = Math.hypot(b.x - a.x, b.y - a.y);
+                let th = Math.atan2(b.y - a.y, b.x - a.x);
+                if (shift)
+                    th = Math.round(th / (Math.PI / 12)) * (Math.PI / 12);
+                const n = shapeToolCfg.n,
+                    star = kind === 'star';
+                const m = star ? 2 * n : n;
+                for (let k = 0; k < m; k++) {
+                    const rr = star && (k % 2) ? R * 0.45 : R;
+                    const t = th + TAU * k / m;
+                    pts.push({
+                        x: a.x + rr * Math.cos(t),
+                        y: a.y + rr * Math.sin(t)
+                    });
+                }
+            }
+            // each corner's radius: the share of the most its edges allow (tangent points at
+            // half the shorter edge), so ½ is as round as that corner can be
+            const X = pts.map(p => p.x),
+                Y = pts.map(p => p.y),
+                n = pts.length;
+            const r = pts.map((p, k) => {
+                const g = cornerArc(X, Y, k, false, 1e-9);
+                if (!g || !(shapeToolCfg.round > 0))
+                    return 0;
+                const i = (k - 1 + n) % n,
+                    j = (k + 1) % n;
+                const e = Math.min(Math.hypot(X[i] - p.x, Y[i] - p.y), Math.hypot(X[j] - p.x, Y[j] - p.y));
+                return shapeToolCfg.round * 2 * (e / 2) * Math.tan(g.phi / 2);
+            });
+            return {
+                pts,
+                r
+            };
+        }
+        function shapeToolBig(o) {
+            let a = Infinity,
+                b = Infinity,
+                c = -Infinity,
+                d = -Infinity;
+            for (const p of o.pts) {
+                a = Math.min(a, p.x);
+                c = Math.max(c, p.x);
+                b = Math.min(b, p.y);
+                d = Math.max(d, p.y);
+            }
+            return (c - a) >= 4 && (d - b) >= 4;
+        }
+        function drawShapeToolPreview() {
+            if (!shapeDrag)
+                return;
+            const o = shapeToolOutline(shapeDrag.a, shapeDrag.b, shapeDrag.shift);
+            if (!shapeToolBig(o))
+                return;
+            ctx.save();
+            ctx.strokeStyle = '#ffd479';
+            ctx.lineWidth = 2;
+            ctx.lineJoin = 'miter';
+            ctx.beginPath();
+            traceExact(ctx, o.pts.map(p => p.x), o.pts.map(p => p.y), o.r, false);
+            ctx.stroke();
+            ctx.restore();
+        }
+        function finishShapeDrag() {
+            const d = shapeDrag;
+            shapeDrag = null;
+            const o = d ? shapeToolOutline(d.a, d.b, d.shift) : null;
+            if (!o || !shapeToolBig(o)) {
+                drawAll();
+                return;
+            }
+            const rr = cv.getBoundingClientRect();
+            const w0 = pxToWorld(0, 0, rr.width, rr.height),
+                w1 = pxToWorld(1, 0, rr.width, rr.height);
+            const perPx = Math.hypot(w1.x - w0.x, w1.y - w0.y);
+            const wpts = o.pts.map(p => pxToWorld(p.x, p.y, rr.width, rr.height));
+            const round = o.r.some(v => v > 0) ? Float64Array.from(o.r, v => v * perPx) : null;
+            loadExactShape(wpts, state.subpaths.length > 0, false, round);
+            scheduleSave();
+            setShapeTool(false);
+        }
+        (function() {
+            const b = $('bDrawShape'),
+                strip = $('shapeTool');
+            if (b)
+                b.addEventListener('click', () => setShapeTool(!shapeTool));
+            if (!strip)
+                return;
+            strip.addEventListener('click', e => {
+                const k = e.target.closest('button[data-kind]');
+                if (k)
+                    shapeToolCfg.kind = k.dataset.kind;
+                if (e.target.id === 'stLess')
+                    shapeToolCfg.n = Math.max(3, shapeToolCfg.n - 1);
+                if (e.target.id === 'stMore')
+                    shapeToolCfg.n = Math.min(24, shapeToolCfg.n + 1);
+                syncShapeToolStrip();
+            });
+            $('stRound').addEventListener('input', e => {
+                shapeToolCfg.round = +e.target.value;
+            });
+            window.addEventListener('keydown', e => {
+                if (shapeTool && e.key === 'Escape')
+                    setShapeTool(false);
+            });
+            syncShapeToolStrip();
+        })();
         // SNAPPING (23 Oct 2026, Tom: "3,4,5"): with Shift held, the line pen's next edge is
         // held to the nearest multiple of 45° from the last corner (across, up, or a diagonal),
         // its length the pointer's distance along that direction, as drawing tools do.
@@ -67423,6 +67722,105 @@
         // coordinates — no refitting, so a subpath loaded by itself from a
         // multi-subpath figure stays in its original position rather than
         // expanding to fill the canvas.
+        // FITTING A .tvf TO THE PAGE, KEEPING ITS UP. fitSubpathsToWorld was written for SVG,
+        // whose y runs down, so it turns y over; a .tvf is already in world coordinates, y up,
+        // and a file that strayed past ±1.5 (a drawing spread wider than the first view, say)
+        // came back upside down. Same fit, y turned back. (fitSubpathsToWorld is in the SVG
+        // importer, which 3d copies unchanged, so it is left as it is.)
+        function tvfFitToWorld(subpaths) {
+            return fitSubpathsToWorld(subpaths).map(f => Object.assign({}, f, {
+                y: Float64Array.from(f.y, v => -v)
+            }));
+        }
+
+        // ── EXACT SHAPES IN A .tvf ──────────────────────────────────────────────────
+        // The corners a saved exact shape carries (see encodeSubpathAsTVF), one entry per curve
+        // parseTvfText returns, in its order: {open, x, y, round} or null. Read here rather than
+        // in parseTvfText, which 3d and games copy verbatim: they skip these tags, and so does
+        // it. Walks the same blocks: a header, its #meta lines, then H rows of curves.
+        function tvfExactInfo(text) {
+            const out = [];
+            const lines = text.split(/\r?\n/);
+            for (let i = 0; i < lines.length; i++) {
+                const h = lines[i].trim().match(/^TVF\s+(\d+)\s+(\d+)\s+(\d+)\s*$/);
+                if (!h)
+                    continue;
+                const meta = {};
+                let j = i + 1;
+                while (j < lines.length && lines[j].trim().startsWith('#meta')) {
+                    const tag = lines[j].trim().slice(5).trim(),
+                        c = tag.indexOf(':');
+                    if (c > 0)
+                        meta[tag.slice(0, c).trim()] = tag.slice(c + 1).trim();
+                    j++;
+                }
+                const H = +h[2];
+                let info = null;
+                if (H === 1 && (meta.exact === 'polygon' || meta.exact === 'line') && meta.corners) {
+                    const v = meta.corners.split(/\s+/).map(Number);
+                    const open = meta.exact === 'line';
+                    const n = v.length / 2;
+                    if (v.length % 2 === 0 && n >= (open ? 2 : 3) && v.every(Number.isFinite)) {
+                        const x = new Float64Array(n),
+                            y = new Float64Array(n);
+                        for (let k = 0; k < n; k++) {
+                            x[k] = v[2 * k];
+                            y[k] = v[2 * k + 1];
+                        }
+                        let round = null;
+                        if (meta.radii) {
+                            const r = meta.radii.split(/\s+/).map(Number);
+                            if (r.length === n && r.every(q => Number.isFinite(q) && q >= 0))
+                                round = Float64Array.from(r);
+                        }
+                        info = {
+                            open,
+                            x,
+                            y,
+                            round
+                        };
+                    }
+                }
+                for (let r = 0; r < H; r++)
+                    out.push(r === 0 ? info : null);
+            }
+            return out;
+        }
+        // Make a shape just read from a .tvf exact again, from its corners. Its leaves were
+        // moved (fitted to the page, offset by a paste) after they were read, so the corners
+        // are carried the same way: the map from the leaves as read to the leaves as placed,
+        // by their boxes, a scale and a shift in each direction.
+        function tvfMakeExact(sp, info, readX, readY) {
+            const box = (X, Y) => {
+                let a = Infinity,
+                    b = Infinity,
+                    c = -Infinity,
+                    d = -Infinity;
+                for (let i = 0; i < X.length; i++) {
+                    a = Math.min(a, X[i]);
+                    c = Math.max(c, X[i]);
+                    b = Math.min(b, Y[i]);
+                    d = Math.max(d, Y[i]);
+                }
+                return [a, b, c, d];
+            };
+            const B0 = box(readX, readY),
+                B1 = box(sp.leafX, sp.leafY);
+            const sx = (B0[2] - B0[0]) > 1e-12 ? (B1[2] - B1[0]) / (B0[2] - B0[0]) : 1,
+                sy = (B0[3] - B0[1]) > 1e-12 ? (B1[3] - B1[1]) / (B0[3] - B0[1]) : 1;
+            const X = Float64Array.from(info.x, x => B1[0] + (x - B0[0]) * sx),
+                Y = Float64Array.from(info.y, y => B1[1] + (y - B0[1]) * sy);
+            const s = Math.sqrt(Math.abs(sx * sy));
+            for (const key of LAZY_KEYS)
+                delete sp[key];
+            sp.source = info.open ? 'line' : 'polygon';
+            makeLazy(sp, X, Y, 0, null, {
+                exact: true,
+                open: info.open,
+                round: info.round ? Float64Array.from(info.round, r => r * s) : null
+            });
+        }
+
         function loadTvfFiles(files, append) {
             closeMenu();
             console.log('[TVF LOAD] files:', files.map(f => f.name), append ? '(append)' : '');
@@ -67446,8 +67844,12 @@
                     return;
                 }
                 console.log('[TVF LOAD]', file.name, '-> blocks:', parsed.blockCount, 'subpaths:', parsed.subpaths.length);
-                for (const sp of parsed.subpaths) {
+                const exInfo = tvfExactInfo(text); // EXACT SHAPES IN A .tvf
+                for (const [k, sp] of parsed.subpaths.entries()) {
                     subpaths.push({
+                        _ex: exInfo[k] || null,
+                        _readX: exInfo[k] ? Float64Array.from(sp.leafX) : null,
+                        _readY: exInfo[k] ? Float64Array.from(sp.leafY) : null,
                         refX: sp.leafX.slice(),
                         refY: sp.leafY.slice(),
                         leafX: sp.leafX,
@@ -67493,6 +67895,8 @@
                         fill: sp.fill || null,
                         stroke: sp.stroke || null,
                     });
+                    if (sp._ex)
+                        tvfMakeExact(state.subpaths[state.subpaths.length - 1], sp._ex, sp._readX, sp._readY);
                     added++;
                 }
                 state.svgName = (state.svgName ? state.svgName + ' + ' : '') + (sources[0] || 'tvf');
@@ -67545,7 +67949,7 @@
                     x: sp.leafX,
                     y: sp.leafY
                 }));
-                const fitted = fitSubpathsToWorld(forFit);
+                const fitted = tvfFitToWorld(forFit);
                 for (let i = 0; i < subpaths.length; i++) {
                     subpaths[i].leafX = fitted[i].x;
                     subpaths[i].leafY = fitted[i].y;
@@ -67567,6 +67971,10 @@
                 stroke: sp.stroke || null,
             }));
             state.N = firstN;
+            subpaths.forEach((sp, i) => {
+                if (sp._ex)
+                    tvfMakeExact(state.subpaths[i], sp._ex, sp._readX, sp._readY);
+            });
             console.log('[TVF LOAD] state.subpaths installed:', state.subpaths.length, 'N=', state.N);
             if (typeof syncRung === 'function')
                 syncRung(); // per-shape rungs, not the anchor
