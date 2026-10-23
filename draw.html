@@ -13674,11 +13674,24 @@
         let _shapeClipboard = [];
         let _pasteSeq = 0;
         function _cloneSubpathData(sp) {
+            // A held or exact shape is copied as its outline (and its corners' radii, smooth
+            // corners and holes), _lazy first: reading its leafX would convert it.
+            const lz = sp._lazy;
             return {
-                leafX: sp.leafX ? Float64Array.from(sp.leafX) : null,
-                leafY: sp.leafY ? Float64Array.from(sp.leafY) : null,
-                refX: sp.refX ? Float64Array.from(sp.refX) : null,
-                refY: sp.refY ? Float64Array.from(sp.refY) : null,
+                lazy: lz ? {
+                    x: Float64Array.from(lz.x),
+                    y: Float64Array.from(lz.y),
+                    scale: lz.scale,
+                    exact: lz.exact,
+                    open: lz.open,
+                    round: lzRoundBaked(lz),
+                    smooth: lz.smooth,
+                    holes: lzHolesBaked(lz)
+                } : null,
+                leafX: !lz && sp.leafX ? Float64Array.from(sp.leafX) : null,
+                leafY: !lz && sp.leafY ? Float64Array.from(sp.leafY) : null,
+                refX: !lz && sp.refX ? Float64Array.from(sp.refX) : null,
+                refY: !lz && sp.refY ? Float64Array.from(sp.refY) : null,
                 source: sp.source,
                 fromTvf: sp.fromTvf,
                 dirty: sp.dirty,
@@ -13716,6 +13729,41 @@
             const off = 0.03 * (1 + (_pasteSeq++ % 12));
             const made = [];
             for (const c of _shapeClipboard) {
+                if (c.lazy) {
+                    const L = c.lazy,
+                        sh = v => Float64Array.from(v, q => q + off);
+                    const sp = {
+                        refLength: 0,
+                        source: c.source,
+                        fromTvf: c.fromTvf,
+                        dirty: c.dirty,
+                        fill: c.fill ? {
+                            color: c.fill.color,
+                            opacity: c.fill.opacity
+                        } : null,
+                        stroke: c.stroke || null,
+                        strokeOpacity: c.strokeOpacity != null ? c.strokeOpacity : null,
+                        lineStyle: c.lineStyle || null,
+                        lineWidth: c.lineWidth != null ? c.lineWidth : null,
+                        smoothing: c.smoothing != null ? c.smoothing : null,
+                        gname: c.gname || null,
+                        note: c.note || null
+                    };
+                    makeLazy(sp, sh(L.x), sh(L.y), L.scale, null, {
+                        exact: L.exact,
+                        open: L.open,
+                        round: L.round,
+                        smooth: L.smooth,
+                        holes: L.holes ? L.holes.map(h => ({
+                            x: sh(h.x),
+                            y: sh(h.y),
+                            smooth: h.smooth
+                        })) : null
+                    });
+                    state.subpaths.push(sp);
+                    made.push(state.subpaths.length - 1);
+                    continue;
+                }
                 if (!c.leafX)
                     continue;
                 const lx = Float64Array.from(c.leafX),
@@ -16708,24 +16756,32 @@
         // A press: an all-exact selection becomes leaves; anything else becomes exact.
         function switchShapeMode() {
             const toLeaves = selectionShapeMode() === 'exact';
-            let n = 0;
+            let n = 0,
+                kept = 0;
             for (const i of selectedIndices()) {
                 const sp = state.subpaths[i];
                 if (!modeSwitchable(sp))
                     continue;
                 if (toLeaves) {
+                    if (sp._lazy && sp._lazy.holes) { // HOLES: leaves are one ring
+                        kept++;
+                        continue;
+                    }
                     materializeLazy(sp);
                     n++;
                 } else if (!(sp._lazy && sp._lazy.exact) && makeShapeExact(sp))
                     n++;
             }
-            if (!n)
+            if (!n) {
+                if (kept)
+                    flashStatus('a shape with holes stays exact: leaves are one ring, and the holes would go');
                 return;
+            }
             pushHistory();
             scheduleSave();
             updateStatus();
             drawAll();
-            const what = n + (n > 1 ? ' shapes' : ' shape');
+            const what = n + (n > 1 ? ' shapes' : ' shape') + (kept ? ' (' + kept + ' with holes kept exact)' : '');
             flashStatus(toLeaves ? what + ' now leaves: sculpt away (corners round off)'
             : what + ' now exact: straight edges, drag a corner to move it');
         }
@@ -18247,7 +18303,8 @@
                 exact: true,
                 open: lz.open,
                 round: R,
-                smooth: Sm === undefined ? lz.smooth : Sm
+                smooth: Sm === undefined ? lz.smooth : Sm,
+                holes: lzHolesBaked(lz) // the map is baked in, so the holes come in the page's units
             });
         }
         function beginVertexDrag(v) {
@@ -19118,17 +19175,14 @@
             : 'arrowheads: ' + ['none', 'at the end', 'at both ends', 'at the start'][next]);
         }
 
-        // ── COMBINING EXACT SHAPES (23 Oct 2026, Tom: "1,2,3") ───────────────────────
+        // ── COMBINING EXACT SHAPES (23 Oct 2026, Tom: "1,2,3"; holes, Tom: "1") ─────────
         // Union, subtract and intersect, on two or more closed exact shapes selected. Outlines
         // of straight edges come out exact: the corners of the answer are the shapes' own and
         // the points where their edges cross, nothing fitted. Where a curve takes part (a smooth
         // or rounded corner) the outlines are sampled finely, clipped, and fitted again with as
         // few corners as hold the answer to two pixels (fitExactOutline), as leaves are. Subtract
-        // takes the others from the lowest shape in the stack, the one drawn first. A union that
-        // would leave a hole, or a subtraction that would cut one, is refused: an exact shape is
-        // one ring, and a ring with a hole is two.
-        // Clipping is Greiner and Hormann's (1998): the crossings are put into both outlines,
-        // each marked as entering or leaving the other, and the answer walked off them.
+        // takes the others from the lowest shape in the stack, the one drawn first. An answer
+        // with a hole in it is one shape with a hole (HOLES); pieces apart are shapes apart.
         function ringArea(P) {
             let a = 0;
             for (let i = 0, n = P.length; i < n; i++) {
@@ -19148,189 +19202,171 @@
             }
             return inside;
         }
-        // Greiner–Hormann on two simple closed polygons (arrays of {x, y}), op 'and' | 'or' |
-        // 'sub' (P less Q). Returns {polys} (each an array of {x, y}), or {hole: true} where the
-        // answer would be a ring with a hole in it; {apart: true} beside the polys of a union of
-        // two shapes that do not meet.
-        function ghClip(P0, Q0, op) {
-            let sx = 0;
-            for (const p of P0.concat(Q0))
-                sx = Math.max(sx, Math.abs(p.x), Math.abs(p.y));
-            const eps = 1e-9 * (sx || 1);
-            // Q nudged off P's lines, so no corner lies exactly on the other's edge. For a
-            // union Q is grown a hair about its middle instead: two shapes sharing an edge then
-            // overlap by a sliver and join, where a sideways nudge could part them.
-            let Q1;
-            if (op === 'or') {
-                let cx = 0,
-                    cy = 0;
-                for (const p of Q0) {
+        // Inside a set of rings, even-odd: inside an outline and not inside one of its holes.
+        function ringsContain(x, y, rings) {
+            let inside = false;
+            for (const R of rings)
+                if (ringContains(x, y, R))
+                    inside = !inside;
+            return inside;
+        }
+        // Every ring turned the way its nesting says: an outline (inside an even number of the
+        // others) anticlockwise, a hole clockwise. The edges kept by ringsBoolean then run with
+        // the region on their left, and chain end to start into rings that are turned the same way.
+        function orientRings(rings) {
+            return rings.map(R => {
+                let depth = 0;
+                for (const S of rings)
+                    if (S !== R && ringContains(R[0].x, R[0].y, S))
+                        depth++;
+                const want = depth % 2 === 0 ? 1 : -1;
+                return Math.sign(ringArea(R)) === want ? R : R.slice().reverse();
+            });
+        }
+        // A boolean of two regions, each a set of rings (an outline and its holes, or several),
+        // op 'or' | 'and' | 'sub' (A less B). Every edge is cut where it crosses the other
+        // region's edges; a piece is kept by where its middle lies: for a union, A's pieces
+        // outside B and B's outside A; for an intersection, each inside the other; for a
+        // subtraction, A's outside B and B's inside A, turned round. The kept pieces meet end to
+        // start, one leaving each point, and are walked into rings. Holes, pieces apart and one
+        // shape inside another need no cases of their own. (The classical edge-classification
+        // boolean.) B is nudged off A's lines first, so no corner lies on the other's edge: for a
+        // union grown a hair about its middle, so shapes sharing an edge overlap by a sliver and
+        // join; otherwise moved a hair sideways.
+        function ringsBoolean(A0, B0, op) {
+            let sx = 0,
+                cx = 0,
+                cy = 0,
+                nb = 0;
+            for (const R of A0.concat(B0))
+                for (const p of R)
+                    sx = Math.max(sx, Math.abs(p.x), Math.abs(p.y));
+            for (const R of B0)
+                for (const p of R) {
                     cx += p.x;
                     cy += p.y;
+                    nb++;
                 }
-                cx /= Q0.length;
-                cy /= Q0.length;
-                const g = 1 + 1e-7;
-                Q1 = Q0.map(p => ({
+            cx /= nb || 1;
+            cy /= nb || 1;
+            const eps = 1e-9 * (sx || 1),
+                g = op === 'or' ? 1 + 1e-7 : 1;
+            const A = orientRings(A0),
+                B = orientRings(B0.map(R => R.map(p => ({
                     x: cx + (p.x - cx) * g + eps * 0.7071,
                     y: cy + (p.y - cy) * g + eps * 0.3333
-                }));
-            } else
-                Q1 = Q0.map(p => ({
-                    x: p.x + eps * 0.7071,
-                    y: p.y + eps * 0.3333
-                }));
-            const mk = pts => {
-                const nodes = pts.map(p => ({
-                    x: p.x,
-                    y: p.y,
-                    inter: false,
-                    entry: false,
-                    visited: false,
-                    alpha: 0,
-                    next: null,
-                    prev: null,
-                    neighbor: null
-                }));
-                for (let i = 0; i < nodes.length; i++) {
-                    nodes[i].next = nodes[(i + 1) % nodes.length];
-                    nodes[i].prev = nodes[(i - 1 + nodes.length) % nodes.length];
+                }))));
+            // each ring as a loop of edges, every corner one shared object
+            const edgesOf = rings => {
+                const E = [];
+                for (const R of rings) {
+                    const V = R.map(p => ({
+                        x: p.x,
+                        y: p.y
+                    }));
+                    for (let i = 0; i < V.length; i++)
+                        E.push({
+                            a: V[i],
+                            b: V[(i + 1) % V.length],
+                            cuts: []
+                        });
                 }
-                return nodes;
+                return E;
             };
-            const P = mk(P0),
-                Q = mk(Q1);
-            const insertAfter = (a, node) => {
-                let c = a;
-                while (c.next.inter && c.next.alpha < node.alpha)
-                    c = c.next;
-                node.next = c.next;
-                node.prev = c;
-                c.next.prev = node;
-                c.next = node;
-            };
-            let count = 0;
-            for (let i = 0; i < P.length; i++) {
-                const a = P[i],
-                    a2 = P[(i + 1) % P.length];
-                for (let j = 0; j < Q.length; j++) {
-                    const b = Q[j],
-                        b2 = Q[(j + 1) % Q.length];
-                    const rx = a2.x - a.x,
-                        ry = a2.y - a.y,
-                        qx = b2.x - b.x,
-                        qy = b2.y - b.y;
+            const EA = edgesOf(A),
+                EB = edgesOf(B);
+            for (const e of EA) {
+                const rx = e.b.x - e.a.x,
+                    ry = e.b.y - e.a.y;
+                for (const f of EB) {
+                    const qx = f.b.x - f.a.x,
+                        qy = f.b.y - f.a.y;
                     const den = rx * qy - ry * qx;
                     if (den === 0)
                         continue;
-                    const ta = ((b.x - a.x) * qy - (b.y - a.y) * qx) / den,
-                        tb = ((b.x - a.x) * ry - (b.y - a.y) * rx) / den;
+                    const dx = f.a.x - e.a.x,
+                        dy = f.a.y - e.a.y;
+                    const ta = (dx * qy - dy * qx) / den,
+                        tb = (dx * ry - dy * rx) / den;
                     if (!(ta > 0 && ta < 1 && tb > 0 && tb < 1))
                         continue;
-                    const x = a.x + rx * ta,
-                        y = a.y + ry * ta;
-                    const iP = {
-                        x,
-                        y,
-                        inter: true,
-                        entry: false,
-                        visited: false,
-                        alpha: ta
-                    },
-                        iQ = {
-                            x,
-                            y,
-                            inter: true,
-                            entry: false,
-                            visited: false,
-                            alpha: tb
-                        };
-                    iP.neighbor = iQ;
-                    iQ.neighbor = iP;
-                    insertAfter(a, iP);
-                    insertAfter(b, iQ);
-                    count++;
+                    const v = {
+                        x: e.a.x + rx * ta,
+                        y: e.a.y + ry * ta
+                    };
+                    e.cuts.push({
+                        t: ta,
+                        v
+                    });
+                    f.cuts.push({
+                        t: tb,
+                        v
+                    });
                 }
             }
-            if (!count) {
-                // no crossing: one inside the other, or apart
-                const pInQ = ringContains(P0[0].x, P0[0].y, Q1),
-                    qInP = ringContains(Q1[0].x, Q1[0].y, P0);
-                if (op === 'and')
-                    return {
-                        polys: pInQ ? [P0] : qInP ? [Q0] : []
-                    };
-                if (op === 'or')
-                    return pInQ ? {
-                        polys: [Q0]
-                    } : qInP ? {
-                        polys: [P0]
-                    } : {
-                        polys: [P0, Q0],
-                        apart: true
-                    };
-                return pInQ ? {
-                    polys: []
-                } : qInP ? {
-                    hole: true
-                } : {
-                    polys: [P0]
-                };
-            }
-            // entry flags: does the walk enter the other polygon here
-            const mark = (list, other, flip) => {
-                let inside = ringContains(list[0].x, list[0].y, other);
-                let c = list[0];
-                do {
-                    if (c.inter) {
-                        c.entry = !inside;
-                        if (flip)
-                            c.entry = !c.entry;
-                        inside = !inside;
+            const keep = [];
+            const pieces = (E, other, wantInside, flip) => {
+                for (const e of E) {
+                    const pts = [e.a].concat(e.cuts.sort((p, q) => p.t - q.t).map(c => c.v), [e.b]);
+                    for (let i = 0; i + 1 < pts.length; i++) {
+                        const p = pts[i],
+                            q = pts[i + 1];
+                        if (ringsContain((p.x + q.x) / 2, (p.y + q.y) / 2, other) === wantInside)
+                            keep.push(flip ? {
+                                a: q,
+                                b: p
+                            } : {
+                                a: p,
+                                b: q
+                            });
                     }
-                    c = c.next;
-                } while (c !== list[0]);
+                }
             };
-            mark(P, Q1, op === 'or' || op === 'sub');
-            mark(Q, P0, op === 'or');
-            const polys = [];
-            for (;;) {
-                let s = null,
-                    c = P[0];
-                do {
-                    if (c.inter && !c.visited) {
-                        s = c;
-                        break;
-                    }
-                    c = c.next;
-                } while (c !== P[0]);
-                if (!s)
-                    break;
-                const poly = [];
-                let cur = s;
-                do {
-                    cur.visited = true;
-                    cur.neighbor.visited = true;
-                    const fwd = cur.entry;
-                    do {
-                        poly.push({
-                            x: cur.x,
-                            y: cur.y
-                        });
-                        cur = fwd ? cur.next : cur.prev;
-                    } while (!cur.inter);
-                    cur = cur.neighbor;
-                } while (!cur.visited);
-                if (poly.length >= 3)
-                    polys.push(poly);
+            pieces(EA, B, op === 'and', false);
+            pieces(EB, A, op !== 'or', op === 'sub');
+            const out = new Map();
+            for (const k of keep)
+                out.set(k.a, k);
+            const rings = [],
+                used = new Set();
+            for (const k of keep) {
+                if (used.has(k))
+                    continue;
+                const R = [];
+                let c = k;
+                while (c && !used.has(c)) {
+                    used.add(c);
+                    R.push({
+                        x: c.a.x,
+                        y: c.a.y
+                    });
+                    c = out.get(c.b);
+                }
+                if (R.length >= 3)
+                    rings.push(R);
             }
-            return {
-                polys
-            };
+            return rings;
         }
-
-        // A clipped outline tidied: corners closer than tol to the last kept merged, and corners
-        // on a straight run between their neighbours (within tol) dropped.
+        // Rings into regions: each outline (turned anticlockwise) with the holes (clockwise)
+        // whose nearest enclosing outline it is.
+        function ringsToRegions(rings) {
+            const outs = rings.filter(R => ringArea(R) > 0).map(R => ({
+                outer: R,
+                area: ringArea(R),
+                holes: []
+            }));
+            for (const H of rings) {
+                if (ringArea(H) > 0)
+                    continue;
+                let best = null;
+                for (const o of outs)
+                    if (ringContains(H[0].x, H[0].y, o.outer) && (!best || o.area < best.area))
+                        best = o;
+                if (best)
+                    best.holes.push(H);
+            }
+            return outs;
+        }
         function tidyPoly(P, tol) {
             let pts = [];
             for (const p of P)
@@ -19363,72 +19399,30 @@
                 return sp && sp._lazy && sp._lazy.exact && !sp._lazy.open && sp._lazy.x.length >= 3;
             });
         }
-        // One shape's outline as points, and whether it was straight-edged throughout.
-        function booleanOutline(sp) {
-            const lz = sp._lazy;
-            const R = lzRoundBaked(lz);
-            if (!R && !hasSmooth(lz.smooth))
-                return {
-                    pts: Array.from(lz.x, (x, i) => ({
-                        x,
-                        y: lz.y[i]
-                    })),
-                    curved: false
-                };
-            const d = exactDense(lz.x, lz.y, R, false, lz.smooth);
+        // One ring as points: its corners where its edges are straight, else finely sampled.
+        function ringPoints(X, Y, R, S) {
+            const curved = hasRound(R) || hasSmooth(S);
+            const d = curved ? exactDense(X, Y, R, false, S) : {
+                x: X,
+                y: Y
+            };
             return {
                 pts: Array.from(d.x, (x, i) => ({
                     x,
                     y: d.y[i]
                 })),
-                curved: true
+                curved
             };
         }
-        // a ring inside another: the answer has a hole
-        function polysNest(polys) {
-            for (let i = 0; i < polys.length; i++)
-                for (let j = 0; j < polys.length; j++)
-                    if (i !== j && ringContains(polys[i][0].x, polys[i][0].y, polys[j]))
-                        return true;
-            return false;
-        }
-        // The pieces of op over the outlines, the first the base; null with a reason where the
-        // answer has a hole.
-        function combineOutlines(outs, op) {
-            let pieces = [outs[0]];
-            for (let k = 1; k < outs.length; k++) {
-                const Q = outs[k];
-                if (op === 'or') {
-                    // join Q with every piece it meets; the rest stay as they are
-                    let merged = Q;
-                    const keep = [];
-                    for (const P of pieces) {
-                        const r = ghClip(P, merged, 'or');
-                        if (r.apart)
-                            keep.push(P);
-                        else if (r.polys.length !== 1)
-                            return {
-                                why: 'the union would leave a hole'
-                            };
-                        else
-                            merged = r.polys[0];
-                    }
-                    pieces = keep.concat([merged]);
-                } else {
-                    const next = [];
-                    for (const P of pieces) {
-                        const r = ghClip(P, Q, op);
-                        if (r.hole || (op === 'sub' && polysNest(r.polys)))
-                            return {
-                                why: 'that would cut a hole'
-                            };
-                        next.push(...r.polys);
-                    }
-                    pieces = next;
-                }
-            }
+        // One shape as rings, its outline and its holes, and whether any of them curves.
+        function booleanRings(sp) {
+            const lz = sp._lazy;
+            const rs = [ringPoints(lz.x, lz.y, lzRoundBaked(lz), lz.smooth)];
+            for (const h of lzHolesBaked(lz) || [])
+                rs.push(ringPoints(h.x, h.y, null, h.smooth));
             return {
-                pieces
+                rings: rs.map(r => r.pts),
+                curved: rs.some(r => r.curved)
             };
         }
         function combineExactShapes(op) {
@@ -19436,27 +19430,25 @@
             if (idx.length < 2)
                 return false;
             const shapes = idx.map(i => state.subpaths[i]);
-            const outs = shapes.map(booleanOutline);
-            const curved = outs.some(o => o.curved);
-            const res = combineOutlines(outs.map(o => o.pts), op);
+            const ins = shapes.map(booleanRings);
+            const curved = ins.some(o => o.curved);
+            let acc = ins[0].rings;
+            for (let k = 1; k < ins.length; k++)
+                acc = ringsBoolean(acc, ins[k].rings, op);
             const name = {
                 or: 'union',
                 sub: 'subtract',
                 and: 'intersect'
             }[op];
-            if (res.why) {
-                flashStatus(name + ': ' + res.why + ', and an exact shape is one ring');
-                return false;
-            }
             const r = cv.getBoundingClientRect();
             const a = pxToWorld(0, 0, r.width, r.height),
                 b = pxToWorld(0.5, 0, r.width, r.height);
             const halfPx = Math.abs(b.x - a.x) || 1e-4;
-            const made = [];
-            for (const P of res.pieces) {
+            // one ring of the answer, exact or fitted; null for a sliver where two edges ran
+            // together
+            const finish = P => {
                 if (Math.abs(ringArea(P)) < halfPx * halfPx * 4)
-                    continue; // a sliver where two edges ran together
-                let out = null;
+                    return null;
                 if (!curved) {
                     let x0 = Infinity,
                         x1 = -Infinity;
@@ -19464,20 +19456,25 @@
                         x0 = Math.min(x0, p.x);
                         x1 = Math.max(x1, p.x);
                     }
-                    // the grown hair of a union (ghClip) and nothing more
+                    // the grown hair of a union (ringsBoolean) and nothing more
                     const T = tidyPoly(P, Math.max(1e-6 * (x1 - x0), 1e-12));
-                    if (T.length >= 3)
-                        out = {
-                            x: Float64Array.from(T, q => q.x),
-                            y: Float64Array.from(T, q => q.y),
-                            smooth: null
-                        };
-                } else {
-                    const rs = arcLengthResample(P.map(q => q.x), P.map(q => q.y), 1024);
-                    out = fitExactOutline(Float64Array.from(rs.x), Float64Array.from(rs.y), 4 * halfPx);
+                    return T.length >= 3 ? {
+                        x: Float64Array.from(T, q => q.x),
+                        y: Float64Array.from(T, q => q.y),
+                        smooth: null
+                    } : null;
                 }
-                if (out && out.x.length >= 3)
-                    made.push(out);
+                const rs = arcLengthResample(P.map(q => q.x), P.map(q => q.y), 1024);
+                const o = fitExactOutline(Float64Array.from(rs.x), Float64Array.from(rs.y), 4 * halfPx);
+                return o && o.x.length >= 3 ? o : null;
+            };
+            const made = [];
+            for (const R of ringsToRegions(acc)) {
+                const out = finish(R.outer);
+                if (!out)
+                    continue;
+                out.holes = R.holes.map(finish).filter(Boolean);
+                made.push(out);
             }
             if (!made.length) {
                 // nothing to leave in their place: the shapes stay, rather than vanish
@@ -19509,7 +19506,8 @@
                 }, style);
                 makeLazy(sp, o.x, o.y, 0, null, {
                     exact: true,
-                    smooth: o.smooth
+                    smooth: o.smooth,
+                    holes: o.holes.length ? o.holes : null
                 });
                 return sp;
             });
@@ -19538,7 +19536,8 @@
             drawAll();
             pushHistory();
             scheduleSave();
-            flashStatus(name + ': ' + fresh.length + ' shape' + (fresh.length === 1 ? '' : 's'));
+            const nh = made.reduce((n, o) => n + o.holes.length, 0);
+            flashStatus(name + ': ' + fresh.length + ' shape' + (fresh.length === 1 ? '' : 's') + (nh ? ', ' + nh + ' hole' + (nh === 1 ? '' : 's') : ''));
             return true;
         }
 
@@ -26646,6 +26645,14 @@
                 round: (kind && kind.exact && kind.round && kind.round.length === rx.length) ? Float64Array.from(kind.round) : null,
                 // SMOOTH CORNERS: 1 where the outline curves through the corner, or null
                 smooth: (kind && kind.exact && kind.smooth && kind.smooth.length === rx.length && hasSmooth(kind.smooth)) ? Uint8Array.from(kind.smooth) : null,
+                // HOLES: rings cut out of a closed exact shape, each {x, y, smooth} in rx's units
+                // and under the same map m, or null (see lzHolesBaked)
+                holes: (kind && kind.exact && !kind.open && kind.holes && kind.holes.length) ? kind.holes.map(h => ({
+                    x: Float64Array.from(h.x),
+                    y: Float64Array.from(h.y),
+                    smooth: (h.smooth && h.smooth.length === h.x.length && hasSmooth(h.smooth)) ? Uint8Array.from(h.smooth) : null
+                })) : null,
+                _h: null,
                 ver: 0, // bumped by every change of m (the rung worker's answers check it)
                 _x: null,
                 _y: null,
@@ -26685,6 +26692,40 @@
             }
             lz._x = X;
             lz._y = Y;
+        }
+        // HOLES (23 Oct 2026, Tom: "1"). A closed exact shape may hold holes, rings cut out of
+        // it: what a subtraction from inside it, or a union closing round a gap, leaves. They are
+        // held beside the outline in its own units and under its map, so every move, turn and
+        // resize carries them; drawn and exported with the outline as one even-odd path. Only
+        // the outline has handles: a hole is reshaped by combining again. The leaves are one
+        // ring, so a shape with holes stays exact; a .tvf carries the holes in #meta for this
+        // editor, and other readers see the outline.
+        // The holes in the page's units (the map applied), worked out once per map.
+        function lzHolesBaked(lz) {
+            if (!lz || !lz.holes)
+                return null;
+            if (!lz.m)
+                return lz.holes;
+            if (!lz._h) {
+                const [a, b, c, d, e, f] = lz.m;
+                lz._h = lz.holes.map(h => ({
+                    x: Float64Array.from(h.x, (x, i) => a * x + c * h.y[i] + e),
+                    y: Float64Array.from(h.x, (x, i) => b * x + d * h.y[i] + f),
+                    smooth: h.smooth
+                }));
+            }
+            return lz._h;
+        }
+        // A ring onto a path: straight edges, or the curves of its smooth corners.
+        function traceRing(path, X, Y, S) {
+            if (hasSmooth(S)) {
+                traceExact(path, X, Y, null, false, S);
+                return;
+            }
+            path.moveTo(X[0], Y[0]);
+            for (let i = 1; i < X.length; i++)
+                path.lineTo(X[i], Y[i]);
+            path.closePath();
         }
         function lazyBoxOf(lz) {
             if (!lz._box0) {
@@ -26740,7 +26781,7 @@
                 t[0] * m[2] + t[2] * m[3], t[1] * m[2] + t[3] * m[3],
                 t[0] * m[4] + t[2] * m[5] + t[4], t[1] * m[4] + t[3] * m[5] + t[5]
             ];
-            lz._x = lz._y = lz._box = null;
+            lz._x = lz._y = lz._box = lz._h = null;
             lz.sol = lz.solKey = null;
             lz.ver++;
         }
@@ -27027,7 +27068,8 @@
                         exact: sp._lazy.exact,
                         open: sp._lazy.open,
                         round: sp._lazy.round,
-                        smooth: sp._lazy.smooth
+                        smooth: sp._lazy.smooth,
+                        holes: sp._lazy.holes // in x's units, under m, as x is
                     } : null,
                     leafX: sp._lazy ? null : sp.leafX ? Float64Array.from(sp.leafX) : null,
                     leafY: sp._lazy ? null : sp.leafY ? Float64Array.from(sp.leafY) : null,
@@ -29375,6 +29417,12 @@
                     py,
                     M
                 });
+                for (const hl of lz ? lzHolesBaked(lz) || [] : []) // HOLES: inside the outline, so the box holds
+                    traces.push({
+                        px: hl.x,
+                        py: hl.y,
+                        M: hl.x.length
+                    });
             }
             if (!isFinite(minX) || !isFinite(minY))
                 return;
@@ -37176,6 +37224,9 @@
                             if (!lz.open) // a line is not a ring
                                 p2.closePath();
                         }
+                        if (lz.holes) // HOLES, in the same units as rx: the fill is even-odd
+                            for (const hl of lz.holes)
+                                traceRing(p2, hl.x, hl.y, hl.smooth);
                         sp._lazyP2d = p2;
                         sp._lazyP2dOf = lz.rx;
                     }
@@ -62910,7 +62961,10 @@
                         R0 = lzRoundBaked(lz2);
                     const X2 = Float64Array.from(lz2.x, x => half + (x - ox) * scale),
                         Y2 = Float64Array.from(lz2.y, y => half - (y - oy) * scale);
-                    return exactSvgD(X2, Y2, R0 ? R0.map(r => r * scale) : null, lz2.open, lz2.smooth);
+                    let d2 = exactSvgD(X2, Y2, R0 ? R0.map(r => r * scale) : null, lz2.open, lz2.smooth);
+                    for (const hl of lzHolesBaked(lz2) || []) // HOLES: more rings of the same path, filled even-odd
+                        d2 += ' ' + exactSvgD(Float64Array.from(hl.x, x => half + (x - ox) * scale), Float64Array.from(hl.y, y => half - (y - oy) * scale), null, false, hl.smooth);
+                    return d2;
                 }
                 if (pts.length < 4)
                     return '';
@@ -63545,6 +63599,11 @@
                     lines.push(`#meta radii:${Array.from(E.round, r => fmtSig(r, 8)).join(' ')}`);
                 if (E.smooth) // the smooth corners, by index from 0
                     lines.push(`#meta smooth:${Array.from(E.smooth).map((v, k) => v ? k : -1).filter(k => k >= 0).join(' ')}`);
+                if (E.holes) { // HOLES: their corners ring by ring, " | " between, and their smooth corners the same way
+                    lines.push(`#meta holes:${E.holes.map(h => Array.from(h.x, (x, i) => fmtSig(x, 10) + ' ' + fmtSig(h.y[i], 10)).join(' ')).join(' | ')}`);
+                    if (E.holes.some(h => h.smooth))
+                        lines.push(`#meta holesmooth:${E.holes.map(h => h.smooth ? Array.from(h.smooth).map((v, k) => v ? k : -1).filter(k => k >= 0).join(' ') : '').join(' | ')}`);
+                }
                 const LS = lineStyleOf(subpath); // LINE STYLE
                 if (LS.dash)
                     lines.push(`#meta dash:${LS.dash}`);
@@ -63600,7 +63659,8 @@
                 x: lz.x,
                 y: lz.y,
                 round: lzRoundBaked(lz),
-                smooth: lz.smooth
+                smooth: lz.smooth,
+                holes: lzHolesBaked(lz)
             };
             makeLazy(c, lz.x, lz.y, lz.scale, null, {
                 exact: true,
@@ -69927,12 +69987,44 @@
                             start: 3
                         })[meta.arrows] || 0;
                         const da = (meta.dash === 'dash' || meta.dash === 'dot') ? meta.dash : null;
+                        // HOLES: rings of corners, " | " between, and their smooth corners
+                        let holes = null;
+                        if (!open && meta.holes) {
+                            const sm = (meta.holesmooth || '').split('|');
+                            holes = meta.holes.split('|').map((part, hi) => {
+                                const w = part.trim().split(/\s+/).map(Number);
+                                const m2 = w.length / 2;
+                                if (w.length % 2 || m2 < 3 || !w.every(Number.isFinite))
+                                    return null;
+                                const hx = new Float64Array(m2),
+                                    hy = new Float64Array(m2);
+                                for (let k = 0; k < m2; k++) {
+                                    hx[k] = w[2 * k];
+                                    hy[k] = w[2 * k + 1];
+                                }
+                                let hs = null;
+                                const q = (sm[hi] || '').trim().split(/\s+/).filter(Boolean).map(Number).filter(k => Number.isInteger(k) && k >= 0 && k < m2);
+                                if (q.length) {
+                                    hs = new Uint8Array(m2);
+                                    for (const k of q)
+                                        hs[k] = 1;
+                                }
+                                return {
+                                    x: hx,
+                                    y: hy,
+                                    smooth: hs
+                                };
+                            }).filter(Boolean);
+                            if (!holes.length)
+                                holes = null;
+                        }
                         info = {
                             open,
                             x,
                             y,
                             round,
                             smooth,
+                            holes,
                             lineStyle: (da || ar) ? {
                                 dash: da,
                                 arrows: ar
@@ -69977,7 +70069,12 @@
                 exact: true,
                 open: info.open,
                 round: info.round ? Float64Array.from(info.round, r => r * s) : null,
-                smooth: info.smooth
+                smooth: info.smooth,
+                holes: info.holes ? info.holes.map(h => ({
+                    x: Float64Array.from(h.x, x => B1[0] + (x - B0[0]) * sx),
+                    y: Float64Array.from(h.y, y => B1[1] + (y - B0[1]) * sy),
+                    smooth: h.smooth
+                })) : null
             });
             if (info.lineStyle)
                 sp.lineStyle = info.lineStyle;
@@ -73084,6 +73181,11 @@
                     ls: sp._lazy ? sp._lazy.scale : 0,
                     rr: sp._lazy && sp._lazy.exact && hasRound(sp._lazy.round) ? Array.from(lzRoundBaked(sp._lazy), r => +r.toPrecision(7)) : null, // corner radii, in x's units
                     sm: sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth) : null, // smooth corners (1)
+                    ho: sp._lazy && sp._lazy.holes ? lzHolesBaked(sp._lazy).map(h => ({ // HOLES, in rx's units as rx is
+                        x: _f32b64(h.x),
+                        y: _f32b64(h.y),
+                        s: h.smooth ? Array.from(h.smooth) : null
+                    })) : null,
                     x: sp._lazy ? '' : _f32b64(sp.leafX),
                     y: sp._lazy ? '' : _f32b64(sp.leafY),
                     rx: sp._lazy ? _f32b64(sp._lazy.x) : dropRefs ? '' : _f32b64(sp.refX),
@@ -73208,7 +73310,12 @@
                         exact: sp.lz >= 2,
                         open: sp.lz === 3,
                         round: Array.isArray(sp.rr) ? sp.rr : null,
-                        smooth: Array.isArray(sp.sm) ? sp.sm : null
+                        smooth: Array.isArray(sp.sm) ? sp.sm : null,
+                        holes: Array.isArray(sp.ho) ? sp.ho.map(h => ({
+                            x: _b64f32(h.x),
+                            y: _b64f32(h.y),
+                            smooth: Array.isArray(h.s) ? h.s : null
+                        })).filter(h => h.x && h.y && h.x.length >= 3 && h.x.length === h.y.length) : null
                     } : null;
                     const X = lz ? null : _b64f32(sp.x),
                         Y = lz ? null : _b64f32(sp.y);
@@ -75812,7 +75919,14 @@
                         y: lz.y[k]
                     })))),
                     smooth: hasSmooth(lz.smooth),
-                    exact: lz.exact
+                    exact: lz.exact,
+                    holes: lz.holes ? lz.holes.map(h => ({ // HOLES: each its corner count and area
+                        n: h.x.length,
+                        area: Math.abs(ringArea(Array.from(h.x, (x, k) => ({
+                            x,
+                            y: h.y[k]
+                        }))))
+                    })) : []
                 };
             }),
             count: () => state.subpaths.length,

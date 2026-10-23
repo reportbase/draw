@@ -715,8 +715,8 @@ current = 'exact shapes';
 /* Combining exact shapes, their line style, and push and pull. Two overlapping squares drawn
    with the shape tool: union, subtract and intersect each give one exact shape of the right area
    (exact: its corners are the squares' own and their crossings), undo brings the two back; a
-   square inside another cannot be subtracted (it would cut a hole) and two apart have nothing in
-   common. A dashed outline exports with a dash array and an open line's arrowheads as filled
+   square subtracted from inside another leaves one shape with a hole, which the SVG, a .tvf and
+   copy and paste all keep; two apart have nothing in common. A dashed outline exports with a dash array and an open line's arrowheads as filled
    paths. Pressing a square's edge and pulling puts a smooth bump in it. */
 current = 'combining exact shapes';
 {
@@ -774,7 +774,30 @@ current = 'combining exact shapes';
     await rect(250, 400, 350, 500);
     await xp.evaluate(() => window.__box.select([0, 1]));
     await press('bt-subtract');
-    if ((await xp.evaluate(() => window.__box.count())) !== 2 || !/hole/.test(await status())) throw new Error('a hole was cut: ' + (await status()).slice(0, 80));
+    // HOLES: one shape, its hole the inner square, carried through the SVG, a .tvf and a paste
+    const fr = await shapes();
+    if (fr.length !== 1 || fr[0].n !== 4 || fr[0].holes.length !== 1 || fr[0].holes[0].n !== 4 || Math.abs(fr[0].holes[0].area * 9 - fr[0].area) > 1e-6 * fr[0].area)
+      throw new Error('a square from a square: ' + JSON.stringify(fr));
+    const [hdl] = await Promise.all([xp.waitForEvent('download', { timeout: 30000 }), xp.evaluate(() => document.getElementById('bExportSvg').click())]);
+    const hsvg = await readFile(await hdl.path(), 'utf8');
+    if (!(hsvg.match(/<path d="[^"]*"/g) || []).some(d => (d.match(/M/g) || []).length === 2)) throw new Error('the frame did not export as one path of two rings');
+    const [htl] = await Promise.all([xp.waitForEvent('download', { timeout: 30000 }), xp.evaluate(() => document.getElementById('bSaveTvf').click())]);
+    const htvf = await readFile(await htl.path(), 'utf8');
+    if (!/#meta holes:/.test(htvf)) throw new Error('the .tvf does not carry the hole');
+    await xp.setInputFiles('#fLoadTvf', { name: 'frame.tvf', mimeType: 'text/plain', buffer: Buffer.from(htvf) });
+    await xp.waitForTimeout(800);
+    await xp.evaluate(() => window.__box.select([0]));
+    const fr2 = await shapes();
+    if (fr2.length !== 1 || fr2[0].holes.length !== 1 || Math.abs(fr2[0].holes[0].area * 9 - fr2[0].area) > 1e-6 * fr2[0].area) throw new Error('the frame came back from its .tvf as ' + JSON.stringify(fr2));
+    await xp.keyboard.press('ControlOrMeta+c');
+    // the copy's .tvf reaches the system clipboard a moment later; pasted before then, an
+    // earlier step's .tvf would come back instead
+    await xp.waitForFunction(() => /to the clipboard|clipboard/.test(document.getElementById('status').textContent), null, { timeout: 5000 }).catch(() => {});
+    await xp.waitForTimeout(500);
+    await xp.keyboard.press('ControlOrMeta+v');
+    await xp.waitForTimeout(300);
+    const fr3 = await shapes();
+    if (fr3.length !== 1 || fr3[0].holes.length !== 1 || (await xp.evaluate(() => window.__lazy.held())) !== 2) throw new Error('copy and paste lost the hole: ' + JSON.stringify(fr3));
     await fresh();
     await rect(100, 300, 200, 400);
     await rect(300, 300, 400, 400);
