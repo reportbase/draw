@@ -484,6 +484,9 @@ current = 'exact shapes';
     // The mode switch: "exact | leaves", the lit word the selection's mode, a press either way.
     const sw = await xp.evaluate(() => { const b = window.__box.button('bt-mode'); return b && [b.cx, b.cy, b.hw]; });
     if (!sw) throw new Error('no mode switch with an exact shape selected');
+    // and nothing over it: the shape browser floats over the bottom of the canvas
+    const over = await xp.evaluate(([x, y]) => document.elementFromPoint(x, y).id, P(sw[0], sw[1]));
+    if (over !== 'cv') throw new Error('the mode switch is under #' + over);
     if ((await xp.evaluate(() => window.__box.mode())) !== 'exact') throw new Error('the switch does not read exact');
     await xp.mouse.click(...P(sw[0], sw[1]));
     await xp.waitForTimeout(300);
@@ -512,6 +515,99 @@ current = 'exact shapes';
     await xp.waitForTimeout(400);
     if ((await held()) !== 2) throw new Error('a mirror turned the exact shapes into leaves');
     await xp.evaluate(() => window._setMirrorMode('off'));
+    // Corners: a ring at an edge's middle adds one, Delete removes the picked one, a double-click
+    // another, and a polygon keeps three.
+    await xp.mouse.click(...P(200, 560)); // the triangle
+    await xp.waitForTimeout(300);
+    let cs = await xp.evaluate(() => window.__box.corners());
+    if (!cs || cs.pts.length !== 3 || !cs.mids.length) throw new Error('the triangle shows no corners or rings: ' + JSON.stringify(cs));
+    await xp.mouse.click(...P(cs.mids[0].x, cs.mids[0].y));
+    await xp.waitForTimeout(300);
+    cs = await xp.evaluate(() => window.__box.corners());
+    if (cs.pts.length !== 4 || cs.picked < 0) throw new Error('tapping a ring did not add a picked corner: ' + cs.pts.length);
+    await xp.keyboard.press('Delete');
+    await xp.waitForTimeout(300);
+    cs = await xp.evaluate(() => window.__box.corners());
+    if (!cs || cs.pts.length !== 3) throw new Error('Delete did not remove the picked corner');
+    await xp.mouse.dblclick(...P(cs.pts[0].x, cs.pts[0].y));
+    await xp.waitForTimeout(300);
+    cs = await xp.evaluate(() => window.__box.corners());
+    if (!cs || cs.pts.length !== 3) throw new Error('a polygon was let go below three corners');
+    // Simplify: on an exact selection the panel's track counts corners. A circle of 48 corners,
+    // drawn with the line pen, comes down to a handful and back.
+    await xp.keyboard.press('Escape');
+    await xp.click('#bDrawLine');
+    for (let i = 0; i < 48; i++) await xp.mouse.click(...P(900 + 150 * Math.cos(i * Math.PI / 24), 330 + 150 * Math.sin(i * Math.PI / 24)));
+    await xp.mouse.click(...P(1050, 330));
+    await xp.waitForTimeout(300);
+    await xp.mouse.click(...P(900, 330 + 149));
+    await xp.waitForTimeout(300);
+    cs = await xp.evaluate(() => window.__box.corners());
+    if (!cs || cs.pts.length !== 48) throw new Error('the 48-corner circle: ' + (cs && cs.pts.length));
+    const tr = await xp.evaluate(() => window.__box.track());
+    if (!tr) throw new Error('no track on the exact circle');
+    await xp.mouse.move(...P(tr.ax + 1, tr.y));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(tr.bx, tr.y), { steps: 6 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    const few = (await xp.evaluate(() => window.__box.corners())).pts.length;
+    if (!(few >= 3 && few < 20)) throw new Error('simplifying left ' + few + ' corners of 48');
+    const tr2 = await xp.evaluate(() => window.__box.track());
+    await xp.mouse.move(...P(tr2.knobX, tr2.y));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(tr2.ax - 5, tr2.y), { steps: 6 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    if ((await xp.evaluate(() => window.__box.corners())).pts.length !== 48) throw new Error('the track back to the left did not give the 48 corners back');
+    if ((await held()) !== 3) throw new Error('simplifying converted a shape: ' + await held() + ' held');
+    // Shift snaps the line pen's edges to 45°: a wobbly rectangle comes out square.
+    await xp.keyboard.press('Escape');
+    await xp.click('#bDrawLine');
+    await xp.mouse.click(...P(120, 120));
+    await xp.keyboard.down('Shift');
+    await xp.mouse.click(...P(380, 131));
+    await xp.mouse.click(...P(388, 300));
+    await xp.mouse.click(...P(126, 309));
+    await xp.keyboard.up('Shift');
+    await xp.mouse.click(...P(121, 121));
+    await xp.waitForTimeout(300);
+    await xp.mouse.click(...P(250, 210));
+    await xp.waitForTimeout(300);
+    let rc = await xp.evaluate(() => window.__box.corners());
+    const q = rc && rc.pts;
+    if (!q || q.length !== 4 || Math.abs(q[0].y - q[1].y) > 0.5 || Math.abs(q[1].x - q[2].x) > 0.5 || Math.abs(q[2].y - q[3].y) > 0.5)
+      throw new Error('Shift did not snap the edges: ' + JSON.stringify(q && q.map(p => [Math.round(p.x), Math.round(p.y)])));
+    // A mirror moves a corner's partner with it.
+    await xp.evaluate(() => window._setMirrorMode('v'));
+    await xp.waitForTimeout(200);
+    rc = await xp.evaluate(() => window.__box.corners());
+    const c0 = rc.pts[0], c1 = rc.pts[1];
+    await xp.mouse.move(...P(c1.x, c1.y));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(c1.x + 20, c1.y - 20), { steps: 4 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    rc = await xp.evaluate(() => window.__box.corners());
+    if (Math.abs(rc.pts[0].x - (c0.x - 20)) > 1 || Math.abs(rc.pts[0].y - (c0.y - 20)) > 1)
+      throw new Error('the mirrored partner did not follow: ' + JSON.stringify([c0, rc.pts[0]]));
+    await xp.evaluate(() => window._setMirrorMode('off'));
+    // A picked corner's handle rounds it: one corner, a radius, an arc in the SVG, and the
+    // shape still exact.
+    rc = await xp.evaluate(() => window.__box.corners());
+    await xp.mouse.click(...P(rc.pts[2].x, rc.pts[2].y));
+    await xp.waitForTimeout(300);
+    rc = await xp.evaluate(() => window.__box.corners());
+    if (!rc.handle) throw new Error('no round handle on a picked corner');
+    await xp.mouse.move(...P(rc.handle.x, rc.handle.y));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(rc.handle.x - 25, rc.handle.y - 25), { steps: 5 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    rc = await xp.evaluate(() => window.__box.corners());
+    if (!rc.round || !(rc.round[2] > 0) || rc.pts.length !== 4) throw new Error('the corner did not round: ' + JSON.stringify(rc.round));
+    if (!(await svgPaths()).some(d => / A[\d.]+ [\d.]+ 0 0 [01] /.test(d))) throw new Error('the rounded corner was not exported as an arc');
+    if ((await held()) !== 4) throw new Error('rounding converted a shape: ' + await held() + ' held');
   } catch (e){
     failures.push(`[exact shapes] ${e.message.split('\n')[0]}`);
   }

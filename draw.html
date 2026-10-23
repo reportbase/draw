@@ -15553,7 +15553,9 @@
         {
             name: 'bt-roundoff',
             title: 'round off the whole contour — the track above picks the band',
-            show: () => selectedIndices().length > 0
+            // not on an exact selection: there the track counts corners, and rounding off is
+            // a matter for leaves (the mode switch beside it)
+            show: () => selectedIndices().length > 0 && selectionShapeMode() !== 'exact'
         }, // GROUP, SECOND (22 Oct 2026, Tom: "move the group button next to the rotate button
         // selection to the bottom panel"). It stood beside the rotate grip, the one control on
         // the box's top edge that is not a handle; the panel is where the box's actions live,
@@ -15751,7 +15753,9 @@
             // — and the cell/knob arithmetic the colour tracks needed — went with those rows to
             // the appearance popover, which asks the same getters when it opens.
             const sm = selectionSmoothing();
-            const tS = (sm.value - SMOOTH_MIN) / (SMOOTH_MAX - SMOOTH_MIN);
+            // on an exact selection the track simplifies (see SIMPLIFY), and its knob says how far
+            const exactTrack = selectionShapeMode() === 'exact';
+            const tS = exactTrack ? selectionExactSimp() : (sm.value - SMOOTH_MIN) / (SMOOTH_MAX - SMOOTH_MIN);
             // ONE ROW. The N track went to the reading popover (#spLeafRung) — see the comment
             // beside it for why: leaf count is a decision about the READING, not about the object,
             // and it belongs with the rule, the register and the aperture rather than with a
@@ -15771,7 +15775,7 @@
                 label: '',
                 noBubble: true,
                 value: sm.value,
-                mixed: sm.mixed,
+                mixed: exactTrack ? false : sm.mixed,
                 knobX: ax + tS * w
             },
             ];
@@ -15802,6 +15806,17 @@
                     const er = eb.getBoundingClientRect();
                     if (er.height > 0)
                         floor -= er.height;
+                }
+            }
+            // …and the shape browser, which floats over the bottom of the canvas the whole width
+            // of the window: a panel drawn under it could be seen and not pressed, since the strip
+            // takes the press (23 Oct 2026: the exact | leaves switch, under it, did nothing).
+            {
+                const ss = $('shapeScroller');
+                if (ss && getComputedStyle(ss).display !== 'none') {
+                    const sr = ss.getBoundingClientRect();
+                    if (sr.height > 0 && sr.top > r.top)
+                        floor = Math.min(floor, sr.top - r.top - 8);
                 }
             }
             // ALWAYS below. It used to flip above the box when the bottom of the canvas was in
@@ -15919,6 +15934,13 @@
             switch (name) {
             case 'smooth':
                 {
+                    if (selectionShapeMode() === 'exact') {
+                        const u = Math.max(0, Math.min(1, (mx - t.ax) / Math.max(1e-6, t.w)));
+                        if (Math.abs(u - selectionExactSimp()) < 0.004)
+                            return false;
+                        setSelectionExactSimp(u);
+                        return true;
+                    }
                     const v = smoothValueAtX(mx, t);
                     if (v === selectionSmoothing().value)
                         return false;
@@ -16301,6 +16323,7 @@
             if (!n)
                 return;
             pushHistory();
+            scheduleSave();
             updateStatus();
             drawAll();
             const what = n + (n > 1 ? ' shapes' : ' shape');
@@ -17162,12 +17185,321 @@
         // ones), moves one point, and is one history entry.
         let vertexDrag = null;
         const VERTEX_HIT_PX = 8;
+        // ADDING AND REMOVING CORNERS (23 Oct 2026, Tom: "1,2"). Each edge long enough on
+        // screen carries a small ring at its middle; pressing it puts a corner there and drags
+        // it, so a tap adds a corner and a press-and-pull adds one where you want it. A corner
+        // pressed is PICKED (drawn gold) until something else is pressed: Delete removes it, as
+        // does a double-click on it. A polygon keeps three corners, a line two.
+        const MID_MIN_EDGE_PX = 32; // shorter edges carry no ring: it would sit on the corners
+        let pickedVertex = null; // {sp, lz, k}: lz is the record it was picked on
         function exactSelected() {
             const sel = selectedIndices();
             if (sel.length !== 1)
                 return -1;
             const sp = state.subpaths[sel[0]];
             return (sp && sp._lazy && sp._lazy.exact) ? sel[0] : -1;
+        }
+
+        // ── ROUNDED CORNERS (23 Oct 2026, Tom: "3,4,5") ─────────────────────────────
+        // A corner may carry a radius (lz.round[k], in the record's own units, like rx; null
+        // when no corner is rounded). The corner stays ONE corner: it is drawn, exported and
+        // converted as the arc that radius makes between its two edges, so it can be rounded
+        // more, less or not at all later, and the shape keeps the corners you gave it. The arc
+        // is the one canvas arcTo draws: tangent to both edges, its tangent points a distance
+        // r/tan(φ/2) from the corner (φ the angle between the edges), clamped to half of the
+        // shorter edge so two rounded neighbours never overlap.
+        function cornerArc(X, Y, k, open, r) {
+            const n = X.length;
+            if (!(r > 0) || n < 3 || (open && (k === 0 || k === n - 1)))
+                return null;
+            const i = (k - 1 + n) % n,
+                j = (k + 1) % n;
+            const px = X[k],
+                py = Y[k];
+            let ux = X[i] - px,
+                uy = Y[i] - py,
+                vx = X[j] - px,
+                vy = Y[j] - py;
+            const lu = Math.hypot(ux, uy),
+                lv = Math.hypot(vx, vy);
+            if (lu < 1e-12 || lv < 1e-12)
+                return null;
+            ux /= lu;
+            uy /= lu;
+            vx /= lv;
+            vy /= lv;
+            const phi = Math.acos(Math.max(-1, Math.min(1, ux * vx + uy * vy)));
+            if (phi < 1e-3 || phi > Math.PI - 1e-3)
+                return null;
+            const tn = Math.tan(phi / 2);
+            const t = Math.min(r / tn, Math.min(lu, lv) / 2);
+            const rr = t * tn;
+            let bx = ux + vx,
+                by = uy + vy;
+            const lb = Math.hypot(bx, by);
+            bx /= lb;
+            by /= lb;
+            const dc = rr / Math.sin(phi / 2);
+            return {
+                r: rr,
+                t,
+                phi,
+                t1x: px + ux * t,
+                t1y: py + uy * t,
+                t2x: px + vx * t,
+                t2y: py + vy * t,
+                cx: px + bx * dc,
+                cy: py + by * dc,
+                bx,
+                by
+            };
+        }
+        function hasRound(R) {
+            if (!R)
+                return false;
+            for (let k = 0; k < R.length; k++)
+                if (R[k] > 0)
+                    return true;
+            return false;
+        }
+        // The record's radii are in its own units; the shape's map scales them (by the square
+        // root of its area factor: a non-uniform stretch is drawn as an ellipse on screen, and
+        // anything that needs one number takes this one).
+        function lzRoundScale(lz) {
+            const m = lz && lz.m;
+            return m ? Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) : 1;
+        }
+        // The radii in the units of lz.x, or null.
+        function lzRoundBaked(lz) {
+            if (!lz || !hasRound(lz.round))
+                return null;
+            const s = lzRoundScale(lz);
+            return Float64Array.from(lz.round, r => r * s);
+        }
+        // An exact outline onto a path (Path2D or a context): straight edges, and arcTo at a
+        // rounded corner. A ring starts at the middle of its last edge, so corner 0 can be
+        // rounded like any other.
+        function traceExact(path, X, Y, R, open) {
+            const n = X.length;
+            const at = k => {
+                const a = R ? cornerArc(X, Y, k, open, R[k]) : null;
+                if (a)
+                    path.arcTo(X[k], Y[k], X[(k + 1) % n], Y[(k + 1) % n], a.r);
+                else
+                    path.lineTo(X[k], Y[k]);
+            };
+            if (open) {
+                path.moveTo(X[0], Y[0]);
+                for (let k = 1; k < n; k++)
+                    at(k);
+                return;
+            }
+            path.moveTo((X[n - 1] + X[0]) / 2, (Y[n - 1] + Y[0]) / 2);
+            for (let k = 0; k < n; k++)
+                at(k);
+            path.closePath();
+        }
+        // The same outline as points, each arc sampled every 7.5° or finer: what the leaves are
+        // made from when an exact shape with rounded corners turns into leaves.
+        function exactDense(X, Y, R, open) {
+            const n = X.length,
+                ox = [],
+                oy = [];
+            for (let k = 0; k < n; k++) {
+                const a = cornerArc(X, Y, k, open, R ? R[k] : 0);
+                if (!a) {
+                    ox.push(X[k]);
+                    oy.push(Y[k]);
+                    continue;
+                }
+                const a1 = Math.atan2(a.t1y - a.cy, a.t1x - a.cx);
+                let d = Math.atan2(a.t2y - a.cy, a.t2x - a.cx) - a1;
+                while (d > Math.PI)
+                    d -= TAU;
+                while (d < -Math.PI)
+                    d += TAU;
+                const steps = Math.max(2, Math.ceil(Math.abs(d) / (Math.PI / 24)));
+                for (let s = 0; s <= steps; s++) {
+                    const th = a1 + d * s / steps;
+                    ox.push(a.cx + a.r * Math.cos(th));
+                    oy.push(a.cy + a.r * Math.sin(th));
+                }
+            }
+            return {
+                x: Float64Array.from(ox),
+                y: Float64Array.from(oy)
+            };
+        }
+        // The outline as SVG path data, given already in the file's coordinates (y down). A
+        // rounded corner is an L to its first tangent point and an elliptical-arc command to its
+        // second; the sweep flag is the corner's turn (clockwise on screen when the cross
+        // product of its two edges is positive).
+        function exactSvgD(X, Y, R, open) {
+            const n = X.length,
+                f = v => v.toFixed(2);
+            if (n < 2)
+                return '';
+            let d = '';
+            if (!hasRound(R)) { // no arcs: the corners as they are, from the first
+                for (let k = 0; k < n; k++)
+                    d += (k ? 'L' : 'M') + f(X[k]) + ' ' + f(Y[k]) + ' ';
+                return d + (open ? '' : 'Z');
+            }
+            const at = k => {
+                const a = R ? cornerArc(X, Y, k, open, R[k]) : null;
+                if (!a) {
+                    d += 'L' + f(X[k]) + ' ' + f(Y[k]) + ' ';
+                    return;
+                }
+                const i = (k - 1 + n) % n,
+                    j = (k + 1) % n;
+                const cr = (X[k] - X[i]) * (Y[j] - Y[k]) - (Y[k] - Y[i]) * (X[j] - X[k]);
+                d += 'L' + f(a.t1x) + ' ' + f(a.t1y) + ' A' + f(a.r) + ' ' + f(a.r) + ' 0 0 ' + (cr > 0 ? 1 : 0)
+                + ' ' + f(a.t2x) + ' ' + f(a.t2y) + ' ';
+            };
+            if (open) {
+                d = 'M' + f(X[0]) + ' ' + f(Y[0]) + ' ';
+                for (let k = 1; k < n; k++)
+                    at(k);
+                return d;
+            }
+            d = 'M' + f((X[n - 1] + X[0]) / 2) + ' ' + f((Y[n - 1] + Y[0]) / 2) + ' ';
+            for (let k = 0; k < n; k++)
+                at(k);
+            return d + 'Z';
+        }
+        // A copy of the radii with corner k inserted (0) or removed; null stays null.
+        function roundSplice(R, k, insert) {
+            if (!R)
+                return null;
+            const a = Array.from(R);
+            if (insert)
+                a.splice(k, 0, 0);
+            else
+                a.splice(k, 1);
+            return Float64Array.from(a);
+        }
+
+        // ── MIRRORED CORNERS ────────────────────────────────────────────────────────
+        // With a mirror on, a corner's partners are the corners at its reflections about the
+        // shape's box centre (one for a single axis, three for both), found within 2% of the
+        // shape's size, since a hand-drawn symmetric shape is only nearly so. A corner whose
+        // reflection is itself sits on the axis and is held to it. Moving, rounding, adding or
+        // removing a corner does the same to its partners, so a symmetric shape stays so.
+        function mirrorFlips() {
+            const m = state.mirror;
+            return m === 'v' ? [[-1, 1]] : m === 'h' ? [[1, -1]] : m === 'both' ? [[-1, 1], [1, -1], [-1, -1]] : [];
+        }
+        function cornerPartners(X, Y, k) {
+            const flips = mirrorFlips();
+            if (!flips.length)
+                return null;
+            const c = mirrorCentreOf(X, Y);
+            if (!c)
+                return null;
+            const tol = 0.02 * Math.max(c.w, c.h);
+            const out = {
+                cx: c.cx,
+                cy: c.cy,
+                list: [],
+                onX: false,
+                onY: false
+            };
+            for (const [fx, fy] of flips) {
+                const tx = c.cx + fx * (X[k] - c.cx),
+                    ty = c.cy + fy * (Y[k] - c.cy);
+                let best = -1,
+                    bd = tol;
+                for (let j = 0; j < X.length; j++) {
+                    const d = Math.hypot(X[j] - tx, Y[j] - ty);
+                    if (d <= bd) {
+                        bd = d;
+                        best = j;
+                    }
+                }
+                if (best < 0)
+                    continue;
+                if (best === k) {
+                    // its own reflection: it lies on the axis this flip reflects across
+                    if (fx < 0 && fy > 0)
+                        out.onX = true;
+                    if (fy < 0 && fx > 0)
+                        out.onY = true;
+                } else if (!out.list.some(p => p.j === best))
+                    out.list.push({
+                        j: best,
+                        fx,
+                        fy
+                    });
+            }
+            return out;
+        }
+
+        // The rings, in canvas pixels: edge i runs from corner i to the next, and its ring
+        // inserts at i + 1.
+        function exactMidpoints(lz, w, h) {
+            const X = lz.x,
+                Y = lz.y,
+                n = X.length,
+                out = [];
+            const edges = lz.open ? n - 1 : n;
+            for (let i = 0; i < edges; i++) {
+                const j = (i + 1) % n;
+                const a = worldToPx(X[i], Y[i], w, h),
+                    b = worldToPx(X[j], Y[j], w, h);
+                if (Math.hypot(b.x - a.x, b.y - a.y) < MID_MIN_EDGE_PX)
+                    continue;
+                out.push({
+                    k: i + 1,
+                    px: (a.x + b.x) / 2,
+                    py: (a.y + b.y) / 2,
+                    x: (X[i] + X[j]) / 2,
+                    y: (Y[i] + Y[j]) / 2
+                });
+            }
+            return out;
+        }
+        // The picked corner's ROUND HANDLE: a small dot on the inside of the corner, along the
+        // line that halves it, ROUND_GAP_PX in from where the arc's middle is. Pulled inward it
+        // rounds the corner; pushed back to the corner it makes it sharp again. Not on a corner
+        // that is all but straight (nothing to round) or at a line's ends.
+        const ROUND_GAP_PX = 20;
+        function roundHandleOf(w, h) {
+            const pk = pickedCorner();
+            if (!pk)
+                return null;
+            const lz = state.subpaths[pk.spi]._lazy,
+                n = lz.x.length,
+                k = pk.k;
+            if (n < 3 || (lz.open && (k === 0 || k === n - 1)))
+                return null;
+            const S = [(k - 1 + n) % n, k, (k + 1) % n].map(i => worldToPx(lz.x[i], lz.y[i], w, h));
+            const X = S.map(q => q.x),
+                Y = S.map(q => q.y);
+            const pxPer = Math.hypot(worldToPx(1, 0, w, h).x - worldToPx(0, 0, w, h).x, worldToPx(1, 0, w, h).y - worldToPx(0, 0, w, h).y);
+            const rPx = (lz.round ? lz.round[k] : 0) * lzRoundScale(lz) * pxPer;
+            // the corner's geometry on screen, with a token radius to get its angle and bisector
+            const g = cornerArc(X, Y, 1, false, 1e-6);
+            if (!g || g.phi > Math.PI * 0.95)
+                return null;
+            const a = rPx > 0 ? cornerArc(X, Y, 1, false, rPx) : null;
+            const sh = Math.sin(g.phi / 2);
+            const mid = a ? a.r * (1 / sh - 1) : 0; // corner to the arc's middle
+            const off = ROUND_GAP_PX + mid;
+            return {
+                spi: pk.spi,
+                k,
+                px: X[1] + g.bx * off,
+                py: Y[1] + g.by * off,
+                cx: X[1],
+                cy: Y[1],
+                bx: g.bx,
+                by: g.by,
+                phi: g.phi,
+                pxPer,
+                // the largest radius the clamp allows, on screen
+                rMax: Math.min(Math.hypot(X[0] - X[1], Y[0] - Y[1]), Math.hypot(X[2] - X[1], Y[2] - Y[1])) / 2 * Math.tan(g.phi / 2)
+            };
         }
         function exactVertexAt(px, py) {
             if (state.locked || !handlesVisible())
@@ -17176,6 +17508,13 @@
             if (spi < 0)
                 return null;
             const r = cv.getBoundingClientRect();
+            const rh = roundHandleOf(r.width, r.height);
+            if (rh && Math.hypot(rh.px - px, rh.py - py) <= VERTEX_HIT_PX)
+                return {
+                    spi,
+                    k: rh.k,
+                    round: rh
+                };
             const lz = state.subpaths[spi]._lazy,
                 X = lz.x,
                 Y = lz.y;
@@ -17192,18 +17531,108 @@
                     };
                 }
             }
+            if (best)
+                return best;
+            for (const m of exactMidpoints(lz, r.width, r.height)) {
+                const d = Math.hypot(m.px - px, m.py - py);
+                if (d <= bd) {
+                    bd = d;
+                    best = {
+                        spi,
+                        k: m.k,
+                        mid: true,
+                        x: m.x,
+                        y: m.y
+                    };
+                }
+            }
             return best;
+        }
+        // Every drag of a corner, a ring or a round handle starts from new arrays with the
+        // shape's map baked in (undo snapshots share the old ones), so the record's own units
+        // are the page's and a radius written is a radius drawn.
+        function bakeExact(sp, X, Y, R) {
+            const lz = sp._lazy;
+            makeLazy(sp, Float64Array.from(X), Float64Array.from(Y), lz.scale, null, {
+                exact: true,
+                open: lz.open,
+                round: R
+            });
         }
         function beginVertexDrag(v) {
             const sp = state.subpaths[v.spi],
                 lz = sp._lazy;
-            makeLazy(sp, Float64Array.from(lz.x), Float64Array.from(lz.y), lz.scale, null, lz);
+            const X = Array.from(lz.x),
+                Y = Array.from(lz.y);
+            let R = lzRoundBaked(lz);
+            let k = v.k;
+            if (v.round) {
+                bakeExact(sp, X, Y, R);
+                const P = cornerPartners(sp._lazy.x, sp._lazy.y, k);
+                vertexDrag = {
+                    spi: v.spi,
+                    k,
+                    round: v.round,
+                    partners: P ? P.list.map(p => p.j) : [],
+                    moved: false
+                };
+                pickedVertex = {
+                    sp,
+                    lz: sp._lazy,
+                    k
+                };
+                cv.style.cursor = 'grabbing';
+                return;
+            }
+            if (v.mid) {
+                // the partner rings too, where a mirror is on, highest index first so the lower
+                // ones keep theirs
+                const ins = [{
+                    k: v.k,
+                    x: v.x,
+                    y: v.y,
+                    own: true
+                }];
+                const flips = mirrorFlips();
+                if (flips.length) {
+                    const c = mirrorCentreOf(lz.x, lz.y);
+                    const tol = 0.02 * Math.max(c.w, c.h);
+                    const r = cv.getBoundingClientRect();
+                    for (const m of exactMidpoints(lz, r.width, r.height))
+                        for (const [fx, fy] of flips)
+                            if (m.k !== v.k && !ins.some(q => q.k === m.k)
+                            && Math.hypot(m.x - (c.cx + fx * (v.x - c.cx)), m.y - (c.cy + fy * (v.y - c.cy))) <= tol)
+                                ins.push({
+                                    k: m.k,
+                                    x: m.x,
+                                    y: m.y
+                                });
+                }
+                ins.sort((a, b) => b.k - a.k);
+                for (const q of ins) {
+                    X.splice(q.k, 0, q.x);
+                    Y.splice(q.k, 0, q.y);
+                    R = roundSplice(R, q.k, true);
+                }
+                // where ours ended up: shifted by one for every partner inserted before it
+                k = v.k + ins.filter(q => !q.own && q.k < v.k).length;
+            }
+            bakeExact(sp, X, Y, R);
+            const P = cornerPartners(sp._lazy.x, sp._lazy.y, k);
             vertexDrag = {
                 spi: v.spi,
-                k: v.k,
-                moved: false
+                k,
+                mirror: P,
+                moved: !!v.mid // a corner added is a change even if it is not pulled
+            };
+            pickedVertex = {
+                sp,
+                lz: sp._lazy,
+                k
             };
             cv.style.cursor = 'move';
+            if (v.mid)
+                drawAll();
         }
         function updateVertexDrag(mx, my) {
             const sp = state.subpaths[vertexDrag.spi],
@@ -17211,9 +17640,39 @@
             if (!lz)
                 return;
             const r = cv.getBoundingClientRect();
+            const k = vertexDrag.k;
+            if (vertexDrag.round) {
+                // the pointer's distance in along the bisector, less the gap, is the distance from
+                // the corner to the arc's middle; the radius follows from the corner's angle
+                const g = vertexDrag.round;
+                const s = (mx - g.cx) * g.bx + (my - g.cy) * g.by - ROUND_GAP_PX;
+                const sh = Math.sin(g.phi / 2);
+                let rPx = s > 0 ? s / (1 / sh - 1) : 0;
+                rPx = Math.min(rPx, g.rMax);
+                const rw = rPx / g.pxPer;
+                if (!lz.round)
+                    lz.round = new Float64Array(lz.rx.length);
+                lz.round[k] = rw;
+                for (const j of vertexDrag.partners)
+                    lz.round[j] = rw;
+                sp._lazyP2d = null;
+                vertexDrag.moved = true;
+                drawAll();
+                return;
+            }
             const p = pxToWorld(mx, my, r.width, r.height);
-            lz.rx[vertexDrag.k] = p.x;
-            lz.ry[vertexDrag.k] = p.y;
+            const M = vertexDrag.mirror;
+            if (M && M.onX)
+                p.x = M.cx;
+            if (M && M.onY)
+                p.y = M.cy;
+            lz.rx[k] = p.x;
+            lz.ry[k] = p.y;
+            if (M)
+                for (const q of M.list) {
+                    lz.rx[q.j] = M.cx + q.fx * (p.x - M.cx);
+                    lz.ry[q.j] = M.cy + q.fy * (p.y - M.cy);
+                }
             lz._box = lz._box0 = null; // the outline changed in place: its box and path go
             sp._lazyP2d = null;
             vertexDrag.moved = true;
@@ -17225,9 +17684,52 @@
             cv.style.cursor = '';
             if (moved) {
                 pushHistory();
+                scheduleSave(); // the autosave: an edit not saved is lost on a reload
                 updateStatus();
             }
             drawAll();
+        }
+        // The picked corner, if it is still a corner of the one exact shape selected.
+        function pickedCorner() {
+            const p = pickedVertex,
+                spi = exactSelected();
+            if (!p || spi < 0 || state.subpaths[spi] !== p.sp || p.sp._lazy !== p.lz || p.k >= p.lz.rx.length)
+                return null;
+            return {
+                spi,
+                k: p.k
+            };
+        }
+        function removeExactVertex(spi, k) {
+            const sp = state.subpaths[spi],
+                lz = sp && sp._lazy;
+            if (!lz || !lz.exact)
+                return false;
+            const n = lz.x.length,
+                min = lz.open ? 2 : 3;
+            // with a mirror on, its partners go with it
+            const P = cornerPartners(lz.x, lz.y, k);
+            const gone = [k].concat(P ? P.list.map(p => p.j) : []).sort((a, b) => b - a);
+            if (n - gone.length < min) {
+                flashStatus(lz.open ? 'a line keeps its two ends' : 'a polygon keeps three corners');
+                return false;
+            }
+            const X = Array.from(lz.x),
+                Y = Array.from(lz.y);
+            let R = lzRoundBaked(lz);
+            for (const j of gone) {
+                X.splice(j, 1);
+                Y.splice(j, 1);
+                R = roundSplice(R, j, false);
+            }
+            bakeExact(sp, X, Y, R);
+            pickedVertex = null;
+            pushHistory();
+            scheduleSave();
+            updateStatus();
+            drawAll();
+            flashStatus((gone.length > 1 ? gone.length + ' mirrored corners removed' : 'corner removed') + ' · ' + (n - gone.length) + ' left');
+            return true;
         }
         function drawExactVertices(w, h) {
             if (state.locked || !handlesVisible())
@@ -17237,20 +17739,140 @@
                 return;
             const lz = state.subpaths[spi]._lazy;
             const HP = Math.max(3, HANDLE_PX() - 1);
+            const pk = pickedCorner();
             ctx.save();
             ctx.setLineDash([]);
             ctx.lineWidth = 1.2;
+            // the rings first, so a corner drawn over one wins
+            if (!vertexDrag) {
+                ctx.strokeStyle = 'rgba(212,160,82,0.85)';
+                ctx.fillStyle = '#0e0e13';
+                for (const m of exactMidpoints(lz, w, h)) {
+                    ctx.beginPath();
+                    ctx.arc(m.px, m.py, Math.max(2.5, HP - 1), 0, TAU);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
             for (let k = 0; k < lz.x.length; k++) {
                 const q = worldToPx(lz.x[k], lz.y[k], w, h);
-                const on = vertexDrag && vertexDrag.k === k;
+                const on = (vertexDrag && vertexDrag.k === k) || (pk && pk.k === k);
                 ctx.fillStyle = on ? '#d4a052' : '#0e0e13';
                 ctx.strokeStyle = 'rgba(232,228,238,0.95)';
+                // a rounded corner's square is drawn as a circle, so you can see which are
                 ctx.beginPath();
-                ctx.rect(q.x - HP, q.y - HP, HP * 2, HP * 2);
+                if (lz.round && lz.round[k] > 0)
+                    ctx.arc(q.x, q.y, HP, 0, TAU);
+                else
+                    ctx.rect(q.x - HP, q.y - HP, HP * 2, HP * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            // the picked corner's round handle, on a thin stalk from the corner
+            const rh = roundHandleOf(w, h);
+            if (rh && !(vertexDrag && !vertexDrag.round)) {
+                ctx.strokeStyle = 'rgba(212,160,82,0.7)';
+                ctx.beginPath();
+                ctx.moveTo(rh.cx, rh.cy);
+                ctx.lineTo(rh.px, rh.py);
+                ctx.stroke();
+                ctx.fillStyle = '#d4a052';
+                ctx.strokeStyle = '#0e0e13';
+                ctx.beginPath();
+                ctx.arc(rh.px, rh.py, Math.max(3.5, HP), 0, TAU);
                 ctx.fill();
                 ctx.stroke();
             }
             ctx.restore();
+        }
+
+        // ── SIMPLIFY: THE PANEL'S TRACK ON EXACT SHAPES ─────────────────────────────
+        // Smoothing has nothing to do on a straight-edged shape, so while the selection is
+        // exact the panel's track counts its corners instead: at the left every corner it had
+        // when you started, and further right fewer, by Douglas–Peucker at a tolerance growing
+        // to 6% of the shape's size (squared, so the left of the track is fine-grained). The
+        // corners it started from are kept on the shape, so dragging back gives them back; any
+        // other edit (a corner moved, added or removed, a turn) starts the count again from
+        // what is there. A corner kept keeps its radius.
+        function exactSource(sp) {
+            const lz = sp._lazy;
+            if (!(sp._exactSrc && sp._exactSrcFor === lz && sp._exactSrcVer === lz.ver)) {
+                sp._exactSrc = {
+                    x: Float64Array.from(lz.x),
+                    y: Float64Array.from(lz.y),
+                    round: lzRoundBaked(lz)
+                };
+                sp._exactSimp = 0;
+                sp._exactSrcFor = lz;
+                sp._exactSrcVer = lz.ver;
+            }
+            return sp._exactSrc;
+        }
+        function exactSimpOf(sp) {
+            const lz = sp._lazy;
+            return (sp._exactSrc && sp._exactSrcFor === lz && sp._exactSrcVer === lz.ver) ? (sp._exactSimp || 0) : 0;
+        }
+        function selectionExactSimp() {
+            let t = 0;
+            for (const i of selectedIndices()) {
+                const sp = state.subpaths[i];
+                if (sp && sp._lazy && sp._lazy.exact)
+                    t = Math.max(t, exactSimpOf(sp));
+            }
+            return t;
+        }
+        function simplifyExact(sp, t) {
+            const lz = sp._lazy,
+                src = exactSource(sp),
+                n = src.x.length;
+            let X = src.x,
+                Y = src.y,
+                R = src.round;
+            if (t > 0 && n > (lz.open ? 2 : 3)) {
+                let mnx = Infinity,
+                    mny = Infinity,
+                    mxx = -Infinity,
+                    mxy = -Infinity;
+                for (let i = 0; i < n; i++) {
+                    mnx = Math.min(mnx, X[i]);
+                    mxx = Math.max(mxx, X[i]);
+                    mny = Math.min(mny, Y[i]);
+                    mxy = Math.max(mxy, Y[i]);
+                }
+                const eps = Math.hypot(mxx - mnx, mxy - mny) * 0.06 * t * t;
+                let pts;
+                // each point carries its index (i), so a kept corner keeps its radius
+                if (lz.open)
+                    pts = rdpSimplify(Array.from(X, (x, i) => [x, Y[i], i]), eps).map(q => ({
+                        x: q[0],
+                        y: q[1],
+                        i: q[2]
+                    }));
+                else
+                    pts = rdpClosed(Array.from(X, (x, i) => ({
+                        x,
+                        y: Y[i],
+                        i
+                    })), eps);
+                if (pts.length >= (lz.open ? 2 : 3)) {
+                    X = Float64Array.from(pts, q => q.x);
+                    Y = Float64Array.from(pts, q => q.y);
+                    R = R ? Float64Array.from(pts, q => R[q.i]) : null;
+                }
+            }
+            bakeExact(sp, X, Y, R);
+            sp._exactSrcFor = sp._lazy;
+            sp._exactSrcVer = sp._lazy.ver;
+            sp._exactSimp = t;
+        }
+        function setSelectionExactSimp(t) {
+            for (const i of selectedIndices()) {
+                const sp = state.subpaths[i];
+                if (sp && sp._lazy && sp._lazy.exact)
+                    simplifyExact(sp, t);
+            }
+            pickedVertex = null;
+            updateStatus();
         }
 
         function beginHandleDrag(name, mx, my, e) {
@@ -17414,6 +18036,9 @@
             cv.style.cursor = '';
             if (moved) {
                 pushHistory();
+                // the autosave too: a resize, a turn or a track (smoothing, or an exact shape's
+                // corners) was otherwise saved only when some later edit asked
+                scheduleSave();
                 drawAll();
             }
             else
@@ -23926,6 +24551,10 @@
                 // import of one. exact: it converts only when asked to; open: a line, not a ring.
                 exact: !!(kind && kind.exact),
                 open: !!(kind && kind.open),
+                // ROUNDED CORNERS: a radius per corner, in rx's units, or null; dropped if the
+                // corners it was for are not these (a caller that adds or removes one passes
+                // its own)
+                round: (kind && kind.exact && kind.round && kind.round.length === rx.length) ? Float64Array.from(kind.round) : null,
                 ver: 0, // bumped by every change of m (the rung worker's answers check it)
                 _x: null,
                 _y: null,
@@ -24073,6 +24702,12 @@
             // along the line and back, so the leaves lie on it.
             let RX = raw.x,
                 RY = raw.y;
+            // rounded corners become their arcs, so the leaves follow the rounding (ROUNDED CORNERS)
+            if (raw.exact && hasRound(raw.round)) {
+                const D = exactDense(RX, RY, lzRoundBaked(raw), raw.open);
+                RX = D.x;
+                RY = D.y;
+            }
             if (raw.open) {
                 const n = RX.length;
                 RX = Float64Array.from([...RX, ...Array.from(RX).slice(1, n - 1).reverse()]);
@@ -24299,7 +24934,8 @@
                         m: sp._lazy.m,
                         scale: sp._lazy.scale,
                         exact: sp._lazy.exact,
-                        open: sp._lazy.open
+                        open: sp._lazy.open,
+                        round: sp._lazy.round
                     } : null,
                     leafX: sp._lazy ? null : sp.leafX ? Float64Array.from(sp.leafX) : null,
                     leafY: sp._lazy ? null : sp.leafY ? Float64Array.from(sp.leafY) : null,
@@ -24451,6 +25087,7 @@
             history.index--;
             applySnapshot(history.stack[history.index]);
             syncUndoButtons();
+            scheduleSave(); // what is on screen is what a reload brings back
         }
 
         function redo() {
@@ -24459,6 +25096,7 @@
             history.index++;
             applySnapshot(history.stack[history.index]);
             syncUndoButtons();
+            scheduleSave(); // what is on screen is what a reload brings back
         }
 
         function commitBridgeAsReference(sp) {
@@ -34421,11 +35059,15 @@
                     let p2 = sp._lazyP2d;
                     if (!p2 || sp._lazyP2dOf !== lz.rx) {
                         p2 = new Path2D();
-                        p2.moveTo(lz.rx[0], lz.ry[0]);
-                        for (let i = 1; i < lz.rx.length; i++)
-                            p2.lineTo(lz.rx[i], lz.ry[i]);
-                        if (!lz.open) // a line is not a ring
-                            p2.closePath();
+                        if (lz.exact && hasRound(lz.round))
+                            traceExact(p2, lz.rx, lz.ry, lz.round, lz.open); // ROUNDED CORNERS
+                        else {
+                            p2.moveTo(lz.rx[0], lz.ry[0]);
+                            for (let i = 1; i < lz.rx.length; i++)
+                                p2.lineTo(lz.rx[i], lz.ry[i]);
+                            if (!lz.open) // a line is not a ring
+                                p2.closePath();
+                        }
                         sp._lazyP2d = p2;
                         sp._lazyP2dOf = lz.rx;
                     }
@@ -36789,6 +37431,7 @@
                     e.preventDefault();
                     return;
                 }
+                pickedVertex = null;
                 const hName = handleAt(e.clientX - rr.left, e.clientY - rr.top);
                 if (hName && beginHandleDrag(hName, e.clientX - rr.left, e.clientY - rr.top, e)) {
                     e.preventDefault();
@@ -36979,8 +37622,11 @@
                             commitLineShape(false); // closed on its start: a polygon
                             return;
                         }
-                        drawStroke.push(p0);
-                        drawAnchors.push(p0);
+                        // Shift holds the edge to a multiple of 45° (SNAPPING)
+                        const pS = e.shiftKey ? snap45(drawAnchors[drawAnchors.length - 1], p0) : p0;
+                        drawStroke = drawAnchors.concat([pS]);
+                        drawStroke._usedStraight = true;
+                        drawAnchors.push(pS);
                     }
                     drawAll();
                     return;
@@ -37684,10 +38330,12 @@
                 // the cursor as a preview. Committed vertices live in drawAnchors; the preview
                 // point is the transient last element of drawStroke.
                 const rr = cv.getBoundingClientRect();
-                const p = {
+                let p = {
                     x: e.clientX - rr.left,
                     y: e.clientY - rr.top
                 };
+                if (e.shiftKey) // the preview snaps as the click will (SNAPPING)
+                    p = snap45(drawAnchors[drawAnchors.length - 1], p);
                 drawStroke = drawAnchors.concat([p]);
                 drawStroke._usedStraight = true;
                 drawStroke._linePreview = true;
@@ -59367,6 +60015,16 @@
             // Not in the edit view, and for the same reason as the clipboard above: the mode is
             // about the inside of one shape, and deleting that shape from inside it is a way of
             // ending the mode that nobody asks for by pressing Delete.
+            // A picked corner of an exact shape goes before the shape does (ADDING AND REMOVING
+            // CORNERS): Delete removes the corner, and with no corner picked the shape as before.
+            if ((e.key === 'Delete' || e.key === 'Backspace') && !drawMode && !_isEditableTarget(e.target)) {
+                const pc = pickedCorner();
+                if (pc) {
+                    e.preventDefault();
+                    removeExactVertex(pc.spi, pc.k);
+                    return;
+                }
+            }
             if ((e.key === 'Delete' || e.key === 'Backspace') && !drawMode && !state.editMode
             && !_isEditableTarget(e.target)) {
                 // A selected GROUP deletes as just the group: the binding dissolves, the
@@ -60052,14 +60710,13 @@
                 const pts = samplePts(sp2);
                 // An exact shape (EXACT SHAPES) is written as its own corners joined by straight
                 // segments — what it is — not fitted with curves; a line is left open.
+                // A rounded corner is written as an arc (ROUNDED CORNERS).
                 if (sp2._lazy && sp2._lazy.exact) {
-                    const q = pts.slice(0, -1); // samplePts closes the ring; the shape says whether it is one
-                    if (q.length < 2)
-                        return '';
-                    let d2 = '';
-                    for (let i = 0; i < q.length; i++)
-                        d2 += (i === 0 ? 'M' : 'L') + q[i].x.toFixed(2) + ' ' + q[i].y.toFixed(2) + ' ';
-                    return d2 + (sp2._lazy.open ? '' : 'Z');
+                    const lz2 = sp2._lazy,
+                        R0 = lzRoundBaked(lz2);
+                    const X2 = Float64Array.from(lz2.x, x => half + (x - ox) * scale),
+                        Y2 = Float64Array.from(lz2.y, y => half - (y - oy) * scale);
+                    return exactSvgD(X2, Y2, R0 ? R0.map(r => r * scale) : null, lz2.open);
                 }
                 if (pts.length < 4)
                     return '';
@@ -60713,7 +61370,9 @@
                     c[k] = sp[k];
             const lz = sp._lazy;
             makeLazy(c, lz.x, lz.y, lz.scale, null, {
-                open: lz.open
+                exact: true,
+                open: lz.open,
+                round: lzRoundBaked(lz)
             });
             materializeLazy(c);
             return c;
@@ -60926,6 +61585,21 @@
         // points; open — a line — when finished with two, or with Shift held. A double-click's
         // second click lands where its first did, so points within a few pixels of the one
         // before are one point.
+        // SNAPPING (23 Oct 2026, Tom: "3,4,5"): with Shift held, the line pen's next edge is
+        // held to the nearest multiple of 45° from the last corner (across, up, or a diagonal),
+        // its length the pointer's distance along that direction, as drawing tools do.
+        function snap45(a, p) {
+            const dx = p.x - a.x,
+                dy = p.y - a.y;
+            const th = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+            const ux = Math.cos(th),
+                uy = Math.sin(th);
+            const d = dx * ux + dy * uy;
+            return {
+                x: a.x + ux * d,
+                y: a.y + uy * d
+            };
+        }
         function commitLineShape(open) {
             let verts = drawAnchors ? drawAnchors.slice() : null;
             drawStroke = null;
@@ -60963,6 +61637,16 @@
             }
             if (drawMode)
                 return;
+            // A double-click on an exact shape's corner removes it (ADDING AND REMOVING CORNERS).
+            {
+                const rr = cv.getBoundingClientRect();
+                const v = exactVertexAt(e.clientX - rr.left, e.clientY - rr.top);
+                if (v && !v.mid) {
+                    e.preventDefault();
+                    removeExactVertex(v.spi, v.k);
+                    return;
+                }
+            }
             // Everything below this line is a way INTO the edit view — the grouped-member
             // branch, the built-shape branch, the leaf circles, the fit. With the lab off
             // there is nowhere for the gesture to go, so the double-click means nothing at
@@ -69828,6 +70512,7 @@
                 subpaths: state.subpaths.filter(sp => sp && (sp._lazy || (sp.leafX && sp.leafX.length >= 2))).map(sp => ({
                     lz: sp._lazy ? (sp._lazy.exact ? (sp._lazy.open ? 3 : 2) : 1) : 0, // 2 exact, 3 exact line
                     ls: sp._lazy ? sp._lazy.scale : 0,
+                    rr: sp._lazy && sp._lazy.exact && hasRound(sp._lazy.round) ? Array.from(lzRoundBaked(sp._lazy), r => +r.toPrecision(7)) : null, // corner radii, in x's units
                     x: sp._lazy ? '' : _f32b64(sp.leafX),
                     y: sp._lazy ? '' : _f32b64(sp.leafY),
                     rx: sp._lazy ? _f32b64(sp._lazy.x) : dropRefs ? '' : _f32b64(sp.refX),
@@ -69949,7 +70634,8 @@
                         y: RY,
                         scale: +sp.ls || 0,
                         exact: sp.lz >= 2,
-                        open: sp.lz === 3
+                        open: sp.lz === 3,
+                        round: Array.isArray(sp.rr) ? sp.rr : null
                     } : null;
                     const X = lz ? null : _b64f32(sp.x),
                         Y = lz ? null : _b64f32(sp.y);
@@ -72501,6 +73187,38 @@
                 return (rows && rows.buttons && rows.buttons.find(b => b.name === name)) || null;
             },
             mode: () => selectionShapeMode(), // 'exact', 'leaves' or 'mixed'
+            // the one exact shape selected: its corners and edge rings in canvas pixels, the picked corner
+            corners: () => {
+                const spi = exactSelected();
+                if (spi < 0)
+                    return null;
+                const lz = state.subpaths[spi]._lazy,
+                    r = cv.getBoundingClientRect();
+                const pk = pickedCorner();
+                return {
+                    pts: Array.from(lz.x, (x, i) => worldToPx(x, lz.y[i], r.width, r.height)),
+                    mids: exactMidpoints(lz, r.width, r.height).map(m => ({
+                        x: m.px,
+                        y: m.py
+                    })),
+                    picked: pk ? pk.k : -1,
+                    simp: selectionExactSimp(),
+                    round: lz.round ? Array.from(lz.round) : null,
+                    handle: (h => h ? {
+                        x: h.px,
+                        y: h.py
+                    } : null)(roundHandleOf(r.width, r.height))
+                };
+            },
+            track: () => {
+                const rows = sliderRows();
+                return rows && rows.smooth ? {
+                    ax: rows.smooth.ax,
+                    bx: rows.smooth.bx,
+                    y: rows.smooth.y,
+                    knobX: rows.smooth.knobX
+                } : null;
+            },
             handles: () => handlePoints(), // the box's grips in canvas pixels, for driving a drag
             grouped: () => selectionIsGrouped(),
             units: () => selectionUnitCount(),
