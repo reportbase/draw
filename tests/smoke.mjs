@@ -961,6 +961,7 @@ current = 'combining exact shapes';
       await xp.evaluate(() => window.__box.select(Array.from({ length: window.__box.count() }, (_, i) => i)));
       const fl = (await shapes()).map(q => q && q.holes.length).sort();
       if (fl.join() !== '1,2') throw new Error('"Bo" from the font: ' + JSON.stringify(fl));
+      if (!(await shapes()).every(q => q && q.curves > 0)) throw new Error('"Bo" from the font holds no curve edges');
     } else
       console.log('     (no web font among ' + fams.join(', ') + '; the font path was not tried)');
     await xp.keyboard.press('Escape');
@@ -1016,6 +1017,56 @@ current = 'combining exact shapes';
     await xp.waitForTimeout(300);
     const halves = await shapes();
     if (halves.length !== 2 || halves.some(q => q.n !== 8 || q.holes.length || Math.abs(q.area - whole / 2) > 1e-6 * whole)) throw new Error('the frame cut: ' + JSON.stringify(halves.map(q => [q.n, q.area])));
+    // CURVE EDGES: a circle (a square rounded by half its side) cut through its middle is two
+    // halves holding pieces of its arcs as curve edges, of equal area as drawn; a corner put in
+    // on a curve edge cuts the curve there and changes nothing drawn; a .tvf keeps the curves
+    await fresh();
+    await xp.click('#bDrawShape');
+    await xp.locator('#stRound').fill('0.5');
+    await xp.mouse.move(...P(400, 300));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(600, 500), { steps: 5 });
+    await xp.mouse.up();
+    await xp.evaluate(() => { const r = document.getElementById('stRound'); r.value = 0; r.dispatchEvent(new Event('input')); });
+    await xp.waitForTimeout(200);
+    await xp.evaluate(() => window.__box.select([0]));
+    const disc = (await shapes())[0].drawn;
+    await press('bt-knife');
+    await xp.mouse.move(...P(380, 300));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(620, 500), { steps: 5 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    const ch = await shapes();
+    if (ch.length !== 2 || ch.some(q => !(q.curves > 0)) || Math.abs(ch[0].drawn - ch[1].drawn) > 1e-4 * disc || Math.abs(ch[0].drawn + ch[1].drawn - disc) > 0.01 * disc)
+      throw new Error('a circle cut: ' + JSON.stringify(ch.map(q => [q.n, q.curves, q.drawn])) + ' of ' + disc);
+    await xp.evaluate(() => window.__box.select([0]));
+    await xp.waitForTimeout(150);
+    const half0 = (await shapes())[0];
+    const cmid = (await xp.evaluate(() => window.__box.corners())).mids;
+    // the ring with the most curve under it: the one farthest from the cut's straight edge is
+    // on an arc piece; take each ring in turn until one adds a curve edge
+    let split = null;
+    for (const m of cmid) {
+      await xp.mouse.move(...P(m.x, m.y));
+      await xp.mouse.down();
+      await xp.mouse.up();
+      await xp.waitForTimeout(150);
+      const q = (await shapes())[0];
+      if (q.curves === half0.curves + 1) { split = q; break; }
+      await xp.keyboard.press('ControlOrMeta+z');
+      await xp.waitForTimeout(150);
+      await xp.evaluate(() => window.__box.select([0]));
+    }
+    if (!split || split.n !== half0.n + 1 || Math.abs(split.drawn - half0.drawn) > 2e-4 * half0.drawn /* the area measured in samples: sixteen an edge, so a split edge samples more finely */) throw new Error('a corner put in on a curve edge: ' + JSON.stringify(split) + ' from ' + JSON.stringify(half0));
+    const [ctl] = await Promise.all([xp.waitForEvent('download', { timeout: 30000 }), xp.evaluate(() => document.getElementById('bSaveTvf').click())]);
+    const ctvf = await readFile(await ctl.path(), 'utf8');
+    if (!/#meta curves:/.test(ctvf)) throw new Error('the .tvf does not carry the curve edges');
+    await xp.setInputFiles('#fLoadTvf', { name: 'halves.tvf', mimeType: 'text/plain', buffer: Buffer.from(ctvf) });
+    await xp.waitForTimeout(800);
+    await xp.evaluate(() => window.__box.select([0, 1]));
+    const back = await shapes();
+    if (back.length !== 2 || back.some(q => !(q.curves > 0))) throw new Error('the curve edges came back from the .tvf as ' + JSON.stringify(back.map(q => q && q.curves)));
     // CORNERS, ALL AT ONCE: a square's corners all rounded by the radius, then all smooth,
     // then all sharp
     await fresh();

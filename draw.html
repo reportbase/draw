@@ -11314,7 +11314,9 @@
                     inHole,
                     d
                 };
-            for (const hl of H) {
+            for (const hl0 of H) {
+                // a curved hole by its drawn curve (CURVE EDGES, SMOOTH CORNERS)
+                const hl = (hl0.ctrl || hasSmooth(hl0.smooth)) ? exactDense(hl0.x, hl0.y, null, false, hl0.smooth, hl0.ctrl) : hl0;
                 const n = hl.x.length,
                     xs = new Float64Array(n),
                     ys = new Float64Array(n);
@@ -11345,8 +11347,8 @@
                 const sp = state.subpaths[spi];
                 // An unconverted shape is tested on its imported outline (CONVERT ON TOUCH):
                 // this runs over every shape and must not convert them all.
-                const LX = sp && sp._lazy ? sp._lazy.x : sp && sp.leafX,
-                    LY = sp && sp._lazy ? sp._lazy.y : sp && sp.leafY;
+                const LX = sp && sp._lazy ? lzOutlinePts(sp._lazy).x : sp && sp.leafX,
+                    LY = sp && sp._lazy ? lzOutlinePts(sp._lazy).y : sp && sp.leafY;
                 const OPEN = !!(sp && sp._lazy && sp._lazy.open); // a line: no inside, no closing edge (EXACT SHAPES)
                 if (!sp || !LX || LX.length < (OPEN ? 2 : 3))
                     continue;
@@ -13783,6 +13785,7 @@
                     open: lz.open,
                     round: lzRoundBaked(lz),
                     smooth: lz.smooth,
+                    ctrl: lzCtrlBaked(lz),
                     holes: lzHolesBaked(lz)
                 } : null,
                 leafX: !lz && sp.leafX ? Float64Array.from(sp.leafX) : null,
@@ -13846,15 +13849,18 @@
                         gname: c.gname || null,
                         note: c.note || null
                     };
+                    const offM = [1, 0, 0, 1, off, off];
                     makeLazy(sp, sh(L.x), sh(L.y), L.scale, null, {
                         exact: L.exact,
                         open: L.open,
                         round: L.round,
                         smooth: L.smooth,
+                        ctrl: ctrlMapped(L.ctrl, offM),
                         holes: L.holes ? L.holes.map(h => ({
                             x: sh(h.x),
                             y: sh(h.y),
-                            smooth: h.smooth
+                            smooth: h.smooth,
+                            ctrl: ctrlMapped(h.ctrl, offM)
                         })) : null
                     });
                     state.subpaths.push(sp);
@@ -17055,24 +17061,68 @@
                 kerning: true
             });
             // the path's contours, each curve in steps
-            const rings = [];
+            // the path's contours: each curve in steps (to box and nest them), and each as it is,
+            // its on-curve points the corners and each curve an edge's own cubic (CURVE EDGES; a
+            // quadratic raised to the cubic it is)
+            const rings = [],
+                exacts = [];
             let cur = null,
+                ex = null,
                 px = 0,
                 py = 0;
             const steps = 24;
+            const close = () => {
+                if (cur && cur.length >= 3 && ex && ex.x.length >= 2) {
+                    // the last point back on the first: one corner, the closing edge the curve that arrived
+                    const n = ex.x.length;
+                    if (Math.hypot(ex.x[n - 1] - ex.x[0], ex.y[n - 1] - ex.y[0]) < 1e-9) {
+                        ex.x.pop(); // its edge, the last, already runs back to corner 0
+                        ex.y.pop();
+                    } else
+                        ex.c.push(null); // closed by a straight edge
+                    // an edge of no length (a contour that begins with a line to where it is)
+                    // is no edge: its far corner goes, so the curves either side meet at one
+                    for (let k = ex.x.length - 1; k >= 0 && ex.x.length > 2; k--) {
+                        const j = (k + 1) % ex.x.length;
+                        if (Math.hypot(ex.x[j] - ex.x[k], ex.y[j] - ex.y[k]) < 1e-9 && !ex.c[k]) {
+                            ex.x.splice(j, 1);
+                            ex.y.splice(j, 1);
+                            ex.c.splice(k, 1);
+                            if (j === 0)
+                                ex.c.push(ex.c.shift()); // corner 0 went: the edge it left now leaves the last corner
+                        }
+                    }
+                    if (ex.x.length >= 2) {
+                        rings.push(cur);
+                        exacts.push(ex);
+                    }
+                }
+                cur = null;
+                ex = null;
+            };
             for (const c of path.commands) {
                 if (c.type === 'M') {
-                    if (cur && cur.length >= 3)
-                        rings.push(cur);
+                    close();
                     cur = [[c.x, c.y]];
-                } else if (c.type === 'L')
+                    ex = {
+                        x: [c.x],
+                        y: [c.y],
+                        c: []
+                    };
+                } else if (c.type === 'L') {
                     cur.push([c.x, c.y]);
-                else if (c.type === 'Q') {
+                    ex.c.push(null);
+                    ex.x.push(c.x);
+                    ex.y.push(c.y);
+                } else if (c.type === 'Q') {
                     for (let q = 1; q <= steps; q++) {
                         const t = q / steps,
                             u = 1 - t;
                         cur.push([u * u * px + 2 * u * t * c.x1 + t * t * c.x, u * u * py + 2 * u * t * c.y1 + t * t * c.y]);
                     }
+                    ex.c.push([px + 2 / 3 * (c.x1 - px), py + 2 / 3 * (c.y1 - py), c.x + 2 / 3 * (c.x1 - c.x), c.y + 2 / 3 * (c.y1 - c.y)]);
+                    ex.x.push(c.x);
+                    ex.y.push(c.y);
                 } else if (c.type === 'C') {
                     for (let q = 1; q <= steps; q++) {
                         const t = q / steps,
@@ -17080,18 +17130,17 @@
                         cur.push([u * u * u * px + 3 * u * u * t * c.x1 + 3 * u * t * t * c.x2 + t * t * t * c.x,
                         u * u * u * py + 3 * u * u * t * c.y1 + 3 * u * t * t * c.y2 + t * t * t * c.y]);
                     }
-                } else if (c.type === 'Z') {
-                    if (cur && cur.length >= 3)
-                        rings.push(cur);
-                    cur = null;
-                }
+                    ex.c.push([c.x1, c.y1, c.x2, c.y2]);
+                    ex.x.push(c.x);
+                    ex.y.push(c.y);
+                } else if (c.type === 'Z')
+                    close();
                 if (c.x != null) {
                     px = c.x;
                     py = c.y;
                 }
             }
-            if (cur && cur.length >= 3)
-                rings.push(cur);
+            close();
             if (!rings.length)
                 return null;
             // the traced word's box in its own frame
@@ -17135,21 +17184,66 @@
                 vc = (b0 + b1) / 2,
                 gc = (g0 + g1) / 2,
                 hc = (h0 + h1) / 2;
-            return rings.map(R => {
+            // the font's units to the world's: an affine map, so it carries a cubic's control
+            // points as it does its ends
+            const T = (x, y) => {
+                const u = uc + (x - gc) * sx,
+                    v = vc + (-y - hc) * sy;
+                return [cx + u * ca - v * sa, cy + u * sa + v * ca];
+            };
+            return rings.map((R, ri) => {
                 const n = R.length,
                     X = new Float64Array(n),
                     Y = new Float64Array(n);
                 for (let k = 0; k < n; k++) {
-                    const u = uc + (R[k][0] - gc) * sx,
-                        v = vc + (-R[k][1] - hc) * sy;
-                    X[k] = cx + u * ca - v * sa;
-                    Y[k] = cy + u * sa + v * ca;
+                    const w = T(R[k][0], R[k][1]);
+                    X[k] = w[0];
+                    Y[k] = w[1];
                 }
-                // evenly along its length, as the fit wants its samples
                 const rs = arcLengthResample(Array.from(X), Array.from(Y), 1024);
+                const E = exacts[ri],
+                    m = E.x.length;
+                const ex2 = {
+                    x: new Float64Array(m),
+                    y: new Float64Array(m),
+                    ctrl: E.c.map(c => {
+                        if (!c)
+                            return null;
+                        const a = T(c[0], c[1]),
+                            b = T(c[2], c[3]);
+                        return [a[0], a[1], b[0], b[1]];
+                    }),
+                    smooth: null
+                };
+                for (let k = 0; k < m; k++) {
+                    const w = T(E.x[k], E.y[k]);
+                    ex2.x[k] = w[0];
+                    ex2.y[k] = w[1];
+                }
+                // a corner the outline turns through smoothly is marked so (its handle a diamond)
+                const Sm = new Uint8Array(m);
+                for (let k = 0; k < m; k++) {
+                    const e = (k - 1 + m) % m,
+                        ci = ex2.ctrl[e],
+                        co = ex2.ctrl[k],
+                        j = (k + 1) % m;
+                    const ux = ci ? ex2.x[k] - ci[2] : ex2.x[k] - ex2.x[e],
+                        uy = ci ? ex2.y[k] - ci[3] : ex2.y[k] - ex2.y[e];
+                    const vx = co ? co[0] - ex2.x[k] : ex2.x[j] - ex2.x[k],
+                        vy = co ? co[1] - ex2.y[k] : ex2.y[j] - ex2.y[k];
+                    const lu = Math.hypot(ux, uy),
+                        lv = Math.hypot(vx, vy);
+                    // between two curves only: a smooth end would bend a straight neighbour (edgeCtrl)
+                    if (ci && co && lu > 0 && lv > 0 && (ux * vx + uy * vy) / (lu * lv) > Math.cos(Math.PI / 90))
+                        Sm[k] = 1;
+                }
+                ex2.smooth = hasSmooth(Sm) ? Sm : null;
+                if (!hasCtrl(ex2.ctrl))
+                    ex2.ctrl = null;
                 return {
                     x: Float64Array.from(rs.x),
-                    y: Float64Array.from(rs.y)
+                    y: Float64Array.from(rs.y),
+                    exact: ex2 // CURVE EDGES: the letter as the font draws it, nothing fitted
                 };
             });
         }
@@ -17248,7 +17342,7 @@
             for (const src of sources) {
                 const SX = src.x,
                     SY = src.y;
-                const fit = fitExactOutline(SX, SY, 2 * (tolPx || 2) * tol);
+                const fit = src.exact || fitExactOutline(SX, SY, 2 * (tolPx || 2) * tol);
                 if (!fit || fit.x.length < 3)
                     continue;
                 // nested by the fine samples: a fitted outline's corners alone (an O's four
@@ -17303,6 +17397,7 @@
                 makeLazy(ns, L.fit.x, L.fit.y, 0, null, {
                     exact: true,
                     smooth: L.fit.smooth,
+                    ctrl: L.fit.ctrl || null,
                     holes: L.holes.length ? L.holes : null
                 });
                 shapes.push(ns);
@@ -18373,6 +18468,39 @@
             const s = lzRoundScale(lz);
             return Float64Array.from(lz.round, r => r * s);
         }
+        // ── CURVE EDGES (23 Oct 2026, Tom: "1") ──────────────────────────────────────
+        // An edge (from corner k to the next) may hold its own cubic, lz.ctrl[k] = [c1x, c1y,
+        // c2x, c2y] in rx's units under the shape's map, or null for the rule's edge (straight
+        // between sharp corners, else the smooth corners' curve). What a font's letters, a cut
+        // or a boolean of curves are made of: the curves themselves, not a fit to them. Drawn,
+        // exported, sampled and saved wherever an outline is.
+        function hasCtrl(C) {
+            if (!C)
+                return false;
+            for (let k = 0; k < C.length; k++)
+                if (C[k])
+                    return true;
+            return false;
+        }
+        // a copy, each edge's four numbers carried through the affine map m (a cubic's image
+        // under an affine map is the cubic of its points' images), or null
+        function ctrlMapped(C, m) {
+            if (!hasCtrl(C))
+                return null;
+            return Array.from(C, c => c ? (m ? [m[0] * c[0] + m[2] * c[1] + m[4], m[1] * c[0] + m[3] * c[1] + m[5],
+            m[0] * c[2] + m[2] * c[3] + m[4], m[1] * c[2] + m[3] * c[3] + m[5]] : c.slice()) : null);
+        }
+        // the record's curve edges in the units of lz.x
+        function lzCtrlBaked(lz) {
+            return lz ? ctrlMapped(lz.ctrl, lz.m) : null;
+        }
+        // a per-edge array checked: n entries, each null or four finite numbers; null if none
+        function ctrlChecked(C, n) {
+            if (!C || C.length !== n)
+                return null;
+            const out = Array.from(C, c => (c && c.length === 4 && Array.prototype.every.call(c, Number.isFinite)) ? Array.from(c) : null);
+            return hasCtrl(out) ? out : null;
+        }
         function hasSmooth(S) {
             if (!S)
                 return false;
@@ -18440,7 +18568,16 @@
             const p = Math.min(phi, Math.PI / 2);
             return chord * (2 / 3) * Math.tan(p / 2) / Math.sin(p);
         }
-        function edgeCtrl(X, Y, S, open, a, b) {
+        function edgeCtrl(X, Y, S, open, a, b, C) {
+            // CURVE EDGES: an edge that holds its own control points draws them, whatever its
+            // corners are
+            if (C && C[a])
+                return {
+                    c1x: C[a][0],
+                    c1y: C[a][1],
+                    c2x: C[a][2],
+                    c2y: C[a][3]
+                };
             const sm = k => !!(S && S[k]);
             if (!sm(a) && !sm(b))
                 return null;
@@ -18485,7 +18622,7 @@
         // the corner's arc (the arc's points, and the corner and the next point for arcTo), 'C'
         // a curved edge. A closed outline with no smooth corner starts at the middle of its last
         // edge (so corner 0 can be rounded); with one, at its first smooth corner (never rounded).
-        function exactSegs(X, Y, R, open, S) {
+        function exactSegs(X, Y, R, open, S, C) {
             const n = X.length,
                 sm = k => !!(S && S[k]);
             const prev = k => (open && k === 0) ? -1 : (k - 1 + n) % n,
@@ -18497,11 +18634,13 @@
                     j = next(k);
                 if (i < 0 || j < 0 || sm(i) || sm(j))
                     return null;
+                if (C && (C[i] || C[k])) // a curve edge either side: no arc (CURVE EDGES)
+                    return null;
                 return cornerArc(X, Y, k, open, R[k]);
             };
             const segs = [];
             const arrive = (a, b) => {
-                const cc = edgeCtrl(X, Y, S, open, a, b);
+                const cc = edgeCtrl(X, Y, S, open, a, b, C);
                 if (cc) {
                     segs.push({
                         type: 'C',
@@ -18533,7 +18672,8 @@
                         y: Y[b]
                     });
             };
-            let start;
+            let start,
+                s0 = -1;
             if (open) {
                 start = {
                     x: X[0],
@@ -18542,10 +18682,17 @@
                 for (let b = 1; b < n; b++)
                     arrive(b - 1, b);
             } else {
-                let s0 = -1;
                 if (S)
                     for (let k = 0; k < n; k++)
                         if (S[k]) {
+                            s0 = k;
+                            break;
+                        }
+                // with curve edges and no smooth corner, at the first corner not rounded: the
+                // middle of the last edge is a point on it only when it is straight
+                if (s0 < 0 && hasCtrl(C))
+                    for (let k = 0; k < n; k++)
+                        if (!(R && R[k] > 0)) {
                             s0 = k;
                             break;
                         }
@@ -18569,12 +18716,13 @@
             }
             return {
                 start,
-                segs
+                segs,
+                s0: open ? 0 : s0 // the corner the closed outline starts at, or -1 (an edge's middle)
             };
         }
         // An exact outline onto a path (Path2D or a context).
-        function traceExact(path, X, Y, R, open, S) {
-            const E = exactSegs(X, Y, R, open, S);
+        function traceExact(path, X, Y, R, open, S, C) {
+            const E = exactSegs(X, Y, R, open, S, C);
             path.moveTo(E.start.x, E.start.y);
             for (const g of E.segs) {
                 if (g.type === 'L')
@@ -18589,8 +18737,8 @@
         }
         // The same outline as points, each arc sampled every 7.5° or finer and each curved edge
         // in sixteen steps: what the leaves are made from when such a shape turns into leaves.
-        function exactDense(X, Y, R, open, S) {
-            const E = exactSegs(X, Y, R, open, S);
+        function exactDense(X, Y, R, open, S, C) {
+            const E = exactSegs(X, Y, R, open, S, C);
             const ox = [E.start.x],
                 oy = [E.start.y];
             let cx = E.start.x,
@@ -18642,18 +18790,18 @@
         // corners as they are when nothing is rounded or smooth; else an arc command (A) at a
         // rounded corner, its sweep the corner's turn (clockwise on screen when the cross
         // product of its two edges is positive), and a cubic (C) along a curved edge.
-        function exactSvgD(X, Y, R, open, S) {
+        function exactSvgD(X, Y, R, open, S, C) {
             const n = X.length,
                 f = v => v.toFixed(2);
             if (n < 2)
                 return '';
             let d = '';
-            if (!hasRound(R) && !hasSmooth(S)) {
+            if (!hasRound(R) && !hasSmooth(S) && !hasCtrl(C)) {
                 for (let k = 0; k < n; k++)
                     d += (k ? 'L' : 'M') + f(X[k]) + ' ' + f(Y[k]) + ' ';
                 return d + (open ? '' : 'Z');
             }
-            const E = exactSegs(X, Y, R, open, S);
+            const E = exactSegs(X, Y, R, open, S, C);
             d = 'M' + f(E.start.x) + ' ' + f(E.start.y) + ' ';
             for (const g of E.segs) {
                 if (g.type === 'L')
@@ -18747,17 +18895,16 @@
             const edges = lz.open ? n - 1 : n;
             // the outline's own segments, by the corner each edge leaves (SMOOTH CORNERS)
             let curveOf = null;
-            if (lz.smooth) {
-                const E = exactSegs(X, Y, null, lz.open, lz.smooth);
+            const C = lz.rx ? lzCtrlBaked(lz) : lz.ctrl; // a record, or a hole (holeAsRecord), already baked
+            if (lz.smooth || C) {
+                const E = exactSegs(X, Y, null, lz.open, lz.smooth, C);
                 curveOf = new Map();
                 if (lz.open)
                     E.segs.forEach((g, q) => curveOf.set(q, g));
-                else {
-                    let s0 = 0;
-                    while (s0 < n && !lz.smooth[s0])
-                        s0++;
-                    E.segs.forEach((g, q) => curveOf.set((s0 + q) % n, g));
-                }
+                else if (E.s0 >= 0)
+                    E.segs.forEach((g, q) => curveOf.set((E.s0 + q) % n, g));
+                else
+                    E.segs.forEach((g, q) => curveOf.set((q - 1 + n) % n, g));
             }
             for (let i = 0; i < edges; i++) {
                 const j = (i + 1) % n;
@@ -18915,7 +19062,8 @@
                 x: hl.x,
                 y: hl.y,
                 open: false,
-                smooth: hl.smooth
+                smooth: hl.smooth,
+                ctrl: hl.ctrl
             };
         }
         // Every drag of a corner, a ring or a round handle starts from new arrays with the
@@ -18923,13 +19071,107 @@
         // are the page's and a radius written is a radius drawn.
         // (Sm: the smooth flags; left out, the record's own, which fit when the corners are
         // the same ones)
-        function bakeExact(sp, X, Y, R, Sm) {
+        // (Cc: the curve edges, the same way: left out, the record's own, baked)
+        // CURVE EDGES under corner edits. A cubic cut at t (de Casteljau): the two halves'
+        // control points, and the point where they meet.
+        function splitCubic(x0, y0, c, x3, y3, t) {
+            const L = (a, b) => a + (b - a) * t;
+            const ax = L(x0, c[0]),
+                ay = L(y0, c[1]),
+                bx = L(c[0], c[2]),
+                by = L(c[1], c[3]),
+                cx2 = L(c[2], x3),
+                cy2 = L(c[3], y3);
+            const dx = L(ax, bx),
+                dy = L(ay, by),
+                ex = L(bx, cx2),
+                ey = L(by, cy2);
+            const fx = L(dx, ex),
+                fy = L(dy, ey);
+            return {
+                a: [ax, ay, dx, dy],
+                b: [ex, ey, cx2, cy2],
+                x: fx,
+                y: fy
+            };
+        }
+        // A corner put in at k (between k - 1 and k, on edge k - 1, at t along it): that edge's
+        // cubic cut in two there. X, Y are the corners before. null stays null.
+        function ctrlInsert(C, X, Y, k, t) {
+            if (!hasCtrl(C))
+                return null;
+            const n = X.length,
+                e = k - 1;
+            const out = C.slice(0, e);
+            if (C[e]) {
+                const sc = splitCubic(X[e], Y[e], C[e], X[(e + 1) % n], Y[(e + 1) % n], t == null ? 0.5 : t);
+                out.push(sc.a, sc.b);
+            } else
+                out.push(null, null);
+            return out.concat(C.slice(e + 1));
+        }
+        // Corner k taken out: its two edges become one, from the corner before to the corner
+        // after, leaving as the first did and arriving as the second did (a straight edge
+        // among them lends its third-points). X, Y are the corners before. null stays null.
+        function ctrlRemove(C, X, Y, k, open) {
+            if (!hasCtrl(C))
+                return null;
+            const n = X.length,
+                out = C.slice();
+            if (open && (k === 0 || k === n - 1)) {
+                if (k === 0)
+                    out.splice(0, 1);
+                else {
+                    out.splice(n - 2, 1);
+                    out[n - 2] = null;
+                }
+                return hasCtrl(out) ? out : null;
+            }
+            const i = (k - 1 + n) % n,
+                j = (k + 1) % n;
+            const a = C[i],
+                b = C[k];
+            out[i] = (a || b) ? [a ? a[0] : X[i] + (X[k] - X[i]) / 3, a ? a[1] : Y[i] + (Y[k] - Y[i]) / 3,
+            b ? b[2] : X[j] - (X[j] - X[k]) / 3, b ? b[3] : Y[j] - (Y[j] - Y[k]) / 3] : null;
+            out.splice(k, 1);
+            return hasCtrl(out) ? out : null;
+        }
+        // The curve edges beside corner k dropped (so a corner made sharp or smooth is drawn by
+        // the rule again); a copy, or null.
+        function ctrlDropAt(C, k, n, open) {
+            if (!hasCtrl(C))
+                return null;
+            const out = C.slice();
+            out[k] = null;
+            if (!(open && k === 0))
+                out[(k - 1 + n) % n] = null;
+            return hasCtrl(out) ? out : null;
+        }
+        // The handles beside each moved corner moved with it: for corner j by (dx[j], dy[j]),
+        // from the handles as they were (C0) into C, in place.
+        function ctrlFollow(C, C0, n, open, js, dx, dy) {
+            if (!C || !C0)
+                return;
+            for (const j of js) {
+                const e0 = (open && j === 0) ? -1 : (j - 1 + n) % n;
+                if (e0 >= 0 && C0[e0] && C[e0]) {
+                    C[e0][2] = C0[e0][2] + dx[j];
+                    C[e0][3] = C0[e0][3] + dy[j];
+                }
+                if (C0[j] && C[j]) {
+                    C[j][0] = C0[j][0] + dx[j];
+                    C[j][1] = C0[j][1] + dy[j];
+                }
+            }
+        }
+        function bakeExact(sp, X, Y, R, Sm, Cc) {
             const lz = sp._lazy;
             makeLazy(sp, Float64Array.from(X), Float64Array.from(Y), lz.scale, null, {
                 exact: true,
                 open: lz.open,
                 round: R,
                 smooth: Sm === undefined ? lz.smooth : Sm,
+                ctrl: Cc === undefined ? lzCtrlBaked(lz) : Cc,
                 holes: lzHolesBaked(lz) // the map is baked in, so the holes come in the page's units
             });
         }
@@ -18993,24 +19235,32 @@
                         j0 = k2 % n0;
                     return !!(lz.smooth && (lz.smooth[i0] || lz.smooth[j0]));
                 };
+                let Cc = lzCtrlBaked(lz);
                 for (const q of ins) {
-                    const cv0 = curvedAt(q.k);
+                    const cv0 = curvedAt(q.k) || !!(Cc && Cc[q.k - 1]);
+                    Cc = ctrlInsert(Cc, X, Y, q.k, 0.5); // the ring sits at the curve's middle
                     X.splice(q.k, 0, q.x);
                     Y.splice(q.k, 0, q.y);
                     R = roundSplice(R, q.k, true);
-                    Sm = cornerSplice(Sm, q.k, true, cv0 ? 1 : 0);
+                    Sm = cornerSplice(Sm || (Cc ? new Array(X.length - 1).fill(0) : null), q.k, true, cv0 ? 1 : 0);
                 }
                 // where ours ended up: shifted by one for every partner inserted before it
                 k = v.k + ins.filter(q => !q.own && q.k < v.k).length;
-                bakeExact(sp, X, Y, R, Sm);
+                bakeExact(sp, X, Y, R, Sm, Cc);
             } else
                 bakeExact(sp, X, Y, R);
             const P = cornerPartners(sp._lazy.x, sp._lazy.y, k);
             const moving = new Set([k].concat(P ? P.list.map(q => q.j) : []));
+            const nl0 = sp._lazy;
             vertexDrag = {
                 spi: v.spi,
                 k,
                 mirror: P,
+                // CURVE EDGES: the handles beside the moving corners follow them
+                x0: Float64Array.from(nl0.rx),
+                y0: Float64Array.from(nl0.ry),
+                ctrl0: nl0.ctrl ? nl0.ctrl.map(c => c && c.slice()) : null,
+                movingList: [...moving],
                 // what it can snap to: everything but itself and its partners (SNAPPING POINTS)
                 targets: pointSnapTargets((sp2, k2) => sp2 === sp && moving.has(k2)),
                 moved: !!v.mid // a corner added is a change even if it is not pulled
@@ -19038,6 +19288,11 @@
                 const p = pxToWorld(mx, my, r.width, r.height);
                 H.x[k] = p.x;
                 H.y[k] = p.y;
+                const dxs = [],
+                    dys = [];
+                dxs[k] = p.x - vertexDrag.x0;
+                dys[k] = p.y - vertexDrag.y0;
+                ctrlFollow(H.ctrl, vertexDrag.ctrl0, H.x.length, false, [k], dxs, dys);
                 lz._h = null;
                 sp._lazyP2d = null;
                 vertexDrag.moved = true;
@@ -19081,6 +19336,16 @@
                     lz.rx[q.j] = M.cx + q.fx * (p.x - M.cx);
                     lz.ry[q.j] = M.cy + q.fy * (p.y - M.cy);
                 }
+            if (vertexDrag.ctrl0 && lz.ctrl) {
+                const n = lz.rx.length,
+                    dx = [],
+                    dy = [];
+                for (const j of vertexDrag.movingList) {
+                    dx[j] = lz.rx[j] - vertexDrag.x0[j];
+                    dy[j] = lz.ry[j] - vertexDrag.y0[j];
+                }
+                ctrlFollow(lz.ctrl, vertexDrag.ctrl0, n, lz.open, vertexDrag.movingList, dx, dy);
+            }
             lz._box = lz._box0 = lz._boxPts = null; // the outline changed in place: its box and path go
             sp._lazyP2d = null;
             vertexDrag.moved = true;
@@ -19137,6 +19402,7 @@
                 open: lz.open,
                 round: lzRoundBaked(lz),
                 smooth: lz.smooth,
+                ctrl: lzCtrlBaked(lz),
                 holes: holes.length ? holes : null
             });
         }
@@ -19144,7 +19410,8 @@
             return (lzHolesBaked(lz) || []).map(h => ({
                 x: Array.from(h.x),
                 y: Array.from(h.y),
-                smooth: h.smooth ? Array.from(h.smooth) : null
+                smooth: h.smooth ? Array.from(h.smooth) : null,
+                ctrl: h.ctrl ? h.ctrl.map(c => c && c.slice()) : null
             }));
         }
         function beginHoleDrag(v) {
@@ -19158,17 +19425,22 @@
                 const n0 = H.x.length,
                     i0 = (v.k - 1 + n0) % n0,
                     j0 = v.k % n0;
-                const curved = !!(H.smooth && (H.smooth[i0] || H.smooth[j0]));
+                const curved = !!(H.smooth && (H.smooth[i0] || H.smooth[j0])) || !!(H.ctrl && H.ctrl[v.k - 1]);
+                H.ctrl = ctrlInsert(H.ctrl, H.x, H.y, v.k, 0.5); // CURVE EDGES: cut at the ring
                 H.x.splice(v.k, 0, v.x);
                 H.y.splice(v.k, 0, v.y);
-                if (H.smooth)
-                    H.smooth.splice(v.k, 0, curved ? 1 : 0);
+                if (H.smooth || (H.ctrl && curved))
+                    (H.smooth = H.smooth || new Array(H.x.length - 1).fill(0)).splice(v.k, 0, curved ? 1 : 0);
             }
             rebakeHoles(sp, holes);
+            const Hn = sp._lazy.holes[v.hole];
             vertexDrag = {
                 spi: v.spi,
                 k: v.k,
                 hole: v.hole,
+                x0: Hn.x[v.k],
+                y0: Hn.y[v.k],
+                ctrl0: Hn.ctrl ? Hn.ctrl.map(c => c && c.slice()) : null,
                 moved: !!v.mid
             };
             pickedVertex = {
@@ -19192,6 +19464,7 @@
                 holes.splice(h, 1);
                 msg = 'hole filled';
             } else {
+                H.ctrl = ctrlRemove(H.ctrl, H.x, H.y, k, false);
                 H.x.splice(k, 1);
                 H.y.splice(k, 1);
                 if (H.smooth)
@@ -19224,14 +19497,16 @@
             const X = Array.from(lz.x),
                 Y = Array.from(lz.y);
             let R = lzRoundBaked(lz),
-                Sm = lz.smooth ? Array.from(lz.smooth) : null;
+                Sm = lz.smooth ? Array.from(lz.smooth) : null,
+                Cc = lzCtrlBaked(lz);
             for (const j of gone) {
+                Cc = ctrlRemove(Cc, X, Y, j, lz.open);
                 X.splice(j, 1);
                 Y.splice(j, 1);
                 R = roundSplice(R, j, false);
                 Sm = cornerSplice(Sm, j, false);
             }
-            bakeExact(sp, X, Y, R, Sm);
+            bakeExact(sp, X, Y, R, Sm, Cc);
             pickedVertex = null;
             pushHistory();
             scheduleSave();
@@ -19689,10 +19964,11 @@
                 n = X.length,
                 S = lz.smooth;
             const edges = lz.open ? n - 1 : n;
+            const C = lzCtrlBaked(lz);
             let best = null;
             for (let i = 0; i < edges; i++) {
                 const j = (i + 1) % n;
-                const cc = edgeCtrl(X, Y, S, lz.open, i, j);
+                const cc = edgeCtrl(X, Y, S, lz.open, i, j, C);
                 for (let q = 0; q <= 24; q++) {
                     const t = q / 24,
                         u = 1 - t;
@@ -19751,14 +20027,16 @@
                 return d >= 1 ? 0 : (1 - d * d) * (1 - d * d);
             };
             // no corner near enough to carry the pull: one goes in under the press, smooth
+            let Cc = lzCtrlBaked(lz);
             if (!X.some((x, k) => weightOf(x, Y[k]) >= 0.5)) {
                 const k = hit.near.i + 1;
+                Cc = ctrlInsert(Cc, X, Y, k, hit.near.t); // a curve edge cut where it was pressed
                 X.splice(k, 0, hit.near.x);
                 Y.splice(k, 0, hit.near.y);
                 R = roundSplice(R, k, true);
                 Sm = cornerSplice(Sm || new Array(X.length - 1).fill(0), k, true, 1);
             }
-            bakeExact(sp, X, Y, R, Sm);
+            bakeExact(sp, X, Y, R, Sm, Cc);
             const nl = sp._lazy;
             pushDrag = {
                 spi: hit.spi,
@@ -19769,6 +20047,7 @@
                 bx: Float64Array.from(nl.rx),
                 by: Float64Array.from(nl.ry),
                 w: Float64Array.from(nl.rx, (x, k) => weightOf(x, nl.ry[k])),
+                ctrl0: nl.ctrl ? nl.ctrl.map(c => c && c.slice()) : null, // CURVE EDGES: handles follow their corners
                 moved: false
             };
             pickedVertex = null;
@@ -19788,6 +20067,13 @@
             for (let k = 0; k < lz.rx.length; k++) {
                 lz.rx[k] = D.bx[k] + D.w[k] * dx;
                 lz.ry[k] = D.by[k] + D.w[k] * dy;
+            }
+            if (D.ctrl0 && lz.ctrl) {
+                const n = lz.rx.length,
+                    js = [];
+                for (let k = 0; k < n; k++)
+                    js.push(k);
+                ctrlFollow(lz.ctrl, D.ctrl0, n, lz.open, js, Array.from(D.w, w => w * dx), Array.from(D.w, w => w * dy));
             }
             lz._box = lz._box0 = lz._boxPts = null;
             D.sp._lazyP2d = null;
@@ -19973,6 +20259,25 @@
         // boolean.) B is nudged off A's lines first, so no corner lies on the other's edge: for a
         // union grown a hair about its middle, so shapes sharing an edge overlap by a sliver and
         // join; otherwise moved a hair sideways.
+        // A crossing's place on the outlines' curves: on each of its two pieces, the curve its
+        // ends share, at t interpolated along the piece. undefined when either piece has a
+        // point on no outline (an offset's band), so ringToExact leaves that ring to the fit.
+        function cutSrc(e, ta, f, tb) {
+            const out = [];
+            for (const [ed, tt] of [[e, ta], [f, tb]]) {
+                // a point on a curve that is no outline's: none to give
+                if ((ed.a.c && ed.a.src === undefined) || (ed.b.c && ed.b.src === undefined))
+                    return undefined;
+                for (const sa of ed.a.src || [])
+                    for (const sb of ed.b.src || [])
+                        if (sa.g === sb.g)
+                            out.push({
+                                g: sa.g,
+                                t: sa.t + (sb.t - sa.t) * tt
+                            });
+            }
+            return out;
+        }
         function ringsBoolean(A0, B0, op) {
             let sx = 0,
                 cx = 0,
@@ -19995,7 +20300,8 @@
                 B = orientRings(B0.map(R => R.map(p => ({
                     x: cx + (p.x - cx) * g + eps * 0.7071,
                     y: cy + (p.y - cy) * g + eps * 0.3333,
-                    c: p.c
+                    c: p.c,
+                    src: p.src
                 }))));
             // each ring as a loop of edges, every corner one shared object
             const edgesOf = rings => {
@@ -20004,7 +20310,8 @@
                     const V = R.map(p => ({
                         x: p.x,
                         y: p.y,
-                        c: p.c
+                        c: p.c,
+                        src: p.src
                     }));
                     for (let i = 0; i < V.length; i++)
                         E.push({
@@ -20035,7 +20342,8 @@
                     const v = {
                         x: e.a.x + rx * ta,
                         y: e.a.y + ry * ta,
-                        c: !!(e.a.c || e.b.c || f.a.c || f.b.c) // on a curve (see ringPoints)
+                        c: !!(e.a.c || e.b.c || f.a.c || f.b.c), // on a curve (see ringPoints)
+                        src: cutSrc(e, ta, f, tb) // where on the outlines' curves (exactDenseTagged)
                     };
                     e.cuts.push({
                         t: ta,
@@ -20082,7 +20390,8 @@
                     R.push({
                         x: c.a.x,
                         y: c.a.y,
-                        c: c.a.c
+                        c: c.a.c,
+                        src: c.a.src
                     });
                     c = out.get(c.b);
                 }
@@ -20144,29 +20453,322 @@
             });
         }
         // One ring as points: its corners where its edges are straight, else finely sampled.
-        function ringPoints(X, Y, R, S) {
-            const curved = hasRound(R) || hasSmooth(S);
-            const d = curved ? exactDense(X, Y, R, false, S) : {
-                x: X,
-                y: Y
-            };
+        function ringPoints(X, Y, R, S, C) {
+            const curved = hasRound(R) || hasSmooth(S) || hasCtrl(C);
             // each point marked as lying on a curve (c), and the mark carried through the
-            // booleans, so a ring of the answer that no curve reached stays exact
+            // booleans, so a ring of the answer that no curve reached stays exact; on a curve,
+            // where on it too (src, see exactDenseTagged), so the answer keeps the curve itself
+            if (curved)
+                return {
+                    pts: exactDenseTagged(X, Y, R, S, C),
+                    curved
+                };
             return {
-                pts: Array.from(d.x, (x, i) => ({
+                pts: Array.from(X, (x, i) => ({
                     x,
-                    y: d.y[i],
-                    c: curved
+                    y: Y[i],
+                    c: false
                 })),
                 curved
+            };
+        }
+        // A closed exact outline sampled finely (a cubic in 64 steps, an arc every 2°), each
+        // point carrying where on the outline's own curves it lies: src, a list of {g, t}, g a
+        // segment (a cubic {type: 'C', x0, y0, c, x3, y3} or an arc {type: 'A', cx, cy, r, a1, d})
+        // and t how far along it; a corner where two curves meet carries both, a point of a
+        // straight edge none. The booleans carry src onto the points they make (a crossing's t
+        // interpolated along its piece of curve), and ringToExact rebuilds the answer's curved
+        // edges as the very pieces of these curves.
+        function exactDenseTagged(X, Y, R, S, C) {
+            const E = exactSegs(X, Y, R, false, S, C);
+            const pts = [];
+            let cx = E.start.x,
+                cy = E.start.y;
+            let last = {
+                x: cx,
+                y: cy,
+                c: true,
+                src: []
+            };
+            pts.push(last);
+            for (const g of E.segs) {
+                if (g.type === 'L') {
+                    last = {
+                        x: g.x,
+                        y: g.y,
+                        c: true,
+                        src: []
+                    };
+                    pts.push(last);
+                    cx = g.x;
+                    cy = g.y;
+                } else if (g.type === 'A') {
+                    const a = g.g;
+                    const a1 = Math.atan2(a.t1y - a.cy, a.t1x - a.cx);
+                    let d = Math.atan2(a.t2y - a.cy, a.t2x - a.cx) - a1;
+                    while (d > Math.PI)
+                        d -= TAU;
+                    while (d < -Math.PI)
+                        d += TAU;
+                    const seg = {
+                        type: 'A',
+                        cx: a.cx,
+                        cy: a.cy,
+                        r: a.r,
+                        a1,
+                        d
+                    };
+                    const steps = Math.max(4, Math.ceil(Math.abs(d) / (Math.PI / 90)));
+                    for (let q = 0; q <= steps; q++) {
+                        const t = q / steps,
+                            th = a1 + d * t;
+                        last = {
+                            x: a.cx + a.r * Math.cos(th),
+                            y: a.cy + a.r * Math.sin(th),
+                            c: true,
+                            src: [{
+                                g: seg,
+                                t
+                            }]
+                        };
+                        pts.push(last);
+                    }
+                    cx = a.t2x;
+                    cy = a.t2y;
+                } else {
+                    const seg = {
+                        type: 'C',
+                        x0: cx,
+                        y0: cy,
+                        c: [g.c1x, g.c1y, g.c2x, g.c2y],
+                        x3: g.x,
+                        y3: g.y
+                    };
+                    last.src.push({
+                        g: seg,
+                        t: 0
+                    });
+                    for (let q = 1; q <= 64; q++) {
+                        const t = q / 64,
+                            u = 1 - t;
+                        last = {
+                            x: u * u * u * cx + 3 * u * u * t * g.c1x + 3 * u * t * t * g.c2x + t * t * t * g.x,
+                            y: u * u * u * cy + 3 * u * u * t * g.c1y + 3 * u * t * t * g.c2y + t * t * t * g.y,
+                            c: true,
+                            src: [{
+                                g: seg,
+                                t
+                            }]
+                        };
+                        pts.push(last);
+                    }
+                    cx = g.x;
+                    cy = g.y;
+                }
+            }
+            // a closed outline arrives back where it started: one point, both its curves
+            if (pts.length > 1 && Math.hypot(last.x - pts[0].x, last.y - pts[0].y) < 1e-12) {
+                pts.pop();
+                pts[0].src = pts[0].src.concat(last.src);
+            }
+            return pts;
+        }
+        // One ring of a boolean's answer rebuilt as an exact outline from its points' src: a
+        // run of points along one curve becomes one edge holding that curve's piece (de
+        // Casteljau for a cubic, the standard cubic for an arc, a quarter turn at most), a point
+        // of no curve a straight edge's corner; corners where the outline turns smoothly marked
+        // smooth. null when a point lies on a curve that is not an outline's (an offset's, which
+        // is no cubic), for the caller to fit instead.
+        function ringToExact(P0) {
+            if (P0.some(p => p.c && p.src === undefined))
+                return null;
+            let x0 = Infinity,
+                x1 = -Infinity,
+                y0 = Infinity,
+                y1 = -Infinity;
+            for (const p of P0) {
+                x0 = Math.min(x0, p.x);
+                x1 = Math.max(x1, p.x);
+                y0 = Math.min(y0, p.y);
+                y1 = Math.max(y1, p.y);
+            }
+            const tol = 1e-7 * Math.max(x1 - x0, y1 - y0, 1e-12);
+            // points closer than tol are one (the grown hairs of a union), their curves joined
+            const P = [];
+            for (const p of P0) {
+                const q = P[P.length - 1];
+                if (q && Math.hypot(p.x - q.x, p.y - q.y) <= tol)
+                    q.src = (q.src || []).concat(p.src || []);
+                else
+                    P.push({
+                        x: p.x,
+                        y: p.y,
+                        src: p.src || []
+                    });
+            }
+            while (P.length > 1 && Math.hypot(P[0].x - P[P.length - 1].x, P[0].y - P[P.length - 1].y) <= tol)
+                P[0].src = P[0].src.concat(P.pop().src);
+            const n = P.length;
+            if (n < 3)
+                return null;
+            // each edge's curve, if its two ends lie on the same one
+            const es = new Array(n);
+            for (let i = 0; i < n; i++) {
+                const a = P[i],
+                    b = P[(i + 1) % n];
+                es[i] = null;
+                for (const sa of a.src)
+                    for (const sb of b.src)
+                        if (sa.g === sb.g && sa.t !== sb.t && !es[i])
+                            es[i] = {
+                                g: sa.g,
+                                t0: sa.t,
+                                t1: sb.t
+                            };
+            }
+            const same = (e, f) => e && f && e.g === f.g && Math.sign(e.t1 - e.t0) === Math.sign(f.t1 - f.t0);
+            // start where one run ends and another begins
+            let st = -1;
+            for (let i = 0; i < n && st < 0; i++)
+                if (!same(es[(i - 1 + n) % n], es[i]))
+                    st = i;
+            if (st < 0)
+                return null;
+            const X = [],
+                Y = [],
+                Cc = [];
+            const pushArc = (g, ta, tb, ax, ay) => {
+                // an arc's piece, in quarter turns at most, each the standard cubic
+                const A0 = g.a1 + g.d * ta,
+                    A1 = g.a1 + g.d * tb;
+                const m = Math.max(1, Math.ceil(Math.abs(A1 - A0) / (Math.PI / 2) - 1e-9));
+                for (let q = 0; q < m; q++) {
+                    const u0 = A0 + (A1 - A0) * q / m,
+                        u1 = A0 + (A1 - A0) * (q + 1) / m;
+                    const kk = 4 / 3 * Math.tan((u1 - u0) / 4) * g.r;
+                    const sx = q ? g.cx + g.r * Math.cos(u0) : ax,
+                        sy = q ? g.cy + g.r * Math.sin(u0) : ay;
+                    const ex = g.cx + g.r * Math.cos(u1),
+                        ey = g.cy + g.r * Math.sin(u1);
+                    X.push(sx);
+                    Y.push(sy);
+                    Cc.push([sx - kk * Math.sin(u0), sy + kk * Math.cos(u0), ex + kk * Math.sin(u1), ey - kk * Math.cos(u1)]);
+                }
+            };
+            const subCubic = (g, ta, tb) => {
+                const rev = ta > tb,
+                    lo = Math.min(ta, tb),
+                    hi = Math.max(ta, tb);
+                let c = g.c,
+                    x0c = g.x0,
+                    y0c = g.y0,
+                    x3c = g.x3,
+                    y3c = g.y3;
+                if (hi < 1) {
+                    const sp1 = splitCubic(x0c, y0c, c, x3c, y3c, hi);
+                    c = sp1.a;
+                    x3c = sp1.x;
+                    y3c = sp1.y;
+                }
+                if (lo > 0) {
+                    const sp2 = splitCubic(x0c, y0c, c, x3c, y3c, lo / hi);
+                    c = sp2.b;
+                }
+                return rev ? [c[2], c[3], c[0], c[1]] : c;
+            };
+            let i = st,
+                done = 0;
+            while (done < n) {
+                const e = es[i];
+                let j = i,
+                    len = 0;
+                do {
+                    j = (j + 1) % n;
+                    len++;
+                } while (len < n && e && same(es[(j - 1 + n) % n], es[j]) && done + len < n);
+                const a = P[i];
+                if (!e) {
+                    X.push(a.x);
+                    Y.push(a.y);
+                    Cc.push(null);
+                } else {
+                    const t0 = e.t0,
+                        t1 = es[(j - 1 + n) % n].t1;
+                    if (e.g.type === 'A')
+                        pushArc(e.g, t0, t1, a.x, a.y);
+                    else {
+                        X.push(a.x);
+                        Y.push(a.y);
+                        Cc.push(subCubic(e.g, t0, t1));
+                    }
+                }
+                done += len;
+                i = j;
+            }
+            const m = X.length;
+            if (m < 3 && !hasCtrl(Cc))
+                return null;
+            // corners where the outline turns smoothly: smooth; straight corners on a line: gone
+            const tanIn = k => {
+                const e = (k - 1 + m) % m,
+                    c = Cc[e];
+                return c ? [X[k] - c[2], Y[k] - c[3]] : [X[k] - X[e], Y[k] - Y[e]];
+            };
+            const tanOut = k => {
+                const c = Cc[k],
+                    j = (k + 1) % m;
+                return c ? [c[0] - X[k], c[1] - Y[k]] : [X[j] - X[k], Y[j] - Y[k]];
+            };
+            const Sm = new Uint8Array(m);
+            const keep = [];
+            for (let k = 0; k < m; k++) {
+                const u = tanIn(k),
+                    v = tanOut(k);
+                const lu = Math.hypot(u[0], u[1]),
+                    lv = Math.hypot(v[0], v[1]);
+                const cosA = lu > 0 && lv > 0 ? (u[0] * v[0] + u[1] * v[1]) / (lu * lv) : -1;
+                const straightBoth = !Cc[(k - 1 + m) % m] && !Cc[k];
+                if (straightBoth && cosA > 1 - 1e-12 && m - (k - keep.length) - 1 >= 3) {
+                    // on a straight line between its neighbours: not a corner
+                    const j = (k + 1) % m,
+                        e = (k - 1 + m) % m;
+                    const L = Math.hypot(X[j] - X[e], Y[j] - Y[e]);
+                    const dd = L > 0 ? Math.abs((X[j] - X[e]) * (Y[k] - Y[e]) - (Y[j] - Y[e]) * (X[k] - X[e])) / L : 0;
+                    if (dd <= tol * 10)
+                        continue;
+                }
+                // smooth only between two curves: a smooth end would bend a straight neighbour (edgeCtrl)
+                Sm[k] = Cc[(k - 1 + m) % m] && Cc[k] && cosA > Math.cos(Math.PI / 180) ? 1 : 0;
+                keep.push(k);
+            }
+            if (keep.length < 2 || (keep.length < 3 && !keep.some(k => Cc[k])))
+                return null;
+            if (keep.length < m) {
+                // a dropped corner sat between two straight edges, so the edges round it stay straight
+                const ox = keep.map(k => X[k]),
+                    oy = keep.map(k => Y[k]),
+                    oc = keep.map(k => Cc[k]),
+                    os = keep.map(k => Sm[k]);
+                return {
+                    x: Float64Array.from(ox),
+                    y: Float64Array.from(oy),
+                    smooth: hasSmooth(os) ? Uint8Array.from(os) : null,
+                    ctrl: hasCtrl(oc) ? oc : null
+                };
+            }
+            return {
+                x: Float64Array.from(X),
+                y: Float64Array.from(Y),
+                smooth: hasSmooth(Sm) ? Sm : null,
+                ctrl: hasCtrl(Cc) ? Cc : null
             };
         }
         // One shape as rings, its outline and its holes, and whether any of them curves.
         function booleanRings(sp) {
             const lz = sp._lazy;
-            const rs = [ringPoints(lz.x, lz.y, lzRoundBaked(lz), lz.smooth)];
+            const rs = [ringPoints(lz.x, lz.y, lzRoundBaked(lz), lz.smooth, lzCtrlBaked(lz))];
             for (const h of lzHolesBaked(lz) || [])
-                rs.push(ringPoints(h.x, h.y, null, h.smooth));
+                rs.push(ringPoints(h.x, h.y, null, h.smooth, h.ctrl));
             return {
                 rings: rs.map(r => r.pts),
                 curved: rs.some(r => r.curved)
@@ -20191,31 +20793,8 @@
                 b = pxToWorld(0.5, 0, r.width, r.height);
             const halfPx = Math.abs(b.x - a.x) || 1e-4;
             // one ring of the answer, exact or fitted; null for a sliver where two edges ran
-            // together
-            const finish = P => {
-                if (Math.abs(ringArea(P)) < halfPx * halfPx * 4)
-                    return null;
-                let x0 = Infinity,
-                    x1 = -Infinity;
-                for (const p of P) {
-                    x0 = Math.min(x0, p.x);
-                    x1 = Math.max(x1, p.x);
-                }
-                // the grown hair of a union (ringsBoolean) and nothing more: a curve's too, or
-                // the fit takes the hair for a corner
-                const T = tidyPoly(P, Math.max(1e-6 * (x1 - x0), 1e-12));
-                if (T.length < 3)
-                    return null;
-                if (!P.some(p => p.c))
-                    return {
-                        x: Float64Array.from(T, q => q.x),
-                        y: Float64Array.from(T, q => q.y),
-                        smooth: null
-                    };
-                const rs = arcLengthResample(T.map(q => q.x), T.map(q => q.y), 1024);
-                const o = fitExactOutline(Float64Array.from(rs.x), Float64Array.from(rs.y), 4 * halfPx);
-                return o && o.x.length >= 3 ? o : null;
-            };
+            // together (finishBooleanRing)
+            const finish = P => finishBooleanRing(P, halfPx);
             const made = [];
             for (const R of ringsToRegions(acc)) {
                 const out = finish(R.outer);
@@ -20255,6 +20834,7 @@
                 makeLazy(sp, o.x, o.y, 0, null, {
                     exact: true,
                     smooth: o.smooth,
+                    ctrl: o.ctrl || null,
                     holes: o.holes.length ? o.holes : null
                 });
                 return sp;
@@ -20325,7 +20905,8 @@
                 return R.map(p => ({
                     x: cx + (p.x - cx) * g + eps * 0.7071,
                     y: cy + (p.y - cy) * g + eps * 0.3333,
-                    c: p.c
+                    c: p.c,
+                    src: p.src
                 }));
             });
             const boxes = rings.map(R => {
@@ -20346,7 +20927,8 @@
                 const V = R.map(p => ({
                     x: p.x,
                     y: p.y,
-                    c: p.c
+                    c: p.c,
+                    src: p.src
                 }));
                 for (let i = 0; i < V.length; i++) {
                     const a = V[i],
@@ -20387,7 +20969,8 @@
                     const v = {
                         x: e.a.x + rx * ta,
                         y: e.a.y + ry * ta,
-                        c: !!(e.a.c || e.b.c || f.a.c || f.b.c) // on a curve (see ringPoints)
+                        c: !!(e.a.c || e.b.c || f.a.c || f.b.c), // on a curve (see ringPoints)
+                        src: cutSrc(e, ta, f, tb) // where on the outlines' curves (exactDenseTagged)
                     };
                     e.cuts.push({
                         t: ta,
@@ -20435,7 +21018,8 @@
                     R.push({
                         x: c.a.x,
                         y: c.a.y,
-                        c: c.a.c
+                        c: c.a.c,
+                        src: c.a.src
                     });
                     c = out.get(c.b);
                 }
@@ -20671,11 +21255,13 @@
                     }
                 } else if (kind === 'smooth')
                     Sm = new Uint8Array(n).fill(1);
-                bakeExact(sp, X, Y, R, Sm);
+                bakeExact(sp, X, Y, R, Sm, null); // every corner by the rule: no curve edges
                 if (kind !== 'round' && sp._lazy.holes) {
                     const holes = holesCopy(sp._lazy);
-                    for (const h of holes)
+                    for (const h of holes) {
                         h.smooth = kind === 'smooth' ? new Array(h.x.length).fill(1) : null;
+                        h.ctrl = null;
+                    }
                     rebakeHoles(sp, holes);
                 }
             }
@@ -20779,6 +21365,12 @@
             for (const p of P) {
                 x0 = Math.min(x0, p.x);
                 x1 = Math.max(x1, p.x);
+            }
+            if (P.some(p => p.c)) {
+                // CURVE EDGES: the curves kept as they are, where every curved point says whose
+                const ex = ringToExact(P);
+                if (ex)
+                    return ex;
             }
             const T = tidyPoly(P, Math.max(1e-6 * (x1 - x0), 1e-12));
             if (T.length < 3)
@@ -20901,6 +21493,7 @@
                     makeLazy(ns, o.x, o.y, 0, null, {
                         exact: true,
                         smooth: o.smooth,
+                        ctrl: o.ctrl || null,
                         holes: o.holes.length ? o.holes : null
                     });
                     fresh.push(next.length);
@@ -21226,12 +21819,14 @@
             const ks = [k].concat(P ? P.list.map(p => p.j) : []);
             const Sm = lz.smooth ? Array.from(lz.smooth) : new Array(n).fill(0);
             let R = lzRoundBaked(lz);
+            let Cc = lzCtrlBaked(lz);
             for (const j of ks) {
                 Sm[j] = on ? 1 : 0;
                 if (on && R)
                     R[j] = 0;
+                Cc = ctrlDropAt(Cc, j, n, lz.open); // the rule draws its edges again (CURVE EDGES)
             }
-            bakeExact(sp, Array.from(lz.x), Array.from(lz.y), R && hasRound(R) ? R : null, Sm);
+            bakeExact(sp, Array.from(lz.x), Array.from(lz.y), R && hasRound(R) ? R : null, Sm, Cc);
             pickedVertex = {
                 sp,
                 lz: sp._lazy,
@@ -21349,7 +21944,8 @@
                     x: Float64Array.from(lz.x),
                     y: Float64Array.from(lz.y),
                     round: lzRoundBaked(lz),
-                    smooth: lz.smooth
+                    smooth: lz.smooth,
+                    ctrl: lzCtrlBaked(lz)
                 };
                 sp._exactSimp = 0;
                 sp._exactSrcFor = lz;
@@ -21377,7 +21973,8 @@
             let X = src.x,
                 Y = src.y,
                 R = src.round,
-                Sm = src.smooth;
+                Sm = src.smooth,
+                Cc = src.ctrl; // CURVE EDGES: kept while every corner is, dropped once any goes
             if (t > 0 && n > (lz.open ? 2 : 3)) {
                 let mnx = Infinity,
                     mny = Infinity,
@@ -21409,9 +22006,11 @@
                     Y = Float64Array.from(pts, q => q.y);
                     R = R ? Float64Array.from(pts, q => R[q.i]) : null;
                     Sm = Sm ? Uint8Array.from(pts, q => Sm[q.i]) : null;
+                    if (pts.length < n)
+                        Cc = null;
                 }
             }
-            bakeExact(sp, X, Y, R, Sm);
+            bakeExact(sp, X, Y, R, Sm, Cc);
             sp._exactSrcFor = sp._lazy;
             sp._exactSrcVer = sp._lazy.ver;
             sp._exactSimp = t;
@@ -28351,8 +28950,11 @@
                 holes: (kind && kind.exact && !kind.open && kind.holes && kind.holes.length) ? kind.holes.map(h => ({
                     x: Float64Array.from(h.x),
                     y: Float64Array.from(h.y),
-                    smooth: (h.smooth && h.smooth.length === h.x.length && hasSmooth(h.smooth)) ? Uint8Array.from(h.smooth) : null
+                    smooth: (h.smooth && h.smooth.length === h.x.length && hasSmooth(h.smooth)) ? Uint8Array.from(h.smooth) : null,
+                    ctrl: ctrlChecked(h.ctrl, h.x.length)
                 })) : null,
+                // CURVE EDGES: per edge, its own cubic or null (see hasCtrl), in rx's units
+                ctrl: (kind && kind.exact) ? ctrlChecked(kind.ctrl, rx.length) : null,
                 _h: null,
                 ver: 0, // bumped by every change of m (the rung worker's answers check it)
                 _x: null,
@@ -28412,15 +29014,16 @@
                 lz._h = lz.holes.map(h => ({
                     x: Float64Array.from(h.x, (x, i) => a * x + c * h.y[i] + e),
                     y: Float64Array.from(h.x, (x, i) => b * x + d * h.y[i] + f),
-                    smooth: h.smooth
+                    smooth: h.smooth,
+                    ctrl: ctrlMapped(h.ctrl, lz.m)
                 }));
             }
             return lz._h;
         }
         // A ring onto a path: straight edges, or the curves of its smooth corners.
-        function traceRing(path, X, Y, S) {
-            if (hasSmooth(S)) {
-                traceExact(path, X, Y, null, false, S);
+        function traceRing(path, X, Y, S, C) {
+            if (hasSmooth(S) || hasCtrl(C)) {
+                traceExact(path, X, Y, null, false, S, C);
                 return;
             }
             path.moveTo(X[0], Y[0]);
@@ -28434,15 +29037,36 @@
         // can swell past its corners, so a box of corners alone put a rounded rectangle's edge
         // where it is not drawn, and aligning it with a square left a gap. Kept with the box.
         function lazyBoxPts(lz) {
-            if (!(lz.exact && (hasRound(lz.round) || hasSmooth(lz.smooth))))
+            if (!(lz.exact && (hasRound(lz.round) || hasSmooth(lz.smooth) || lz.ctrl)))
                 return {
                     x: lz.rx,
                     y: lz.ry
                 };
             if (!lz._boxPts || lz._boxPtsOf !== lz.rx)
-                lz._boxPts = exactDense(lz.rx, lz.ry, lz.round, lz.open, lz.smooth);
+                lz._boxPts = exactDense(lz.rx, lz.ry, lz.round, lz.open, lz.smooth, lz.ctrl);
             lz._boxPtsOf = lz.rx;
             return lz._boxPts;
+        }
+        // The outline as drawn, in the page's units, for the click tests: the corners, or where
+        // a corner is rounded or smooth or an edge curves, the drawn curve finely (a letter's few
+        // corners are no polygon to click inside). Kept until the outline or its map changes.
+        function lzOutlinePts(lz) {
+            const BP = lazyBoxPts(lz);
+            if (BP.x === lz.rx)
+                return {
+                    x: lz.x,
+                    y: lz.y
+                };
+            if (!lz._ol || lz._olOf !== BP || lz._olM !== lz.m) {
+                const m = lz.m;
+                lz._ol = m ? {
+                    x: Float64Array.from(BP.x, (x, i) => m[0] * x + m[2] * BP.y[i] + m[4]),
+                    y: Float64Array.from(BP.x, (x, i) => m[1] * x + m[3] * BP.y[i] + m[5])
+                } : BP;
+                lz._olOf = BP;
+                lz._olM = m;
+            }
+            return lz._ol;
         }
         function lazyBoxOf(lz) {
             const BP = lazyBoxPts(lz);
@@ -28553,8 +29177,8 @@
             let RX = raw.x,
                 RY = raw.y;
             // rounded corners become their arcs, so the leaves follow the rounding (ROUNDED CORNERS)
-            if (raw.exact && (hasRound(raw.round) || raw.smooth)) { // and smooth corners their curves
-                const D = exactDense(RX, RY, lzRoundBaked(raw), raw.open, raw.smooth);
+            if (raw.exact && (hasRound(raw.round) || raw.smooth || raw.ctrl)) { // and smooth corners and curve edges their curves
+                const D = exactDense(RX, RY, lzRoundBaked(raw), raw.open, raw.smooth, lzCtrlBaked(raw));
                 RX = D.x;
                 RY = D.y;
             }
@@ -28787,6 +29411,7 @@
                         open: sp._lazy.open,
                         round: sp._lazy.round,
                         smooth: sp._lazy.smooth,
+                        ctrl: sp._lazy.ctrl, // CURVE EDGES, in x's units, under m
                         holes: sp._lazy.holes // in x's units, under m, as x is
                     } : null,
                     leafX: sp._lazy ? null : sp.leafX ? Float64Array.from(sp.leafX) : null,
@@ -38935,8 +39560,8 @@
                     let p2 = sp._lazyP2d;
                     if (!p2 || sp._lazyP2dOf !== lz.rx) {
                         p2 = new Path2D();
-                        if (lz.exact && (hasRound(lz.round) || lz.smooth))
-                            traceExact(p2, lz.rx, lz.ry, lz.round, lz.open, lz.smooth); // ROUNDED and SMOOTH CORNERS
+                        if (lz.exact && (hasRound(lz.round) || lz.smooth || lz.ctrl))
+                            traceExact(p2, lz.rx, lz.ry, lz.round, lz.open, lz.smooth, lz.ctrl); // ROUNDED and SMOOTH CORNERS, CURVE EDGES
                         else {
                             p2.moveTo(lz.rx[0], lz.ry[0]);
                             for (let i = 1; i < lz.rx.length; i++)
@@ -38946,7 +39571,7 @@
                         }
                         if (lz.holes) // HOLES, in the same units as rx: the fill is even-odd
                             for (const hl of lz.holes)
-                                traceRing(p2, hl.x, hl.y, hl.smooth);
+                                traceRing(p2, hl.x, hl.y, hl.smooth, hl.ctrl);
                         sp._lazyP2d = p2;
                         sp._lazyP2dOf = lz.rx;
                     }
@@ -40021,8 +40646,8 @@
                 const sp = state.subpaths[spi];
                 // An unconverted shape is hit on its imported outline (CONVERT ON TOUCH): this
                 // runs over every shape on every click, and must not convert them all.
-                const LX = sp._lazy ? sp._lazy.x : sp.leafX,
-                    LY = sp._lazy ? sp._lazy.y : sp.leafY;
+                const LX = sp._lazy ? lzOutlinePts(sp._lazy).x : sp.leafX,
+                    LY = sp._lazy ? lzOutlinePts(sp._lazy).y : sp.leafY;
                 const OPEN = !!(sp && sp._lazy && sp._lazy.open); // a line: no inside, no closing edge (EXACT SHAPES)
                 if (!LX || LX.length < (OPEN ? 2 : 3))
                     continue;
@@ -40087,8 +40712,8 @@
             if (!sp)
                 return false;
             // An unconverted shape is tested on its imported outline, as in findShapeAt.
-            const LX = sp._lazy ? sp._lazy.x : sp.leafX,
-                LY = sp._lazy ? sp._lazy.y : sp.leafY;
+            const LX = sp._lazy ? lzOutlinePts(sp._lazy).x : sp.leafX,
+                LY = sp._lazy ? lzOutlinePts(sp._lazy).y : sp.leafY;
             const OPEN = !!(sp && sp._lazy && sp._lazy.open); // a line: no inside, no closing edge (EXACT SHAPES)
             if (!LX || LX.length < (OPEN ? 2 : 3))
                 return false;
@@ -40973,8 +41598,8 @@
                 const sp = state.subpaths[spi];
                 // An unconverted shape is tested on its imported outline (CONVERT ON TOUCH):
                 // this runs over every shape and must not convert them all.
-                const LX = sp && sp._lazy ? sp._lazy.x : sp && sp.leafX,
-                    LY = sp && sp._lazy ? sp._lazy.y : sp && sp.leafY;
+                const LX = sp && sp._lazy ? lzOutlinePts(sp._lazy).x : sp && sp.leafX,
+                    LY = sp && sp._lazy ? lzOutlinePts(sp._lazy).y : sp && sp.leafY;
                 if (!sp || !LX || LX.length < 1)
                     continue;
                 // The centroid of the LEAVES, not of the bounding box: a crescent's box centre sits
@@ -41000,8 +41625,8 @@
                 const sp = state.subpaths[spi];
                 // An unconverted shape is tested on its imported outline (CONVERT ON TOUCH):
                 // this runs over every shape and must not convert them all.
-                const LX = sp && sp._lazy ? sp._lazy.x : sp && sp.leafX,
-                    LY = sp && sp._lazy ? sp._lazy.y : sp && sp.leafY;
+                const LX = sp && sp._lazy ? lzOutlinePts(sp._lazy).x : sp && sp.leafX,
+                    LY = sp && sp._lazy ? lzOutlinePts(sp._lazy).y : sp && sp.leafY;
                 if (!sp || !LX || LX.length < 1)
                     continue;
                 let bx0 = Infinity,
@@ -64730,9 +65355,11 @@
                         R0 = lzRoundBaked(lz2);
                     const X2 = Float64Array.from(lz2.x, x => half + (x - ox) * scale),
                         Y2 = Float64Array.from(lz2.y, y => half - (y - oy) * scale);
-                    let d2 = exactSvgD(X2, Y2, R0 ? R0.map(r => r * scale) : null, lz2.open, lz2.smooth);
+                    // CURVE EDGES: their control points carried into the file's coordinates
+                    const svgM = [scale, 0, 0, -scale, half - ox * scale, half + oy * scale];
+                    let d2 = exactSvgD(X2, Y2, R0 ? R0.map(r => r * scale) : null, lz2.open, lz2.smooth, ctrlMapped(lzCtrlBaked(lz2), svgM));
                     for (const hl of lzHolesBaked(lz2) || []) // HOLES: more rings of the same path, filled even-odd
-                        d2 += ' ' + exactSvgD(Float64Array.from(hl.x, x => half + (x - ox) * scale), Float64Array.from(hl.y, y => half - (y - oy) * scale), null, false, hl.smooth);
+                        d2 += ' ' + exactSvgD(Float64Array.from(hl.x, x => half + (x - ox) * scale), Float64Array.from(hl.y, y => half - (y - oy) * scale), null, false, hl.smooth, ctrlMapped(hl.ctrl, svgM));
                     return d2;
                 }
                 if (pts.length < 4)
@@ -65368,6 +65995,12 @@
                     lines.push(`#meta radii:${Array.from(E.round, r => fmtSig(r, 8)).join(' ')}`);
                 if (E.smooth) // the smooth corners, by index from 0
                     lines.push(`#meta smooth:${Array.from(E.smooth).map((v, k) => v ? k : -1).filter(k => k >= 0).join(' ')}`);
+                // CURVE EDGES: "k x1 y1 x2 y2" for each edge with its own cubic, ", " between
+                const curvesText = C => C.map((c, k) => c ? k + ' ' + c.map(v => fmtSig(v, 10)).join(' ') : null).filter(Boolean).join(', ');
+                if (E.ctrl)
+                    lines.push(`#meta curves:${curvesText(E.ctrl)}`);
+                if (E.holes && E.holes.some(h => h.ctrl))
+                    lines.push(`#meta holecurves:${E.holes.map(h => h.ctrl ? curvesText(h.ctrl) : '').join(' | ')}`);
                 if (E.holes) { // HOLES: their corners ring by ring, " | " between, and their smooth corners the same way
                     lines.push(`#meta holes:${E.holes.map(h => Array.from(h.x, (x, i) => fmtSig(x, 10) + ' ' + fmtSig(h.y[i], 10)).join(' ')).join(' | ')}`);
                     if (E.holes.some(h => h.smooth))
@@ -65429,6 +66062,7 @@
                 y: lz.y,
                 round: lzRoundBaked(lz),
                 smooth: lz.smooth,
+                ctrl: lzCtrlBaked(lz),
                 holes: lzHolesBaked(lz)
             };
             makeLazy(c, lz.x, lz.y, lz.scale, null, {
@@ -71792,12 +72426,30 @@
                             if (!holes.length)
                                 holes = null;
                         }
+                        // CURVE EDGES: "k x1 y1 x2 y2, …"; the holes' the same, " | " between
+                        const curvesOf = (txt, m) => {
+                            const C = new Array(m).fill(null);
+                            for (const part of (txt || '').split(',')) {
+                                const w = part.trim().split(/\s+/).map(Number);
+                                if (w.length === 5 && Number.isInteger(w[0]) && w[0] >= 0 && w[0] < m && w.slice(1).every(Number.isFinite))
+                                    C[w[0]] = w.slice(1);
+                            }
+                            return hasCtrl(C) ? C : null;
+                        };
+                        const ctrl = meta.curves ? curvesOf(meta.curves, n) : null;
+                        if (holes && meta.holecurves) {
+                            const hc = meta.holecurves.split('|');
+                            holes.forEach((h, hi) => {
+                                h.ctrl = curvesOf(hc[hi], h.x.length);
+                            });
+                        }
                         info = {
                             open,
                             x,
                             y,
                             round,
                             smooth,
+                            ctrl,
                             holes,
                             lineStyle: (da || ar) ? {
                                 dash: da,
@@ -71844,10 +72496,13 @@
                 open: info.open,
                 round: info.round ? Float64Array.from(info.round, r => r * s) : null,
                 smooth: info.smooth,
+                // CURVE EDGES carried by the same map as the corners
+                ctrl: ctrlMapped(info.ctrl, [sx, 0, 0, sy, B1[0] - B0[0] * sx, B1[1] - B0[1] * sy]),
                 holes: info.holes ? info.holes.map(h => ({
                     x: Float64Array.from(h.x, x => B1[0] + (x - B0[0]) * sx),
                     y: Float64Array.from(h.y, y => B1[1] + (y - B0[1]) * sy),
-                    smooth: h.smooth
+                    smooth: h.smooth,
+                    ctrl: ctrlMapped(h.ctrl, [sx, 0, 0, sy, B1[0] - B0[0] * sx, B1[1] - B0[1] * sy])
                 })) : null
             });
             if (info.lineStyle)
@@ -74961,8 +75616,10 @@
                     ho: sp._lazy && sp._lazy.holes ? lzHolesBaked(sp._lazy).map(h => ({ // HOLES, in rx's units as rx is
                         x: _f32b64(h.x),
                         y: _f32b64(h.y),
-                        s: h.smooth ? Array.from(h.smooth) : null
+                        s: h.smooth ? Array.from(h.smooth) : null,
+                        c: h.ctrl || null
                     })) : null,
+                    cc: sp._lazy && sp._lazy.exact && sp._lazy.ctrl ? lzCtrlBaked(sp._lazy) : null, // CURVE EDGES, in rx's units
                     x: sp._lazy ? '' : _f32b64(sp.leafX),
                     y: sp._lazy ? '' : _f32b64(sp.leafY),
                     rx: sp._lazy ? _f32b64(sp._lazy.x) : dropRefs ? '' : _f32b64(sp.refX),
@@ -75091,8 +75748,10 @@
                         holes: Array.isArray(sp.ho) ? sp.ho.map(h => ({
                             x: _b64f32(h.x),
                             y: _b64f32(h.y),
-                            smooth: Array.isArray(h.s) ? h.s : null
-                        })).filter(h => h.x && h.y && h.x.length >= 3 && h.x.length === h.y.length) : null
+                            smooth: Array.isArray(h.s) ? h.s : null,
+                            ctrl: Array.isArray(h.c) ? h.c : null
+                        })).filter(h => h.x && h.y && h.x.length >= 3 && h.x.length === h.y.length) : null,
+                        ctrl: Array.isArray(sp.cc) ? sp.cc : null
                     } : null;
                     const X = lz ? null : _b64f32(sp.x),
                         Y = lz ? null : _b64f32(sp.y);
@@ -77708,6 +78367,23 @@
                     round: hasRound(lz.round) ? Array.from(lzRoundBaked(lz)) : null,
                     open: lz.open,
                     box: Array.from(lz.box), // as drawn: [minx, miny, maxx, maxy]
+                    // as drawn, curves and holes included (CURVE EDGES)
+                    drawn: (() => {
+                        const ar = (X, Y, R, S, C) => {
+                            const D = exactDense(X, Y, R, false, S, C);
+                            return Math.abs(ringArea(Array.from(D.x, (x, k) => ({
+                                x,
+                                y: D.y[k]
+                            }))));
+                        };
+                        if (lz.open)
+                            return 0;
+                        let a = ar(lz.x, lz.y, lzRoundBaked(lz), lz.smooth, lzCtrlBaked(lz));
+                        for (const h of lzHolesBaked(lz) || [])
+                            a -= ar(h.x, h.y, null, h.smooth, h.ctrl);
+                        return a;
+                    })(),
+                    curves: lz.ctrl ? lz.ctrl.filter(Boolean).length : 0,
                     exact: lz.exact,
                     holes: lz.holes ? lz.holes.map(h => ({ // HOLES: each its corner count and area
                         n: h.x.length,
@@ -77736,6 +78412,7 @@
                     y: Array.from(lz.y),
                     round: lzRoundBaked(lz) ? Array.from(lzRoundBaked(lz)) : null,
                     smooth: lz.smooth ? Array.from(lz.smooth) : null,
+                    ctrl: lzCtrlBaked(lz),
                     holes: (lzHolesBaked(lz) || []).map(h => ({
                         x: Array.from(h.x),
                         y: Array.from(h.y),
