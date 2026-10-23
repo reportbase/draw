@@ -34182,9 +34182,15 @@
                     if (!selForAxes.has(spi))
                         continue;
                     const sp = state.subpaths[spi];
-                    if (!sp.leafX || sp.leafX.length < 3)
+                    // A held or exact shape is measured from its outline: reading its leaves here
+                    // converted it, so with a mirror on, an exact shape turned back into leaves at
+                    // the first frame (22 Oct 2026, Tom: "it switches back as soon as I release").
+                    const lz = sp._lazy;
+                    const LX = lz ? lz.x : sp.leafX,
+                        LY = lz ? lz.y : sp.leafY;
+                    if (!LX || LX.length < (lz ? 2 : 3))
                         continue;
-                    const c = mirrorCentreOf(sp.leafX, sp.leafY);
+                    const c = mirrorCentreOf(LX, LY);
                     if (!c)
                         continue;
                     const over = 0.12; // a little past the box, in box widths
