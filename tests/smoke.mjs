@@ -695,6 +695,16 @@ current = 'exact shapes';
     await xp.waitForTimeout(400);
     const sqc = await xp.evaluate(() => window.__box.corners());
     if (!sqc || sqc.pts.length !== 4 || sqc.smooth) throw new Error('a square of leaves made exact: ' + (sqc ? sqc.pts.length + ' corners' : 'not exact'));
+    // ...and a circle of leaves as a handful of smooth corners: smooth corners on a circle draw
+    // the circle (edgeCtrl), so few are needed.
+    await xp.click('#bShapes');
+    await xp.click('#shapeGrid .shape-pick[data-shape="circle"]');
+    await xp.waitForTimeout(400);
+    const ciSw = await xp.evaluate(() => { const b = window.__box.button('bt-mode'); return b && [b.cx, b.cy]; });
+    await xp.mouse.click(...P(ciSw[0], ciSw[1]));
+    await xp.waitForTimeout(400);
+    const cic = await xp.evaluate(() => window.__box.corners());
+    if (!cic || cic.pts.length > 8 || !cic.smooth || cic.smooth.some(v => !v)) throw new Error('a circle of leaves made exact: ' + (cic ? cic.pts.length + ' corners' : 'not exact'));
   } catch (e){
     failures.push(`[exact shapes] ${e.message.split('\n')[0]}`);
   }

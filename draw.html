@@ -17649,38 +17649,92 @@
         // (the default) or smooth (lz.smooth[k] = 1): the outline curves through a smooth corner
         // and turns at a sharp one. An edge is straight exactly when both its ends are sharp, so
         // a straight run stays straight however its neighbours bend. A curved edge is the cubic
-        // through its two ends whose tangents are a smooth end's neighbours' chord (Catmull–Rom,
-        // a sixth of it) or, at a sharp end, the edge itself (a third), so a curve meets a sharp
-        // corner along the straight line to the next one. A radius (ROUNDED CORNERS) applies at
+        // through its two ends that leaves a smooth end along the circle through it and its
+        // neighbours, and a sharp end along the edge itself (see edgeCtrl), so a curve meets a
+        // sharp corner along the straight line to the next one. A radius (ROUNDED CORNERS) applies at
         // a sharp corner whose two edges are both straight.
         //
         // The control points of the edge from corner a to corner b (= a + 1), or null when it is
         // straight (both ends sharp). The one rule for a curved edge, so what is drawn, exported
         // and fitted (fitExactOutline) agree.
+        //
+        // ROUND, NOT FLAT (23 Oct 2026, Tom: "4,1"). At a smooth corner the edge leaves along the
+        // tangent of the circle through the corner and its two neighbours (|a|²b − |b|²a, with a
+        // and b the neighbours as seen from the corner): exact for points on a circle, however
+        // they are spaced. Each handle is as long as a circular arc needs for the angle φ
+        // between that tangent and the edge: chord × (2/3)·tan(φ/2)/sin φ, a third of the chord
+        // when the edge leaves straight. So corners on a circle draw the circle (eight of them to
+        // a part in a hundred thousand), where a Catmull–Rom curve, a sixth of the neighbours'
+        // chord, ran a tenth short and flat. At a sharp end the edge leaves along itself, a third.
+        function smoothTangent(X, Y, open, k) {
+            const n = X.length;
+            const i = (open && k === 0) ? -1 : (k - 1 + n) % n,
+                j = (open && k === n - 1) ? -1 : (k + 1) % n;
+            if (i < 0 || j < 0)
+                return null;
+            const ax = X[i] - X[k],
+                ay = Y[i] - Y[k],
+                bx = X[j] - X[k],
+                by = Y[j] - Y[k];
+            const A = ax * ax + ay * ay,
+                B = bx * bx + by * by;
+            let tx = A * bx - B * ax,
+                ty = A * by - B * ay;
+            const L = Math.hypot(tx, ty);
+            if (!(L > 0))
+                return null;
+            tx /= L;
+            ty /= L;
+            // pointing on, from the neighbour before toward the one after
+            if (tx * (bx - ax) + ty * (by - ay) < 0) {
+                tx = -tx;
+                ty = -ty;
+            }
+            return {
+                tx,
+                ty
+            };
+        }
+        function arcHandle(chord, cosPhi) {
+            const c = Math.max(-1, Math.min(1, cosPhi));
+            const phi = Math.acos(c);
+            if (phi < 1e-6)
+                return chord / 3;
+            // past a right angle the edge doubles back: hold the handle at what 90° asks
+            const p = Math.min(phi, Math.PI / 2);
+            return chord * (2 / 3) * Math.tan(p / 2) / Math.sin(p);
+        }
         function edgeCtrl(X, Y, S, open, a, b) {
-            const n = X.length,
-                sm = k => !!(S && S[k]);
+            const sm = k => !!(S && S[k]);
             if (!sm(a) && !sm(b))
                 return null;
-            const pa = (open && a === 0) ? -1 : (a - 1 + n) % n,
-                nb = (open && b === n - 1) ? -1 : (b + 1) % n;
-            let c1x,
-                c1y,
-                c2x,
-                c2y;
-            if (sm(a) && pa >= 0) {
-                c1x = X[a] + (X[b] - X[pa]) / 6;
-                c1y = Y[a] + (Y[b] - Y[pa]) / 6;
-            } else {
-                c1x = X[a] + (X[b] - X[a]) / 3;
-                c1y = Y[a] + (Y[b] - Y[a]) / 3;
+            const dx = X[b] - X[a],
+                dy = Y[b] - Y[a];
+            const c = Math.hypot(dx, dy);
+            if (!(c > 0))
+                return {
+                    c1x: X[a],
+                    c1y: Y[a],
+                    c2x: X[b],
+                    c2y: Y[b]
+                };
+            const ux = dx / c,
+                uy = dy / c;
+            let c1x = X[a] + dx / 3,
+                c1y = Y[a] + dy / 3,
+                c2x = X[b] - dx / 3,
+                c2y = Y[b] - dy / 3;
+            const ta = sm(a) ? smoothTangent(X, Y, open, a) : null;
+            if (ta) {
+                const h = arcHandle(c, ta.tx * ux + ta.ty * uy);
+                c1x = X[a] + ta.tx * h;
+                c1y = Y[a] + ta.ty * h;
             }
-            if (sm(b) && nb >= 0) {
-                c2x = X[b] - (X[nb] - X[a]) / 6;
-                c2y = Y[b] - (Y[nb] - Y[a]) / 6;
-            } else {
-                c2x = X[b] - (X[b] - X[a]) / 3;
-                c2y = Y[b] - (Y[b] - Y[a]) / 3;
+            const tb = sm(b) ? smoothTangent(X, Y, open, b) : null;
+            if (tb) {
+                const h = arcHandle(c, tb.tx * ux + tb.ty * uy);
+                c2x = X[b] - tb.tx * h;
+                c2y = Y[b] - tb.ty * h;
             }
             return {
                 c1x,
@@ -18443,6 +18497,95 @@
                 });
             ptGuides = gs.length ? gs : null;
             return q;
+        }
+        // ── MEASUREMENTS ON SCREEN (23 Oct 2026, Tom: "4,1") ─────────────────────────────
+        // While a corner is dragged, a line-pen edge placed or a shape dragged out, its lengths
+        // are drawn beside it: the corner's two edges (or its radius, rounding), the pen's edge
+        // and its angle, the shape's width × height or radius and count. World units, the
+        // grid's and the corner box's, so a number read here can be typed there.
+        function fmtLen(v) {
+            const a = Math.abs(v);
+            return a >= 100 ? v.toFixed(1) : a >= 10 ? v.toFixed(2) : v.toFixed(3);
+        }
+        function measureLabel(x, y, text) {
+            ctx.save();
+            ctx.font = '600 11px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const w = ctx.measureText(text).width + 10;
+            ctx.fillStyle = 'rgba(14,14,19,0.88)';
+            ctx.beginPath();
+            if (ctx.roundRect)
+                ctx.roundRect(x - w / 2, y - 9, w, 18, 5);
+            else
+                ctx.rect(x - w / 2, y - 9, w, 18);
+            ctx.fill();
+            ctx.fillStyle = '#f6d9a8';
+            ctx.fillText(text, x, y + 0.5);
+            ctx.restore();
+        }
+        // a label beside the edge from a to b (canvas pixels), offset off its outside
+        function edgeLabel(a, b, text) {
+            const mx = (a.x + b.x) / 2,
+                my = (a.y + b.y) / 2;
+            const L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+            measureLabel(mx + (b.y - a.y) / L * 16, my - (b.x - a.x) / L * 16, text);
+        }
+        function drawMeasurements(w, h) {
+            const wpp = worldPerPx();
+            if (vertexDrag) {
+                const sp = state.subpaths[vertexDrag.spi],
+                    lz = sp && sp._lazy;
+                if (!lz)
+                    return;
+                const n = lz.x.length,
+                    k = vertexDrag.k;
+                const P = i => worldToPx(lz.x[i], lz.y[i], w, h);
+                if (vertexDrag.round) {
+                    const R = lzRoundBaked(lz);
+                    const q = P(k);
+                    measureLabel(q.x, q.y - 22, 'r ' + fmtLen(R ? R[k] : 0));
+                    return;
+                }
+                const len = (i, j) => Math.hypot(lz.x[j] - lz.x[i], lz.y[j] - lz.y[i]);
+                if (!(lz.open && k === 0)) {
+                    const i = (k - 1 + n) % n;
+                    edgeLabel(P(i), P(k), fmtLen(len(i, k)));
+                }
+                if (!(lz.open && k === n - 1)) {
+                    const j = (k + 1) % n;
+                    edgeLabel(P(k), P(j), fmtLen(len(k, j)));
+                }
+                return;
+            }
+            if (shapeDrag) {
+                const a = shapeDrag.a,
+                    b = shapeDrag.b;
+                const o = shapeToolOutline(a, b, shapeDrag.shift);
+                if (!shapeToolBig(o))
+                    return;
+                if (shapeToolCfg.kind === 'rect') {
+                    const xs = o.pts.map(p => p.x),
+                        ys = o.pts.map(p => p.y);
+                    const W = (Math.max(...xs) - Math.min(...xs)) * wpp,
+                        H = (Math.max(...ys) - Math.min(...ys)) * wpp;
+                    measureLabel(b.x, b.y + 22, fmtLen(W) + ' × ' + fmtLen(H));
+                } else {
+                    const r = Math.hypot(b.x - a.x, b.y - a.y) * wpp;
+                    measureLabel(b.x, b.y + 22, 'r ' + fmtLen(r) + ' · ' + shapeToolCfg.n + (shapeToolCfg.kind === 'star' ? ' points' : ' sides'));
+                }
+                return;
+            }
+            if (drawMode && lineMode && drawStroke && drawStroke._linePreview && drawAnchors && drawAnchors.length) {
+                const a = drawAnchors[drawAnchors.length - 1],
+                    b = drawStroke[drawStroke.length - 1];
+                const L = Math.hypot(b.x - a.x, b.y - a.y);
+                if (L < 4)
+                    return;
+                // angle y up, as the corner box gives it
+                const ang = Math.atan2(-(b.y - a.y), b.x - a.x) * 180 / Math.PI;
+                edgeLabel(a, b, fmtLen(L * wpp) + ' · ' + ang.toFixed(1) + '°');
+            }
         }
         function drawPointGuides() {
             if (!ptGuides)
@@ -36086,6 +36229,8 @@
                 drawShapeToolPreview();
             if (CHROME && ptGuides && (shapeDrag || vertexDrag || drawMode))
                 drawPointGuides(); // SNAPPING POINTS
+            if (CHROME && (shapeDrag || vertexDrag || (drawMode && lineMode)))
+                drawMeasurements(w, h); // MEASUREMENTS ON SCREEN
             // In-progress pencil stroke (canvas space).
             if (CHROME && drawMode && drawStroke && drawStroke.length > 1) {
                 ctx.save();
