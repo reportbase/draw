@@ -3083,6 +3083,43 @@
                       #orderPop .pop-grid { grid-template-columns: repeat(4, 42px) !important; }
                       #orderPop .pop-act { padding: 8px; }
                     }
+        /* A PICKED CORNER'S NUMBERS (EXACT SHAPES) */
+        #cornerEdit {
+            position: fixed;
+            z-index: 60;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            padding: 6px 8px;
+            background: var(--panel);
+            border: 1px solid var(--line2);
+            border-radius: 8px;
+            font: 11px system-ui, sans-serif;
+            color: var(--fg);
+        }
+        #cornerEdit.open { display: flex; }
+        #cornerEdit .ce-row { display: flex; align-items: center; gap: 4px; }
+        #cornerEdit .lab { color: var(--fg-muted); min-width: 0.9em; }
+        #cornerEdit input {
+            width: 64px;
+            background: var(--bg2);
+            color: var(--fg);
+            border: 1px solid var(--line2);
+            border-radius: 4px;
+            padding: 2px 4px;
+            font: inherit;
+        }
+        #cornerEdit input:disabled { opacity: 0.4; }
+        #cornerEdit button {
+            background: transparent;
+            color: var(--fg);
+            border: 1px solid var(--line2);
+            border-radius: 5px;
+            padding: 2px 6px;
+            cursor: pointer;
+            font: inherit;
+        }
+        #cornerEdit button.on { background: var(--gold); color: #14141a; border-color: var(--gold); }
         /* THE SHAPE TOOL'S STRIP (EXACT SHAPES) */
         #shapeTool {
             position: fixed;
@@ -4054,6 +4091,13 @@
             <input type="checkbox" id="tSnap">
              snap to shapes &amp; guides
         </label>
+        <!-- SNAPPING POINTS (EXACT SHAPES): a switch of its own, ON by default, because exact
+             shapes are layout work, where snapping is the right default (see state.snap's note),
+             and because it is never silent: every snap draws its guide. -->
+        <label class="toggle" style="display:flex;align-items:center;gap:6px;" title="while dragging an exact shape's corner, placing a line-pen point or dragging out a shape: lock onto other shapes' corners, edge middles and box corners, line up with them across or down (a guide line shows each), and onto the grid when it is shown. Hold ctrl/cmd to place freely.">
+            <input type="checkbox" id="tSnapPts" checked>
+             snap corners &amp; pen points
+        </label>
     </div>
 
     <!-- Text entry popover for the toolbar's text button. -->
@@ -4077,6 +4121,16 @@
             <button type="button" id="stLess" title="one fewer">−</button><span id="stN">6</span><button type="button" id="stMore" title="one more">+</button></span>
         <span class="lab">round</span>
         <input type="range" id="stRound" min="0" max="0.5" step="0.01" value="0" title="how round the corners are: 0 sharp, the far end as round as the edges allow">
+    </div>
+    <!-- A PICKED CORNER'S NUMBERS (EXACT SHAPES): shown beside a picked corner. World units,
+         the grid's. -->
+    <div id="cornerEdit" role="group" aria-label="the picked corner">
+        <div class="ce-row"><span class="lab">x</span><input type="number" step="any" id="ceX" title="the corner's x, in world units (the grid's)">
+            <span class="lab">y</span><input type="number" step="any" id="ceY" title="the corner's y, in world units (up is +)"></div>
+        <div class="ce-row"><span class="lab" id="ceEdgeLab">edge</span><input type="number" step="any" min="0" id="ceLen" title="the length of the edge to the next corner; the next corner moves along it">
+            <span class="lab">at</span><input type="number" step="any" id="ceAng" title="that edge's angle in degrees, anticlockwise from +x; the next corner turns about this one"><span class="lab">°</span></div>
+        <div class="ce-row"><span class="lab">radius</span><input type="number" step="any" min="0" id="ceR" title="how round this corner is: the radius of its arc (0 is sharp). Only a sharp corner between two straight edges can be rounded.">
+            <button type="button" id="ceSharp" title="the outline turns at this corner">sharp</button><button type="button" id="ceSmooth" title="the outline curves through this corner">smooth</button></div>
     </div>
     <!-- THE BUILDER. Everything below was the bottom of the shapes popover until the link
          made it a workshop rather than a shelf: while it is linked, the sliders drive the
@@ -6613,6 +6667,8 @@
             // where you put the thing. It is one switch away in the reading popover, and the
             // gesture-level escape (ctrl/cmd) still works when it is on.
             snap: false,
+            // Points (corners, pen points, the shape tool) snap by default: see SNAPPING POINTS.
+            snapPts: true,
             // View lock. True → the canvas belongs to the CAMERA: a left-drag (or one finger)
             // pans, and every direct manipulation of the scene is off — no shape moves, no leaf
             // drags, no handles, no brush, no marquee. A tap that does not travel still selects,
@@ -17338,108 +17394,243 @@
             const s = lzRoundScale(lz);
             return Float64Array.from(lz.round, r => r * s);
         }
-        // An exact outline onto a path (Path2D or a context): straight edges, and arcTo at a
-        // rounded corner. A ring starts at the middle of its last edge, so corner 0 can be
-        // rounded like any other.
-        function traceExact(path, X, Y, R, open) {
-            const n = X.length;
-            const at = k => {
-                const a = R ? cornerArc(X, Y, k, open, R[k]) : null;
-                if (a)
-                    path.arcTo(X[k], Y[k], X[(k + 1) % n], Y[(k + 1) % n], a.r);
-                else
-                    path.lineTo(X[k], Y[k]);
-            };
-            if (open) {
-                path.moveTo(X[0], Y[0]);
-                for (let k = 1; k < n; k++)
-                    at(k);
-                return;
-            }
-            path.moveTo((X[n - 1] + X[0]) / 2, (Y[n - 1] + Y[0]) / 2);
-            for (let k = 0; k < n; k++)
-                at(k);
-            path.closePath();
+        function hasSmooth(S) {
+            if (!S)
+                return false;
+            for (let k = 0; k < S.length; k++)
+                if (S[k])
+                    return true;
+            return false;
         }
-        // The same outline as points, each arc sampled every 7.5° or finer: what the leaves are
-        // made from when an exact shape with rounded corners turns into leaves.
-        function exactDense(X, Y, R, open) {
+        // SMOOTH CORNERS (23 Oct 2026, Tom: "3,4,5", "Smooth + sharp corners"). A corner is sharp
+        // (the default) or smooth (lz.smooth[k] = 1): the outline curves through a smooth corner
+        // and turns at a sharp one. An edge is straight exactly when both its ends are sharp, so
+        // a straight run stays straight however its neighbours bend. A curved edge is the cubic
+        // through its two ends whose tangents are a smooth end's neighbours' chord (Catmull–Rom,
+        // a sixth of it) or, at a sharp end, the edge itself (a third), so a curve meets a sharp
+        // corner along the straight line to the next one. A radius (ROUNDED CORNERS) applies at
+        // a sharp corner whose two edges are both straight.
+        //
+        // The outline as segments, the one description every consumer reads: drawing (onto a
+        // path), the SVG export and the points leaves are made from. start is where it begins;
+        // each segment arrives at a corner: 'L' a straight edge, 'A' a straight edge ending in
+        // the corner's arc (the arc's points, and the corner and the next point for arcTo), 'C'
+        // a curved edge. A closed outline with no smooth corner starts at the middle of its last
+        // edge (so corner 0 can be rounded); with one, at its first smooth corner (never rounded).
+        function exactSegs(X, Y, R, open, S) {
             const n = X.length,
-                ox = [],
-                oy = [];
-            for (let k = 0; k < n; k++) {
-                const a = cornerArc(X, Y, k, open, R ? R[k] : 0);
-                if (!a) {
-                    ox.push(X[k]);
-                    oy.push(Y[k]);
-                    continue;
+                sm = k => !!(S && S[k]);
+            const prev = k => (open && k === 0) ? -1 : (k - 1 + n) % n,
+                next = k => (open && k === n - 1) ? -1 : (k + 1) % n;
+            const arcAt = k => {
+                if (!R || !(R[k] > 0) || sm(k))
+                    return null;
+                const i = prev(k),
+                    j = next(k);
+                if (i < 0 || j < 0 || sm(i) || sm(j))
+                    return null;
+                return cornerArc(X, Y, k, open, R[k]);
+            };
+            const segs = [];
+            const arrive = (a, b) => {
+                if (sm(a) || sm(b)) {
+                    const pa = prev(a),
+                        nb = next(b);
+                    let c1x,
+                        c1y,
+                        c2x,
+                        c2y;
+                    if (sm(a) && pa >= 0) {
+                        c1x = X[a] + (X[b] - X[pa]) / 6;
+                        c1y = Y[a] + (Y[b] - Y[pa]) / 6;
+                    } else {
+                        c1x = X[a] + (X[b] - X[a]) / 3;
+                        c1y = Y[a] + (Y[b] - Y[a]) / 3;
+                    }
+                    if (sm(b) && nb >= 0) {
+                        c2x = X[b] - (X[nb] - X[a]) / 6;
+                        c2y = Y[b] - (Y[nb] - Y[a]) / 6;
+                    } else {
+                        c2x = X[b] - (X[b] - X[a]) / 3;
+                        c2y = Y[b] - (Y[b] - Y[a]) / 3;
+                    }
+                    segs.push({
+                        type: 'C',
+                        c1x,
+                        c1y,
+                        c2x,
+                        c2y,
+                        x: X[b],
+                        y: Y[b]
+                    });
+                    return;
                 }
-                const a1 = Math.atan2(a.t1y - a.cy, a.t1x - a.cx);
-                let d = Math.atan2(a.t2y - a.cy, a.t2x - a.cx) - a1;
-                while (d > Math.PI)
-                    d -= TAU;
-                while (d < -Math.PI)
-                    d += TAU;
-                const steps = Math.max(2, Math.ceil(Math.abs(d) / (Math.PI / 24)));
-                for (let s = 0; s <= steps; s++) {
-                    const th = a1 + d * s / steps;
-                    ox.push(a.cx + a.r * Math.cos(th));
-                    oy.push(a.cy + a.r * Math.sin(th));
+                const g = arcAt(b);
+                if (g) {
+                    const j = next(b);
+                    segs.push({
+                        type: 'A',
+                        g,
+                        px: X[b],
+                        py: Y[b],
+                        nx: X[j],
+                        ny: Y[j],
+                        cross: (X[b] - X[a]) * (Y[j] - Y[b]) - (Y[b] - Y[a]) * (X[j] - X[b])
+                    });
+                } else
+                    segs.push({
+                        type: 'L',
+                        x: X[b],
+                        y: Y[b]
+                    });
+            };
+            let start;
+            if (open) {
+                start = {
+                    x: X[0],
+                    y: Y[0]
+                };
+                for (let b = 1; b < n; b++)
+                    arrive(b - 1, b);
+            } else {
+                let s0 = -1;
+                if (S)
+                    for (let k = 0; k < n; k++)
+                        if (S[k]) {
+                            s0 = k;
+                            break;
+                        }
+                if (s0 < 0) {
+                    start = {
+                        x: (X[n - 1] + X[0]) / 2,
+                        y: (Y[n - 1] + Y[0]) / 2
+                    };
+                    for (let b = 0; b < n; b++)
+                        arrive((b - 1 + n) % n, b);
+                } else {
+                    start = {
+                        x: X[s0],
+                        y: Y[s0]
+                    };
+                    for (let q = 1; q <= n; q++) {
+                        const b = (s0 + q) % n;
+                        arrive((b - 1 + n) % n, b);
+                    }
                 }
+            }
+            return {
+                start,
+                segs
+            };
+        }
+        // An exact outline onto a path (Path2D or a context).
+        function traceExact(path, X, Y, R, open, S) {
+            const E = exactSegs(X, Y, R, open, S);
+            path.moveTo(E.start.x, E.start.y);
+            for (const g of E.segs) {
+                if (g.type === 'L')
+                    path.lineTo(g.x, g.y);
+                else if (g.type === 'A')
+                    path.arcTo(g.px, g.py, g.nx, g.ny, g.g.r);
+                else
+                    path.bezierCurveTo(g.c1x, g.c1y, g.c2x, g.c2y, g.x, g.y);
+            }
+            if (!open)
+                path.closePath();
+        }
+        // The same outline as points, each arc sampled every 7.5° or finer and each curved edge
+        // in sixteen steps: what the leaves are made from when such a shape turns into leaves.
+        function exactDense(X, Y, R, open, S) {
+            const E = exactSegs(X, Y, R, open, S);
+            const ox = [E.start.x],
+                oy = [E.start.y];
+            let cx = E.start.x,
+                cy = E.start.y;
+            for (const g of E.segs) {
+                if (g.type === 'L') {
+                    ox.push(g.x);
+                    oy.push(g.y);
+                    cx = g.x;
+                    cy = g.y;
+                } else if (g.type === 'A') {
+                    const a = g.g;
+                    const a1 = Math.atan2(a.t1y - a.cy, a.t1x - a.cx);
+                    let d = Math.atan2(a.t2y - a.cy, a.t2x - a.cx) - a1;
+                    while (d > Math.PI)
+                        d -= TAU;
+                    while (d < -Math.PI)
+                        d += TAU;
+                    const steps = Math.max(2, Math.ceil(Math.abs(d) / (Math.PI / 24)));
+                    for (let q = 0; q <= steps; q++) {
+                        const th = a1 + d * q / steps;
+                        ox.push(a.cx + a.r * Math.cos(th));
+                        oy.push(a.cy + a.r * Math.sin(th));
+                    }
+                    cx = a.t2x;
+                    cy = a.t2y;
+                } else {
+                    for (let q = 1; q <= 16; q++) {
+                        const t = q / 16,
+                            u = 1 - t;
+                        ox.push(u * u * u * cx + 3 * u * u * t * g.c1x + 3 * u * t * t * g.c2x + t * t * t * g.x);
+                        oy.push(u * u * u * cy + 3 * u * u * t * g.c1y + 3 * u * t * t * g.c2y + t * t * t * g.y);
+                    }
+                    cx = g.x;
+                    cy = g.y;
+                }
+            }
+            // a closed outline arrives back where it started
+            if (!open && ox.length > 1 && Math.hypot(ox[ox.length - 1] - ox[0], oy[oy.length - 1] - oy[0]) < 1e-12) {
+                ox.pop();
+                oy.pop();
             }
             return {
                 x: Float64Array.from(ox),
                 y: Float64Array.from(oy)
             };
         }
-        // The outline as SVG path data, given already in the file's coordinates (y down). A
-        // rounded corner is an L to its first tangent point and an elliptical-arc command to its
-        // second; the sweep flag is the corner's turn (clockwise on screen when the cross
-        // product of its two edges is positive).
-        function exactSvgD(X, Y, R, open) {
+        // The outline as SVG path data, given already in the file's coordinates (y down): its
+        // corners as they are when nothing is rounded or smooth; else an arc command (A) at a
+        // rounded corner, its sweep the corner's turn (clockwise on screen when the cross
+        // product of its two edges is positive), and a cubic (C) along a curved edge.
+        function exactSvgD(X, Y, R, open, S) {
             const n = X.length,
                 f = v => v.toFixed(2);
             if (n < 2)
                 return '';
             let d = '';
-            if (!hasRound(R)) { // no arcs: the corners as they are, from the first
+            if (!hasRound(R) && !hasSmooth(S)) {
                 for (let k = 0; k < n; k++)
                     d += (k ? 'L' : 'M') + f(X[k]) + ' ' + f(Y[k]) + ' ';
                 return d + (open ? '' : 'Z');
             }
-            const at = k => {
-                const a = R ? cornerArc(X, Y, k, open, R[k]) : null;
-                if (!a) {
-                    d += 'L' + f(X[k]) + ' ' + f(Y[k]) + ' ';
-                    return;
-                }
-                const i = (k - 1 + n) % n,
-                    j = (k + 1) % n;
-                const cr = (X[k] - X[i]) * (Y[j] - Y[k]) - (Y[k] - Y[i]) * (X[j] - X[k]);
-                d += 'L' + f(a.t1x) + ' ' + f(a.t1y) + ' A' + f(a.r) + ' ' + f(a.r) + ' 0 0 ' + (cr > 0 ? 1 : 0)
-                + ' ' + f(a.t2x) + ' ' + f(a.t2y) + ' ';
-            };
-            if (open) {
-                d = 'M' + f(X[0]) + ' ' + f(Y[0]) + ' ';
-                for (let k = 1; k < n; k++)
-                    at(k);
-                return d;
+            const E = exactSegs(X, Y, R, open, S);
+            d = 'M' + f(E.start.x) + ' ' + f(E.start.y) + ' ';
+            for (const g of E.segs) {
+                if (g.type === 'L')
+                    d += 'L' + f(g.x) + ' ' + f(g.y) + ' ';
+                else if (g.type === 'A')
+                    d += 'L' + f(g.g.t1x) + ' ' + f(g.g.t1y) + ' A' + f(g.g.r) + ' ' + f(g.g.r) + ' 0 0 ' + (g.cross > 0 ? 1 : 0)
+                    + ' ' + f(g.g.t2x) + ' ' + f(g.g.t2y) + ' ';
+                else
+                    d += 'C' + f(g.c1x) + ' ' + f(g.c1y) + ' ' + f(g.c2x) + ' ' + f(g.c2y) + ' ' + f(g.x) + ' ' + f(g.y) + ' ';
             }
-            d = 'M' + f((X[n - 1] + X[0]) / 2) + ' ' + f((Y[n - 1] + Y[0]) / 2) + ' ';
-            for (let k = 0; k < n; k++)
-                at(k);
-            return d + 'Z';
+            return d + (open ? '' : 'Z');
         }
-        // A copy of the radii with corner k inserted (0) or removed; null stays null.
-        function roundSplice(R, k, insert) {
-            if (!R)
+        // A copy of a per-corner array with corner k inserted (as v) or removed; null stays null.
+        function cornerSplice(A, k, insert, v) {
+            if (!A)
                 return null;
-            const a = Array.from(R);
+            const a = Array.from(A);
             if (insert)
-                a.splice(k, 0, 0);
+                a.splice(k, 0, v || 0);
             else
                 a.splice(k, 1);
-            return Float64Array.from(a);
+            return a;
+        }
+        function roundSplice(R, k, insert) {
+            const a = cornerSplice(R, k, insert, 0);
+            return a ? Float64Array.from(a) : null;
         }
 
         // ── MIRRORED CORNERS ────────────────────────────────────────────────────────
@@ -17505,18 +17696,41 @@
                 n = X.length,
                 out = [];
             const edges = lz.open ? n - 1 : n;
+            // the outline's own segments, by the corner each edge leaves (SMOOTH CORNERS)
+            let curveOf = null;
+            if (lz.smooth) {
+                const E = exactSegs(X, Y, null, lz.open, lz.smooth);
+                curveOf = new Map();
+                if (lz.open)
+                    E.segs.forEach((g, q) => curveOf.set(q, g));
+                else {
+                    let s0 = 0;
+                    while (s0 < n && !lz.smooth[s0])
+                        s0++;
+                    E.segs.forEach((g, q) => curveOf.set((s0 + q) % n, g));
+                }
+            }
             for (let i = 0; i < edges; i++) {
                 const j = (i + 1) % n;
                 const a = worldToPx(X[i], Y[i], w, h),
                     b = worldToPx(X[j], Y[j], w, h);
                 if (Math.hypot(b.x - a.x, b.y - a.y) < MID_MIN_EDGE_PX)
                     continue;
+                // on a curved edge the ring sits on the curve, at its middle (SMOOTH CORNERS)
+                let mx = (X[i] + X[j]) / 2,
+                    my = (Y[i] + Y[j]) / 2;
+                const g = curveOf && curveOf.get(i);
+                if (g && g.type === 'C') {
+                    mx = (X[i] + 3 * g.c1x + 3 * g.c2x + X[j]) / 8;
+                    my = (Y[i] + 3 * g.c1y + 3 * g.c2y + Y[j]) / 8;
+                }
+                const q = worldToPx(mx, my, w, h);
                 out.push({
                     k: i + 1,
-                    px: (a.x + b.x) / 2,
-                    py: (a.y + b.y) / 2,
-                    x: (X[i] + X[j]) / 2,
-                    y: (Y[i] + Y[j]) / 2
+                    px: q.x,
+                    py: q.y,
+                    x: mx,
+                    y: my
                 });
             }
             return out;
@@ -17534,6 +17748,10 @@
                 n = lz.x.length,
                 k = pk.k;
             if (n < 3 || (lz.open && (k === 0 || k === n - 1)))
+                return null;
+            // a radius needs a sharp corner between two straight edges (SMOOTH CORNERS)
+            const sm = lz.smooth;
+            if (sm && (sm[k] || sm[(k - 1 + n) % n] || sm[(k + 1) % n]))
                 return null;
             const S = [(k - 1 + n) % n, k, (k + 1) % n].map(i => worldToPx(lz.x[i], lz.y[i], w, h));
             const X = S.map(q => q.x),
@@ -17613,12 +17831,15 @@
         // Every drag of a corner, a ring or a round handle starts from new arrays with the
         // shape's map baked in (undo snapshots share the old ones), so the record's own units
         // are the page's and a radius written is a radius drawn.
-        function bakeExact(sp, X, Y, R) {
+        // (Sm: the smooth flags; left out, the record's own, which fit when the corners are
+        // the same ones)
+        function bakeExact(sp, X, Y, R, Sm) {
             const lz = sp._lazy;
             makeLazy(sp, Float64Array.from(X), Float64Array.from(Y), lz.scale, null, {
                 exact: true,
                 open: lz.open,
-                round: R
+                round: R,
+                smooth: Sm === undefined ? lz.smooth : Sm
             });
         }
         function beginVertexDrag(v) {
@@ -17671,20 +17892,34 @@
                                 });
                 }
                 ins.sort((a, b) => b.k - a.k);
+                // a corner added on a curved edge is smooth, so the curve stays a curve
+                let Sm = lz.smooth ? Array.from(lz.smooth) : null;
+                const curvedAt = k2 => {
+                    const n0 = lz.x.length,
+                        i0 = (k2 - 1 + n0) % n0,
+                        j0 = k2 % n0;
+                    return !!(lz.smooth && (lz.smooth[i0] || lz.smooth[j0]));
+                };
                 for (const q of ins) {
+                    const cv0 = curvedAt(q.k);
                     X.splice(q.k, 0, q.x);
                     Y.splice(q.k, 0, q.y);
                     R = roundSplice(R, q.k, true);
+                    Sm = cornerSplice(Sm, q.k, true, cv0 ? 1 : 0);
                 }
                 // where ours ended up: shifted by one for every partner inserted before it
                 k = v.k + ins.filter(q => !q.own && q.k < v.k).length;
-            }
-            bakeExact(sp, X, Y, R);
+                bakeExact(sp, X, Y, R, Sm);
+            } else
+                bakeExact(sp, X, Y, R);
             const P = cornerPartners(sp._lazy.x, sp._lazy.y, k);
+            const moving = new Set([k].concat(P ? P.list.map(q => q.j) : []));
             vertexDrag = {
                 spi: v.spi,
                 k,
                 mirror: P,
+                // what it can snap to: everything but itself and its partners (SNAPPING POINTS)
+                targets: pointSnapTargets((sp2, k2) => sp2 === sp && moving.has(k2)),
                 moved: !!v.mid // a corner added is a change even if it is not pulled
             };
             pickedVertex = {
@@ -17696,7 +17931,7 @@
             if (v.mid)
                 drawAll();
         }
-        function updateVertexDrag(mx, my) {
+        function updateVertexDrag(mx, my, e) {
             const sp = state.subpaths[vertexDrag.spi],
                 lz = sp && sp._lazy;
             if (!lz)
@@ -17722,7 +17957,11 @@
                 drawAll();
                 return;
             }
-            const p = pxToWorld(mx, my, r.width, r.height);
+            const sq = snapScreenPoint({
+                x: mx,
+                y: my
+            }, vertexDrag.targets, e);
+            const p = pxToWorld(sq.x, sq.y, r.width, r.height);
             const M = vertexDrag.mirror;
             if (M && M.onX)
                 p.x = M.cx;
@@ -17743,6 +17982,7 @@
         function endVertexDrag() {
             const moved = vertexDrag.moved;
             vertexDrag = null;
+            ptGuides = null;
             cv.style.cursor = '';
             if (moved) {
                 pushHistory();
@@ -17778,19 +18018,393 @@
             }
             const X = Array.from(lz.x),
                 Y = Array.from(lz.y);
-            let R = lzRoundBaked(lz);
+            let R = lzRoundBaked(lz),
+                Sm = lz.smooth ? Array.from(lz.smooth) : null;
             for (const j of gone) {
                 X.splice(j, 1);
                 Y.splice(j, 1);
                 R = roundSplice(R, j, false);
+                Sm = cornerSplice(Sm, j, false);
             }
-            bakeExact(sp, X, Y, R);
+            bakeExact(sp, X, Y, R, Sm);
             pickedVertex = null;
             pushHistory();
             scheduleSave();
             updateStatus();
             drawAll();
             flashStatus((gone.length > 1 ? gone.length + ' mirrored corners removed' : 'corner removed') + ' · ' + (n - gone.length) + ' left');
+            return true;
+        }
+        // ── SNAPPING POINTS (23 Oct 2026, Tom: "3,4,5") ──────────────────────────────
+        // A point being placed (an exact corner dragged, a line-pen point, the shape tool's two
+        // ends) locks onto what is near, within PT_SNAP_PX on screen: another corner or edge
+        // middle of an exact shape, another shape's box corner or centre, the pen's own earlier
+        // points; failing that, the line through one of them across or down, each axis on its
+        // own; failing that, a grid line when the grid is shown. Every snap draws its guide
+        // (ptGuides), so none is silent. Off with the menu's "snap corners & pen points", and
+        // for one gesture with ctrl/cmd held.
+        const PT_SNAP_PX = 7;
+        var ptGuides = null; // [{kind: 'pt' | 'v' | 'h', ...}] in canvas pixels, while a snap holds
+        function pointSnapOff(e) {
+            return !state.snapPts || !!(e && (e.ctrlKey || e.metaKey));
+        }
+        // What can be snapped to, in canvas pixels. skip(sp, k) leaves out a shape's corner (the
+        // one being dragged, and its mirrored partners); extra adds points (the pen's own).
+        function pointSnapTargets(skip, extra) {
+            const r = cv.getBoundingClientRect(),
+                w = r.width,
+                h = r.height;
+            const out = [];
+            const add = (x, y) => out.push(worldToPx(x, y, w, h));
+            for (const sp of state.subpaths) {
+                if (!sp)
+                    continue;
+                const lz = sp._lazy;
+                if (lz && lz.exact) {
+                    const X = lz.x,
+                        Y = lz.y,
+                        n = X.length;
+                    for (let k = 0; k < n; k++) {
+                        const off = skip && skip(sp, k);
+                        if (!off)
+                            add(X[k], Y[k]);
+                        const j = (k + 1) % n;
+                        if ((lz.open && k === n - 1) || off || (skip && skip(sp, j)))
+                            continue;
+                        add((X[k] + X[j]) / 2, (Y[k] + Y[j]) / 2);
+                    }
+                } else {
+                    let b = null;
+                    if (lz)
+                        b = lz.box;
+                    else if (sp.leafX && sp.leafX.length) {
+                        let a0 = Infinity,
+                            b0 = Infinity,
+                            c0 = -Infinity,
+                            d0 = -Infinity;
+                        for (let i = 0; i < sp.leafX.length; i++) {
+                            a0 = Math.min(a0, sp.leafX[i]);
+                            c0 = Math.max(c0, sp.leafX[i]);
+                            b0 = Math.min(b0, sp.leafY[i]);
+                            d0 = Math.max(d0, sp.leafY[i]);
+                        }
+                        b = [a0, b0, c0, d0];
+                    }
+                    if (b) {
+                        add(b[0], b[1]);
+                        add(b[2], b[1]);
+                        add(b[2], b[3]);
+                        add(b[0], b[3]);
+                        add((b[0] + b[2]) / 2, (b[1] + b[3]) / 2);
+                    }
+                }
+                if (out.length > 40000)
+                    break;
+            }
+            if (extra)
+                for (const q of extra)
+                    out.push({
+                        x: q.x,
+                        y: q.y
+                    });
+            return out;
+        }
+        // p in canvas pixels; returns where it lands, and sets ptGuides to say why.
+        function snapScreenPoint(p, targets, e) {
+            ptGuides = null;
+            if (pointSnapOff(e) || !targets)
+                return p;
+            let best = null,
+                bd = PT_SNAP_PX;
+            for (const t of targets) {
+                const d = Math.hypot(t.x - p.x, t.y - p.y);
+                if (d <= bd) {
+                    bd = d;
+                    best = t;
+                }
+            }
+            if (best) {
+                ptGuides = [{
+                    kind: 'pt',
+                    x: best.x,
+                    y: best.y
+                }];
+                return {
+                    x: best.x,
+                    y: best.y
+                };
+            }
+            let bx = null,
+                by = null,
+                dx = PT_SNAP_PX,
+                dy = PT_SNAP_PX;
+            for (const t of targets) {
+                const ax = Math.abs(t.x - p.x),
+                    ay = Math.abs(t.y - p.y);
+                if (ax < dx || (ax === dx && bx && Math.abs(t.y - p.y) < Math.abs(bx.y - p.y))) {
+                    dx = ax;
+                    bx = t;
+                }
+                if (ay < dy || (ay === dy && by && Math.abs(t.x - p.x) < Math.abs(by.x - p.x))) {
+                    dy = ay;
+                    by = t;
+                }
+            }
+            const q = {
+                x: bx ? bx.x : p.x,
+                y: by ? by.y : p.y
+            };
+            // the grid, for an axis nothing else claimed
+            const g = state.grid;
+            if (g && g.on && (!bx || !by)) {
+                const r = cv.getBoundingClientRect();
+                const wpt = pxToWorld(q.x, q.y, r.width, r.height);
+                const gx = Math.round(wpt.x / g.w) * g.w,
+                    gy = Math.round(wpt.y / g.h) * g.h;
+                const sg = worldToPx(gx, gy, r.width, r.height);
+                if (!bx && Math.abs(sg.x - q.x) <= PT_SNAP_PX)
+                    q.x = sg.x;
+                if (!by && Math.abs(sg.y - q.y) <= PT_SNAP_PX)
+                    q.y = sg.y;
+            }
+            const gs = [];
+            if (bx)
+                gs.push({
+                    kind: 'v',
+                    x: q.x,
+                    y0: bx.y,
+                    y1: q.y
+                });
+            if (by)
+                gs.push({
+                    kind: 'h',
+                    y: q.y,
+                    x0: by.x,
+                    x1: q.x
+                });
+            ptGuides = gs.length ? gs : null;
+            return q;
+        }
+        function drawPointGuides() {
+            if (!ptGuides)
+                return;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(94, 205, 196, 0.95)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 3]);
+            for (const g of ptGuides) {
+                ctx.beginPath();
+                if (g.kind === 'pt') {
+                    ctx.setLineDash([]);
+                    ctx.arc(g.x, g.y, PT_SNAP_PX, 0, TAU);
+                } else if (g.kind === 'v') {
+                    ctx.moveTo(g.x, g.y0);
+                    ctx.lineTo(g.x, g.y1);
+                } else {
+                    ctx.moveTo(g.x0, g.y);
+                    ctx.lineTo(g.x1, g.y);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // ── A PICKED CORNER'S NUMBERS (23 Oct 2026, Tom: "3,4,5") ─────────────────────
+        // Beside a picked corner: its x and y, the length and angle of the edge to the next
+        // corner (to the one before, at a line's last point), its radius, and sharp | smooth.
+        // World units, the grid's, y up. A number typed is applied on Enter or on leaving the
+        // field, as one undo step; mirrored partners follow, as they do a drag. The box follows
+        // the corner and fills itself from the shape while no field is being typed in.
+        let ceTarget = null; // {sp, lz, k}: what the box shows, for a change that lands late
+        function cornerEditEdge(lz, k) {
+            const n = lz.x.length;
+            if (lz.open && k === n - 1)
+                return k - 1;
+            return (k + 1) % n;
+        }
+        function syncCornerEdit() {
+            const box = $('cornerEdit');
+            if (!box)
+                return;
+            const pk = (!vertexDrag && !state.locked && handlesVisible()) ? pickedCorner() : null;
+            if (!pk) {
+                const ae = document.activeElement;
+                if (!(ae && ae.tagName === 'INPUT' && box.contains(ae)))
+                    box.classList.remove('open');
+                return;
+            }
+            const sp = state.subpaths[pk.spi],
+                lz = sp._lazy,
+                k = pk.k;
+            // typing: a number field in the box has the focus (a button there does not count)
+            const ae = document.activeElement;
+            const typing = !!(ae && ae.tagName === 'INPUT' && box.contains(ae));
+            if (!typing)
+                ceTarget = {
+                    sp,
+                    lz,
+                    k
+                };
+            const r = cv.getBoundingClientRect();
+            const q = worldToPx(lz.x[k], lz.y[k], r.width, r.height);
+            box.classList.add('open');
+            const bw = box.offsetWidth || 200,
+                bh = box.offsetHeight || 80;
+            let left = r.left + q.x + 22,
+                top = r.top + q.y + 22;
+            if (left + bw > innerWidth - 8)
+                left = r.left + q.x - 22 - bw;
+            if (top + bh > innerHeight - 8)
+                top = r.top + q.y - 22 - bh;
+            box.style.left = Math.max(8, left) + 'px';
+            box.style.top = Math.max(8, top) + 'px';
+            if (typing)
+                return;
+            const j = cornerEditEdge(lz, k);
+            const f = v => +v.toFixed(4);
+            $('ceX').value = f(lz.x[k]);
+            $('ceY').value = f(lz.y[k]);
+            $('ceLen').value = f(Math.hypot(lz.x[j] - lz.x[k], lz.y[j] - lz.y[k]));
+            $('ceAng').value = +(Math.atan2(lz.y[j] - lz.y[k], lz.x[j] - lz.x[k]) * 180 / Math.PI).toFixed(2);
+            $('ceEdgeLab').textContent = (lz.open && k === lz.x.length - 1) ? 'edge ←' : 'edge →';
+            const R = lzRoundBaked(lz),
+                sm = lz.smooth;
+            $('ceR').value = f(R ? R[k] : 0);
+            const n = lz.x.length;
+            const roundable = !(lz.open && (k === 0 || k === n - 1)) && !(sm && (sm[k] || sm[(k - 1 + n) % n] || sm[(k + 1) % n]));
+            $('ceR').disabled = !roundable;
+            $('ceSharp').classList.toggle('on', !(sm && sm[k]));
+            $('ceSmooth').classList.toggle('on', !!(sm && sm[k]));
+        }
+        // Move corner k (and its mirrored partners) to world (x, y), as one undo step.
+        function setCornerAt(sp, k, x, y) {
+            const lz = sp._lazy;
+            const P = cornerPartners(lz.x, lz.y, k);
+            const X = Array.from(lz.x),
+                Y = Array.from(lz.y);
+            if (P && P.onX)
+                x = P.cx;
+            if (P && P.onY)
+                y = P.cy;
+            X[k] = x;
+            Y[k] = y;
+            if (P)
+                for (const q of P.list) {
+                    X[q.j] = P.cx + q.fx * (x - P.cx);
+                    Y[q.j] = P.cy + q.fy * (y - P.cy);
+                }
+            bakeExact(sp, X, Y, lzRoundBaked(lz));
+        }
+        function applyCornerEdit(field) {
+            const t = ceTarget;
+            if (!t || t.sp._lazy !== t.lz || !t.lz.exact || t.k >= t.lz.x.length)
+                return;
+            const sp = t.sp,
+                lz = t.lz,
+                k = t.k;
+            const num = id => {
+                const v = parseFloat($(id).value);
+                return Number.isFinite(v) ? v : null;
+            };
+            if (field === 'xy') {
+                const x = num('ceX'),
+                    y = num('ceY');
+                if (x === null || y === null)
+                    return;
+                setCornerAt(sp, k, x, y);
+            } else if (field === 'edge') {
+                const len = num('ceLen'),
+                    ang = num('ceAng');
+                if (len === null || ang === null || len < 0)
+                    return;
+                const j = cornerEditEdge(lz, k);
+                const a = ang * Math.PI / 180;
+                setCornerAt(sp, j, lz.x[k] + len * Math.cos(a), lz.y[k] + len * Math.sin(a));
+            } else if (field === 'r') {
+                const rv = num('ceR');
+                if (rv === null || rv < 0)
+                    return;
+                const n = lz.x.length;
+                const R = lzRoundBaked(lz) || new Float64Array(n);
+                const P = cornerPartners(lz.x, lz.y, k);
+                for (const j of [k].concat(P ? P.list.map(q => q.j) : []))
+                    R[j] = rv;
+                bakeExact(sp, Array.from(lz.x), Array.from(lz.y), hasRound(R) ? R : null);
+            } else
+                return;
+            // the box keeps the same corner, on the shape's new record
+            pickedVertex = {
+                sp,
+                lz: sp._lazy,
+                k
+            };
+            ceTarget = {
+                sp,
+                lz: sp._lazy,
+                k
+            };
+            pushHistory();
+            scheduleSave();
+            updateStatus();
+            drawAll();
+        }
+        (function() {
+            const box = $('cornerEdit');
+            if (!box)
+                return;
+            const on = (id, field) => {
+                const el = $(id);
+                el.addEventListener('change', () => applyCornerEdit(field));
+                el.addEventListener('keydown', e => {
+                    if (e.key === 'Enter')
+                        el.blur(); // which commits it: the change event applies it, once
+                    e.stopPropagation(); // the page's own keys (Delete, undo) are not for a field
+                });
+            };
+            on('ceX', 'xy');
+            on('ceY', 'xy');
+            on('ceLen', 'edge');
+            on('ceAng', 'edge');
+            on('ceR', 'r');
+            const smooth = v => {
+                const t = ceTarget;
+                if (t && t.sp._lazy === t.lz) {
+                    const spi = state.subpaths.indexOf(t.sp);
+                    if (spi >= 0)
+                        setCornerSmooth(spi, t.k, v);
+                }
+            };
+            $('ceSharp').addEventListener('click', () => smooth(false));
+            $('ceSmooth').addEventListener('click', () => smooth(true));
+        })();
+
+        // Make a corner sharp or smooth (SMOOTH CORNERS), and its mirrored partners with it. A
+        // corner made smooth gives up its radius: a curve has no corner to round.
+        function setCornerSmooth(spi, k, on) {
+            const sp = state.subpaths[spi],
+                lz = sp && sp._lazy;
+            if (!lz || !lz.exact)
+                return false;
+            const n = lz.x.length;
+            const P = cornerPartners(lz.x, lz.y, k);
+            const ks = [k].concat(P ? P.list.map(p => p.j) : []);
+            const Sm = lz.smooth ? Array.from(lz.smooth) : new Array(n).fill(0);
+            let R = lzRoundBaked(lz);
+            for (const j of ks) {
+                Sm[j] = on ? 1 : 0;
+                if (on && R)
+                    R[j] = 0;
+            }
+            bakeExact(sp, Array.from(lz.x), Array.from(lz.y), R && hasRound(R) ? R : null, Sm);
+            pickedVertex = {
+                sp,
+                lz: sp._lazy,
+                k
+            };
+            pushHistory();
+            scheduleSave();
+            updateStatus();
+            drawAll();
             return true;
         }
         function drawExactVertices(w, h) {
@@ -17821,9 +18435,17 @@
                 const on = (vertexDrag && vertexDrag.k === k) || (pk && pk.k === k);
                 ctx.fillStyle = on ? '#d4a052' : '#0e0e13';
                 ctx.strokeStyle = 'rgba(232,228,238,0.95)';
-                // a rounded corner's square is drawn as a circle, so you can see which are
+                // a rounded corner's square is drawn as a circle and a smooth one as a diamond, so
+                // you can see which are which
                 ctx.beginPath();
-                if (lz.round && lz.round[k] > 0)
+                if (lz.smooth && lz.smooth[k]) {
+                    const D = HP * 1.35;
+                    ctx.moveTo(q.x, q.y - D);
+                    ctx.lineTo(q.x + D, q.y);
+                    ctx.lineTo(q.x, q.y + D);
+                    ctx.lineTo(q.x - D, q.y);
+                    ctx.closePath();
+                } else if (lz.round && lz.round[k] > 0)
                     ctx.arc(q.x, q.y, HP, 0, TAU);
                 else
                     ctx.rect(q.x - HP, q.y - HP, HP * 2, HP * 2);
@@ -17862,7 +18484,8 @@
                 sp._exactSrc = {
                     x: Float64Array.from(lz.x),
                     y: Float64Array.from(lz.y),
-                    round: lzRoundBaked(lz)
+                    round: lzRoundBaked(lz),
+                    smooth: lz.smooth
                 };
                 sp._exactSimp = 0;
                 sp._exactSrcFor = lz;
@@ -17889,7 +18512,8 @@
                 n = src.x.length;
             let X = src.x,
                 Y = src.y,
-                R = src.round;
+                R = src.round,
+                Sm = src.smooth;
             if (t > 0 && n > (lz.open ? 2 : 3)) {
                 let mnx = Infinity,
                     mny = Infinity,
@@ -17920,9 +18544,10 @@
                     X = Float64Array.from(pts, q => q.x);
                     Y = Float64Array.from(pts, q => q.y);
                     R = R ? Float64Array.from(pts, q => R[q.i]) : null;
+                    Sm = Sm ? Uint8Array.from(pts, q => Sm[q.i]) : null;
                 }
             }
-            bakeExact(sp, X, Y, R);
+            bakeExact(sp, X, Y, R, Sm);
             sp._exactSrcFor = sp._lazy;
             sp._exactSrcVer = sp._lazy.ver;
             sp._exactSimp = t;
@@ -19815,6 +20440,244 @@
         // add it to the document — reusing the same subpath shape as an imported SVG
         // path, so all editing/symmetry/save machinery works identically. If `append`
         // is false (or there are no subpaths), it replaces; otherwise it adds.
+        // ── PENCIL STRAIGHT RUNS (23 Oct 2026, Tom: "3,4,5", "Smooth + sharp corners") ──
+        // A pencil stroke with straight runs in it comes out as an exact shape: each straight run
+        // an edge between two sharp corners, the rest smooth corners the outline curves through
+        // (SMOOTH CORNERS). A stroke with none comes out as leaves, as it always has. Turn either
+        // into the other with the exact | leaves switch.
+        //
+        // The drawn points (not the smoothed ones: smoothing pulls a corner in) are thinned by
+        // Douglas–Peucker at 0.6% of the stroke's size (at least a pixel and a half), and the
+        // thinned pieces joined into runs, greedily, while the points between stay on one line
+        // (within 0.8% of its length plus a pixel, or ¾ of the thinning's tolerance, the hand's
+        // tremor). A run is straight when it is also long: 15% of the size, at least 24 pixels.
+        // A hand-drawn line passes; a circle does not (a chord that long bows out three times
+        // the tolerance). The edge back to the start counts only when the stroke was closed near
+        // where it began. Corners touching a straight run are sharp, where two runs meet across a
+        // short bend the corner is where their lines cross, and the rest are smooth, thinned to
+        // one in 4% of the size.
+        function pencilStrokeExact(worldPts, straight) {
+            if (!worldPts || worldPts.length < 3)
+                return null;
+            // the drawn points as they came: the smoothing pass leaves gives a stroke would pull
+            // its corners in, and the corners are what is being looked for
+            const pts = worldPts;
+            let ring = [];
+            for (const p of pts) {
+                const q = ring[ring.length - 1];
+                if (!q || q.x !== p.x || q.y !== p.y)
+                    ring.push({
+                        x: p.x,
+                        y: p.y
+                    });
+            }
+            let L = ring.length;
+            if (L < 3)
+                return null;
+            let a = Infinity,
+                b = Infinity,
+                c = -Infinity,
+                d = -Infinity;
+            for (const p of ring) {
+                a = Math.min(a, p.x);
+                c = Math.max(c, p.x);
+                b = Math.min(b, p.y);
+                d = Math.max(d, p.y);
+            }
+            const D = Math.hypot(c - a, d - b);
+            if (!(D > 0))
+                return null;
+            const px = worldPerPx();
+            const eps = Math.max(1.5 * px, 0.006 * D);
+            const minRun = Math.max(0.15 * D, 24 * px);
+            const closed = Math.hypot(ring[L - 1].x - ring[0].x, ring[L - 1].y - ring[0].y) <= 0.05 * D;
+            // A closed stroke starts again at its sharpest turn, so where the hand began does
+            // not cut a straight side in two.
+            if (closed) {
+                const w = Math.max(2, Math.round(L / 40));
+                let best = 0,
+                    bt = -1;
+                for (let i = 0; i < L; i++) {
+                    const P0 = ring[(i - w + L) % L],
+                        P1 = ring[i],
+                        P2 = ring[(i + w) % L];
+                    const t1 = Math.atan2(P1.y - P0.y, P1.x - P0.x),
+                        t2 = Math.atan2(P2.y - P1.y, P2.x - P1.x);
+                    let t = Math.abs(t2 - t1);
+                    if (t > Math.PI)
+                        t = TAU - t;
+                    if (t > bt) {
+                        bt = t;
+                        best = i;
+                    }
+                }
+                ring = ring.slice(best).concat(ring.slice(0, best));
+            }
+            const nodes = rdpClosed(ring, eps);
+            const at = new Map(ring.map((p, i) => [p, i]));
+            const idx = nodes.map(p => at.get(p));
+            const m = nodes.length;
+            if (m < 3 || idx.some(i => i === undefined))
+                return null;
+            // Do the drawn points from node s to node t (t = m: back round to the start) lie along
+            // one line? Within 0.8% of its length plus a pixel, or ¾ of the thinning's tolerance
+            // (the hand's tremor), whichever is more.
+            const lineFits = (s, t) => {
+                const i0 = idx[s],
+                    i1 = t < m ? idx[t] : L;
+                const A = ring[i0],
+                    B = ring[i1 % L];
+                const len = Math.hypot(B.x - A.x, B.y - A.y);
+                if (!(len > 0))
+                    return false;
+                const tol = Math.max(0.75 * eps, 0.008 * len + px);
+                for (let i = i0 + 1; i < i1; i++) {
+                    const Q = ring[i % L];
+                    if (Math.abs((Q.x - A.x) * (B.y - A.y) - (Q.y - A.y) * (B.x - A.x)) / len > tol)
+                        return false;
+                }
+                return true;
+            };
+            const nodeAt = t => nodes[t % m];
+            // Runs, greedily: from each node, as many segments as stay on one line. A run is
+            // straight when it does and is long enough.
+            const runs = [];
+            for (let s = 0; s < m;) {
+                let e = s + 1;
+                const last = closed ? m : m - 1; // an open stroke's closing edge is not drawn
+                if (lineFits(s, s + 1)) {
+                    while (e + 1 <= last && lineFits(s, e + 1))
+                        e++;
+                }
+                const A = nodes[s],
+                    B = nodeAt(e);
+                const straightRun = e <= last && lineFits(s, e) && Math.hypot(B.x - A.x, B.y - A.y) >= minRun;
+                runs.push({
+                    s,
+                    e,
+                    straight: straightRun
+                });
+                s = e;
+            }
+            if (!runs.some(r => r.straight))
+                return null;
+            // bent pieces side by side are one bend (and on a closed stroke, the bend that runs
+            // past the start is one too, carried to the end)
+            for (let i = runs.length - 1; i > 0; i--)
+                if (!runs[i].straight && !runs[i - 1].straight) {
+                    runs[i - 1].e = runs[i].e;
+                    runs.splice(i, 1);
+                }
+            if (closed && runs.length > 2 && !runs[0].straight && !runs[runs.length - 1].straight) {
+                runs[runs.length - 1].e = runs[0].e + m;
+                runs.shift();
+            }
+            // The outline as corners: a straight run's start, sharp; inside a bent stretch, each
+            // node, smooth; and where a straight run ends, sharp.
+            const out = [];
+            runs.forEach((r, i) => {
+                const prevStraight = runs[(i - 1 + runs.length) % runs.length].straight;
+                if (r.straight)
+                    out.push({
+                        p: nodes[r.s],
+                        sharp: true,
+                        run: i
+                    });
+                else
+                    for (let k = r.s; k < r.e; k++)
+                        out.push({
+                            p: nodeAt(k),
+                            sharp: k === r.s && prevStraight,
+                            run: i
+                        });
+            });
+            // WHERE TWO RUNS MEET. The smoothing pass (and the hand) round a drawn corner, so two
+            // straight runs arrive separated by a short bend. When the bend is short (under 15%
+            // of the size) and the two lines cross near it, the bend becomes the point where they
+            // cross: a drawn square comes out with four corners.
+            const R = runs.length;
+            const drop = new Set();
+            for (let i = 0; i < R; i++) {
+                const r1 = runs[i];
+                if (!r1.straight)
+                    continue;
+                const j = (i + 1) % R,
+                    r2 = runs[(i + 2) % R];
+                if (runs[j].straight || !r2.straight || r2 === r1 || R < 3)
+                    continue;
+                const bend = runs[j];
+                let blen = 0;
+                for (let k = bend.s; k < bend.e; k++)
+                    blen += Math.hypot(nodeAt(k + 1).x - nodeAt(k).x, nodeAt(k + 1).y - nodeAt(k).y);
+                if (blen > 0.15 * D)
+                    continue;
+                const A = nodes[r1.s],
+                    B = nodeAt(r1.e),
+                    C = nodes[r2.s],
+                    E = nodeAt(r2.e);
+                const ux = B.x - A.x,
+                    uy = B.y - A.y,
+                    vx = E.x - C.x,
+                    vy = E.y - C.y;
+                const den = ux * vy - uy * vx;
+                if (Math.abs(den) < 0.26 * Math.hypot(ux, uy) * Math.hypot(vx, vy))
+                    continue; // nearly parallel (under 15°): no corner to find
+                const tA = ((C.x - A.x) * vy - (C.y - A.y) * vx) / den;
+                const I = {
+                    x: A.x + ux * tA,
+                    y: A.y + uy * tA
+                };
+                if (Math.hypot(I.x - B.x, I.y - B.y) > 0.15 * D || Math.hypot(I.x - C.x, I.y - C.y) > 0.15 * D)
+                    continue;
+                // the bend goes, and the next run starts at the corner instead
+                const r2i = (i + 2) % R;
+                for (const q of out)
+                    if (q.run === j)
+                        drop.add(q);
+                const q2 = out.find(q => q.run === r2i);
+                if (q2)
+                    q2.p = I;
+            }
+            const kept = out.filter(q => !drop.has(q));
+            // smooth corners thinned to one in 4% of the size
+            const keep = [];
+            const thin = 0.04 * D;
+            for (const q of kept) {
+                const last = keep[keep.length - 1];
+                if (q.sharp || !last || Math.hypot(q.p.x - last.p.x, q.p.y - last.p.y) >= thin)
+                    keep.push(q);
+            }
+            // a sharp corner between two straight edges that barely turn (under 8°) is the
+            // middle of one straight run, cut in two by the thinning: it goes
+            for (let changed = true; changed && keep.length > 3;) {
+                changed = false;
+                for (let i = 0; i < keep.length && keep.length > 3; i++) {
+                    const A = keep[(i - 1 + keep.length) % keep.length],
+                        B = keep[i],
+                        C = keep[(i + 1) % keep.length];
+                    if (!(A.sharp && B.sharp && C.sharp))
+                        continue;
+                    let t = Math.abs(Math.atan2(C.p.y - B.p.y, C.p.x - B.p.x) - Math.atan2(B.p.y - A.p.y, B.p.x - A.p.x));
+                    if (t > Math.PI)
+                        t = TAU - t;
+                    if (t < 8 * Math.PI / 180) {
+                        keep.splice(i, 1);
+                        changed = true;
+                        i--;
+                    }
+                }
+            }
+            if (keep.length < 3)
+                return null;
+            return {
+                pts: keep.map(q => ({
+                    x: q.p.x,
+                    y: q.p.y
+                })),
+                smooth: keep.every(q => q.sharp) ? null : Uint8Array.from(keep, q => q.sharp ? 0 : 1)
+            };
+        }
+
         function loadDrawnStroke(worldPts, append, straight, nWant, clean) {
             if (!worldPts || worldPts.length < 3)
                 return;
@@ -24617,6 +25480,8 @@
                 // corners it was for are not these (a caller that adds or removes one passes
                 // its own)
                 round: (kind && kind.exact && kind.round && kind.round.length === rx.length) ? Float64Array.from(kind.round) : null,
+                // SMOOTH CORNERS: 1 where the outline curves through the corner, or null
+                smooth: (kind && kind.exact && kind.smooth && kind.smooth.length === rx.length && hasSmooth(kind.smooth)) ? Uint8Array.from(kind.smooth) : null,
                 ver: 0, // bumped by every change of m (the rung worker's answers check it)
                 _x: null,
                 _y: null,
@@ -24765,8 +25630,8 @@
             let RX = raw.x,
                 RY = raw.y;
             // rounded corners become their arcs, so the leaves follow the rounding (ROUNDED CORNERS)
-            if (raw.exact && hasRound(raw.round)) {
-                const D = exactDense(RX, RY, lzRoundBaked(raw), raw.open);
+            if (raw.exact && (hasRound(raw.round) || raw.smooth)) { // and smooth corners their curves
+                const D = exactDense(RX, RY, lzRoundBaked(raw), raw.open, raw.smooth);
                 RX = D.x;
                 RY = D.y;
             }
@@ -24997,7 +25862,8 @@
                         scale: sp._lazy.scale,
                         exact: sp._lazy.exact,
                         open: sp._lazy.open,
-                        round: sp._lazy.round
+                        round: sp._lazy.round,
+                        smooth: sp._lazy.smooth
                     } : null,
                     leafX: sp._lazy ? null : sp.leafX ? Float64Array.from(sp.leafX) : null,
                     leafY: sp._lazy ? null : sp.leafY ? Float64Array.from(sp.leafY) : null,
@@ -34845,6 +35711,7 @@
                 drawTransformHandles(w, h);
             if (CHROME)
                 drawExactVertices(w, h); // over the grips: a corner wins (EXACT VERTICES)
+            syncCornerEdit(); // the picked corner's numbers, beside it
             // The smoothing slider moved to the END of this function — see the note there. It
             // is a control, and a control that anything can be painted over is a control you
             // have to move the artwork to use.
@@ -34958,6 +35825,8 @@
             // The shape tool's drag, as it will land (THE SHAPE TOOL).
             if (CHROME && shapeDrag)
                 drawShapeToolPreview();
+            if (CHROME && ptGuides && (shapeDrag || vertexDrag || drawMode))
+                drawPointGuides(); // SNAPPING POINTS
             // In-progress pencil stroke (canvas space).
             if (CHROME && drawMode && drawStroke && drawStroke.length > 1) {
                 ctx.save();
@@ -35124,8 +35993,8 @@
                     let p2 = sp._lazyP2d;
                     if (!p2 || sp._lazyP2dOf !== lz.rx) {
                         p2 = new Path2D();
-                        if (lz.exact && hasRound(lz.round))
-                            traceExact(p2, lz.rx, lz.ry, lz.round, lz.open); // ROUNDED CORNERS
+                        if (lz.exact && (hasRound(lz.round) || lz.smooth))
+                            traceExact(p2, lz.rx, lz.ry, lz.round, lz.open, lz.smooth); // ROUNDED and SMOOTH CORNERS
                         else {
                             p2.moveTo(lz.rx[0], lz.ry[0]);
                             for (let i = 1; i < lz.rx.length; i++)
@@ -37430,11 +38299,15 @@
                     x: e.clientX - rr.left,
                     y: e.clientY - rr.top
                 };
+                const targets = pointSnapTargets(); // SNAPPING POINTS
+                const a = snapScreenPoint(p, targets, e);
                 shapeDrag = {
-                    a: p,
-                    b: p,
-                    shift: e.shiftKey
+                    a,
+                    b: a,
+                    shift: e.shiftKey,
+                    targets
                 };
+                drawAll();
                 return;
             }
             // ── Mark placement, when armed: the click is a PUNCTURE, nothing else ──
@@ -37692,9 +38565,11 @@
                     // points, or Shift with Enter / double-click, commit an open line. Either is
                     // an exact shape, its corners sharp and its edges straight (EXACT SHAPES).
                     if (!drawStroke) {
-                        drawStroke = [p0];
+                        const p1 = snapScreenPoint(p0, penSnapTargets(), e); // SNAPPING POINTS
+                        ptGuides = null;
+                        drawStroke = [p1];
                         drawStroke._usedStraight = true;
-                        drawAnchors = [p0];
+                        drawAnchors = [p1];
                     } else {
                         const start = drawStroke[0];
                         const near = Math.hypot(p0.x - start.x, p0.y - start.y) < 12;
@@ -37703,7 +38578,8 @@
                             return;
                         }
                         // Shift holds the edge to a multiple of 45° (SNAPPING)
-                        const pS = e.shiftKey ? snap45(drawAnchors[drawAnchors.length - 1], p0) : p0;
+                        const pS = e.shiftKey ? snap45(drawAnchors[drawAnchors.length - 1], p0) : snapScreenPoint(p0, penSnapTargets(), e);
+                        ptGuides = null;
                         drawStroke = drawAnchors.concat([pS]);
                         drawStroke._usedStraight = true;
                         drawAnchors.push(pS);
@@ -38381,17 +39257,17 @@
             }
             if (shapeDrag) {
                 const rr = cv.getBoundingClientRect();
-                shapeDrag.b = {
+                shapeDrag.b = snapScreenPoint({
                     x: e.clientX - rr.left,
                     y: e.clientY - rr.top
-                };
+                }, shapeDrag.targets, e);
                 shapeDrag.shift = e.shiftKey;
                 drawAll();
                 return;
             }
             if (vertexDrag) {
                 const rr = cv.getBoundingClientRect();
-                updateVertexDrag(e.clientX - rr.left, e.clientY - rr.top);
+                updateVertexDrag(e.clientX - rr.left, e.clientY - rr.top, e);
                 return;
             }
             if (handleDrag) {
@@ -38426,6 +39302,8 @@
                 };
                 if (e.shiftKey) // the preview snaps as the click will (SNAPPING)
                     p = snap45(drawAnchors[drawAnchors.length - 1], p);
+                else
+                    p = snapScreenPoint(p, penSnapTargets(), e); // SNAPPING POINTS
                 drawStroke = drawAnchors.concat([p]);
                 drawStroke._usedStraight = true;
                 drawStroke._linePreview = true;
@@ -38978,7 +39856,12 @@
                             y: w.y
                         };
                     });
-                    loadDrawnStroke(wpts, drawAppend, usedStraight);
+                    // a stroke with straight runs keeps them: an exact shape (PENCIL STRAIGHT RUNS)
+                    const ex = pencilStrokeExact(wpts, usedStraight);
+                    if (ex)
+                        loadExactShape(ex.pts, drawAppend, false, null, ex.smooth);
+                    else
+                        loadDrawnStroke(wpts, drawAppend, usedStraight);
                 }
                 setDrawMode(false);
                 return;
@@ -59183,6 +60066,11 @@
                 t.addEventListener('change', e => {
                     state.snap = !!e.target.checked;
                 });
+            const tp = $('tSnapPts');
+            if (tp)
+                tp.addEventListener('change', e => {
+                    state.snapPts = !!e.target.checked;
+                });
         }
         $('tFisheye').addEventListener('change', e => {
             state.fisheyeLeaves = e.target.checked;
@@ -60810,7 +61698,7 @@
                         R0 = lzRoundBaked(lz2);
                     const X2 = Float64Array.from(lz2.x, x => half + (x - ox) * scale),
                         Y2 = Float64Array.from(lz2.y, y => half - (y - oy) * scale);
-                    return exactSvgD(X2, Y2, R0 ? R0.map(r => r * scale) : null, lz2.open);
+                    return exactSvgD(X2, Y2, R0 ? R0.map(r => r * scale) : null, lz2.open, lz2.smooth);
                 }
                 if (pts.length < 4)
                     return '';
@@ -61429,6 +62317,8 @@
                 lines.push(`#meta corners:${Array.from(E.x, (x, i) => fmtSig(x, 10) + ' ' + fmtSig(E.y[i], 10)).join(' ')}`);
                 if (E.round)
                     lines.push(`#meta radii:${Array.from(E.round, r => fmtSig(r, 8)).join(' ')}`);
+                if (E.smooth) // the smooth corners, by index from 0
+                    lines.push(`#meta smooth:${Array.from(E.smooth).map((v, k) => v ? k : -1).filter(k => k >= 0).join(' ')}`);
             }
 
             // Canonical channel order: x channel first, then y. Both share the
@@ -61478,12 +62368,14 @@
                 open: lz.open,
                 x: lz.x,
                 y: lz.y,
-                round: lzRoundBaked(lz)
+                round: lzRoundBaked(lz),
+                smooth: lz.smooth
             };
             makeLazy(c, lz.x, lz.y, lz.scale, null, {
                 exact: true,
                 open: lz.open,
-                round: c._exactOut.round
+                round: c._exactOut.round,
+                smooth: lz.smooth
             });
             materializeLazy(c);
             return c;
@@ -61638,6 +62530,7 @@
             lineMode = on && !!straight;
             drawStroke = null;
             drawAnchors = null;
+            ptGuides = null;
             drawAppend = state.subpaths.length > 0; // add to existing, else create first
             const b = $('bDraw');
             if (b)
@@ -61661,7 +62554,7 @@
         // only when asked — the panel's "to leaves" button, or a leaf tool reaching for it —
         // and is sculptable from then on. Clicking it, selecting it, the status line and the
         // readouts do not convert it, as they do not convert a held import.
-        function loadExactShape(worldPts, append, open, round) {
+        function loadExactShape(worldPts, append, open, round, smooth) {
             const sp = {
                 refLength: 0,
                 source: open ? 'line' : 'polygon',
@@ -61670,7 +62563,8 @@
             makeLazy(sp, Float64Array.from(worldPts, p => p.x), Float64Array.from(worldPts, p => p.y), 0, null, {
                 exact: true,
                 open,
-                round: round || null
+                round: round || null,
+                smooth: smooth || null
             });
             if (append && state.subpaths.length) {
                 state.subpaths.push(sp);
@@ -61843,6 +62737,7 @@
         function finishShapeDrag() {
             const d = shapeDrag;
             shapeDrag = null;
+            ptGuides = null;
             const o = d ? shapeToolOutline(d.a, d.b, d.shift) : null;
             if (!o || !shapeToolBig(o)) {
                 drawAll();
@@ -61887,6 +62782,18 @@
         // SNAPPING (23 Oct 2026, Tom: "3,4,5"): with Shift held, the line pen's next edge is
         // held to the nearest multiple of 45° from the last corner (across, up, or a diagonal),
         // its length the pointer's distance along that direction, as drawing tools do.
+        // The line pen's snap targets: the page's, and its own points so far; worked out again
+        // only when the view, the page or the pen's points have changed.
+        let _penSnap = null;
+        function penSnapTargets() {
+            const key = [state.view.zoom, state.view.panX, state.view.panY, state.subpaths.length, drawAnchors ? drawAnchors.length : 0].join(',');
+            if (!_penSnap || _penSnap.key !== key)
+                _penSnap = {
+                    key,
+                    t: pointSnapTargets(null, drawAnchors || [])
+                };
+            return _penSnap.t;
+        }
         function snap45(a, p) {
             const dx = p.x - a.x,
                 dy = p.y - a.y;
@@ -67773,11 +68680,21 @@
                             if (r.length === n && r.every(q => Number.isFinite(q) && q >= 0))
                                 round = Float64Array.from(r);
                         }
+                        let smooth = null;
+                        if (meta.smooth) {
+                            const q = meta.smooth.split(/\s+/).map(Number).filter(k => Number.isInteger(k) && k >= 0 && k < n);
+                            if (q.length) {
+                                smooth = new Uint8Array(n);
+                                for (const k of q)
+                                    smooth[k] = 1;
+                            }
+                        }
                         info = {
                             open,
                             x,
                             y,
-                            round
+                            round,
+                            smooth
                         };
                     }
                 }
@@ -67817,7 +68734,8 @@
             makeLazy(sp, X, Y, 0, null, {
                 exact: true,
                 open: info.open,
-                round: info.round ? Float64Array.from(info.round, r => r * s) : null
+                round: info.round ? Float64Array.from(info.round, r => r * s) : null,
+                smooth: info.smooth
             });
         }
 
@@ -70921,6 +71839,7 @@
                     lz: sp._lazy ? (sp._lazy.exact ? (sp._lazy.open ? 3 : 2) : 1) : 0, // 2 exact, 3 exact line
                     ls: sp._lazy ? sp._lazy.scale : 0,
                     rr: sp._lazy && sp._lazy.exact && hasRound(sp._lazy.round) ? Array.from(lzRoundBaked(sp._lazy), r => +r.toPrecision(7)) : null, // corner radii, in x's units
+                    sm: sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth) : null, // smooth corners (1)
                     x: sp._lazy ? '' : _f32b64(sp.leafX),
                     y: sp._lazy ? '' : _f32b64(sp.leafY),
                     rx: sp._lazy ? _f32b64(sp._lazy.x) : dropRefs ? '' : _f32b64(sp.refX),
@@ -71043,7 +71962,8 @@
                         scale: +sp.ls || 0,
                         exact: sp.lz >= 2,
                         open: sp.lz === 3,
-                        round: Array.isArray(sp.rr) ? sp.rr : null
+                        round: Array.isArray(sp.rr) ? sp.rr : null,
+                        smooth: Array.isArray(sp.sm) ? sp.sm : null
                     } : null;
                     const X = lz ? null : _b64f32(sp.x),
                         Y = lz ? null : _b64f32(sp.y);
@@ -73612,6 +74532,7 @@
                     picked: pk ? pk.k : -1,
                     simp: selectionExactSimp(),
                     round: lz.round ? Array.from(lz.round) : null,
+                    smooth: lz.smooth ? Array.from(lz.smooth) : null,
                     handle: (h => h ? {
                         x: h.px,
                         y: h.py

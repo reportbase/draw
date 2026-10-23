@@ -631,6 +631,59 @@ current = 'exact shapes';
     if ((await held()) !== 5) throw new Error('the .tvf did not load back exact: ' + await held() + ' held');
     const arcsAfter = (await svgPaths()).join('|');
     if (arcsAfter !== arcsBefore) { console.log('BEFORE', arcsBefore); console.log('AFTER ', arcsAfter); throw new Error('the exact shapes moved or changed on the way through a .tvf'); }
+    // The pencil keeps a stroke's straight runs: a hand-drawn square comes out exact with four
+    // sharp corners; a circle still comes out as leaves.
+    const pencil = async pts => {
+      await xp.click('#bDraw');
+      await xp.mouse.move(...P(...pts[0]));
+      await xp.mouse.down();
+      for (const p of pts.slice(1)) await xp.mouse.move(...P(...p));
+      await xp.mouse.up();
+      await xp.waitForTimeout(300);
+    };
+    let wob = 1;
+    const jit = () => ((wob = (wob * 16807) % 2147483647) / 2147483647 - 0.5) * 1.2;
+    const side = (a, b, n) => Array.from({ length: n }, (_, i) => [a[0] + (b[0] - a[0]) * i / n + jit(), a[1] + (b[1] - a[1]) * i / n + jit()]);
+    const h0 = await held();
+    await pencil(Array.from({ length: 90 }, (_, i) => [1150 + 55 * Math.cos(i * Math.PI / 45), 150 + 55 * Math.sin(i * Math.PI / 45)]));
+    if ((await held()) !== h0) throw new Error('a pencil circle came out exact');
+    await pencil([...side([480, 130], [680, 130], 30), ...side([680, 130], [680, 300], 30), ...side([680, 300], [480, 300], 30), ...side([480, 300], [480, 132], 30)]);
+    if ((await held()) !== h0 + 1) throw new Error('a pencil square did not come out exact');
+    await xp.mouse.click(...P(580, 215));
+    await xp.waitForTimeout(300);
+    let pc = await xp.evaluate(() => window.__box.corners());
+    if (!pc || pc.pts.length !== 4 || pc.smooth) throw new Error('the pencil square: ' + JSON.stringify(pc && pc.pts.map(p => [Math.round(p.x), Math.round(p.y)])));
+    // A corner snaps exactly onto an edge's middle (SNAPPING POINTS).
+    const mid = { x: (pc.pts[0].x + pc.pts[1].x) / 2, y: (pc.pts[0].y + pc.pts[1].y) / 2 };
+    await xp.mouse.move(...P(pc.pts[2].x, pc.pts[2].y));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(mid.x + 3, mid.y + 2), { steps: 5 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    pc = await xp.evaluate(() => window.__box.corners());
+    if (Math.hypot(pc.pts[2].x - mid.x, pc.pts[2].y - mid.y) > 0.01) throw new Error('the corner did not snap onto the edge middle: ' + JSON.stringify([pc.pts[2], mid]));
+    await xp.keyboard.press('ControlOrMeta+z');
+    await xp.waitForTimeout(300);
+    // The picked corner's box: a typed x moves it; "smooth" curves the outline through it.
+    pc = await xp.evaluate(() => window.__box.corners());
+    await xp.mouse.click(...P(pc.pts[0].x, pc.pts[0].y));
+    await xp.waitForTimeout(300);
+    if (!(await xp.evaluate(() => document.getElementById('cornerEdit').classList.contains('open')))) throw new Error('no box beside a picked corner');
+    const x0 = +(await xp.inputValue('#ceX'));
+    await xp.fill('#ceX', String(x0 + 0.05));
+    await xp.press('#ceX', 'Enter');
+    await xp.waitForTimeout(300);
+    if (Math.abs(+(await xp.inputValue('#ceX')) - (x0 + 0.05)) > 1e-6) throw new Error('typing x did not move the corner');
+    await xp.click('#ceSmooth');
+    await xp.waitForTimeout(300);
+    pc = await xp.evaluate(() => window.__box.corners());
+    if (!pc.smooth || !pc.smooth[0]) throw new Error('"smooth" did not make the corner smooth');
+    {
+      const [sdl] = await Promise.all([xp.waitForEvent('download', { timeout: 30000 }), xp.evaluate(() => document.getElementById('bExportSvg').click())]);
+      const all = (await readFile(await sdl.path(), 'utf8')).match(/<path d="[^"]*"/g) || [];
+      // the square's path: four corners, one of them smooth, so cubics (C) beside straight lines (L)
+      if (!all.some(d => / C[\d.-]+ /.test(d) && / L[\d.-]+ /.test(d))) throw new Error('a smooth corner was not exported as a curve');
+    }
   } catch (e){
     failures.push(`[exact shapes] ${e.message.split('\n')[0]}`);
   }
