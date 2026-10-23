@@ -15553,7 +15553,9 @@
         {
             name: 'bt-roundoff',
             title: 'round off the whole contour — the track above picks the band',
-            show: () => selectedIndices().length > 0
+            // not on an exact selection: there the track counts corners, and rounding off is
+            // a matter for leaves (the mode switch beside it)
+            show: () => selectedIndices().length > 0 && selectionShapeMode() !== 'exact'
         }, // GROUP, SECOND (22 Oct 2026, Tom: "move the group button next to the rotate button
         // selection to the bottom panel"). It stood beside the rotate grip, the one control on
         // the box's top edge that is not a handle; the panel is where the box's actions live,
@@ -15751,7 +15753,9 @@
             // — and the cell/knob arithmetic the colour tracks needed — went with those rows to
             // the appearance popover, which asks the same getters when it opens.
             const sm = selectionSmoothing();
-            const tS = (sm.value - SMOOTH_MIN) / (SMOOTH_MAX - SMOOTH_MIN);
+            // on an exact selection the track simplifies (see SIMPLIFY), and its knob says how far
+            const exactTrack = selectionShapeMode() === 'exact';
+            const tS = exactTrack ? selectionExactSimp() : (sm.value - SMOOTH_MIN) / (SMOOTH_MAX - SMOOTH_MIN);
             // ONE ROW. The N track went to the reading popover (#spLeafRung) — see the comment
             // beside it for why: leaf count is a decision about the READING, not about the object,
             // and it belongs with the rule, the register and the aperture rather than with a
@@ -15771,7 +15775,7 @@
                 label: '',
                 noBubble: true,
                 value: sm.value,
-                mixed: sm.mixed,
+                mixed: exactTrack ? false : sm.mixed,
                 knobX: ax + tS * w
             },
             ];
@@ -15919,6 +15923,13 @@
             switch (name) {
             case 'smooth':
                 {
+                    if (selectionShapeMode() === 'exact') {
+                        const u = Math.max(0, Math.min(1, (mx - t.ax) / Math.max(1e-6, t.w)));
+                        if (Math.abs(u - selectionExactSimp()) < 0.004)
+                            return false;
+                        setSelectionExactSimp(u);
+                        return true;
+                    }
                     const v = smoothValueAtX(mx, t);
                     if (v === selectionSmoothing().value)
                         return false;
@@ -17162,12 +17173,43 @@
         // ones), moves one point, and is one history entry.
         let vertexDrag = null;
         const VERTEX_HIT_PX = 8;
+        // ADDING AND REMOVING CORNERS (23 Oct 2026, Tom: "1,2"). Each edge long enough on
+        // screen carries a small ring at its middle; pressing it puts a corner there and drags
+        // it, so a tap adds a corner and a press-and-pull adds one where you want it. A corner
+        // pressed is PICKED (drawn gold) until something else is pressed: Delete removes it, as
+        // does a double-click on it. A polygon keeps three corners, a line two.
+        const MID_MIN_EDGE_PX = 32; // shorter edges carry no ring: it would sit on the corners
+        let pickedVertex = null; // {sp, lz, k}: lz is the record it was picked on
         function exactSelected() {
             const sel = selectedIndices();
             if (sel.length !== 1)
                 return -1;
             const sp = state.subpaths[sel[0]];
             return (sp && sp._lazy && sp._lazy.exact) ? sel[0] : -1;
+        }
+        // The rings, in canvas pixels: edge i runs from corner i to the next, and its ring
+        // inserts at i + 1.
+        function exactMidpoints(lz, w, h) {
+            const X = lz.x,
+                Y = lz.y,
+                n = X.length,
+                out = [];
+            const edges = lz.open ? n - 1 : n;
+            for (let i = 0; i < edges; i++) {
+                const j = (i + 1) % n;
+                const a = worldToPx(X[i], Y[i], w, h),
+                    b = worldToPx(X[j], Y[j], w, h);
+                if (Math.hypot(b.x - a.x, b.y - a.y) < MID_MIN_EDGE_PX)
+                    continue;
+                out.push({
+                    k: i + 1,
+                    px: (a.x + b.x) / 2,
+                    py: (a.y + b.y) / 2,
+                    x: (X[i] + X[j]) / 2,
+                    y: (Y[i] + Y[j]) / 2
+                });
+            }
+            return out;
         }
         function exactVertexAt(px, py) {
             if (state.locked || !handlesVisible())
@@ -17192,18 +17234,46 @@
                     };
                 }
             }
+            if (best)
+                return best;
+            for (const m of exactMidpoints(lz, r.width, r.height)) {
+                const d = Math.hypot(m.px - px, m.py - py);
+                if (d <= bd) {
+                    bd = d;
+                    best = {
+                        spi,
+                        k: m.k,
+                        mid: true,
+                        x: m.x,
+                        y: m.y
+                    };
+                }
+            }
             return best;
         }
         function beginVertexDrag(v) {
             const sp = state.subpaths[v.spi],
                 lz = sp._lazy;
-            makeLazy(sp, Float64Array.from(lz.x), Float64Array.from(lz.y), lz.scale, null, lz);
+            const X = Array.from(lz.x),
+                Y = Array.from(lz.y);
+            if (v.mid) {
+                X.splice(v.k, 0, v.x);
+                Y.splice(v.k, 0, v.y);
+            }
+            makeLazy(sp, Float64Array.from(X), Float64Array.from(Y), lz.scale, null, lz);
             vertexDrag = {
                 spi: v.spi,
                 k: v.k,
-                moved: false
+                moved: !!v.mid // a corner added is a change even if it is not pulled
+            };
+            pickedVertex = {
+                sp,
+                lz: sp._lazy,
+                k: v.k
             };
             cv.style.cursor = 'move';
+            if (v.mid)
+                drawAll();
         }
         function updateVertexDrag(mx, my) {
             const sp = state.subpaths[vertexDrag.spi],
@@ -17229,6 +17299,40 @@
             }
             drawAll();
         }
+        // The picked corner, if it is still a corner of the one exact shape selected.
+        function pickedCorner() {
+            const p = pickedVertex,
+                spi = exactSelected();
+            if (!p || spi < 0 || state.subpaths[spi] !== p.sp || p.sp._lazy !== p.lz || p.k >= p.lz.rx.length)
+                return null;
+            return {
+                spi,
+                k: p.k
+            };
+        }
+        function removeExactVertex(spi, k) {
+            const sp = state.subpaths[spi],
+                lz = sp && sp._lazy;
+            if (!lz || !lz.exact)
+                return false;
+            const n = lz.x.length,
+                min = lz.open ? 2 : 3;
+            if (n <= min) {
+                flashStatus(lz.open ? 'a line keeps its two ends' : 'a polygon keeps three corners');
+                return false;
+            }
+            const X = Array.from(lz.x),
+                Y = Array.from(lz.y);
+            X.splice(k, 1);
+            Y.splice(k, 1);
+            makeLazy(sp, Float64Array.from(X), Float64Array.from(Y), lz.scale, null, lz);
+            pickedVertex = null;
+            pushHistory();
+            updateStatus();
+            drawAll();
+            flashStatus('corner removed · ' + (n - 1) + ' left');
+            return true;
+        }
         function drawExactVertices(w, h) {
             if (state.locked || !handlesVisible())
                 return;
@@ -17237,12 +17341,24 @@
                 return;
             const lz = state.subpaths[spi]._lazy;
             const HP = Math.max(3, HANDLE_PX() - 1);
+            const pk = pickedCorner();
             ctx.save();
             ctx.setLineDash([]);
             ctx.lineWidth = 1.2;
+            // the rings first, so a corner drawn over one wins
+            if (!vertexDrag) {
+                ctx.strokeStyle = 'rgba(212,160,82,0.85)';
+                ctx.fillStyle = '#0e0e13';
+                for (const m of exactMidpoints(lz, w, h)) {
+                    ctx.beginPath();
+                    ctx.arc(m.px, m.py, Math.max(2.5, HP - 1), 0, TAU);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
             for (let k = 0; k < lz.x.length; k++) {
                 const q = worldToPx(lz.x[k], lz.y[k], w, h);
-                const on = vertexDrag && vertexDrag.k === k;
+                const on = (vertexDrag && vertexDrag.k === k) || (pk && pk.k === k);
                 ctx.fillStyle = on ? '#d4a052' : '#0e0e13';
                 ctx.strokeStyle = 'rgba(232,228,238,0.95)';
                 ctx.beginPath();
@@ -17251,6 +17367,89 @@
                 ctx.stroke();
             }
             ctx.restore();
+        }
+
+        // ── SIMPLIFY: THE PANEL'S TRACK ON EXACT SHAPES ─────────────────────────────
+        // Smoothing has nothing to do on a straight-edged shape, so while the selection is
+        // exact the panel's track counts its corners instead: at the left every corner it had
+        // when you started, and further right fewer, by Douglas–Peucker at a tolerance growing
+        // to 6% of the shape's size (squared, so the left of the track is fine-grained). The
+        // corners it started from are kept on the shape, so dragging back gives them back; any
+        // other edit (a corner moved, added or removed, a turn) starts the count again from
+        // what is there.
+        function exactSource(sp) {
+            const lz = sp._lazy;
+            if (!(sp._exactSrc && sp._exactSrcFor === lz && sp._exactSrcVer === lz.ver)) {
+                sp._exactSrc = {
+                    x: Float64Array.from(lz.x),
+                    y: Float64Array.from(lz.y)
+                };
+                sp._exactSimp = 0;
+                sp._exactSrcFor = lz;
+                sp._exactSrcVer = lz.ver;
+            }
+            return sp._exactSrc;
+        }
+        function exactSimpOf(sp) {
+            const lz = sp._lazy;
+            return (sp._exactSrc && sp._exactSrcFor === lz && sp._exactSrcVer === lz.ver) ? (sp._exactSimp || 0) : 0;
+        }
+        function selectionExactSimp() {
+            let t = 0;
+            for (const i of selectedIndices()) {
+                const sp = state.subpaths[i];
+                if (sp && sp._lazy && sp._lazy.exact)
+                    t = Math.max(t, exactSimpOf(sp));
+            }
+            return t;
+        }
+        function simplifyExact(sp, t) {
+            const lz = sp._lazy,
+                src = exactSource(sp),
+                n = src.x.length;
+            let X = src.x,
+                Y = src.y;
+            if (t > 0 && n > (lz.open ? 2 : 3)) {
+                let mnx = Infinity,
+                    mny = Infinity,
+                    mxx = -Infinity,
+                    mxy = -Infinity;
+                for (let i = 0; i < n; i++) {
+                    mnx = Math.min(mnx, X[i]);
+                    mxx = Math.max(mxx, X[i]);
+                    mny = Math.min(mny, Y[i]);
+                    mxy = Math.max(mxy, Y[i]);
+                }
+                const eps = Math.hypot(mxx - mnx, mxy - mny) * 0.06 * t * t;
+                let pts;
+                if (lz.open)
+                    pts = rdpSimplify(Array.from(X, (x, i) => [x, Y[i]]), eps).map(q => ({
+                        x: q[0],
+                        y: q[1]
+                    }));
+                else
+                    pts = rdpClosed(Array.from(X, (x, i) => ({
+                        x,
+                        y: Y[i]
+                    })), eps);
+                if (pts.length >= (lz.open ? 2 : 3)) {
+                    X = Float64Array.from(pts, q => q.x);
+                    Y = Float64Array.from(pts, q => q.y);
+                }
+            }
+            makeLazy(sp, Float64Array.from(X), Float64Array.from(Y), lz.scale, null, lz);
+            sp._exactSrcFor = sp._lazy;
+            sp._exactSrcVer = sp._lazy.ver;
+            sp._exactSimp = t;
+        }
+        function setSelectionExactSimp(t) {
+            for (const i of selectedIndices()) {
+                const sp = state.subpaths[i];
+                if (sp && sp._lazy && sp._lazy.exact)
+                    simplifyExact(sp, t);
+            }
+            pickedVertex = null;
+            updateStatus();
         }
 
         function beginHandleDrag(name, mx, my, e) {
@@ -36789,6 +36988,7 @@
                     e.preventDefault();
                     return;
                 }
+                pickedVertex = null;
                 const hName = handleAt(e.clientX - rr.left, e.clientY - rr.top);
                 if (hName && beginHandleDrag(hName, e.clientX - rr.left, e.clientY - rr.top, e)) {
                     e.preventDefault();
@@ -59367,6 +59567,16 @@
             // Not in the edit view, and for the same reason as the clipboard above: the mode is
             // about the inside of one shape, and deleting that shape from inside it is a way of
             // ending the mode that nobody asks for by pressing Delete.
+            // A picked corner of an exact shape goes before the shape does (ADDING AND REMOVING
+            // CORNERS): Delete removes the corner, and with no corner picked the shape as before.
+            if ((e.key === 'Delete' || e.key === 'Backspace') && !drawMode && !_isEditableTarget(e.target)) {
+                const pc = pickedCorner();
+                if (pc) {
+                    e.preventDefault();
+                    removeExactVertex(pc.spi, pc.k);
+                    return;
+                }
+            }
             if ((e.key === 'Delete' || e.key === 'Backspace') && !drawMode && !state.editMode
             && !_isEditableTarget(e.target)) {
                 // A selected GROUP deletes as just the group: the binding dissolves, the
@@ -60963,6 +61173,16 @@
             }
             if (drawMode)
                 return;
+            // A double-click on an exact shape's corner removes it (ADDING AND REMOVING CORNERS).
+            {
+                const rr = cv.getBoundingClientRect();
+                const v = exactVertexAt(e.clientX - rr.left, e.clientY - rr.top);
+                if (v && !v.mid) {
+                    e.preventDefault();
+                    removeExactVertex(v.spi, v.k);
+                    return;
+                }
+            }
             // Everything below this line is a way INTO the edit view — the grouped-member
             // branch, the built-shape branch, the leaf circles, the fit. With the lab off
             // there is nowhere for the gesture to go, so the double-click means nothing at
@@ -72501,6 +72721,33 @@
                 return (rows && rows.buttons && rows.buttons.find(b => b.name === name)) || null;
             },
             mode: () => selectionShapeMode(), // 'exact', 'leaves' or 'mixed'
+            // the one exact shape selected: its corners and edge rings in canvas pixels, the picked corner
+            corners: () => {
+                const spi = exactSelected();
+                if (spi < 0)
+                    return null;
+                const lz = state.subpaths[spi]._lazy,
+                    r = cv.getBoundingClientRect();
+                const pk = pickedCorner();
+                return {
+                    pts: Array.from(lz.x, (x, i) => worldToPx(x, lz.y[i], r.width, r.height)),
+                    mids: exactMidpoints(lz, r.width, r.height).map(m => ({
+                        x: m.px,
+                        y: m.py
+                    })),
+                    picked: pk ? pk.k : -1,
+                    simp: selectionExactSimp()
+                };
+            },
+            track: () => {
+                const rows = sliderRows();
+                return rows && rows.smooth ? {
+                    ax: rows.smooth.ax,
+                    bx: rows.smooth.bx,
+                    y: rows.smooth.y,
+                    knobX: rows.smooth.knobX
+                } : null;
+            },
             handles: () => handlePoints(), // the box's grips in canvas pixels, for driving a drag
             grouped: () => selectionIsGrouped(),
             units: () => selectionUnitCount(),

@@ -512,6 +512,52 @@ current = 'exact shapes';
     await xp.waitForTimeout(400);
     if ((await held()) !== 2) throw new Error('a mirror turned the exact shapes into leaves');
     await xp.evaluate(() => window._setMirrorMode('off'));
+    // Corners: a ring at an edge's middle adds one, Delete removes the picked one, a double-click
+    // another, and a polygon keeps three.
+    await xp.mouse.click(...P(200, 560)); // the triangle
+    await xp.waitForTimeout(300);
+    let cs = await xp.evaluate(() => window.__box.corners());
+    if (!cs || cs.pts.length !== 3 || !cs.mids.length) throw new Error('the triangle shows no corners or rings: ' + JSON.stringify(cs));
+    await xp.mouse.click(...P(cs.mids[0].x, cs.mids[0].y));
+    await xp.waitForTimeout(300);
+    cs = await xp.evaluate(() => window.__box.corners());
+    if (cs.pts.length !== 4 || cs.picked < 0) throw new Error('tapping a ring did not add a picked corner: ' + cs.pts.length);
+    await xp.keyboard.press('Delete');
+    await xp.waitForTimeout(300);
+    cs = await xp.evaluate(() => window.__box.corners());
+    if (!cs || cs.pts.length !== 3) throw new Error('Delete did not remove the picked corner');
+    await xp.mouse.dblclick(...P(cs.pts[0].x, cs.pts[0].y));
+    await xp.waitForTimeout(300);
+    cs = await xp.evaluate(() => window.__box.corners());
+    if (!cs || cs.pts.length !== 3) throw new Error('a polygon was let go below three corners');
+    // Simplify: on an exact selection the panel's track counts corners. A circle of 48 corners,
+    // drawn with the line pen, comes down to a handful and back.
+    await xp.keyboard.press('Escape');
+    await xp.click('#bDrawLine');
+    for (let i = 0; i < 48; i++) await xp.mouse.click(...P(900 + 150 * Math.cos(i * Math.PI / 24), 330 + 150 * Math.sin(i * Math.PI / 24)));
+    await xp.mouse.click(...P(1050, 330));
+    await xp.waitForTimeout(300);
+    await xp.mouse.click(...P(900, 330 + 149));
+    await xp.waitForTimeout(300);
+    cs = await xp.evaluate(() => window.__box.corners());
+    if (!cs || cs.pts.length !== 48) throw new Error('the 48-corner circle: ' + (cs && cs.pts.length));
+    const tr = await xp.evaluate(() => window.__box.track());
+    if (!tr) throw new Error('no track on the exact circle');
+    await xp.mouse.move(...P(tr.ax + 1, tr.y));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(tr.bx, tr.y), { steps: 6 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    const few = (await xp.evaluate(() => window.__box.corners())).pts.length;
+    if (!(few >= 3 && few < 20)) throw new Error('simplifying left ' + few + ' corners of 48');
+    const tr2 = await xp.evaluate(() => window.__box.track());
+    await xp.mouse.move(...P(tr2.knobX, tr2.y));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(tr2.ax - 5, tr2.y), { steps: 6 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(300);
+    if ((await xp.evaluate(() => window.__box.corners())).pts.length !== 48) throw new Error('the track back to the left did not give the 48 corners back');
+    if ((await held()) !== 3) throw new Error('simplifying converted a shape: ' + await held() + ' held');
   } catch (e){
     failures.push(`[exact shapes] ${e.message.split('\n')[0]}`);
   }
