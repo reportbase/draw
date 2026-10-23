@@ -11292,6 +11292,42 @@
         // EVERY hit under the pointer, topmost first — the same test findShapeAt runs, without
         // the early return. Containment ranks above outline proximity, and the list is in
         // z-order, so index 0 is exactly what resolveTarget answers with.
+        // HOLES in the click tests: a point inside one of a shape's holes is not inside the
+        // shape (the hole is empty, and what is behind it shows through), and a hole's edge is
+        // as much the shape's outline as the outer one. In canvas pixels: whether (px, py) is in
+        // a hole, and how near it is to a hole's edge.
+        function holesHitPx(sp, px, py, w, h) {
+            const H = sp && sp._lazy && sp._lazy.holes ? lzHolesBaked(sp._lazy) : null;
+            let inHole = false,
+                d = Infinity;
+            if (!H)
+                return {
+                    inHole,
+                    d
+                };
+            for (const hl of H) {
+                const n = hl.x.length,
+                    xs = new Float64Array(n),
+                    ys = new Float64Array(n);
+                for (let k = 0; k < n; k++) {
+                    const q = worldToPx(hl.x[k], hl.y[k], w, h);
+                    xs[k] = q.x;
+                    ys[k] = q.y;
+                }
+                let inS = false;
+                for (let i = 0, j = n - 1; i < n; j = i++) {
+                    if (((ys[i] > py) !== (ys[j] > py)) && (px < (xs[j] - xs[i]) * (py - ys[i]) / (ys[j] - ys[i]) + xs[i]))
+                        inS = !inS;
+                    d = Math.min(d, segDistPx(px, py, xs[j], ys[j], xs[i], ys[i]));
+                }
+                if (inS)
+                    inHole = true;
+            }
+            return {
+                inHole,
+                d
+            };
+        }
         function shapesUnder(px, py, w, h) {
             const OUTLINE_TOL = 8;
             const inside = [],
@@ -11333,11 +11369,12 @@
                     if (((ys[i] > py) !== (ys[j] > py)) &&
                     (px < (xs[j] - xs[i]) * (py - ys[i]) / (ys[j] - ys[i]) + xs[i]))
                         inS = !inS;
-                if (inS && !OPEN) {
+                const HH = holesHitPx(sp, px, py, w, h);
+                if (inS && !OPEN && !HH.inHole) {
                     inside.push(spi);
                     continue;
                 }
-                let d = Infinity;
+                let d = HH.d;
                 for (let i = OPEN ? 1 : 0, j = OPEN ? 0 : N - 1; i < N; j = i++)
                     d = Math.min(d, segDistPx(px, py, xs[j], ys[j], xs[i], ys[i]));
                 // a line is all edge: within reach of it is ON it, as inside is for a ring
@@ -12837,7 +12874,9 @@
             const units = [];
             for (let i = 0; i < state.subpaths.length; i++) {
                 const sp = state.subpaths[i];
-                if (!sp || !sp.leafX || sp.leafX.length < 2)
+                // _lazy first: reading leafX would convert a held or exact shape, and arranging
+                // moves and scales them as they are (scaleIndices, nudgeIndices)
+                if (!sp || (!sp._lazy && (!sp.leafX || sp.leafX.length < 2)))
                     continue;
                 if (sp.gid != null) {
                     let u = byGid.get(sp.gid);
@@ -16492,11 +16531,11 @@
 
         // ── THE MODE SWITCH (EXACT SHAPES) ──────────────────────────────────────────
         // Which shapes it can switch: a held shape (its outline is already exact, it only has
-        // to be marked so) and a shape of leaves. Not a text run's glyphs: the run is filled as
-        // one even-odd path, which the held renderer does not draw. Asked of _lazy first, since
+        // to be marked so) and a shape of leaves. A text run's glyphs too, since a shape can hold
+        // holes (TEXT TO EXACT SHAPES): the run is switched whole. Asked of _lazy first, since
         // reading leafX off a held shape would convert it.
         function modeSwitchable(sp) {
-            if (!sp || sp.textRun)
+            if (!sp)
                 return false;
             if (sp._lazy)
                 return true;
@@ -16816,6 +16855,44 @@
             const toLeaves = selectionShapeMode() === 'exact';
             let n = 0,
                 kept = 0;
+            // TEXT TO EXACT SHAPES: each word selected, whole, before anything else moves the
+            // indices (the conversion replaces its glyph contours with its letters)
+            if (!toLeaves) {
+                const runs = new Set();
+                for (const i of selectedIndices()) {
+                    const sp = state.subpaths[i];
+                    if (sp && !sp._lazy && sp.textRun != null)
+                        runs.add(sp.textRun);
+                }
+                if (runs.size) {
+                    const made = [];
+                    let letters = 0;
+                    for (const run of runs) {
+                        const r = textRunToExact(run);
+                        if (r) {
+                            made.push(r);
+                            letters += r.count;
+                        }
+                    }
+                    if (made.length) {
+                        rebuildSignalSelect(); // resets the selection, so the letters are selected after it
+                        const sel = new Set();
+                        for (const r of made)
+                            for (const sp of r.shapes)
+                                sel.add(state.subpaths.indexOf(sp));
+                        sel.delete(-1);
+                        state.activeSet = sel;
+                        state.activeSp = sel.size === 1 ? [...sel][0] : -1;
+                        state.isolateHide = false;
+                        pushHistory();
+                        scheduleSave();
+                        updateStatus();
+                        drawAll();
+                        flashStatus(letters + (letters === 1 ? ' letter' : ' letters') + ' now exact: their counters are holes; the text can no longer be retyped (undo has it)');
+                    }
+                    return;
+                }
+            }
             for (const i of selectedIndices()) {
                 const sp = state.subpaths[i];
                 if (!modeSwitchable(sp))
@@ -16842,6 +16919,118 @@
             const what = n + (n > 1 ? ' shapes' : ' shape') + (kept ? ' (' + kept + ' with holes kept exact)' : '');
             flashStatus(toLeaves ? what + ' now leaves: sculpt away (corners round off)'
             : what + ' now exact: straight edges, drag a corner to move it');
+        }
+        // TEXT TO EXACT SHAPES (23 Oct 2026, Tom: "1,2,3"). A word is traced from a raster into
+        // one leaf loop per contour, filled together even-odd so a counter reads as a hole. Made
+        // exact, each loop is fitted with few corners (fitExactOutline, as makeShapeExact does,
+        // to two screen pixels) and the loops are nested by containment: a loop inside an even
+        // number of others is a letter's outline, one inside an odd number a counter of the
+        // letter round it (HOLES); an island in a counter is a letter again. Each letter is one
+        // exact shape, filled and lined as the word was, the letters grouped. The word's text
+        // goes: an exact letter is a shape now, to combine, offset or reshape, not to retype.
+        function textRunToExact(run) {
+            const idx = [];
+            state.subpaths.forEach((sp, i) => {
+                if (sp && !sp._lazy && sp.textRun === run && sp.leafX && sp.leafX.length >= 3)
+                    idx.push(i);
+            });
+            if (!idx.length)
+                return null;
+            const r = cv.getBoundingClientRect();
+            const a = pxToWorld(0, 0, r.width, r.height),
+                b = pxToWorld(0.5, 0, r.width, r.height);
+            const tol = Math.abs(b.x - a.x) || 1e-4;
+            const loops = [];
+            for (const i of idx) {
+                const sp = state.subpaths[i];
+                const N = sp.leafX.length;
+                const M = ceilPow2(Math.min(4096, Math.max(1024, N * 4)));
+                const SX = reconstruct1D(sp.leafX, M),
+                    SY = reconstruct1D(sp.leafY, M);
+                const fit = fitExactOutline(SX, SY, 4 * tol);
+                if (!fit || fit.x.length < 3)
+                    continue;
+                // nested by the fine samples: a fitted outline's corners alone (an O's four
+                // smooth ones) are no polygon to test inside
+                const ring = Array.from(SX, (x, k) => ({
+                    x,
+                    y: SY[k]
+                }));
+                loops.push({
+                    fit,
+                    ring,
+                    area: Math.abs(ringArea(ring)),
+                    depth: 0,
+                    parent: null,
+                    holes: []
+                });
+            }
+            if (!loops.length)
+                return null;
+            for (const L of loops) {
+                let best = null;
+                for (const K of loops)
+                    if (K !== L && K.area > L.area && ringContains(L.ring[0].x, L.ring[0].y, K.ring)) {
+                        L.depth++;
+                        if (!best || K.area < best.area)
+                            best = K;
+                    }
+                L.parent = best;
+            }
+            for (const L of loops)
+                if (L.depth % 2 === 1 && L.parent)
+                    L.parent.holes.push(L.fit);
+            const lead = state.subpaths[idx[0]];
+            const shapes = [];
+            for (const L of loops) {
+                if (L.depth % 2 === 1)
+                    continue;
+                const ns = {
+                    refLength: 0,
+                    source: 'text',
+                    dirty: false,
+                    fill: lead.fill ? {
+                        color: lead.fill.color,
+                        opacity: lead.fill.opacity
+                    } : null,
+                    stroke: lead.stroke || null,
+                    strokeOpacity: lead.strokeOpacity != null ? lead.strokeOpacity : null,
+                    lineWidth: lead.lineWidth != null ? lead.lineWidth : null,
+                    gname: lead.gname || (lead.textMeta && lead.textMeta.text) || null,
+                    note: lead.note || null
+                };
+                makeLazy(ns, L.fit.x, L.fit.y, 0, null, {
+                    exact: true,
+                    smooth: L.fit.smooth,
+                    holes: L.holes.length ? L.holes : null
+                });
+                shapes.push(ns);
+            }
+            if (shapes.length > 1) {
+                const gid = state.nextGid++;
+                shapes.forEach((sp, k) => {
+                    sp.gid = gid;
+                    sp.groupLead = k === 0;
+                });
+            }
+            if (state.editMode) {
+                state._editPrevView = null;
+                exitEditMode();
+            }
+            const gone = new Set(idx);
+            const next = [];
+            state.subpaths.forEach((sp, i) => {
+                if (i === idx[0])
+                    next.push(...shapes);
+                if (!gone.has(i))
+                    next.push(sp);
+            });
+            state.subpaths = next;
+            state.selected.clear();
+            return {
+                shapes,
+                count: shapes.length
+            };
         }
         // Both words, always: "exact" and "leaves" side by side, the one that holds filled gold.
         function drawModeSwitch(b, hot) {
@@ -18490,6 +18679,7 @@
                 for (const j of vertexDrag.partners)
                     lz.round[j] = rw;
                 sp._lazyP2d = null;
+                lz._box = lz._box0 = lz._boxPts = null; // the drawn outline, and so its box, changed
                 vertexDrag.moved = true;
                 drawAll();
                 return;
@@ -18511,7 +18701,7 @@
                     lz.rx[q.j] = M.cx + q.fx * (p.x - M.cx);
                     lz.ry[q.j] = M.cy + q.fy * (p.y - M.cy);
                 }
-            lz._box = lz._box0 = null; // the outline changed in place: its box and path go
+            lz._box = lz._box0 = lz._boxPts = null; // the outline changed in place: its box and path go
             sp._lazyP2d = null;
             vertexDrag.moved = true;
             drawAll();
@@ -19121,7 +19311,7 @@
                 lz.rx[k] = D.bx[k] + D.w[k] * dx;
                 lz.ry[k] = D.by[k] + D.w[k] * dy;
             }
-            lz._box = lz._box0 = null;
+            lz._box = lz._box0 = lz._boxPts = null;
             D.sp._lazyP2d = null;
             D.moved = true;
             D.mx = mx;
@@ -27424,15 +27614,32 @@
                 path.lineTo(X[i], Y[i]);
             path.closePath();
         }
+        // The points a box is taken from, in rx's units: the corners, or where a corner is
+        // rounded or smooth the outline as drawn (ALIGN AND DISTRIBUTE, 23 Oct 2026, Tom:
+        // "1,2,3"). A rounded corner's arc lies inside its corner and a smooth corner's curve
+        // can swell past its corners, so a box of corners alone put a rounded rectangle's edge
+        // where it is not drawn, and aligning it with a square left a gap. Kept with the box.
+        function lazyBoxPts(lz) {
+            if (!(lz.exact && (hasRound(lz.round) || hasSmooth(lz.smooth))))
+                return {
+                    x: lz.rx,
+                    y: lz.ry
+                };
+            if (!lz._boxPts || lz._boxPtsOf !== lz.rx)
+                lz._boxPts = exactDense(lz.rx, lz.ry, lz.round, lz.open, lz.smooth);
+            lz._boxPtsOf = lz.rx;
+            return lz._boxPts;
+        }
         function lazyBoxOf(lz) {
+            const BP = lazyBoxPts(lz);
             if (!lz._box0) {
                 let mnx = Infinity,
                     mny = Infinity,
                     mxx = -Infinity,
                     mxy = -Infinity;
-                for (let i = 0; i < lz.rx.length; i++) {
-                    const X = lz.rx[i],
-                        Y = lz.ry[i];
+                for (let i = 0; i < BP.x.length; i++) {
+                    const X = BP.x[i],
+                        Y = BP.y[i];
                     if (X < mnx)
                         mnx = X;
                     if (X > mxx)
@@ -27450,21 +27657,21 @@
                 return b0;
             if (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1)
                 return [b0[0] + m[4], b0[1] + m[5], b0[2] + m[4], b0[3] + m[5]];
-            const X = lz.x,
-                Y = lz.y;
             let mnx = Infinity,
                 mny = Infinity,
                 mxx = -Infinity,
                 mxy = -Infinity;
-            for (let i = 0; i < X.length; i++) {
-                if (X[i] < mnx)
-                    mnx = X[i];
-                if (X[i] > mxx)
-                    mxx = X[i];
-                if (Y[i] < mny)
-                    mny = Y[i];
-                if (Y[i] > mxy)
-                    mxy = Y[i];
+            for (let i = 0; i < BP.x.length; i++) {
+                const X = m[0] * BP.x[i] + m[2] * BP.y[i] + m[4],
+                    Y = m[1] * BP.x[i] + m[3] * BP.y[i] + m[5];
+                if (X < mnx)
+                    mnx = X;
+                if (X > mxx)
+                    mxx = X;
+                if (Y < mny)
+                    mny = Y;
+                if (Y > mxy)
+                    mxy = Y;
             }
             return [mnx, mny, mxx, mxy];
         }
@@ -39035,8 +39242,13 @@
                     (px < (xs[j] - xs[i]) * (py - ys[i]) / (ys[j] - ys[i]) + xs[i]))
                         inside = !inside;
                 }
-                if (inside && !OPEN)
+                const HH = holesHitPx(sp, px, py, w, h);
+                if (inside && !OPEN && !HH.inHole)
                     return spi;
+                if (HH.d < nearD) {
+                    nearD = HH.d;
+                    nearHit = spi;
+                }
                 // Otherwise track nearest outline.
                 for (let i = OPEN ? 1 : 0, j = OPEN ? 0 : N - 1; i < N; j = i++) {
                     const d = segDistPx(px, py, xs[j], ys[j], xs[i], ys[i]);
@@ -39092,7 +39304,10 @@
                 (px < (xs[j] - xs[i]) * (py - ys[i]) / (ys[j] - ys[i]) + xs[i]))
                     inside = !inside;
             }
-            if (inside && !OPEN)
+            const HH = holesHitPx(sp, px, py, w, h);
+            if (inside && !OPEN && !HH.inHole)
+                return true;
+            if (HH.d <= tol)
                 return true;
             for (let i = OPEN ? 1 : 0, j = OPEN ? 0 : N - 1; i < N; j = i++) {
                 if (segDistPx(px, py, xs[j], ys[j], xs[i], ys[i]) <= tol)
@@ -71235,7 +71450,10 @@
         [] // 15 ████
         ];
 
-        function traceContours(g, w, h) {
+        // traceGridContours, not traceContours: under that name this declaration (later in
+        // the same scope) took the place of the text tracer above, which then threw on every
+        // word, and the text tool traced nothing (found 23 Oct 2026).
+        function traceGridContours(g, w, h) {
             // adjacency: key → up to two neighbouring keys
             const adj = new Map();
             const link = (a, b) => {
@@ -71477,7 +71695,7 @@
                 bmp.close();
 
             const grid = traceThreshold(data, w, h);
-            const loops = traceContours(grid.g, grid.w, grid.h);
+            const loops = traceGridContours(grid.g, grid.w, grid.h);
             if (!loops.length) {
                 flashStatus(file.name + ': nothing to trace — the image is all one tone');
                 return;
@@ -76620,6 +76838,7 @@
                     smooth: hasSmooth(lz.smooth),
                     round: hasRound(lz.round) ? Array.from(lzRoundBaked(lz)) : null,
                     open: lz.open,
+                    box: Array.from(lz.box), // as drawn: [minx, miny, maxx, maxy]
                     exact: lz.exact,
                     holes: lz.holes ? lz.holes.map(h => ({ // HOLES: each its corner count and area
                         n: h.x.length,

@@ -719,7 +719,9 @@ current = 'exact shapes';
    copy and paste all keep; two apart have nothing in common. A dashed outline exports with a dash array and an open line's arrowheads as filled
    paths. Pressing a square's edge and pulling puts a smooth bump in it. Offset: the square grown
    by a distance with round joins keeps four corners rounded by that distance, shrunk keeps four
-   sharp ones, outlined is a frame. */
+   sharp ones, outlined is a frame. A click in a frame's hole selects nothing; aligning goes by the
+   outline as drawn (round corners included); a word made exact is a shape a letter with its
+   counters as holes. */
 current = 'combining exact shapes';
 {
   const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -878,6 +880,62 @@ current = 'combining exact shapes';
     await xp.waitForTimeout(300);
     const oc = (await shapes())[0];
     if (!oc || !oc.smooth || oc.n > 8 || oc.holes.length !== 1 || oc.holes[0].n > 8) throw new Error('a circle outlined: ' + JSON.stringify(oc));
+    await xp.click('#otClose');
+    // A CLICK IN A HOLE: the ring's hole is empty, its band is the shape
+    await fresh();
+    await rect(150, 300, 450, 600);
+    await rect(250, 400, 350, 500);
+    await xp.evaluate(() => window.__box.select([0, 1]));
+    await press('bt-subtract');
+    await xp.mouse.click(...P(20, 780));
+    await xp.waitForTimeout(200);
+    await xp.mouse.click(...P(300, 450)); // the middle of the hole
+    await xp.waitForTimeout(250);
+    if ((await shapes()).length) throw new Error('a click in a hole selected the shape round it');
+    await xp.mouse.click(...P(200, 450)); // the band
+    await xp.waitForTimeout(250);
+    if ((await shapes()).length !== 1) throw new Error('a click on the band did not select the shape');
+    // ALIGN on the drawn outline: a circle (a square rounded by half its side) and a rounded
+    // hexagon aligned to a square's top all touch the same line, and stay exact
+    await fresh();
+    await rect(150, 250, 300, 400);
+    await xp.click('#bDrawShape');
+    await xp.click('#shapeTool button[data-kind="polygon"]');
+    await xp.evaluate(() => { const r = document.getElementById('stRound'); r.value = 0.2; r.dispatchEvent(new Event('input')); });
+    await xp.mouse.move(...P(700, 300));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(780, 220), { steps: 5 });
+    await xp.mouse.up();
+    await xp.click('#bDrawShape');
+    await xp.click('#shapeTool button[data-kind="rect"]');
+    await xp.evaluate(() => { const r = document.getElementById('stRound'); r.value = 0; r.dispatchEvent(new Event('input')); });
+    await xp.mouse.move(...P(1, 1));
+    await xp.keyboard.press('Escape');
+    await xp.evaluate(() => window.__box.select([0, 1]));
+    await xp.click('#bAlign');
+    await xp.click('#alignPop [data-align="top"]');
+    await xp.waitForTimeout(250);
+    await xp.evaluate(() => window.__box.select([0, 1]));
+    const tops = (await shapes()).map(q => q.box[3]);
+    if (tops.length !== 2 || Math.abs(tops[0] - tops[1]) > 1e-9) throw new Error('aligned tops: ' + JSON.stringify(tops));
+    const hexR = (await shapes())[1];
+    if (!hexR.round) throw new Error('the rounded hexagon lost its rounding');
+    if ((await xp.evaluate(() => window.__lazy.held())) !== 2) throw new Error('aligning converted a shape');
+    // TEXT TO EXACT SHAPES: a word made exact is a shape a letter, its counters holes
+    await fresh();
+    await xp.click('#bText');
+    await xp.fill('#textPopInput', 'Bo');
+    await xp.click('#textPopAdd');
+    await xp.waitForTimeout(1000);
+    await xp.keyboard.press('Escape');
+    const nText = await xp.evaluate(() => window.__box.count());
+    if (nText < 4) throw new Error('the text tool traced ' + nText + ' contours for "Bo"');
+    await xp.evaluate(n => window.__box.select(Array.from({ length: n }, (_, i) => i)), nText);
+    await press('bt-mode');
+    await xp.evaluate(() => window.__box.select(Array.from({ length: window.__box.count() }, (_, i) => i)));
+    const letters = await shapes();
+    const holes = letters.map(q => q && q.holes.length).sort();
+    if (letters.length !== 2 || !letters.every(q => q && q.exact) || holes.join() !== '1,2') throw new Error('"Bo" made exact: ' + JSON.stringify(letters.map(q => q && { n: q.n, holes: q.holes.length })));
   } catch (e){
     failures.push(`[combining exact shapes] ${e.message.split('\n')[0]}`);
   }
