@@ -723,7 +723,8 @@ current = 'exact shapes';
    outline as drawn (round corners included); a word made exact is a shape a letter with its
    counters as holes (read from the font where it can be fetched). A hole's corners drag, add and
    remove like the outline's. The knife cuts a frame in two; the corner strip rounds, smooths and
-   sharpens every corner at once. */
+   sharpens every corner at once. Curve edges survive a cut, a split and a .tvf; the pen draws
+   curves and a smooth corner's handles stay in line. */
 current = 'combining exact shapes';
 {
   const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -1067,6 +1068,54 @@ current = 'combining exact shapes';
     await xp.evaluate(() => window.__box.select([0, 1]));
     const back = await shapes();
     if (back.length !== 2 || back.some(q => !(q.curves > 0))) throw new Error('the curve edges came back from the .tvf as ' + JSON.stringify(back.map(q => q && q.curves)));
+    // CURVE HANDLES: the line pen's point pressed and pulled makes a smooth point with curves
+    // either side; picked, it shows both handles; one dragged swings the other opposite at its
+    // own length; with Alt the corner goes sharp
+    await fresh();
+    await xp.click('#bDrawLine');
+    await xp.mouse.click(...P(400, 500));
+    await xp.mouse.move(...P(600, 500));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(650, 400), { steps: 6 });
+    await xp.mouse.up();
+    await xp.mouse.click(...P(500, 300));
+    await xp.mouse.click(...P(401, 501));
+    await xp.waitForTimeout(300);
+    await xp.evaluate(() => window.__box.select([0]));
+    await xp.waitForTimeout(150);
+    let pc = await xp.evaluate(() => window.__box.corners());
+    const penShape = (await shapes())[0];
+    if (!penShape || penShape.curves !== 2 || !pc.smooth || pc.smooth[1] !== 1) throw new Error('the pen\'s pulled point: ' + JSON.stringify({ curves: penShape && penShape.curves, smooth: pc.smooth }));
+    await xp.mouse.click(...P(pc.pts[1].x, pc.pts[1].y));
+    await xp.waitForTimeout(200);
+    pc = await xp.evaluate(() => window.__box.corners());
+    if (pc.handles.length !== 2) throw new Error('a smooth point picked shows ' + pc.handles.length + ' handles');
+    const hOut = pc.handles.find(q => q.which === 'out'),
+      cpt = pc.pts[1];
+    await xp.mouse.move(...P(hOut.x, hOut.y));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(hOut.x + 40, hOut.y + 30), { steps: 5 });
+    await xp.mouse.up();
+    await xp.waitForTimeout(200);
+    pc = await xp.evaluate(() => window.__box.corners());
+    const ho2 = pc.handles.find(q => q.which === 'out'),
+      hi2 = pc.handles.find(q => q.which === 'in');
+    const vo = [ho2.x - cpt.x, ho2.y - cpt.y],
+      vi = [hi2.x - cpt.x, hi2.y - cpt.y];
+    const cross = vo[0] * vi[1] - vo[1] * vi[0],
+      dot = vo[0] * vi[0] + vo[1] * vi[1];
+    if (Math.abs(ho2.x - hOut.x - 40) > 1.5 || Math.abs(cross) > 2 * Math.hypot(...vo) || dot >= 0) throw new Error('a smooth point\'s handles did not stay in line: ' + JSON.stringify({ vo, vi }));
+    await xp.keyboard.down('Alt');
+    await xp.mouse.move(...P(hi2.x, hi2.y));
+    await xp.mouse.down();
+    await xp.mouse.move(...P(hi2.x - 30, hi2.y + 40), { steps: 5 });
+    await xp.mouse.up();
+    await xp.keyboard.up('Alt');
+    await xp.waitForTimeout(200);
+    pc = await xp.evaluate(() => window.__box.corners());
+    if (pc.smooth && pc.smooth[1]) throw new Error('Alt on a handle did not make the corner sharp');
+    const ho3 = pc.handles.find(q => q.which === 'out');
+    if (Math.hypot(ho3.x - ho2.x, ho3.y - ho2.y) > 1) throw new Error('Alt moved the other handle too');
     // CORNERS, ALL AT ONCE: a square's corners all rounded by the radius, then all smooth,
     // then all sharp
     await fresh();

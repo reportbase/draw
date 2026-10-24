@@ -18977,6 +18977,151 @@
                 rMax: Math.min(Math.hypot(X[0] - X[1], Y[0] - Y[1]), Math.hypot(X[2] - X[1], Y[2] - Y[1])) / 2 * Math.tan(g.phi / 2)
             };
         }
+        // ── CURVE HANDLES (24 Oct 2026, Tom: "1") ────────────────────────────────────
+        // A picked corner shows the handles of the curves beside it: the control point its
+        // arriving edge comes in by and the one its leaving edge goes out by, each on a stalk
+        // from the corner. A straight edge has none (make the corner smooth to curve it). Drag a
+        // handle to reshape its curve; at a smooth corner the other handle turns with it, staying
+        // in line and keeping its length; with Alt held the corner goes sharp and the handles part.
+        // A rule's curve (SMOOTH CORNERS) grabbed by a handle becomes the edge's own (CURVE EDGES).
+        // The handles, in the units of lz.x: [{which: 'in' | 'out', e, x, y}].
+        function cornerHandles(lz, k) {
+            const X = lz.x,
+                Y = lz.y,
+                n = X.length,
+                C = lzCtrlBaked(lz),
+                S = lz.smooth;
+            const out = [];
+            const ein = (lz.open && k === 0) ? -1 : (k - 1 + n) % n,
+                eout = (lz.open && k === n - 1) ? -1 : k;
+            if (ein >= 0) {
+                const cc = edgeCtrl(X, Y, S, lz.open, ein, k, C);
+                if (cc)
+                    out.push({
+                        which: 'in',
+                        e: ein,
+                        x: cc.c2x,
+                        y: cc.c2y
+                    });
+            }
+            if (eout >= 0) {
+                const cc = edgeCtrl(X, Y, S, lz.open, k, (k + 1) % n, C);
+                if (cc)
+                    out.push({
+                        which: 'out',
+                        e: eout,
+                        x: cc.c1x,
+                        y: cc.c1y
+                    });
+            }
+            return out;
+        }
+        // the picked corner's handles in canvas pixels, or []
+        function pickedHandlesPx(w, h) {
+            const pk = pickedCorner();
+            if (!pk)
+                return [];
+            const lz = state.subpaths[pk.spi]._lazy;
+            return cornerHandles(lz, pk.k).map(q => {
+                const p = worldToPx(q.x, q.y, w, h),
+                    c = worldToPx(lz.x[pk.k], lz.y[pk.k], w, h);
+                return Object.assign({}, q, {
+                    spi: pk.spi,
+                    k: pk.k,
+                    px: p.x,
+                    py: p.y,
+                    cx: c.x,
+                    cy: c.y
+                });
+            });
+        }
+        // A handle grabbed: the shape baked, and the curves beside the corner made its own, so
+        // the drag writes them.
+        function beginHandleDragExact(v) {
+            const sp = state.subpaths[v.spi],
+                lz = sp._lazy,
+                n = lz.x.length,
+                k = v.k;
+            const X = Array.from(lz.x),
+                Y = Array.from(lz.y);
+            const C = lzCtrlBaked(lz) || new Array(n).fill(null);
+            for (const q of cornerHandles(lz, k)) {
+                if (C[q.e])
+                    continue;
+                const a = q.e,
+                    b = (q.e + 1) % n;
+                const cc = edgeCtrl(X, Y, lz.smooth, lz.open, a, b, null);
+                C[q.e] = cc ? [cc.c1x, cc.c1y, cc.c2x, cc.c2y] : [X[a] + (X[b] - X[a]) / 3, Y[a] + (Y[b] - Y[a]) / 3, X[b] - (X[b] - X[a]) / 3, Y[b] - (Y[b] - Y[a]) / 3];
+            }
+            bakeExact(sp, X, Y, lzRoundBaked(lz), undefined, C);
+            vertexDrag = {
+                spi: v.spi,
+                k,
+                handle: v.which,
+                e: v.e,
+                moved: false
+            };
+            pickedVertex = {
+                sp,
+                lz: sp._lazy,
+                k
+            };
+            cv.style.cursor = 'grabbing';
+            drawAll();
+        }
+        function updateHandleDragExact(mx, my, e) {
+            const sp = state.subpaths[vertexDrag.spi],
+                lz = sp && sp._lazy;
+            if (!lz || !lz.ctrl)
+                return;
+            const r = cv.getBoundingClientRect();
+            const p = pxToWorld(mx, my, r.width, r.height);
+            const n = lz.rx.length,
+                k = vertexDrag.k;
+            const C = lz.ctrl;
+            const cx = lz.rx[k],
+                cy = lz.ry[k];
+            const mine = C[vertexDrag.e];
+            if (!mine)
+                return;
+            if (vertexDrag.handle === 'out') {
+                mine[0] = p.x;
+                mine[1] = p.y;
+            } else {
+                mine[2] = p.x;
+                mine[3] = p.y;
+            }
+            if (e && e.altKey && lz.smooth)
+                lz.smooth[k] = 0; // Alt: the corner goes sharp, the handles part
+            else if (lz.smooth && lz.smooth[k]) {
+                // smooth: the other handle in line, on the far side, keeping its length
+                const other = vertexDrag.handle === 'out' ? ((lz.open && k === 0) ? -1 : (k - 1 + n) % n) : ((lz.open && k === n - 1) ? -1 : k);
+                const oc = other >= 0 ? C[other] : null;
+                if (oc) {
+                    const ox = vertexDrag.handle === 'out' ? oc[2] : oc[0],
+                        oy = vertexDrag.handle === 'out' ? oc[3] : oc[1];
+                    const len = Math.hypot(ox - cx, oy - cy),
+                        dx = p.x - cx,
+                        dy = p.y - cy,
+                        dl = Math.hypot(dx, dy);
+                    if (dl > 0) {
+                        const nx = cx - dx / dl * len,
+                            ny = cy - dy / dl * len;
+                        if (vertexDrag.handle === 'out') {
+                            oc[2] = nx;
+                            oc[3] = ny;
+                        } else {
+                            oc[0] = nx;
+                            oc[1] = ny;
+                        }
+                    }
+                }
+            }
+            lz._box = lz._box0 = lz._boxPts = null;
+            sp._lazyP2d = null;
+            vertexDrag.moved = true;
+            drawAll();
+        }
         function exactVertexAt(px, py) {
             if (state.locked || !handlesVisible())
                 return null;
@@ -18991,6 +19136,16 @@
                     k: rh.k,
                     round: rh
                 };
+            // CURVE HANDLES of the picked corner, before any corner: a handle can sit on one
+            for (const q of pickedHandlesPx(r.width, r.height))
+                if (Math.hypot(q.px - px, q.py - py) <= VERTEX_HIT_PX)
+                    return {
+                        spi,
+                        k: q.k,
+                        handle: true,
+                        which: q.which,
+                        e: q.e
+                    };
             const lz = state.subpaths[spi]._lazy,
                 X = lz.x,
                 Y = lz.y;
@@ -19178,6 +19333,8 @@
         function beginVertexDrag(v) {
             if (v.hole != null)
                 return beginHoleDrag(v);
+            if (v.handle)
+                return beginHandleDragExact(v);
             const sp = state.subpaths[v.spi],
                 lz = sp._lazy;
             const X = Array.from(lz.x),
@@ -19279,6 +19436,8 @@
                 lz = sp && sp._lazy;
             if (!lz)
                 return;
+            if (vertexDrag.handle) // CURVE HANDLES
+                return updateHandleDragExact(mx, my, e);
             const r = cv.getBoundingClientRect();
             const k = vertexDrag.k;
             if (vertexDrag.hole != null) { // HOLE CORNERS: the map is baked in, so the hole's units are the page's
@@ -19703,8 +19862,8 @@
             if (vertexDrag) {
                 const sp = state.subpaths[vertexDrag.spi],
                     lz = sp && sp._lazy;
-                if (!lz)
-                    return;
+                if (!lz || vertexDrag.handle || vertexDrag.hole != null)
+                    return; // a handle's or a hole corner's drag: no outline edges to measure
                 const n = lz.x.length,
                     k = vertexDrag.k;
                 const P = i => worldToPx(lz.x[i], lz.y[i], w, h);
@@ -21345,6 +21504,8 @@
         // var, not let: drawAll reads these, and may run before this line does at load
         var knifeMode = false,
             knifeDrag = null;
+        // the line pen's point being pressed, while its handles may be pulled out (CURVE HANDLES)
+        var penPress = null;
         function setKnife(on) {
             if (on)
                 closeStripsBut('knife');
@@ -21908,6 +22069,23 @@
                     ctx.arc(q.x, q.y, HP, 0, TAU);
                 else
                     ctx.rect(q.x - HP, q.y - HP, HP * 2, HP * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            // the picked corner's curve handles, each on a stalk (CURVE HANDLES)
+            for (const q of pickedHandlesPx(w, h)) {
+                ctx.strokeStyle = 'rgba(120,190,255,0.75)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(q.cx, q.cy);
+                ctx.lineTo(q.px, q.py);
+                ctx.stroke();
+                const on = vertexDrag && vertexDrag.handle === q.which;
+                ctx.fillStyle = on ? '#78beff' : '#0e0e13';
+                ctx.strokeStyle = '#78beff';
+                ctx.lineWidth = 1.4;
+                ctx.beginPath();
+                ctx.arc(q.px, q.py, Math.max(3, HP - 0.5), 0, TAU);
                 ctx.fill();
                 ctx.stroke();
             }
@@ -38494,8 +38672,19 @@
                 }
             }
 
-            if (state.subpaths.length === 0)
+            if (state.subpaths.length === 0) {
+                // nothing on the page yet; a first shape being drawn is still drawn as it goes
+                if (CHROME) {
+                    if (shapeDrag)
+                        drawShapeToolPreview();
+                    if (ptGuides && (shapeDrag || drawMode))
+                        drawPointGuides();
+                    if (shapeDrag || (drawMode && lineMode))
+                        drawMeasurements(w, h);
+                    drawPenPreview();
+                }
                 return;
+            }
 
             // SVG reference per subpath (violet dashed). Subpaths loaded from
             // TVF have no separate reference — their refX/refY is a copy of
@@ -39395,47 +39584,8 @@
             if (CHROME && knifeDrag)
                 drawKnifeLine(); // THE KNIFE
             // In-progress pencil stroke (canvas space).
-            if (CHROME && drawMode && drawStroke && drawStroke.length > 1) {
-                ctx.save();
-                const sharp = lineMode || drawStroke._usedStraight;
-                ctx.strokeStyle = '#ffd479';
-                ctx.lineWidth = 2;
-                ctx.lineJoin = sharp ? 'miter' : 'round';
-                ctx.lineCap = 'round';
-                ctx.beginPath();
-                ctx.moveTo(drawStroke[0].x, drawStroke[0].y);
-                for (let i = 1; i < drawStroke.length; i++)
-                    ctx.lineTo(drawStroke[i].x, drawStroke[i].y);
-                ctx.stroke();
-                // auto-close hint
-                const a = drawStroke[drawStroke.length - 1],
-                    b = drawStroke[0];
-                ctx.strokeStyle = 'rgba(255,212,121,0.4)';
-                ctx.setLineDash([4, 4]);
-                ctx.beginPath();
-                ctx.moveTo(a.x, a.y);
-                ctx.lineTo(b.x, b.y);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                // line-pen: mark each placed vertex; ring the start when it can close
-                if (lineMode && drawAnchors) {
-                    ctx.fillStyle = '#ffd479';
-                    for (const v of drawAnchors) {
-                        ctx.beginPath();
-                        ctx.arc(v.x, v.y, 3, 0, TAU);
-                        ctx.fill();
-                    }
-                    if (drawAnchors.length >= 3) {
-                        const s = drawAnchors[0];
-                        ctx.strokeStyle = 'rgba(255,212,121,0.7)';
-                        ctx.lineWidth = 1.5;
-                        ctx.beginPath();
-                        ctx.arc(s.x, s.y, 7, 0, TAU);
-                        ctx.stroke();
-                    }
-                }
-                ctx.restore();
-            }
+            if (CHROME)
+                drawPenPreview();
 
             // The leaf register readout was drawn here — the triple ( v₁ : v₂ : h ) in the
             // top-left corner, behind a lab switch. Both are gone: the switch because the edit
@@ -42192,6 +42342,9 @@
                         drawStroke = [p1];
                         drawStroke._usedStraight = true;
                         drawAnchors = [p1];
+                        penPress = {
+                            a: p1
+                        };
                     } else {
                         const start = drawStroke[0];
                         const near = Math.hypot(p0.x - start.x, p0.y - start.y) < 12;
@@ -42205,6 +42358,9 @@
                         drawStroke = drawAnchors.concat([pS]);
                         drawStroke._usedStraight = true;
                         drawAnchors.push(pS);
+                        penPress = {
+                            a: pS
+                        };
                     }
                     drawAll();
                     return;
@@ -42928,6 +43084,28 @@
                     return;
                 } // don't let the shape-hover logic fight for the cursor
             }
+            // CURVE HANDLES from the pen: a point pressed and pulled draws out its handles, the
+            // one it leaves by under the pointer and the one it arrives by opposite
+            if (drawMode && lineMode && penPress && (e.buttons & 1)) {
+                const rr = cv.getBoundingClientRect();
+                const p = {
+                    x: e.clientX - rr.left,
+                    y: e.clientY - rr.top
+                };
+                const a = penPress.a;
+                if (penPress.pulled || Math.hypot(p.x - a.x, p.y - a.y) > 4) {
+                    penPress.pulled = true;
+                    a.hout = p;
+                    a.hin = {
+                        x: 2 * a.x - p.x,
+                        y: 2 * a.y - p.y
+                    };
+                    drawStroke = drawAnchors.slice();
+                    drawStroke._usedStraight = true;
+                    drawAll();
+                    return;
+                }
+            }
             if (drawMode && lineMode && drawStroke) {
                 // Click-to-place line pen: show a rubber-band from the last placed vertex to
                 // the cursor as a preview. Committed vertices live in drawAnchors; the preview
@@ -43426,6 +43604,7 @@
         });
 
         window.addEventListener('mouseup', () => {
+            penPress = null; // CURVE HANDLES: the pen's pull, if any, ends with the press
             if (state.markDrag) {
                 const md = state.markDrag;
                 state.markDrag = null;
@@ -64750,6 +64929,7 @@
                 state.activeSet = new Set(state.subpaths.map((_, i) => i));
                 state.isolateHide = false;
                 state.selected.clear();
+                pickedVertex = null; // select all is about shapes: Delete then deletes them, not a picked corner
                 rebuildScroller();
                 drawAll();
                 return;
@@ -66248,7 +66428,7 @@
         // only when asked — the panel's "to leaves" button, or a leaf tool reaching for it —
         // and is sculptable from then on. Clicking it, selecting it, the status line and the
         // readouts do not convert it, as they do not convert a held import.
-        function loadExactShape(worldPts, append, open, round, smooth) {
+        function loadExactShape(worldPts, append, open, round, smooth, ctrl) {
             const sp = {
                 refLength: 0,
                 source: open ? 'line' : 'polygon',
@@ -66258,7 +66438,8 @@
                 exact: true,
                 open,
                 round: round || null,
-                smooth: smooth || null
+                smooth: smooth || null,
+                ctrl: ctrl || null // the pen's curves (CURVE HANDLES)
             });
             if (append && state.subpaths.length) {
                 state.subpaths.push(sp);
@@ -66415,6 +66596,79 @@
             }
             return (c - a) >= 4 && (d - b) >= 4;
         }
+        // The pen's or the pencil's stroke as it is being drawn (canvas space), and the line pen's
+        // points and handles. Its own function so a first shape on an empty page is drawn as it
+        // goes too: drawAll stops early when there is nothing on the page, and it stopped before
+        // this, so the first stroke, polygon or curve of a drawing was drawn blind.
+        function drawPenPreview() {
+            if (drawMode && drawStroke && drawStroke.length > 1) {
+                ctx.save();
+                const sharp = lineMode || drawStroke._usedStraight;
+                ctx.strokeStyle = '#ffd479';
+                ctx.lineWidth = 2;
+                ctx.lineJoin = sharp ? 'miter' : 'round';
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(drawStroke[0].x, drawStroke[0].y);
+                for (let i = 1; i < drawStroke.length; i++) {
+                    // the pen's curves (CURVE HANDLES): an edge leaving or arriving by a handle
+                    const a = drawStroke[i - 1],
+                        b = drawStroke[i];
+                    if (lineMode && (a.hout || b.hin))
+                        ctx.bezierCurveTo((a.hout || a).x, (a.hout || a).y, (b.hin || b).x, (b.hin || b).y, b.x, b.y);
+                    else
+                        ctx.lineTo(b.x, b.y);
+                }
+                ctx.stroke();
+                if (lineMode && drawAnchors) {
+                    ctx.strokeStyle = 'rgba(120,190,255,0.8)';
+                    ctx.fillStyle = '#78beff';
+                    ctx.lineWidth = 1;
+                    for (const v of drawAnchors)
+                        if (v.hout) {
+                            ctx.beginPath();
+                            ctx.moveTo(v.hin.x, v.hin.y);
+                            ctx.lineTo(v.hout.x, v.hout.y);
+                            ctx.stroke();
+                            for (const q of [v.hin, v.hout]) {
+                                ctx.beginPath();
+                                ctx.arc(q.x, q.y, 2.5, 0, TAU);
+                                ctx.fill();
+                            }
+                        }
+                    ctx.strokeStyle = '#ffd479';
+                    ctx.lineWidth = 2;
+                }
+                // auto-close hint
+                const a = drawStroke[drawStroke.length - 1],
+                    b = drawStroke[0];
+                ctx.strokeStyle = 'rgba(255,212,121,0.4)';
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                // line-pen: mark each placed vertex; ring the start when it can close
+                if (lineMode && drawAnchors) {
+                    ctx.fillStyle = '#ffd479';
+                    for (const v of drawAnchors) {
+                        ctx.beginPath();
+                        ctx.arc(v.x, v.y, 3, 0, TAU);
+                        ctx.fill();
+                    }
+                    if (drawAnchors.length >= 3) {
+                        const s = drawAnchors[0];
+                        ctx.strokeStyle = 'rgba(255,212,121,0.7)';
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.arc(s.x, s.y, 7, 0, TAU);
+                        ctx.stroke();
+                    }
+                }
+                ctx.restore();
+            }
+        }
         function drawShapeToolPreview() {
             if (!shapeDrag)
                 return;
@@ -66517,14 +66771,47 @@
             }
             if (verts && verts.length >= 2) {
                 const r = cv.getBoundingClientRect();
+                const W = p => pxToWorld(p.x, p.y, r.width, r.height);
                 const wpts = verts.map(p => {
-                    const w = pxToWorld(p.x, p.y, r.width, r.height);
+                    const w = W(p);
                     return {
                         x: w.x,
                         y: w.y
                     };
                 });
-                loadExactShape(wpts, drawAppend, !!open || verts.length === 2);
+                const isOpen = !!open || verts.length === 2;
+                // CURVE HANDLES: an edge leaving or arriving by a pulled handle is that curve, its
+                // other end leaving straight (a third of the way along); a point with handles is smooth
+                let ctrl = null,
+                    smooth = null;
+                if (verts.some(v => v.hout)) {
+                    const n = verts.length;
+                    ctrl = new Array(n).fill(null);
+                    smooth = new Array(n).fill(0);
+                    for (let i = 0; i < (isOpen ? n - 1 : n); i++) {
+                        const a = verts[i],
+                            b = verts[(i + 1) % n];
+                        if (!a.hout && !b.hin)
+                            continue;
+                        const wa = wpts[i],
+                            wb = wpts[(i + 1) % n];
+                        const c1 = a.hout ? W(a.hout) : {
+                            x: wa.x + (wb.x - wa.x) / 3,
+                            y: wa.y + (wb.y - wa.y) / 3
+                        };
+                        const c2 = b.hin ? W(b.hin) : {
+                            x: wb.x - (wb.x - wa.x) / 3,
+                            y: wb.y - (wb.y - wa.y) / 3
+                        };
+                        ctrl[i] = [c1.x, c1.y, c2.x, c2.y];
+                    }
+                    for (let i = 0; i < n; i++) {
+                        const ein = isOpen && i === 0 ? -1 : (i - 1 + n) % n;
+                        if (verts[i].hout && ein >= 0 && ctrl[ein] && ctrl[i])
+                            smooth[i] = 1;
+                    }
+                }
+                loadExactShape(wpts, drawAppend, isOpen, null, smooth, ctrl);
             }
             setDrawMode(false);
         }
@@ -78328,6 +78615,12 @@
                         }))
                     })),
                     pickedHole: (q => q ? [q.h, q.k] : null)(pickedHoleCorner()),
+                    // CURVE HANDLES of the picked corner, in canvas pixels
+                    handles: pickedHandlesPx(r.width, r.height).map(q => ({
+                        which: q.which,
+                        x: q.px,
+                        y: q.py
+                    })),
                     simp: selectionExactSimp(),
                     round: lz.round ? Array.from(lz.round) : null,
                     smooth: lz.smooth ? Array.from(lz.smooth) : null,
