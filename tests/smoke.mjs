@@ -476,6 +476,20 @@ current = 'svg as exact shapes';
     await sp.keyboard.press('Escape');
     await sp.waitForTimeout(200);
     if (await sp.evaluate(() => document.getElementById('exactHelpPop').classList.contains('open'))) throw new Error('Escape left the help sheet open');
+    // a hole of two curves (as an SVG's half-turns arrive) goes out to a .tvf and comes back
+    await sp.evaluate(() => { const t = document.getElementById('tSvgExact'); t.checked = true; t.dispatchEvent(new Event('change')); });
+    const donut = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path fill-rule="evenodd" fill="#48c" d="M10 50 C10 0 90 0 90 50 C90 100 10 100 10 50 Z M35 50 C35 30 65 30 65 50 C65 70 35 70 35 50 Z"/></svg>';
+    await sp.setInputFiles('#fLoad', { name: 'donut.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(donut) });
+    await sp.waitForTimeout(1200);
+    await sp.keyboard.press('ControlOrMeta+a'); await sp.waitForTimeout(300);
+    const d0 = await sp.evaluate(() => window.__box.shapes());
+    if (d0.length !== 1 || d0[0].holes.length !== 1 || d0[0].holes[0].n !== 2) throw new Error('the donut did not arrive with its two-curve hole: ' + JSON.stringify(d0));
+    const [dl] = await Promise.all([sp.waitForEvent('download', { timeout: 30000 }), sp.evaluate(() => document.getElementById('bSaveTvf').click())]);
+    await sp.setInputFiles('#fLoadTvf', { name: 'donut.tvf', mimeType: 'text/plain', buffer: await readFile(await dl.path()) });
+    await sp.waitForTimeout(1000);
+    await sp.keyboard.press('ControlOrMeta+a'); await sp.waitForTimeout(300);
+    const d1 = await sp.evaluate(() => window.__box.shapes());
+    if (d1.length !== 1 || !d1[0].exact || d1[0].holes.length !== 1) throw new Error('the two-curve hole was lost on the way through a .tvf: ' + JSON.stringify(d1));
   } catch (e){
     failures.push(`[svg exact] ${e.message.split('\n')[0]}`);
   }

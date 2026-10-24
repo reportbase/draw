@@ -73134,7 +73134,9 @@
                     const v = meta.corners.split(/\s+/).map(Number);
                     const open = meta.exact === 'line';
                     const n = v.length / 2;
-                    if (v.length % 2 === 0 && n >= (open ? 2 : 3) && v.every(Number.isFinite)) {
+                    // two corners make a closed shape when their edges are curves (an SVG circle's
+                    // half-turns, as parseSvgExact keeps them)
+                    if (v.length % 2 === 0 && n >= (open || meta.curves ? 2 : 3) && v.every(Number.isFinite)) {
                         const x = new Float64Array(n),
                             y = new Float64Array(n);
                         for (let k = 0; k < n; k++) {
@@ -73169,8 +73171,8 @@
                             holes = meta.holes.split('|').map((part, hi) => {
                                 const w = part.trim().split(/\s+/).map(Number);
                                 const m2 = w.length / 2;
-                                if (w.length % 2 || m2 < 3 || !w.every(Number.isFinite))
-                                    return null;
+                                if (w.length % 2 || m2 < 2 || !w.every(Number.isFinite))
+                                    return null; // two corners kept for now: below, only if their edges are curves
                                 const hx = new Float64Array(m2),
                                     hy = new Float64Array(m2);
                                 for (let k = 0; k < m2; k++) {
@@ -73210,7 +73212,13 @@
                                 h.ctrl = curvesOf(hc[hi], h.x.length);
                             });
                         }
-                        info = {
+                        if (holes) {
+                            holes = holes.filter(h => h.x.length >= 3 || h.ctrl);
+                            if (!holes.length)
+                                holes = null;
+                        }
+                        // two corners and no curve between them close nothing: that one is read as leaves
+                        if (open || n >= 3 || ctrl) info = {
                             open,
                             x,
                             y,
