@@ -6,6 +6,8 @@
 
 *Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8). Revised 7 October 2026: the drawing tool's saved depth files now enter octaves only where needed, at τ = 10⁻⁶; and what the recursion found, stated (§2.8). Later the same day, the walls: scored over the whole range rather than only where level 3 is reached, every depth file so far missed by up to 15% in bands at the walls between octaves. The cause is that a sweep is flat at its walls. A writer whose rows leave flat residuals at their children's walls holds the whole range to 10⁻⁵, and the saved files now use it (§2.8). And the one result the statement of the recursion quoted from an earlier run, the nested reader against one sweep at a distance, re-measured: it holds (§2.8). And depth against breadth, re-scored over the whole range: depth still wins on the library, 24 of 24, but on a smooth formula with its detail away from the reader one sweep wins. The gallery's *Depth* page shows both (§2.8). Revised 9 October 2026: "what the recursion found" reworded as the levels, after the ruling of 8 October that recursion is rejected for level of detail; and the library circle's sweeps traced to the reader's standpoint (§2.8).*
 
+*Revised 24 October 2026: structure (§2.9). A drawn shape's corners, radii, smooth corners, cubic edges and holes, carried in `#meta` tags beside its leaves since 23 October by the drawing tool and now specified, with which layer wins, and the leaves' check (`leafsum`), so that leaves edited elsewhere win over a structure that no longer describes them.*
+
 This is the tight specification. It supersedes the v22.x working document,
 which accreted iteration logs, extrapolations later withdrawn, and
 interpretive material across dozens of dated revisions. What remains here is
@@ -290,7 +292,8 @@ standardized.
 No binary mode (compression is a transport concern — gzip/zstd the text). No
 progressive-ordering modes. No nested *syntax*, references, or schema: depth
 is nested, but the nesting lives in `#meta address` tags on flat documents
-(§2.8), not in the grammar. No native "resolution" field — the breadth d (the
+(§2.8), not in the grammar; a drawn shape's corners and holes live in `#meta`
+tags beside its leaves (§2.9). No native "resolution" field — the breadth d (the
 leaf count's doublings) is the only resolution parameter.
 
 ### 2.8 Depth
@@ -560,6 +563,82 @@ for the depth case.
   how every reader descends, so it is left open;
 - depth rows for readers nested in readers (a chain of standpoints rather than
   octaves of one reading).
+
+### 2.9 Structure: corners, edges and holes beside the leaves
+
+A curve document's leaves hold a smooth closed curve. A shape that is drawn
+rather than sculpted, with sharp corners, straight edges, chosen cubics and
+holes, is not smooth: the kernel rounds a corner and rings beside it (the
+Gibbs constant of §9). Such a shape is held twice in one document. The
+**structure** is its corners and edges, as drawn. The **leaves** are the
+writer's smooth rendering of it. Both are ordinary TVF: the structure lives in
+`#meta` tags (§2.1), so it adds no syntax, and a reader that knows no
+structure reads the leaves as it always has.
+
+**The two layers.** The leaves are the format's signal, and every reader can
+read them. The structure is a description that the leaves were rendered from.
+It is for readers that edit shapes as drawn. Structure is defined for curve
+documents only (`TVF N 1 2`, `type:curve`), one shape per document.
+
+**Tags.** Coordinates are in the leaves' own frame and units, so a reader that
+moves or scales the leaves moves the structure with the same map. Numbers are
+written with 10 significant digits (radii 8). Lists use spaces, `, ` between
+edges, and ` | ` between holes.
+
+| Tag | Value |
+|---|---|
+| `exact` | `polygon` (closed) or `line` (open). Required; it marks the document as carrying structure. |
+| `corners` | `x0 y0 x1 y1 …`, the corners in order. Required. At least 3 for a polygon, 2 for a line. |
+| `radii` | One radius per corner; 0 is a sharp corner, r > 0 an arc of radius r. |
+| `smooth` | Indices (from 0) of smooth corners: the curve passes through tangent-continuous. |
+| `curves` | `k x1 y1 x2 y2, …`: edge k (from corner k to corner k+1) is the cubic with those two control points. An edge not listed is straight, or set by its corners' `radii` and `smooth`. |
+| `holes` | Rings of corners, a vertical bar between rings, each at least 3 corners. Polygons only. |
+| `holesmooth` | Smooth corners per hole, a vertical bar between holes, in the holes' order. |
+| `holecurves` | Curve edges per hole, in the form of `curves`, a vertical bar between holes. |
+| `dash`, `arrows` | Line style: `dash` or `dot`; `end`, `start` or `both`. |
+| `leafsum` | The leaves' check, below. Required of writers from 24 October 2026. |
+
+**Holes belong to the structure only.** The leaves hold one closed curve, the
+outer ring, so a reader of the leaves alone sees a holed shape filled. A hole
+is not a second document: `subpath` tags and concatenation (§2.5) pack
+separate signals, and a hole is part of one shape.
+
+**The leaves' check.** The structure was written with particular leaves. A
+tool that edits the leaves and carries the tags through unchanged would leave
+a structure describing the shape as it was. `leafsum` lets a reader see that
+this has happened:
+
+```
+#meta leafsum:N sx cx gx sy cy gy
+```
+
+Here N is the leaf count. For each channel, x then y, s = Σ v_k,
+c = Σ v_k·cos(kφ) and g = Σ v_k·sin(kφ), over k = 0 … N−1, with
+φ = π(3 − √5), the golden angle. The sums are taken over the values as written
+in the rows (8 significant digits) and written with 12. The golden angle
+lines up with no harmonic of the leaves, so an edit at any frequency moves at
+least one sum. A check on the first harmonic alone (the plain DFT bin) would
+miss an edit in the third.
+
+**Which layer wins.**
+1. The reader recomputes the sums from the rows it read. If every sum agrees
+   within 10⁻⁶·N·max(1, max|v|), the structure wins, and the reader takes the
+   shape from it.
+   - Rounding to 8 digits, or a writer keeping 6, moves a sum far less than
+     that tolerance.
+   - An edit a reader could see moves it by more. At N = 256, moving one
+     leaf by 3×10⁻⁴ of a unit-sized shape is enough.
+2. If they disagree, the leaves win. The reader reads the shape as leaves and
+   ignores the structure.
+3. If `leafsum` is absent (documents written before 24 October 2026), the
+   reader trusts the structure, as before.
+4. A writer that changes the leaves must either rewrite the structure and its
+   check, or drop the structure tags.
+
+**What this does not do.** The check detects a mismatch. It does not merge
+the two layers or say what changed. A reader that wants an edited shape's
+corners back fits them from the leaves (the drawing tool's leaves-to-exact fit
+does this), and gets corners that are fitted, not the ones drawn.
 
 ---
 
@@ -872,6 +951,14 @@ to 4,900×); on a smooth formula with its detail away from the reader, one sweep
 wins. Open: the wall points
 s = 2^k themselves, where a reading stops at level 1 (1.4×10⁻⁴ at the median
 inner wall).
+
+**Structure (§2.9), 24 Oct 2026:**
+- **Built:** the drawing tool writes and reads every tag of §2.9.
+- **Tested:** its smoke test checks that:
+  - exact shapes come back unchanged through a save;
+  - leaves rewritten at 6 digits still pass the check;
+  - one leaf moved by 0.05 fails it, and that shape comes back as its leaves.
+- **Not done:** other readers of structure (3d and games read the leaves only).
 
 **Partially validated:** forward transform on *real* (non-synthetic) sensor
 output; multi-depth segmented encoder (30–33 dB on landscapes, tuning open);
