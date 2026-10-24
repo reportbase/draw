@@ -680,6 +680,25 @@ current = 'exact shapes';
     if ((await held()) !== 5) throw new Error('the .tvf did not load back exact: ' + await held() + ' held');
     const arcsAfter = (await svgPaths()).join('|');
     if (arcsAfter !== arcsBefore) { console.log('BEFORE', arcsBefore); console.log('AFTER ', arcsAfter); throw new Error('the exact shapes moved or changed on the way through a .tvf'); }
+    // The leaves' check (TVF §2.9): each exact shape carries its leaves' sums. Leaves written
+    // again at 6 digits by another tool still match, and the shapes come back exact; one leaf
+    // moved by 0.05 (an edit made elsewhere) does not, and that shape comes back as its leaves.
+    if ((tvfText.match(/#meta leafsum:/g) || []).length !== 5) throw new Error('the .tvf does not carry the leaves\' sums');
+    const tvfLines = tvfText.split('\n');
+    const isRow = t => /^-?\d+ -?[\d.]/.test(t);
+    const sixDigits = tvfLines.map(t => isRow(t) ? t.split(' ').map((w, k) => k ? String(+(+w).toPrecision(6)) : w).join(' ') : t).join('\n');
+    await xp.setInputFiles('#fLoadTvf', { name: 'six.tvf', mimeType: 'text/plain', buffer: Buffer.from(sixDigits) });
+    await xp.waitForTimeout(800);
+    if ((await held()) !== 5) throw new Error('leaves written at 6 digits failed the leaves\' check: ' + await held() + ' held');
+    const firstRow = tvfLines.findIndex((t, k) => isRow(t) && tvfLines.slice(0, k).some(u => u.startsWith('#meta leafsum:')));
+    const edited = tvfLines.slice();
+    edited[firstRow] = edited[firstRow].split(' ').map((w, k) => k === 3 ? String(+w + 0.05) : w).join(' ');
+    await xp.setInputFiles('#fLoadTvf', { name: 'edited.tvf', mimeType: 'text/plain', buffer: Buffer.from(edited.join('\n')) });
+    await xp.waitForTimeout(800);
+    if ((await held()) !== 4) throw new Error('a shape whose leaves were edited elsewhere still came back exact: ' + await held() + ' held');
+    if (!/edited elsewhere/.test(await xp.evaluate(() => document.getElementById('status').textContent))) throw new Error('the status line did not say a shape was edited elsewhere');
+    await xp.setInputFiles('#fLoadTvf', { name: 'exact.tvf', mimeType: 'text/plain', buffer: Buffer.from(tvfText) });
+    await xp.waitForTimeout(800);
     // The pencil keeps a stroke's straight runs: a hand-drawn square comes out exact with four
     // sharp corners; a circle still comes out as leaves.
     const pencil = async pts => {

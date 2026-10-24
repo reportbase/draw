@@ -66605,6 +66605,13 @@
                     lines.push(`#meta dash:${LS.dash}`);
                 if (LS.arrows)
                     lines.push(`#meta arrows:${['', 'end', 'both', 'start'][LS.arrows]}`);
+                // THE LEAVES' CHECK (24 Oct 2026, Tom: "yes, do both"; TVF §2.9). The structure
+                // above wins over the leaves below only while the leaves are the ones written with
+                // it. Another tool that edits the leaves and carries these tags through would
+                // otherwise have its edit thrown away on the next load here. So the leaves' sums
+                // go beside the structure, taken from the values as written (8 digits), and the
+                // reader drops the structure when the leaves no longer give them.
+                lines.push(`#meta leafsum:${leafSumText(subpath.leafX, subpath.leafY)}`);
             }
 
             // Canonical channel order: x channel first, then y. Both share the
@@ -66616,6 +66623,46 @@
                 lines.push(`${rung} ${formatted}`);
             }
             return lines.join('\n') + '\n';
+        }
+
+        // THE LEAVES' SUMS (TVF §2.9): per channel, x then y, the sum of the leaves and their
+        // sums against cos and sin of k times the golden angle. The golden angle lines up with no
+        // harmonic of the leaves, so a reshaping of any frequency moves one of the three, where
+        // the first harmonic alone (the plain DFT bin) would miss an edit in the third. Taken on
+        // the values as written, 8 significant digits, so writer and reader sum the same numbers.
+        const LEAF_GOLDEN = Math.PI * (3 - Math.sqrt(5));
+        function leafSums(X, Y, asWritten) {
+            const out = [];
+            for (const V of [X, Y]) {
+                let s0 = 0,
+                    s1 = 0,
+                    s2 = 0;
+                for (let k = 0; k < V.length; k++) {
+                    const v = asWritten ? +fmtSig(V[k], 8) : V[k];
+                    s0 += v;
+                    s1 += v * Math.cos(k * LEAF_GOLDEN);
+                    s2 += v * Math.sin(k * LEAF_GOLDEN);
+                }
+                out.push(s0, s1, s2);
+            }
+            return out;
+        }
+        function leafSumText(X, Y) {
+            return X.length + ' ' + leafSums(X, Y, true).map(v => fmtSig(v, 12)).join(' ');
+        }
+        // Do these leaves still give the sums written beside them? Rounding to 8 digits, or a
+        // writer that keeps fewer, moves a sum by far less than the tolerance; an edit a reader
+        // could see (a leaf moved by a ten-thousandth of the shape at 256 leaves) moves it by more.
+        function leafSumMatches(text, X, Y) {
+            const w = String(text).trim().split(/\s+/).map(Number);
+            if (w.length !== 7 || w[0] !== X.length || X.length !== Y.length || !w.every(Number.isFinite))
+                return false;
+            const got = leafSums(X, Y, false);
+            let peak = 1;
+            for (let k = 0; k < X.length; k++)
+                peak = Math.max(peak, Math.abs(X[k]), Math.abs(Y[k]));
+            const tol = 1e-6 * X.length * peak;
+            return got.every((v, k) => Math.abs(v - w[k + 1]) <= tol);
         }
 
         function safeFileName(name, extension) {
@@ -73048,6 +73095,7 @@
         // it. Walks the same blocks: a header, its #meta lines, then H rows of curves.
         function tvfExactInfo(text) {
             const out = [];
+            tvfExactInfo.edited = 0; // how many shapes were dropped by the leaves' check, for the status line
             const lines = text.split(/\r?\n/);
             for (let i = 0; i < lines.length; i++) {
                 const h = lines[i].trim().match(/^TVF\s+(\d+)\s+(\d+)\s+(\d+)\s*$/);
@@ -73064,7 +73112,25 @@
                 }
                 const H = +h[2];
                 let info = null;
-                if (H === 1 && (meta.exact === 'polygon' || meta.exact === 'line') && meta.corners) {
+                // THE LEAVES' CHECK (TVF §2.9): a file with a leafsum whose leaves no longer give
+                // it was edited elsewhere after this editor wrote it; the leaves win, read as
+                // leaves. A file without one (written before 24 Oct 2026) is trusted as before.
+                let leavesKept = true;
+                if (H === 1 && meta.leafsum) {
+                    const rows = [];
+                    for (let r = j; r < lines.length && rows.length < 2; r++) {
+                        const t = lines[r].trim();
+                        if (!t)
+                            continue;
+                        if (t.startsWith('#') || /^TVF\s/.test(t))
+                            break;
+                        rows.push(t.split(/\s+/).slice(1).map(Number));
+                    }
+                    leavesKept = rows.length === 2 && leafSumMatches(meta.leafsum, rows[0], rows[1]);
+                    if (!leavesKept)
+                        tvfExactInfo.edited = (tvfExactInfo.edited || 0) + 1;
+                }
+                if (leavesKept && H === 1 && (meta.exact === 'polygon' || meta.exact === 'line') && meta.corners) {
                     const v = meta.corners.split(/\s+/).map(Number);
                     const open = meta.exact === 'line';
                     const n = v.length / 2;
@@ -73215,6 +73281,7 @@
             console.log('[TVF LOAD] files:', files.map(f => f.name), append ? '(append)' : '');
             const subpaths = [];
             const sources = [];
+            let editedElsewhere = 0;
             for (const file of files) {
                 let text;
                 try {
@@ -73234,6 +73301,7 @@
                 }
                 console.log('[TVF LOAD]', file.name, '-> blocks:', parsed.blockCount, 'subpaths:', parsed.subpaths.length);
                 const exInfo = tvfExactInfo(text); // EXACT SHAPES IN A .tvf
+                editedElsewhere += tvfExactInfo.edited || 0; // the leaves' check (TVF §2.9)
                 for (const [k, sp] of parsed.subpaths.entries()) {
                     subpaths.push({
                         _ex: exInfo[k] || null,
@@ -73381,6 +73449,8 @@
             updateStatus();
             drawAll();
             resetHistory();
+            if (editedElsewhere)
+                flashStatus(editedElsewhere + ' shape' + (editedElsewhere === 1 ? ' was' : 's were') + ' edited elsewhere after this editor saved ' + (editedElsewhere === 1 ? 'it' : 'them') + ': read as leaves, as edited');
         }
 
         // The "add .tvf…" button is gone from the menu. loadTvfFiles still takes its `append`
