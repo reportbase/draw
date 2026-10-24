@@ -434,6 +434,55 @@ current = 'panel: group button and menu switch';
   await gp.close();
 }
 
+/* SVG AS EXACT SHAPES (draw.html). An SVG opened arrives as exact shapes: a compound path's
+   inner ring a hole (its curve kept: the drawn hole is larger than its corners' polygon), a
+   circle as four curve edges, an open stroked path open with its one curve. With the menu's
+   switch off it arrives as leaves, as before. The menu's "exact shapes: how to" opens the help
+   sheet, and Escape puts it away. */
+current = 'svg as exact shapes';
+{
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => failures.push(`[svg exact] ${e.message}`));
+  await sp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await sp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await sp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100">'
+      + '<path fill="#c84" fill-rule="evenodd" d="M10 10 H90 V90 H10 Z M30 30 C30 20 70 20 70 30 L70 70 L30 70 Z"/>'
+      + '<circle cx="150" cy="50" r="40" fill="#48c"/>'
+      + '<path fill="none" stroke="#000" d="M200 80 C220 10 260 10 280 80"/></svg>';
+    const open = async name => {
+      await sp.setInputFiles('#fLoad', { name, mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+      await sp.waitForTimeout(1500);
+      await sp.keyboard.press('ControlOrMeta+a');
+      await sp.waitForTimeout(300);
+      return sp.evaluate(() => window.__box.shapes());
+    };
+    const got = await open('ring.svg');
+    if (got.length !== 3 || got.some(g => !g || !g.exact)) throw new Error('not three exact shapes: ' + JSON.stringify(got.map(g => g && g.exact)));
+    const [frame, disc, arch] = got;
+    if (frame.holes.length !== 1 || frame.holes[0].n !== 4) throw new Error('the compound path has no four-corner hole');
+    const holeDrawn = frame.area - frame.drawn;
+    if (!(holeDrawn > frame.holes[0].area * 1.05)) throw new Error('the hole lost its curve: drawn ' + holeDrawn + ' against corners ' + frame.holes[0].area);
+    if (disc.curves !== 4 || !disc.smooth) throw new Error('the circle is not four smooth curve edges: ' + JSON.stringify(disc));
+    if (!arch.open || arch.curves !== 1) throw new Error('the stroked path is not open with one curve: ' + JSON.stringify(arch));
+    await sp.evaluate(() => { const t = document.getElementById('tSvgExact'); t.checked = false; t.dispatchEvent(new Event('change')); });
+    const off = await open('ring2.svg');
+    if (off.some(g => g && g.exact)) throw new Error('with the switch off the SVG still arrived exact');
+    await sp.evaluate(() => document.getElementById('bExactHelp').click());
+    await sp.waitForTimeout(300);
+    if (!(await sp.evaluate(() => document.getElementById('exactHelpPop').classList.contains('open')))) throw new Error('the help sheet did not open');
+    await sp.keyboard.press('Escape');
+    await sp.waitForTimeout(200);
+    if (await sp.evaluate(() => document.getElementById('exactHelpPop').classList.contains('open'))) throw new Error('Escape left the help sheet open');
+  } catch (e){
+    failures.push(`[svg exact] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} svg as exact shapes, and the help sheet`);
+  await sp.close();
+}
+
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,
    edges straight, never leaves until asked. A triangle closed on its start point and a line of
    two points finished by a double-click; both held exact through a click and a drag of a

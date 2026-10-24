@@ -2051,6 +2051,20 @@
                   padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.55);
                 }
                 .pop.open { display: block; }
+                /* EXACT SHAPES: HOW TO, a sheet in the middle of the screen */
+                #exactHelpPop {
+                  left: 50%; top: 50%; transform: translate(-50%, -50%);
+                  width: min(520px, calc(100vw - 32px)); max-height: 80vh; overflow: auto;
+                  color: var(--fg); font: 12.5px/1.45 system-ui, sans-serif; padding: 14px 16px;
+                }
+                #exactHelpPop h4 { margin: 12px 0 4px; font-size: 12px; color: var(--gold); font-weight: 600; }
+                #exactHelpPop p { margin: 4px 0; }
+                #exactHelpPop ul { margin: 2px 0; padding-left: 18px; }
+                #exactHelpPop li { margin: 3px 0; }
+                #exactHelpPop .eh-close {
+                  position: sticky; top: 0; float: right; background: transparent; border: none;
+                  color: var(--fg-muted); font-size: 14px; cursor: pointer;
+                }
                 .pop-title {
                   color: var(--fg-muted); font-size: 10px; text-transform: uppercase;
                   letter-spacing: 0.7px; margin-bottom: 7px;
@@ -4137,6 +4151,63 @@
         </label>
     </div>
 
+    <!-- EXACT SHAPES: HOW TO (24 Oct 2026, Tom: "1,6"). The tools and gestures for exact shapes,
+         on one sheet, from the menu's learn group: several of them (an edge's ring, a corner's
+         handles, Alt, the pen's pull) are found only by trying, and a sheet is cheaper than
+         trying. Written as the gestures are, so change it when one changes. -->
+    <div class="pop" id="exactHelpPop" role="dialog" aria-label="exact shapes: how to">
+        <button class="eh-close" id="exactHelpClose" aria-label="close">✕</button>
+        <div class="pop-title">exact shapes: how to</div>
+        <p>An exact shape is held as its corners and edges, as drawn: straight edges stay straight,
+        curves stay the curves you made. The <b>exact | leaves</b> switch under a selection moves a
+        shape between this and leaves (the sculpting outline).</p>
+        <h4>Drawing</h4>
+        <ul>
+            <li><b>Line pen</b>: click for a sharp corner; <b>press and pull</b> for a smooth point and
+            its handles (a curve either side). Click the first point, double-click or press Enter to
+            close; <b>Shift</b>+double-click (or two points) leaves a line open. <b>Shift</b> holds an
+            edge to 45° steps.</li>
+            <li><b>Shape tool</b>: drag out a rectangle, polygon or star; <b>Shift</b> for a square or 15°
+            turns; the strip sets sides, points and how round the corners are.</li>
+            <li><b>Pencil</b>: a stroke with long straight runs comes out exact.</li>
+            <li><b>Text</b>: select a word, press <b>exact</b>; each letter becomes a shape, its counters
+            holes, from the font itself where its file can be had.</li>
+            <li><b>SVG</b>: pasted or opened, its paths arrive exact, curves and holes kept (menu: file →
+            SVG as exact shapes; very crowded files arrive as before).</li>
+        </ul>
+        <h4>Corners and curves</h4>
+        <p>Select one exact shape.</p>
+        <ul>
+            <li><b>Drag a corner</b> to move it; it snaps to other corners, edge middles and the grid
+            (<b>Ctrl/⌘</b> places it freely).</li>
+            <li><b>Press the ring</b> on an edge to add a corner there (pull to place it).
+            <b>Double-click</b> a corner, or pick it and press <b>Delete</b>, to remove it.</li>
+            <li>A picked corner shows <b>its numbers</b> (x, y, the next edge's length and angle, the
+            radius, sharp or smooth), a <b>gold dot</b> that rounds it when pulled in, and the
+            <b>blue handles</b> of the curves beside it. A smooth corner's handles stay in line;
+            <b>Alt</b>-drag one to part them (the corner goes sharp).</li>
+            <li><b>Press an edge and drag</b> to push or pull it: nearby corners follow.</li>
+            <li>A <b>hole</b>'s corners work the same way; a three-corner hole losing one is filled.</li>
+            <li>With a <b>mirror</b> on, a corner's mirrored partners move, round and go with it.</li>
+        </ul>
+        <h4>Whole shapes (the panel under the selection)</h4>
+        <ul>
+            <li>The <b>track</b> simplifies: fewer corners further right.</li>
+            <li><b>Line style</b>: solid, dashed, dotted; a line's <b>arrowheads</b>.</li>
+            <li><b>Union, subtract, intersect</b> (two or more shapes; subtract takes the others from the
+            lowest). Holes come out as holes.</li>
+            <li><b>Offset</b>: grow, shrink, or make the outline a shape, by a distance, round or sharp.</li>
+            <li><b>Corners</b>: round them all by a radius, or make them all sharp or all smooth.</li>
+            <li><b>Knife</b>: drag a line across to cut (<b>Shift</b> for 45°; <b>Escape</b> puts it down).</li>
+            <li><b>Align and distribute</b> (toolbar) go by the outline as drawn.</li>
+        </ul>
+        <h4>Files</h4>
+        <ul>
+            <li>A <b>.tvf</b> keeps exact shapes exact (corners, radii, curves, holes); other programs read
+            the leaves beside them.</li>
+            <li>The <b>SVG export</b> writes straight edges, arcs and curves as they are.</li>
+        </ul>
+    </div>
     <!-- Text entry popover for the toolbar's text button. -->
     <div class="pop" id="shapePop" role="dialog" aria-label="add a shape">
         <div class="pop-title">add a shape</div>
@@ -4431,6 +4502,7 @@
                 <button id="bLabsPage" title="every lab in the drawer as one page (labs.html): what each does, with a link that runs it" onclick="window.open('labs.html', '_blank', 'noopener')">all the labs ↗</button>
                 <button id="bPapers" title="the papers behind the editor (papers.html): the .tvf format and the Tangent Bridge theorem, readable in the page" onclick="window.open('papers.html', '_blank', 'noopener')">the papers ↗</button>
                 <button id="bInspect" title="open the selected shapes (or all of them) in the inspector, which reads their spectrum, symmetry, width and leaf count back off the leaves">inspect the selection ↗</button>
+                <button id="bExactHelp" title="every tool and gesture for exact shapes on one sheet: drawing, corners and curves, holes, combining, cutting, offsetting, files">exact shapes: how to</button>
                 <button id="bLevels" title="open the selected shape (or the largest) on the levels page: read from its centre or from a place on its outline, laid on the corner's circle and the doublings past it, its depth counted in levels once its size is divided out (gallery/levels.html)">read the selection in the levels ↗</button>
             </div>
 
@@ -4438,6 +4510,11 @@
                 <div class="menu-title">file</div>
                 <button id="bNewScene" title="clear the canvas and the autosaved session, and start from the boot shape. The work is saved to browser storage automatically as you go; this is how you discard it.">new scene</button>
                 <button id="bLoad2">load .svg…</button>
+                <!-- SVG AS EXACT SHAPES: on by default; off, an SVG arrives as before -->
+                <label class="toggle" style="display:flex;align-items:center;gap:6px;margin-top:6px;" title="an SVG pasted or opened arrives as exact shapes: its straight edges straight, its curves the file's own (arcs and quadratics as the curves they are), a compound path's inner rings holes, its fills and lines as drawn. A file of very many shapes, or one with images, text or reused symbols, arrives as before (held, and made exact shape by shape with the exact | leaves switch).">
+                    <input type="checkbox" id="tSvgExact" checked>
+                    SVG as exact shapes
+                </label>
                 <button id="bLoadTvf">load .tvf…</button>
                 <!-- THE SAME DOOR field.html HAS, onto the same Worker and the same R2 buckets —
                          except that what this build hangs is .svg and .tvf rather than photographs.
@@ -6727,6 +6804,8 @@
             snap: false,
             // Points (corners, pen points, the shape tool) snap by default: see SNAPPING POINTS.
             snapPts: true,
+            // SVG AS EXACT SHAPES: an SVG pasted or opened arrives exact (see loadSvgExact)
+            svgExact: true,
             // View lock. True → the canvas belongs to the CAMERA: a left-drag (or one finger)
             // pans, and every direct manipulation of the scene is off — no shape moves, no leaf
             // drags, no handles, no brush, no marquee. A tap that does not travel still selects,
@@ -14203,7 +14282,7 @@
             if (looksLikeSvg(sysText)) {
                 const before = state.subpaths.length;
                 const title = svgTitleOf(sysText);
-                loadSvg(sysText, title || 'pasted svg', before > 0);
+                loadSvg(sysText, title || 'pasted svg', before > 0, true);
                 const added = state.subpaths.length - before;
                 if (added > 0) {
                     const g = groupTail(added, title);
@@ -28714,8 +28793,322 @@
             }
         }
 
-        function loadSvg(svgText, name, append) {
+        // ── SVG AS EXACT SHAPES (24 Oct 2026, Tom: "1,6") ───────────────────────────
+        // An SVG's paths are already what exact shapes are made of: straight lines and cubics
+        // (arcs and quadratics become cubics in the path-data polyfill's normalized form). So an
+        // SVG pasted or opened arrives exact: each subpath's points are corners, each curve an
+        // edge's own cubic (CURVE EDGES), each element's transforms applied to both; a filled
+        // element's rings nested by containment, the inner ones holes (HOLES); its fill and line
+        // colours carried. Fitted to the page as the import fits it. A file with images, text or
+        // <use>, or as crowded as LAZY_MIN_SHAPES, goes the old way (held, convertible), and so
+        // does anything this reader cannot read. Returns true when it loaded the file.
+        function svgColorOf(v) {
+            if (!v || v === 'none' || v === 'transparent')
+                return null;
+            const m = /^rgba?\(([^)]+)\)$/.exec(v.trim());
+            if (!m)
+                return /^#[0-9a-f]{3,8}$/i.test(v.trim()) ? v.trim() : null;
+            const p = m[1].split(',').map(q => parseFloat(q));
+            if (p.length > 3 && p[3] === 0)
+                return null;
+            return '#' + p.slice(0, 3).map(q => Math.max(0, Math.min(255, Math.round(q))).toString(16).padStart(2, '0')).join('');
+        }
+        function parseSvgExact(svgText) {
+            const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+            const root = doc.documentElement;
+            if (!root || root.nodeName.toLowerCase() !== 'svg' || doc.querySelector('parsererror'))
+                return null;
+            if (root.querySelector('use, image, text, foreignObject'))
+                return null; // the old importer expands these, or they have no outline to read
+            const host = document.createElement('div');
+            host.style.cssText = 'position:absolute;left:-100000px;top:0;width:10px;height:10px;overflow:hidden;visibility:hidden;';
+            const svg = document.importNode(root, true);
+            host.appendChild(svg);
+            document.body.appendChild(host);
+            try {
+                if (typeof SVGPathElement.prototype.getPathData !== 'function')
+                    return null;
+                const shapes = [];
+                for (const el of svg.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line')) {
+                    if (el.closest('defs, symbol, clipPath, mask, pattern, marker'))
+                        continue;
+                    const cs = getComputedStyle(el);
+                    if (cs.display === 'none')
+                        continue;
+                    const fill = svgColorOf(cs.fill),
+                        stroke = svgColorOf(cs.stroke);
+                    if (!fill && !stroke)
+                        continue;
+                    const op = (parseFloat(cs.opacity) || 1) * (cs.fillOpacity === '' ? 1 : (parseFloat(cs.fillOpacity) || 0));
+                    const ctm = el.getCTM && el.getCTM();
+                    const M = ctm ? [ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f] : [1, 0, 0, 1, 0, 0];
+                    const T = (x, y) => [M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]];
+                    const pd = el.getPathData({
+                        normalize: true
+                    });
+                    // the subpaths: corners, each edge's cubic or null, and whether closed
+                    const subs = [];
+                    let cur = null,
+                        sx = 0,
+                        sy = 0,
+                        px = 0,
+                        py = 0;
+                    const begin = (x, y) => {
+                        cur = {
+                            x: [x],
+                            y: [y],
+                            c: [],
+                            closed: false
+                        };
+                        subs.push(cur);
+                        sx = x;
+                        sy = y;
+                    };
+                    for (const sg of pd) {
+                        const v = sg.values;
+                        if (sg.type === 'M') {
+                            begin(v[0], v[1]);
+                            px = v[0];
+                            py = v[1];
+                            continue;
+                        }
+                        if (!cur || cur.closed)
+                            begin(px, py); // drawing on after a close starts again where it closed
+                        if (sg.type === 'L') {
+                            cur.c.push(null);
+                            cur.x.push(v[0]);
+                            cur.y.push(v[1]);
+                            px = v[0];
+                            py = v[1];
+                        } else if (sg.type === 'C') {
+                            cur.c.push([v[0], v[1], v[2], v[3]]);
+                            cur.x.push(v[4]);
+                            cur.y.push(v[5]);
+                            px = v[4];
+                            py = v[5];
+                        } else if (sg.type === 'Z') {
+                            cur.closed = true;
+                            px = sx;
+                            py = sy;
+                        }
+                    }
+                    const rings = [],
+                        lines = [];
+                    for (const sb of subs) {
+                        const closed = sb.closed || !!fill;
+                        let n = sb.x.length;
+                        if (n < 2)
+                            continue;
+                        if (closed) {
+                            // the last point back on the first: one corner, its edge the last
+                            if (n > 1 && Math.hypot(sb.x[n - 1] - sb.x[0], sb.y[n - 1] - sb.y[0]) < 1e-9) {
+                                sb.x.pop();
+                                sb.y.pop();
+                                n--;
+                            } else
+                                sb.c.push(null);
+                            // edges of no length go (their far corner with them)
+                            for (let k = sb.x.length - 1; k >= 0 && sb.x.length > 2; k--) {
+                                const j = (k + 1) % sb.x.length;
+                                if (Math.hypot(sb.x[j] - sb.x[k], sb.y[j] - sb.y[k]) < 1e-9 && !sb.c[k]) {
+                                    sb.x.splice(j, 1);
+                                    sb.y.splice(j, 1);
+                                    sb.c.splice(k, 1);
+                                    if (j === 0)
+                                        sb.c.push(sb.c.shift());
+                                }
+                            }
+                            if (sb.x.length < 3 && !sb.c.some(Boolean))
+                                continue;
+                        } else
+                            sb.c.push(null);
+                        const X = [],
+                            Y = [];
+                        for (let k = 0; k < sb.x.length; k++) {
+                            const w = T(sb.x[k], sb.y[k]);
+                            X.push(w[0]);
+                            Y.push(w[1]);
+                        }
+                        const C = sb.c.map(c => {
+                            if (!c)
+                                return null;
+                            const a = T(c[0], c[1]),
+                                b = T(c[2], c[3]);
+                            return [a[0], a[1], b[0], b[1]];
+                        });
+                        // smooth where the outline turns smoothly between two curves
+                        const m = X.length,
+                            Sm = new Array(m).fill(0);
+                        for (let k = 0; k < m; k++) {
+                            const e = (k - 1 + m) % m;
+                            if ((!closed && (k === 0 || k === m - 1)) || !C[e] || !C[k])
+                                continue;
+                            const ux = X[k] - C[e][2],
+                                uy = Y[k] - C[e][3],
+                                vx = C[k][0] - X[k],
+                                vy = C[k][1] - Y[k];
+                            const lu = Math.hypot(ux, uy),
+                                lv = Math.hypot(vx, vy);
+                            if (lu > 0 && lv > 0 && (ux * vx + uy * vy) / (lu * lv) > Math.cos(Math.PI / 90))
+                                Sm[k] = 1;
+                        }
+                        const o = {
+                            x: X,
+                            y: Y,
+                            ctrl: hasCtrl(C) ? C : null,
+                            smooth: Sm.some(Boolean) ? Sm : null
+                        };
+                        (closed ? rings : lines).push(o);
+                    }
+                    // a filled element's rings nested by containment: inside an even number of
+                    // the others an outline, inside an odd number a hole of the one round it
+                    const dense = rings.map(r => {
+                        const D = exactDense(r.x, r.y, null, false, r.smooth, r.ctrl);
+                        return Array.from(D.x, (x, k) => ({
+                            x,
+                            y: D.y[k]
+                        }));
+                    });
+                    const area = dense.map(d => Math.abs(ringArea(d)));
+                    const depth = rings.map(() => 0),
+                        parent = rings.map(() => -1);
+                    for (let i = 0; i < rings.length; i++)
+                        for (let j = 0; j < rings.length; j++)
+                            if (i !== j && fill && area[j] > area[i] && ringContains(dense[i][0].x, dense[i][0].y, dense[j])) {
+                                depth[i]++;
+                                if (parent[i] < 0 || area[j] < area[parent[i]])
+                                    parent[i] = j;
+                            }
+                    const name = (el.getAttribute('id') || (el.querySelector('title') && el.querySelector('title').textContent) || '').trim() || null;
+                    const style = {
+                        fill: fill ? {
+                            color: fill,
+                            opacity: Math.max(0, Math.min(1, op))
+                        } : null,
+                        stroke: stroke || null,
+                        name
+                    };
+                    rings.forEach((r, i) => {
+                        if (depth[i] % 2)
+                            return;
+                        const holes = rings.filter((_, j) => depth[j] % 2 && parent[j] === i);
+                        shapes.push(Object.assign({
+                            ring: r,
+                            holes,
+                            open: false
+                        }, style));
+                    });
+                    for (const l of lines)
+                        shapes.push(Object.assign({
+                            ring: l,
+                            holes: [],
+                            open: true
+                        }, style, {
+                            fill: null
+                        }));
+                }
+                return {
+                    shapes
+                };
+            }
+            catch (_) {
+                return null;
+            }
+            finally {
+                host.remove();
+            }
+        }
+        function loadSvgExact(svgText, name, append) {
+            const ex = parseSvgExact(svgText);
+            if (!ex || !ex.shapes.length || ex.shapes.length >= LAZY_MIN_SHAPES)
+                return false;
+            if (!append)
+                resetSheetView();
+            // fitted as the import fits a file (fitSubpathsToWorld): centred, its larger half 0.9,
+            // y turned up; one affine map, so it carries the curves' control points too
+            let x0 = Infinity,
+                x1 = -Infinity,
+                y0 = Infinity,
+                y1 = -Infinity;
+            for (const sh of ex.shapes) {
+                const D = exactDense(sh.ring.x, sh.ring.y, null, sh.open, sh.ring.smooth, sh.ring.ctrl);
+                for (let k = 0; k < D.x.length; k++) {
+                    x0 = Math.min(x0, D.x[k]);
+                    x1 = Math.max(x1, D.x[k]);
+                    y0 = Math.min(y0, D.y[k]);
+                    y1 = Math.max(y1, D.y[k]);
+                }
+            }
+            const cx = (x0 + x1) / 2,
+                cy = (y0 + y1) / 2;
+            const sc = 0.9 / Math.max(1e-6, (x1 - x0) / 2, (y1 - y0) / 2);
+            const Mw = [sc, 0, 0, -sc, -cx * sc, cy * sc];
+            const mx = (X, Y) => ({
+                x: Float64Array.from(X, (x, i) => Mw[0] * x + Mw[2] * Y[i] + Mw[4]),
+                y: Float64Array.from(X, (x, i) => Mw[1] * x + Mw[3] * Y[i] + Mw[5])
+            });
+            const doAppend = append && state.subpaths.length > 0;
+            const fileTag = (name || 'svg') + '#' + (state._fileSeq = (state._fileSeq || 0) + 1);
+            const newSubs = ex.shapes.map(sh => {
+                const sp = {
+                    refLength: 0,
+                    source: 'svg',
+                    dirty: false,
+                    fill: sh.fill,
+                    stroke: sh.stroke,
+                    fileTag,
+                    gname: (typeof cleanGroupName === 'function' ? cleanGroupName(sh.name) : sh.name) || null
+                };
+                const R = mx(sh.ring.x, sh.ring.y);
+                makeLazy(sp, R.x, R.y, 0, null, {
+                    exact: true,
+                    open: sh.open,
+                    smooth: sh.ring.smooth,
+                    ctrl: ctrlMapped(sh.ring.ctrl, Mw),
+                    holes: sh.holes.length ? sh.holes.map(h => {
+                        const H = mx(h.x, h.y);
+                        return {
+                            x: H.x,
+                            y: H.y,
+                            smooth: h.smooth,
+                            ctrl: ctrlMapped(h.ctrl, Mw)
+                        };
+                    }) : null
+                });
+                return sp;
+            });
+            if (doAppend) {
+                state.subpaths = state.subpaths.concat(newSubs);
+                state.svgName = (state.svgName ? state.svgName + ' + ' : '') + (name || 'svg');
+            } else {
+                if (state.subpaths.length)
+                    for (const s of state.subpaths)
+                        if (s.fileTag == null)
+                            s.fileTag = 'existing#0';
+                state.subpaths = newSubs;
+                state.svgName = name || 'svg';
+            }
+            state.lastLoadInfo = {
+                totalElements: newSubs.length,
+                multiSubpath: newSubs.length > 1,
+                subpathCount: newSubs.length,
+            };
+            layoutFilesOnGrid(); // each file's shapes in its own grid cell, as the import does
+            state.view.zoom = 1;
+            state.view.panX = 0;
+            state.view.panY = 0;
+            rebuildSignalSelect();
+            setActiveSubpath(-1);
+            resetHistory();
+            flashStatus((name || 'svg') + ': ' + newSubs.length + ' exact shape' + (newSubs.length === 1 ? '' : 's') + ', curves and holes as drawn');
+            return true;
+        }
+        // asExact: the call is a file the user opened or pasted (SVG AS EXACT SHAPES). The presets,
+        // the AI's drawings and the startup maple stay leaves: they are there to be sculpted.
+        function loadSvg(svgText, name, append, asExact) {
             closeMenu();
+            if (asExact && state.svgExact && loadSvgExact(svgText, name, append))
+                return; // SVG AS EXACT SHAPES
             if (!append)
                 resetSheetView();
             let poly;
@@ -63901,6 +64294,27 @@
                 tp.addEventListener('change', e => {
                     state.snapPts = !!e.target.checked;
                 });
+            const tx = $('tSvgExact'); // SVG AS EXACT SHAPES
+            if (tx)
+                tx.addEventListener('change', e => {
+                    state.svgExact = !!e.target.checked;
+                });
+            // EXACT SHAPES: HOW TO, from the menu; ✕, Escape or a click outside puts it away
+            const bh = $('bExactHelp'),
+                ph = $('exactHelpPop');
+            if (bh && ph) {
+                bh.addEventListener('click', () => {
+                    closeMenu();
+                    closeAllPops();
+                    ph.classList.add('open');
+                    ph.scrollTop = 0;
+                });
+                $('exactHelpClose').addEventListener('click', () => ph.classList.remove('open'));
+                window.addEventListener('keydown', e => {
+                    if (e.key === 'Escape' && ph.classList.contains('open'))
+                        ph.classList.remove('open');
+                });
+            }
         }
         $('tFisheye').addEventListener('change', e => {
             state.fisheyeLeaves = e.target.checked;
@@ -67071,7 +67485,7 @@
             pop.style.left = left + 'px';
             pop.style.top = top + 'px';
         }
-        const POP_IDS = ['playPop', 'textPop', 'alignPop', 'orderPop', 'arrangePop', 'morphPop', 'toolsPop', 'stylePop', 'linePop', 'gridPop', 'descPop', 'readPop', 'shapePop', 'buildPop', 'aiPop'];
+        const POP_IDS = ['playPop', 'textPop', 'alignPop', 'orderPop', 'arrangePop', 'morphPop', 'toolsPop', 'stylePop', 'linePop', 'gridPop', 'descPop', 'readPop', 'shapePop', 'buildPop', 'aiPop', 'exactHelpPop'];
         function closeAllPops() {
             for (const id of POP_IDS) {
                 const el = $(id);
@@ -72467,7 +72881,7 @@
             } catch (_) {}
             // Two RAFs so the status paints before the (synchronous) parses run.
             requestAnimationFrame(() => requestAnimationFrame(() => {
-                texts.forEach((t, i) => loadSvg(t.text, t.name, append || i > 0));
+                texts.forEach((t, i) => loadSvg(t.text, t.name, append || i > 0, true));
             }));
         }
 
@@ -79389,7 +79803,7 @@
                                 __text: text
                             }], append);
                         else
-                            loadSvg(text, o.name, append);
+                            loadSvg(text, o.name, append, true);
                         append = true; // whatever the first one did, the rest join it
                         done++;
                     } catch (e) {
