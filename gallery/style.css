@@ -488,3 +488,23 @@ a.paper:hover{background:rgba(124,92,255,.22);color:#d9cfff}
    circles and read wrong squashed: the levels tile at 460px, the shape tile at 620px */
 .page-levels .tile.wide canvas{height:460px}
 .page-levels .tile.tall.wide canvas{height:620px}
+
+/* ── EXAMPLES ── (examples.html, at the repo root) animated examples for the editor: a card each,
+   the drawing on a dark stage, its name, what it shows as tags, a note, and the link that opens it
+   in the editor live */
+.page-examples main{max-width:1360px;margin:0 auto;padding:14px 20px 40px}
+.page-examples .examples{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.page-examples article.example{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  display:flex;flex-direction:column}
+.page-examples .stage{background:var(--stage);height:190px;display:flex;align-items:center;justify-content:center;padding:16px;
+  border-bottom:1px solid var(--line)}
+.page-examples .stage svg{width:100%;height:100%;display:block}
+.page-examples .body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px;flex:1}
+.page-examples h2{font-size:14px;font-weight:650;margin:0;color:var(--ink)}
+.page-examples .tags{display:flex;flex-wrap:wrap;gap:5px}
+.page-examples .tags span{font-family:var(--mono);font-size:10.5px;color:#b9a6ff;background:rgba(124,92,255,.12);
+  border:1px solid rgba(124,92,255,.3);border-radius:6px;padding:1px 6px}
+.page-examples .body p{margin:0;color:var(--dim);font-size:12.5px;line-height:1.55;flex:1}
+.page-examples a.open{align-self:flex-start;color:var(--ink);font-weight:600;text-decoration:none;border:1px solid var(--line-2);
+  border-radius:8px;padding:6px 12px;background:#10151f}
+.page-examples a.open:hover{color:#b9a6ff;border-color:rgba(124,92,255,.5)}

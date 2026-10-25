@@ -769,6 +769,58 @@ current = 'corners and timing';
   await mp.close();
 }
 
+/* THE EXAMPLES PAGE AND THE SCENE LINK (examples.html, draw.html#scene=). The page lists its examples, each
+   with a link; three open live in the editor as they say (an exact morph of two keys, three shapes on one path,
+   a leaf still with an effect); and a link opened over a drawing of the user's asks first, and keeps the
+   drawing when told to. */
+current = 'examples';
+{
+  const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  xp.on('pageerror', e => failures.push(`[examples] ${e.message}`));
+  await xp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await xp.goto(new URL('examples.html', base).href, { waitUntil: 'load' });
+    await xp.waitForFunction(() => window.__examples && document.querySelectorAll('a.open').length === window.__examples.length, null, { timeout: 30000 });
+    const links = await xp.$$eval('a.open', as => Object.fromEntries(as.map(a => [a.closest('article').id, a.href])));
+    if (Object.keys(links).length < 8) throw new Error('the examples page lists ' + Object.keys(links).length + ' examples');
+    let ep = null;
+    // each in a page of its own: the editor restores the last example first, then opens the link
+    const open = async id => {
+      if (ep) await ep.close();
+      ep = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+      ep.on('pageerror', e => failures.push(`[examples] ${e.message}`));
+      await ep.route(/fonts\.g/, r => r.abort());
+      await ep.goto(links[id], { waitUntil: 'load' });
+      await ep.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+      await ep.waitForFunction(() => !/scene=/.test(location.hash), null, { timeout: 15000 });
+      await ep.waitForTimeout(1200);
+      return ep.evaluate(() => { const m = window.__box.morph(); return m && { K: m.K, exact: m.exact, path: m.path, play: m.play, trail: m.trail, runs: window.__box.count() }; });
+    };
+    let s = await open('square-star');
+    if (!s || s.K !== 2 || !s.exact || !s.play) throw new Error('square to star did not open as a live exact morph of two keys: ' + JSON.stringify(s));
+    s = await open('procession');
+    if (!s || !s.path || !s.path.closed || s.runs !== 3 || s.trail !== 'echoes') throw new Error('the procession did not open as three shapes on a closed path: ' + JSON.stringify(s));
+    s = await open('shimmer');
+    const fx = await ep.evaluate(() => document.getElementById('morphFx').value);
+    if (!s || s.K !== 1 || s.exact || fx !== 'shimmer') throw new Error('the shimmering leaf did not open as a leaf still with shimmer: ' + JSON.stringify(s) + ' ' + fx);
+    // over a drawing of the user's: asked first, and "keep my drawing" keeps it
+    await ep.click('#bMorphKeep', { modifiers: ['Shift'] }); await ep.waitForTimeout(200);
+    await ep.evaluate(() => { const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="10" y="10" width="40" height="40"/><rect x="60" y="60" width="30" height="30"/></svg>';
+      return new Promise(res => { const dt = new DataTransfer(); dt.items.add(new File([svg], 'mine.svg', { type: 'image/svg+xml' })); const f = document.getElementById('fLoad'); f.files = dt.files; f.dispatchEvent(new Event('change')); setTimeout(res, 1200); }); });
+    const mine = await ep.evaluate(() => window.__box.count());
+    await ep.evaluate(h => { location.hash = h; }, new URL(links['orbit']).hash);
+    await ep.waitForSelector('#confirmScrim.open', { timeout: 10000 });
+    await ep.click('#confirmNo'); await ep.waitForTimeout(400);
+    if ((await ep.evaluate(() => window.__box.count())) !== mine || (await ep.evaluate(() => window.__box.morph()))) throw new Error('"keep my drawing" did not keep it');
+    await ep.close();
+  } catch (e){
+    failures.push(`[examples] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the examples page and the scene link`);
+  await xp.close();
+}
+
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,
    edges straight, never leaves until asked. A triangle closed on its start point and a line of
    two points finished by a double-click; both held exact through a click and a drag of a

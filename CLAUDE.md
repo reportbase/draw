@@ -19,6 +19,14 @@ publishes.
   `draw.html?lab=CODE` link that runs it. **Generated** by `npm run labs`
   (`tools/build-labs.mjs` reads the lab buttons off the live editor); after adding, renaming
   or re-describing a lab in `draw.html`, run it, or `npm test` fails.
+- `examples.html`: animated examples (25 Oct 2026, Tom: "could you creae a gallery page that has examples that can
+  be loaded into draw.html"), a card each: the drawing, what it shows, and a link that opens the editor with it live.
+  Each example is an SVG drawing (made in the page from a few lines) and the live morph's settings, written into
+  `draw.html#scene=<payload>` (THE SCENE LINK in `draw.html`: 'z' + base64url of the JSON deflated, or 'r' plain;
+  `{v:1, name, svg, exact, morphs: [[shape indices]…], path, turn, mode, fx, trail, ease, hold, loop, onion, corners,
+  lag, t, play}`, shapes named by their order in the SVG). Opening one replaces the drawing, asking first when the tab
+  holds the user's. Not part of the numbered galleries; styled by `gallery/style.css` (`page-examples`). The editor's
+  menu links it ("examples ↗"). A new example is an entry in its `EXAMPLES` list.
 - `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
   specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
   and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and
