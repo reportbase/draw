@@ -773,7 +773,7 @@ current = 'corners and timing';
    with a link; three open live in the editor as they say (an exact morph of two keys, three shapes on one path,
    a leaf still with an effect); the showpieces do what they say (gears spinning in the ratio of their teeth about
    fixed axles, planets on orbits of their own lapping 5 to 1 times and kept through a reload, a ripple of staggered
-   clocks and blending colours, a bee whose wings and body ride one path together); and a link opened over a
+   clocks and blending colours, a moon following the earth, a bee whose wings follow its body); and a link opened over a
    drawing of the user's asks first, and keeps the drawing when told to. */
 current = 'examples';
 {
@@ -824,16 +824,24 @@ current = 'examples';
     s = await open('orrery');
     r0 = await runsAt(0);
     const planets = r0.slice(1);
-    if (planets.length !== 5 || planets.some(r => !r.path) || planets.map(r => r.laps).join() !== '5,4,3,2,1' || r0[0].trail !== '') throw new Error('the orrery\'s planets: ' + JSON.stringify(r0.map(r => [r.path, r.laps, r.trail])));
+    const moon = r0[6];
+    planets.length = 5;
+    if (planets.some(r => !r.path) || planets.map(r => r.laps).join() !== '5,4,3,2,1' || r0[0].trail !== '') throw new Error('the orrery\'s planets: ' + JSON.stringify(r0.map(r => [r.path, r.laps, r.trail])));
+    // the moon follows the earth (morph 3): always its orbit's radius from it, as the earth goes round the sun
+    if (!moon || moon.parent !== 3) throw new Error('the moon does not follow the earth: ' + JSON.stringify(moon));
+    const dist = r => Math.hypot(r[6].cx - r[3].cx, r[6].cy - r[3].cy);
+    const dA = dist(r0), dB = dist(await runsAt(0.37)), dC = dist(await runsAt(0.81));
+    if (Math.abs(dA - dB) > 1e-3 || Math.abs(dA - dC) > 1e-3) throw new Error('the moon wandered from the earth: ' + [dA, dB, dC]);
+    await runsAt(0);
     r1 = await runsAt(0.2); // a whole lap for the first planet, not for the last
     if (Math.hypot(r1[1].cx - r0[1].cx, r1[1].cy - r0[1].cy) > 1e-3 || !(Math.hypot(r1[5].cx - r0[5].cx, r1[5].cy - r0[5].cy) > 0.05)) throw new Error('the planets do not keep their laps');
     const nOrrery = await ep.evaluate(() => window.__box.count());
     await ep.waitForTimeout(1200);
     await ep.reload(); await ep.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await ep.waitForTimeout(600);
     const back = await ep.evaluate(() => window.__box.morph().runs);
-    if (back.slice(1).map(r => (r.path ? 'p' : '-') + r.laps).join() !== 'p5,p4,p3,p2,p1') throw new Error('a reload lost the planets\' own paths: ' + JSON.stringify(back));
+    if (back.slice(1, 6).map(r => (r.path ? 'p' : '-') + r.laps).join() !== 'p5,p4,p3,p2,p1' || back[6].parent !== 3) throw new Error('a reload lost the planets\' own paths or the moon\'s earth: ' + JSON.stringify(back));
     await ep.click('#bMorphExit'); await ep.waitForTimeout(300);
-    if ((await ep.evaluate(() => window.__box.count())) !== nOrrery + 5) throw new Error('exit did not put the five orbits back');
+    if ((await ep.evaluate(() => window.__box.count())) !== nOrrery + 6) throw new Error('exit did not put the six orbits back');
     // ripple: forty morphs on staggered clocks, their colour blending with their keys
     s = await open('ripple');
     r0 = await runsAt(0); r1 = await runsAt(0.25);
@@ -843,7 +851,7 @@ current = 'examples';
     s = await open('garden');
     r0 = await runsAt(0.37);
     const [wings, body] = r0.slice(-2);
-    if (!wings.path || !body.path || wings.rate !== 6 || Math.hypot(wings.cx - body.cx, wings.cy - body.cy) > 1e-6) throw new Error('the bee came apart: ' + JSON.stringify([wings, body]));
+    if (wings.parent !== 11 || !body.path || wings.rate !== 6 || Math.hypot(wings.cx - body.cx, wings.cy - body.cy) > 1e-3) throw new Error('the bee came apart: ' + JSON.stringify([wings, body]));
     // over a drawing of the user's: asked first, and "keep my drawing" keeps it
     s = await open('shimmer');
     await ep.click('#bMorphKeep', { modifiers: ['Shift'] }); await ep.waitForTimeout(200);
@@ -860,6 +868,71 @@ current = 'examples';
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the animated gallery and the scene link`);
   await xp.close();
+}
+
+/* THE MORPH'S OWN SETTINGS IN THE EDITOR, AND ONE MORPH RIDING ANOTHER (draw.html). Four live shapes and a line,
+   opened from a scene link: selecting a live shape puts up the strip, with numbers on the shapes; rate and spin
+   set there take; stagger spreads two morphs' phases; "ride the line" makes the selected line a path of their own
+   and spread spaces them along it; a morph picked to follow another does not jump, and keeps its distance from
+   it after; all of it comes back from a reload. */
+current = 'morph settings';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[morph settings] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><circle cx="60" cy="60" r="20" fill="#e05a6a"/>'
+      + '<rect x="140" y="40" width="40" height="40" fill="#4f8fd6"/><polygon points="260,40 290,90 230,90" fill="#4fbf8a"/>'
+      + '<circle cx="340" cy="60" r="14" fill="#f2c14e"/><path d="M40 220 C 140 140 260 300 360 220" fill="none" stroke="#888"/></svg>';
+    await mp.goto(scene({ name: 'settings', svg, play: false, morphs: [[0], [1], [2], [3]] }), { waitUntil: 'load' });
+    await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await mp.waitForFunction(() => !/scene=/.test(location.hash), null, { timeout: 15000 });
+    await mp.waitForTimeout(1200);
+    const runs = () => mp.evaluate(() => window.__box.morph().runs);
+    // the live shapes are the first four in the drawing, the line the fifth
+    await mp.evaluate(() => window.__box.select([0]));
+    await mp.waitForTimeout(250);
+    if (!(await mp.evaluate(() => document.getElementById('morphRunTool').classList.contains('open')))) throw new Error('selecting a live shape did not put up its strip');
+    await mp.fill('#mrRate', '3'); await mp.dispatchEvent('#mrRate', 'change');
+    await mp.fill('#mrSpin', '0.5'); await mp.dispatchEvent('#mrSpin', 'change');
+    let r = await runs();
+    if (r[0].rate !== 3 || r[0].spin !== 0.5 || r[1].rate !== 1) throw new Error('rate and spin did not take on the selected morph alone: ' + JSON.stringify(r.map(q => [q.rate, q.spin])));
+    await mp.evaluate(() => window.__box.select([1, 2]));
+    await mp.waitForTimeout(250);
+    await mp.click('#mrStagger');
+    r = await runs();
+    if (Math.abs(r[1].phase - 0) > 1e-9 || Math.abs(r[2].phase - 0.5) > 1e-9) throw new Error('stagger gave phases ' + [r[1].phase, r[2].phase]);
+    await mp.evaluate(() => window.__box.select([1, 2, 4]));
+    await mp.waitForTimeout(250);
+    await mp.click('#mrPath');
+    await mp.click('#mrSpread');
+    r = await runs();
+    if (!r[1].path || !r[2].path || Math.abs((r[2].at || 0) - 0.5) > 1e-9 || (await mp.evaluate(() => window.__box.count())) !== 4) throw new Error('ride the line and spread: ' + JSON.stringify(r.map(q => [q.path, q.at])));
+    // morph 4 follows morph 2 (on its path): no jump when picked, its distance kept after
+    await mp.evaluate(() => window.__box.select([3]));
+    await mp.waitForTimeout(250);
+    const pre = (await runs())[3];
+    await mp.selectOption('#mrParent', '1');
+    const post = (await runs())[3];
+    if (post.parent !== 1 || Math.hypot(post.cx - pre.cx, post.cy - pre.cy) > 1e-9) throw new Error('following made the shape jump: ' + JSON.stringify([pre, post]));
+    const d = q => Math.hypot(q[3].cx - q[1].cx, q[3].cy - q[1].cy);
+    const setT = t => mp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+    await setT(0.3); const d1 = d(await runs()); await setT(0.7); const d2 = d(await runs());
+    if (Math.abs(d1 - d2) > 1e-6) throw new Error('the follower did not keep its distance: ' + [d1, d2]);
+    await mp.waitForTimeout(1200);
+    await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(600);
+    r = await runs();
+    if (r[0].rate !== 3 || r[0].spin !== 0.5 || !r[1].path || r[3].parent !== 1 || Math.abs(r[2].phase - 0.5) > 1e-9) throw new Error('the settings did not come back from a reload: ' + JSON.stringify(r.map(q => [q.rate, q.spin, q.path, q.parent, q.phase])));
+    await setT(0.3); const d3 = d(await runs());
+    if (Math.abs(d3 - d1) > 1e-6) throw new Error('after a reload the follower is elsewhere: ' + [d1, d3]);
+  } catch (e){
+    failures.push(`[morph settings] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the morph's own settings, and one morph riding another`);
+  await mp.close();
 }
 
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,

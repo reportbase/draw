@@ -1456,15 +1456,20 @@ const SHOWPIECES = [];
   const sun = smooth(around(C[0], C[1], 36, (a, i) => i % 2 ? 30 : 38), '#ffb53a');
   const planets = orbits.map(([rx], i) => circ4(C[0] + rx, C[1], sizes[i], cols[i])).join('');
   const paths = orbits.map(([rx, ry]) => stroke(ell(rx, ry), '#556', 1)).join('');
-  // shapes: 0–25 stars, 26–30 rings, 31 sun, 32–36 planets, 37–41 their paths
+  // the moon: drawn beside the earth as drawn, on a little orbit round it, and following the earth
+  const E = [C[0] + orbits[2][0], C[1]];
+  const moon = circ4(E[0] + 26, E[1], 4, '#d8dbe6');
+  const moonOrbit = stroke(smoothD(around(E[0], E[1], 24, () => 26)), '#556', 1);
+  // shapes: 0–25 stars, 26–30 rings, 31 sun, 32–36 planets, 37–41 their paths, 42 the moon, 43 its orbit
   SHOWPIECES.push({
-    id: 'orrery', name: 'orrery', section: 'showpieces', tags: ['own paths', 'laps', 'ribbons', 'boil'],
-    note: 'Five planets, each on an orbit of its own, the inner ones lapping faster: five, four, three, two and one laps a loop, so all of them come back together and the loop closes. Each leaves a ribbon; the sun seethes. Leaves, for the sun\'s effect.',
-    svg: svg(800, 520, stars + rings + sun + planets + paths),
+    id: 'orrery', name: 'orrery', section: 'showpieces', tags: ['own paths', 'laps', 'follows', 'ribbons', 'boil'],
+    note: 'Five planets, each on an orbit of its own, the inner ones lapping faster: five, four, three, two and one laps a loop, so all of them come back together and the loop closes. The earth has a moon on a little orbit of its own that follows the earth round the sun. Each leaves a ribbon; the sun seethes. Leaves, for the sun\'s effect.',
+    svg: svg(800, 520, stars + rings + sun + planets + paths + moon + moonOrbit),
     scene: {
       exact: false, loop: 20,
       morphs: [{ keys: [31], fx: { kind: 'boil', amount: 0.45 }, trail: { kind: '' } }].concat(
-        orbits.map((_, i) => ({ keys: [32 + i], path: 37 + i, laps: 5 - i, at: [0.1, 0.55, 0.3, 0.8, 0.62][i], turn: false, trail: { kind: 'ribbon', len: [0.06, 0.09, 0.13, 0.2, 0.32][i] } })))
+        orbits.map((_, i) => ({ keys: [32 + i], path: 37 + i, laps: 5 - i, at: [0.1, 0.55, 0.3, 0.8, 0.62][i], turn: false, trail: { kind: 'ribbon', len: [0.06, 0.09, 0.13, 0.2, 0.32][i] } })),
+        [{ keys: [42], path: 43, laps: 12, turn: false, parent: 3, trail: { kind: '' } }])
     }
   });
 }
@@ -1526,8 +1531,8 @@ const SHOWPIECES = [];
   // then wings open, wings shut, body, the bee's path
   const h0 = 12, c0 = h0 + 10, w0 = c0 + 10;
   SHOWPIECES.push({
-    id: 'garden', name: 'garden', section: 'showpieces', tags: ['colour', 'phase', 'own path', 'echoes', '12 morphs'],
-    note: 'Five flowers bloom in a wave: bud, bloom, bloom, bud as keys, each flower a little behind the last, its petals going from green to its own colour and its heart coming in yellow. A bee loops between them on a path of its own, its wings beating twelve times a loop, leaving echoes.',
+    id: 'garden', name: 'garden', section: 'showpieces', tags: ['colour', 'phase', 'own path', 'follows', '12 morphs'],
+    note: 'Five flowers bloom in a wave: bud, bloom, bloom, bud as keys, each flower a little behind the last, its petals going from green to its own colour and its heart coming in yellow. A bee loops between them on a path of its own, leaving echoes; its wings follow its body, turning as it turns, and beat twelve times a loop.',
     svg: svg(900, 440, ground + stems + leaves + heads + hearts + wingsOpen + wingsShut + body + stroke(beePath, '#000', 1)),
     scene: {
       loop: 8, ease: 'inout', hold: 0.15,
@@ -1535,7 +1540,7 @@ const SHOWPIECES = [];
         { keys: [h0 + 2 * i, h0 + 2 * i + 1, h0 + 2 * i + 1, h0 + 2 * i], phase: 0.84 - 0.09 * i },
         { keys: [c0 + 2 * i, c0 + 2 * i + 1, c0 + 2 * i + 1, c0 + 2 * i], phase: 0.84 - 0.09 * i }
       ]).concat([
-        { keys: [w0, w0 + 1, w0, w0 + 1], rate: 6, path: w0 + 3, turn: true, at: 0, trail: { kind: '' } },
+        { keys: [w0, w0 + 1, w0, w0 + 1], rate: 6, parent: 11, trail: { kind: '' } },
         { keys: [w0 + 2], path: w0 + 3, turn: true, at: 0, trail: { kind: 'echoes', len: 0.12 } }
       ])
     }
@@ -1672,6 +1677,8 @@ function sceneLine(s) {
   const own = runs.filter(r => r.path != null).length;
   if (own) bits.push(own + ' own path' + (own > 1 ? 's' : '') + (runs.some(r => r.mode === 'back') ? ' there & back' : ''));
   list('laps', runs.map(r => r.laps));
+  const fol = runs.filter(r => r.parent != null).length;
+  if (fol) bits.push(fol + ' following');
   list('rate', runs.map(r => r.rate));
   if (runs.filter(r => r.phase).length > 1) bits.push('phases staggered');
   list('spin', runs.map(r => r.spin), v => +v.toFixed(3));

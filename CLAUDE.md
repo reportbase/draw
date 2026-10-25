@@ -93,11 +93,16 @@ publishes.
     base64url of the JSON deflated, or 'r' plain; `{v:1, name, svg, exact, morphs: [[shape indices]…], path, turn,
     mode, fx, trail, ease, hold, loop, onion, corners, lag, t, play}`, shapes named by their order in the SVG). A
     `morphs` entry is a list of shapes or an object `{keys, path, laps, at, turn, mode, rate, phase, spin, fx, trail,
-    lag, inPlace}`: what a morph has of its own (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL in `draw.html`, 25 Oct
+    lag, inPlace, parent}` (`parent`: the index of another entry, whose every move and turn carries this one, measured
+    from where the parent was drawn: ONE MORPH RIDING ANOTHER): what a morph has of its own (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL in `draw.html`, 25 Oct
     2026, Tom: "can you do some top quality animation examples, to really push the framework?"): its clock at a whole
     `rate` and a `phase`, its own path ridden `laps` times from `at`, `spin` turns a loop, its trail and effect; a
     shape may be a key more than once; the keys' fills blend in linear light (`run.cols`). All of it saves with the
-    morph; the bar's controls still act on every morph. Opening one replaces the drawing, asking first when the tab
+    morph; the bar's controls still act on every morph, and the editor's strip (THE MORPH'S OWN SETTINGS, IN THE
+    EDITOR, `#morphRunTool`, 25 Oct 2026, Tom: "1,3") sets them by hand for the live shapes selected: rate, phase and
+    stagger, spin, ride a line (own path), laps, start and spread, trail, effect and follows (a parent picked there
+    carries the shape from where both stand, `run.parentAt`), with the live shapes numbered on the canvas while it is
+    up. Opening one replaces the drawing, asking first when the tab
     holds the user's; shapes the SVG gave no stroke get no editor outline. The editor's menu links it ("animations ↗").
     The page's **showpieces** (clockwork, orrery, murmuration, garden, lava lamp, ripple, metamorphosis, pendulum wave)
     come first, the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
