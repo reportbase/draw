@@ -497,6 +497,69 @@ current = 'svg as exact shapes';
   await sp.close();
 }
 
+/* THE TIMELINE AND RECORDING A LOOP (draw.html). Three shapes morphed live: their keys' places as
+   ticks on the track, a step to the next key landing on it exactly (the live shape is that key), a key
+   made from the pose between two keys (the pose unchanged, four ticks), a key taken away, onion skins
+   and the loop's length; then one loop recorded as a .gif (parsed: a frame for every step of a 2 s loop
+   at 20 a second, looping) and, where the browser records, a .webm. */
+current = 'timeline and recording';
+{
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[timeline] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await mp.evaluate(() => { const t = document.getElementById('tSvgExact'); t.checked = false; t.dispatchEvent(new Event('change')); });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+      + '<rect x="110" y="10" width="80" height="80" fill="#48c"/><polygon points="250,10 290,90 210,90" fill="#4c8"/></svg>';
+    await mp.setInputFiles('#fLoad', { name: 'three.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+    await mp.waitForTimeout(1200);
+    await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(300);
+    await mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    await mp.waitForTimeout(400);
+    const m = () => mp.evaluate(() => window.__box.morph());
+    let s = await m();
+    if (!s || s.K !== 3 || s.ticks.join() !== '167,500,833') throw new Error('no live morph with three keys ticked on the track: ' + JSON.stringify(s && { K: s.K, ticks: s.ticks }));
+    await mp.click('#bMorphNextKey'); await mp.click('#bMorphNextKey');
+    s = await m();
+    const key1 = await mp.evaluate(() => window.__box.morphKey(1).x);
+    if (Math.abs(s.t - 0.5) > 1e-9 || Math.max(...s.leaves.map((v, i) => Math.abs(v - key1[i]))) > 1e-9) throw new Error('stepping to a key did not land on it exactly: t ' + s.t);
+    await mp.evaluate(() => { const r = document.getElementById('morphT'); r.value = 600; r.dispatchEvent(new Event('input')); });
+    const pose = (await m()).leaves;
+    await mp.click('#bMorphAddKey');
+    s = await m();
+    if (s.K !== 4 || s.ticks.length !== 4 || Math.max(...s.leaves.map((v, i) => Math.abs(v - pose[i]))) > 1e-9) throw new Error('+ key did not keep the pose as a fourth key: K ' + s.K);
+    await mp.click('#bMorphDelKey');
+    if ((await m()).K !== 3) throw new Error('− key did not take a key away');
+    await mp.evaluate(() => { const c = document.getElementById('tMorphOnion'); c.checked = true; c.dispatchEvent(new Event('change'));
+      const l = document.getElementById('morphLoop'); l.value = 2; l.dispatchEvent(new Event('change')); });
+    if (Math.abs((await m()).loop - 2) > 1e-9) throw new Error('the loop length did not take');
+    const [dg] = await Promise.all([mp.waitForEvent('download', { timeout: 60000 }), mp.evaluate(() => window.__box.recordGif())]);
+    const gif = await readFile(await dg.path());
+    // walk the GIF's blocks: the header and global table, then extensions and images to the trailer
+    let p = 13 + 768, frames = 0, loops = false;
+    if (gif.toString('latin1', 0, 6) !== 'GIF89a') throw new Error('the recording is not a GIF');
+    while (p < gif.length && gif[p] !== 0x3B) {
+      if (gif[p] === 0x21) { if (gif.toString('latin1', p + 3, p + 14) === 'NETSCAPE2.0') loops = true; p += 2; while (gif[p]) p += gif[p] + 1; p++; }
+      else if (gif[p] === 0x2C) { frames++; p += 10 + 1; while (gif[p]) p += gif[p] + 1; p++; }
+      else throw new Error('the GIF has a stray byte at ' + p);
+    }
+    if (frames !== 40 || !loops || gif[p] !== 0x3B) throw new Error('the GIF holds ' + frames + ' frames (looping ' + loops + '), not one 2 s loop at 20 a second');
+    if (await mp.evaluate(() => typeof MediaRecorder !== 'undefined')) {
+      const [dv] = await Promise.all([mp.waitForEvent('download', { timeout: 60000 }), mp.evaluate(() => window.__box.recordVideo())]);
+      const vid = await readFile(await dv.path());
+      if (vid.length < 1000 || vid.readUInt32BE(0) !== 0x1A45DFA3) throw new Error('the video is not a webm: ' + vid.length + ' bytes');
+    }
+    if (!(await m())) throw new Error('recording ended the morph');
+  } catch (e){
+    failures.push(`[timeline] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} timeline and recording a loop`);
+  await mp.close();
+}
+
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,
    edges straight, never leaves until asked. A triangle closed on its start point and a line of
    two points finished by a double-click; both held exact through a click and a drag of a

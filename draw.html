@@ -6553,11 +6553,22 @@
                live the scene is ONE shape and the slider is the only thing in the room. It is
                hidden the rest of the time, so .shape-bar:empty still takes the bar off the
                screen when there is no morph running. -->
-        <div class="control-group" id="morphBar" style="display:none;gap:10px;">
+        <div class="control-group" id="morphBar" style="display:none;gap:8px 10px;flex-wrap:wrap;justify-content:center;flex:1 1 auto;min-width:0;">
             <button id="bMorphPlay" data-code="mpl" class="res-btn" title="run EVERY live morph as a loop. One clock drives all of them, so several morphs started separately stay in register with each other and a still frame is a frame of the same moment. The blend is recomputed from the keys every frame — there is nothing baked, so the shapes you are watching are real shapes at every instant and you can stop anywhere and keep them.">run</button>
             <label for="morphT">t</label>
-            <input type="range" id="morphT" min="0" max="1000" step="1" value="0" style="width:min(340px,38vw);" title="where the blend sits between the keys. With two keys this is a straight lerp; with three or more the keys sit on a TIME CIRCLE and the weights are the same cardinal kernel that reconstructs a contour — so the loop closes and passing t=1 comes back to the first key without a seam.">
+            <input type="range" id="morphT" list="morphTickList" min="0" max="1000" step="1" value="0" style="width:min(340px,38vw);" title="where the blend sits between the keys. With two keys this is a straight lerp; with three or more the keys sit on a TIME CIRCLE and the weights are the same cardinal kernel that reconstructs a contour — so the loop closes and passing t=1 comes back to the first key without a seam.">
             <span class="val" id="morphTVal">0.000</span>
+            <!-- THE TIMELINE (25 Oct 2026): the keys' places as ticks on the track, a step to the key before or
+                 after, a key added where you stand or taken away, the neighbouring keys as ghosts, and how long
+                 one loop takes. -->
+            <datalist id="morphTickList"></datalist>
+            <button id="bMorphPrevKey" class="res-btn" title="to the key before — at a key the blend is that key exactly">◀ key</button>
+            <button id="bMorphNextKey" class="res-btn" title="to the key after">key ▶</button>
+            <button id="bMorphAddKey" class="res-btn" title="make the pose you are looking at a key, between the key before and the key after. The keys stay evenly round the loop, so the others move up to make room; with two keys this turns the ramp into a loop">+ key</button>
+            <button id="bMorphDelKey" class="res-btn" title="take away the key nearest where you stand (a morph keeps at least two)">− key</button>
+            <label title="show the key before (warm) and the key after (cool) as faint outlines"><input type="checkbox" id="tMorphOnion"> onion</label>
+            <label for="morphLoop" title="how long one loop takes when it runs, and in a recording">loop</label>
+            <input type="number" id="morphLoop" min="0.5" max="60" step="0.5" value="4" style="width:52px;"><span style="color:var(--fg-muted);font-size:11px;">s</span>
             <!-- The lag is on the bar as well as in the panel, because it is a thing you dial
                      WHILE watching — the panel is where you set it before you start, this is where
                      you find the value that reads right. Both write the same state. -->
@@ -6567,6 +6578,8 @@
             <span id="morphKeys" style="color:var(--fg-muted);font-size:11px;"></span>
             <button id="bMorphKeep" data-code="mkp" class="res-btn" title="Drop a copy of the pose you are looking at into the drawing and KEEP MORPHING. It is an ordinary shape from there on — leaves, rung, colour, everything — and because the morph is still running you can scrub somewhere else and keep again, building a strip by hand one chosen cell at a time. With several morphs live it takes one pose from each, at the same t. SHIFT-CLICK to freeze instead: the morph ends, the pose stays where it stands and the keys are consumed.">keep</button>
             <button id="bMorphSvg" data-code="msv" class="res-btn" title="Write the whole scene out as ONE animated .svg — every live morph on the shared clock, the static shapes around them as a backdrop. It plays in any browser with no library and no runtime, because SMIL's <animate attributeName=&quot;d&quot;> interpolates between path strings and this format guarantees the one thing SMIL requires and cannot check: every frame is the same cubics in the same order. Frame count and loop mode are in the morph panel.">svg</button>
+            <button id="bMorphVideo" class="res-btn" title="record one loop as a .webm video (30 frames a second), the drawing alone with no editor marks, the size of the view">video</button>
+            <button id="bMorphGif" class="res-btn" title="record one loop as an animated .gif (20 frames a second, at most 480 pixels wide), looping forever">gif</button>
             <button id="bMorphExit" data-code="mex" class="res-btn" title="end every live morph and put all their keys back exactly where they were. Poses you dropped with `keep` are ordinary shapes and stay.">exit</button>
         </div>
         <!-- The line-weight slider used to live here. It is a per-SHAPE value, so it moved
@@ -39976,6 +39989,8 @@
                 drawPushRing(); // PUSH AND PULL
             if (CHROME && knifeDrag)
                 drawKnifeLine(); // THE KNIFE
+            if (CHROME && state.morphOnion && morphRunning())
+                drawMorphOnion(w, h); // THE TIMELINE: the neighbouring keys
             // In-progress pencil stroke (canvas space).
             if (CHROME)
                 drawPenPreview();
@@ -50640,6 +50655,7 @@
         }
         function morphBarSync() {
             const on = morphRunning();
+            morphTimelineSync(); // THE TIMELINE
             const bar = $('morphBar');
             if (bar)
                 bar.style.display = on ? 'flex' : 'none';
@@ -51087,6 +51103,429 @@
             + (lag > 0 ? ' · detail lag ' + lag.toFixed(2) + ': the silhouette arrives first and the fine harmonics follow it by an octave-spaced stagger' : '')
             + ' · nothing is baked: `keep` drops a copy of the pose you are looking at and leaves the morph running, `exit` puts the keys back');
             return keys.length;
+        }
+
+        // ── THE TIMELINE (25 Oct 2026, Tom: "1,2") ──────────────────────────────────────
+        // A live morph already is a timeline: its K keys sit evenly round the time circle (or, with
+        // two, at the two ends of a ramp), and at a key's own place the cardinal kernel gives that key
+        // exactly. What it lacked was a way to see and work the keys as moments. So: their places as
+        // ticks on the track; a step to the key before or after; a key made from the pose in view, put
+        // between its neighbours; a key taken away; the neighbouring keys drawn faintly round the pose
+        // (onion skins); and the loop's length in seconds, which is also a recording's length.
+        //
+        // The keys stay EVENLY spaced. That is what makes each key exact and the loop seamless (the
+        // band limit is the easing), so a new key does not sit at an arbitrary time: it goes between
+        // the key before and the key after where you stand, and every key moves to keep the spacing.
+        // The pose on screen does not change, because t moves to the new key's place.
+        //
+        // All runs share the clock, so adding or removing a key happens in every run at once, and
+        // only when they all have as many keys (otherwise they would disagree about where a key is).
+        function morphKeyPhases(K) {
+            if (K === 2)
+                return [0, 1];
+            return Array.from({ length: K }, (_, k) => (k + 0.5) / K);
+        }
+        let _morphTicksK = -1;
+        function morphTimelineSync() {
+            const run = morphRuns[0],
+                K = run ? run.keys.length : 0;
+            if (K !== _morphTicksK) {
+                _morphTicksK = K;
+                const dl = $('morphTickList');
+                if (dl)
+                    dl.innerHTML = K ? morphKeyPhases(K).map(p => `<option value="${Math.round(p * 1000)}"></option>`).join('') : '';
+            }
+            const lp = $('morphLoop');
+            if (lp && document.activeElement !== lp) {
+                const v = +(1 / morphLive.speed).toFixed(2);
+                if (+lp.value !== v)
+                    lp.value = String(v);
+            }
+            const on = $('tMorphOnion');
+            if (on)
+                on.checked = !!state.morphOnion;
+        }
+        function morphSetT(t) {
+            morphClockStop();
+            morphLive.t = Math.max(0, Math.min(1, t));
+            morphWrite();
+            morphBarSync();
+            drawAll();
+        }
+        // the key before or after where you stand (round the loop with three or more keys)
+        function morphStepKey(dir) {
+            const run = morphRuns[0];
+            if (!run)
+                return null;
+            const P = morphKeyPhases(run.keys.length),
+                t = morphLive.t,
+                eps = 1e-6;
+            let to = dir > 0 ? P.find(p => p > t + eps) : P.slice().reverse().find(p => p < t - eps);
+            if (to === undefined)
+                to = dir > 0 ? P[0] : P[P.length - 1];
+            morphSetT(to);
+            return P.indexOf(to);
+        }
+        // which key t is on, or -1
+        function morphKeyAt(K, t) {
+            const P = morphKeyPhases(K);
+            for (let k = 0; k < K; k++)
+                if (Math.abs(P[k] - t) < 1e-6)
+                    return k;
+            return -1;
+        }
+        function morphSameK() {
+            return morphRuns.length && morphRuns.every(r => r.keys.length === morphRuns[0].keys.length) ? morphRuns[0].keys.length : 0;
+        }
+        function morphAddKey() {
+            const K = morphSameK();
+            if (!K) {
+                flashStatus('+ key: the live morphs have different numbers of keys, so they would disagree about where a new one goes');
+                return 0;
+            }
+            const t = morphLive.t;
+            if (morphKeyAt(K, t) >= 0) {
+                flashStatus('+ key: there is a key here already; move along the track first');
+                return 0;
+            }
+            // after the key before t: with two keys always between them; round the loop otherwise
+            const at = K === 2 ? 1 : ((Math.floor(t * K - 0.5) % K) + K) % K + 1;
+            for (const run of morphRuns) {
+                const sp = morphTargetOf(run);
+                if (!sp)
+                    continue;
+                run.keys.splice(at, 0, {
+                    x: Float64Array.from(sp.leafX),
+                    y: Float64Array.from(sp.leafY)
+                });
+                run.spec = null;
+                run.freq = null;
+            }
+            morphSetT((at + 0.5) / (K + 1));
+            pushHistory();
+            flashStatus('key ' + (at + 1) + ' of ' + (K + 1) + ' made from the pose in view'
+            + (K === 2 ? ' · three keys sit round a loop, so the ramp is now a loop' : ' · the keys moved up to stay evenly spaced'));
+            return K + 1;
+        }
+        function morphDelKey() {
+            const K = morphSameK();
+            if (!K || K <= 2) {
+                flashStatus(K ? '− key: a morph needs at least two keys' : '− key: the live morphs have different numbers of keys');
+                return 0;
+            }
+            const P = morphKeyPhases(K),
+                t = morphLive.t;
+            let best = 0;
+            const dist = p => Math.min(Math.abs(p - t), 1 - Math.abs(p - t)); // round the loop
+            for (let k = 1; k < K; k++)
+                if (dist(P[k]) < dist(P[best]))
+                    best = k;
+            for (const run of morphRuns) {
+                run.keys.splice(best, 1);
+                run.spec = null;
+                run.freq = null;
+            }
+            const Q = morphKeyPhases(K - 1);
+            morphSetT(Q[Math.min(best, K - 2)]);
+            pushHistory();
+            flashStatus('key ' + (best + 1) + ' taken away · ' + (K - 1) + ' keys' + (K - 1 === 2 ? ', a ramp from the first to the second' : ''));
+            return K - 1;
+        }
+        // The key before (warm) and after (cool) where you stand, as faint dashed outlines. At a key,
+        // its neighbours; between keys, the two it is blending most.
+        function drawMorphOnion(w, h) {
+            if (!state.morphOnion || !morphRuns.length)
+                return;
+            ctx.save();
+            ctx.lineWidth = 1.25;
+            ctx.setLineDash([5, 4]);
+            const t = morphLive.t,
+                eps = 1e-6;
+            for (const run of morphRuns) {
+                const K = run.keys.length,
+                    P = morphKeyPhases(K);
+                let prev = -1,
+                    next = -1;
+                for (let k = 0; k < K; k++)
+                    if (P[k] < t - eps)
+                        prev = k;
+                for (let k = K - 1; k >= 0; k--)
+                    if (P[k] > t + eps)
+                        next = k;
+                if (K > 2) {
+                    if (prev < 0)
+                        prev = K - 1;
+                    if (next < 0)
+                        next = 0;
+                }
+                for (const [k, col] of [[prev, 'rgba(255,150,90,0.6)'], [next, 'rgba(110,180,255,0.6)']]) {
+                    if (k < 0)
+                        continue;
+                    const key = run.keys[k];
+                    if (!key._ghost)
+                        key._ghost = new tvf.Shape(Float64Array.from(key.x), Float64Array.from(key.y)).sample(240);
+                    const g = key._ghost;
+                    ctx.strokeStyle = col;
+                    ctx.beginPath();
+                    for (let i = 0; i < g.x.length; i++) {
+                        const q = worldToPx(g.x[i], g.y[i], w, h);
+                        if (i)
+                            ctx.lineTo(q.x, q.y);
+                        else
+                            ctx.moveTo(q.x, q.y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
+        // ── RECORDING A LOOP (25 Oct 2026, Tom: "1,2") ───────────────────────────────────
+        // One loop, frame by frame on the shared clock, rendered as the png export renders (the
+        // drawing alone, no editor marks, the view as it stands), into a .webm (the browser's own
+        // MediaRecorder: a captured canvas stream fed one frame at a time, paced at the frame rate so
+        // the video's clock is the loop's) or an animated .gif (encoded here: a fixed palette of 252
+        // colours, LZW, looping forever). Frame i is t = i/F, so the last frame stops one step short of
+        // the first and the loop plays seamlessly; a two-key ramp jumps back, as `run` does.
+        function morphRecordFrames(fps, maxW) {
+            const loop = 1 / morphLive.speed,
+                F = Math.max(2, Math.round(loop * fps));
+            const t0 = morphLive.t,
+                prevScale = _renderScale,
+                prevExport = state.exportMode;
+            const frame = document.createElement('canvas');
+            let fctx = null;
+            const begin = () => {
+                _renderScale = 1;
+                state.exportMode = { transparent: false };
+            };
+            const end = () => {
+                _renderScale = prevScale;
+                state.exportMode = prevExport;
+                morphLive.t = t0;
+                morphWrite();
+                drawAll();
+            };
+            const render = i => {
+                morphLive.t = i / F;
+                morphWrite();
+                drawAll();
+                if (!fctx) {
+                    const s = Math.min(1, maxW / cv.width);
+                    frame.width = Math.max(2, Math.round(cv.width * s / 2) * 2); // even sides, as the video codecs want
+                    frame.height = Math.max(2, Math.round(cv.height * s / 2) * 2);
+                    fctx = frame.getContext('2d');
+                }
+                fctx.drawImage(cv, 0, 0, frame.width, frame.height);
+                return frame;
+            };
+            return { F, fps, frame, begin, end, render };
+        }
+        function morphDownload(blob, ext) {
+            const url = URL.createObjectURL(blob),
+                a = document.createElement('a');
+            a.href = url;
+            a.download = safeFileName((state.svgName || 'morph') + ' loop', ext);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+        }
+        let morphRecording = false;
+        async function morphRecordVideo() {
+            if (!morphRunning() || morphRecording)
+                return null;
+            const R = morphRecordFrames(30, 1280);
+            if (typeof MediaRecorder === 'undefined' || !R.frame.captureStream) {
+                flashStatus('video: this browser cannot record a canvas; try gif');
+                return null;
+            }
+            const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m));
+            if (!mime) {
+                flashStatus('video: this browser records no webm; try gif');
+                return null;
+            }
+            morphClockStop();
+            morphRecording = true;
+            morphBarSync();
+            R.begin();
+            try {
+                R.render(0);
+                const stream = R.frame.captureStream(0),
+                    track = stream.getVideoTracks()[0];
+                const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8e6 }),
+                    chunks = [];
+                rec.ondataavailable = e => {
+                    if (e.data && e.data.size)
+                        chunks.push(e.data);
+                };
+                const stopped = new Promise(res => rec.onstop = res);
+                rec.start();
+                for (let i = 0; i < R.F; i++) {
+                    flashStatus('recording ' + (i + 1) + ' / ' + R.F);
+                    R.render(i);
+                    if (track.requestFrame)
+                        track.requestFrame();
+                    await new Promise(res => setTimeout(res, 1000 / R.fps));
+                }
+                rec.stop();
+                await stopped;
+                track.stop();
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                morphDownload(blob, 'webm');
+                flashStatus('recorded one loop · ' + R.F + ' frames at ' + R.fps + ' a second · ' + R.frame.width + '×' + R.frame.height + ' webm');
+                return blob;
+            } finally {
+                R.end();
+                morphRecording = false;
+                morphBarSync();
+            }
+        }
+        async function morphRecordGif() {
+            if (!morphRunning() || morphRecording)
+                return null;
+            const R = morphRecordFrames(20, 480);
+            morphClockStop();
+            morphRecording = true;
+            const frames = [];
+            R.begin();
+            try {
+                for (let i = 0; i < R.F; i++) {
+                    const f = R.render(i);
+                    frames.push(f.getContext('2d').getImageData(0, 0, f.width, f.height));
+                }
+            } finally {
+                R.end();
+                morphRecording = false;
+            }
+            flashStatus('encoding ' + frames.length + ' frames…');
+            await new Promise(res => setTimeout(res, 0));
+            const bytes = gifEncode(frames, R.frame.width, R.frame.height, Math.round(100 / R.fps));
+            const blob = new Blob([bytes], { type: 'image/gif' });
+            morphDownload(blob, 'gif');
+            flashStatus('recorded one loop · ' + frames.length + ' frames at ' + R.fps + ' a second · ' + R.frame.width + '×' + R.frame.height + ' gif, ' + Math.round(bytes.length / 1024) + ' KB');
+            return blob;
+        }
+        // An animated GIF from frames of RGBA pixels. One palette for every frame: 6 levels of red, 7
+        // of green (the eye is keenest there) and 6 of blue, 252 colours, each pixel to the nearest
+        // level; LZW at 8 bits; NETSCAPE2.0 to loop forever; delay in hundredths of a second.
+        function gifEncode(frames, W, H, delayCs) {
+            const out = [];
+            const b = v => out.push(v & 255),
+                w16 = v => {
+                    b(v);
+                    b(v >> 8);
+                },
+                str = t => {
+                    for (let i = 0; i < t.length; i++)
+                        b(t.charCodeAt(i));
+                };
+            str('GIF89a');
+            w16(W);
+            w16(H);
+            b(0xF7); // a global colour table of 256
+            b(0);
+            b(0);
+            for (let i = 0; i < 256; i++) {
+                if (i < 252) {
+                    const r = Math.floor(i / 42),
+                        g = Math.floor(i / 6) % 7,
+                        bl = i % 6;
+                    b(Math.round(r * 255 / 5));
+                    b(Math.round(g * 255 / 6));
+                    b(Math.round(bl * 255 / 5));
+                } else {
+                    b(0);
+                    b(0);
+                    b(0);
+                }
+            }
+            b(0x21);
+            b(0xFF);
+            b(11);
+            str('NETSCAPE2.0');
+            b(3);
+            b(1);
+            w16(0);
+            b(0); // loop forever
+            const idx = new Uint8Array(W * H);
+            for (const im of frames) {
+                const d = im.data;
+                for (let p = 0, q = 0; p < idx.length; p++, q += 4)
+                    idx[p] = Math.round(d[q] * 5 / 255) * 42 + Math.round(d[q + 1] * 6 / 255) * 6 + Math.round(d[q + 2] * 5 / 255);
+                b(0x21);
+                b(0xF9);
+                b(4);
+                b(0);
+                w16(delayCs);
+                b(0);
+                b(0); // graphic control
+                b(0x2C);
+                w16(0);
+                w16(0);
+                w16(W);
+                w16(H);
+                b(0); // image, no local table
+                b(8);
+                const data = gifLzw(idx, 8);
+                for (let i = 0; i < data.length; i += 255) {
+                    const n = Math.min(255, data.length - i);
+                    b(n);
+                    for (let j = 0; j < n; j++)
+                        out.push(data[i + j]);
+                }
+                b(0);
+            }
+            b(0x3B);
+            return Uint8Array.from(out);
+        }
+        function gifLzw(idx, minCode) {
+            const clear = 1 << minCode,
+                eoi = clear + 1,
+                out = [],
+                dict = new Map();
+            let size = minCode + 1,
+                next = eoi + 1,
+                cur = 0,
+                bits = 0;
+            const emit = c => {
+                cur |= c << bits;
+                bits += size;
+                while (bits >= 8) {
+                    out.push(cur & 255);
+                    cur >>>= 8;
+                    bits -= 8;
+                }
+            };
+            emit(clear);
+            let prefix = idx[0];
+            for (let i = 1; i < idx.length; i++) {
+                const k = idx[i],
+                    key = prefix * 256 + k,
+                    hit = dict.get(key);
+                if (hit !== undefined) {
+                    prefix = hit;
+                    continue;
+                }
+                emit(prefix);
+                if (next === 4096) { // the table is full: start it again
+                    emit(clear);
+                    dict.clear();
+                    size = minCode + 1;
+                    next = eoi + 1;
+                } else {
+                    if (next >= (1 << size))
+                        size++;
+                    dict.set(key, next++);
+                }
+                prefix = k;
+            }
+            emit(prefix);
+            emit(eoi);
+            if (bits > 0)
+                out.push(cur & 255);
+            return out;
         }
 
         // ── LEAF-COLOUR TESTS: THE FIVE PAINTS, EACH AGAINST THE WHOLE CORPUS ────────
@@ -63058,6 +63497,36 @@
                             + ' · the morph is still running, so keep again anywhere else and build the strip by hand'
                             + ' — shift-click to freeze and end it instead');
                         }
+                    });
+                // THE TIMELINE and RECORDING A LOOP
+                const onKey = (id, fn) => {
+                    const el = $(id);
+                    if (el)
+                        el.addEventListener('click', () => {
+                            if (orphaned())
+                                return;
+                            fn();
+                        });
+                };
+                onKey('bMorphPrevKey', () => morphStepKey(-1));
+                onKey('bMorphNextKey', () => morphStepKey(1));
+                onKey('bMorphAddKey', morphAddKey);
+                onKey('bMorphDelKey', morphDelKey);
+                onKey('bMorphVideo', () => morphRecordVideo().catch(e => flashStatus('video failed: ' + e.message)));
+                onKey('bMorphGif', () => morphRecordGif().catch(e => flashStatus('gif failed: ' + e.message)));
+                const onion = $('tMorphOnion');
+                if (onion)
+                    onion.addEventListener('change', () => {
+                        state.morphOnion = onion.checked;
+                        drawAll();
+                    });
+                const loopIn = $('morphLoop');
+                if (loopIn)
+                    loopIn.addEventListener('change', () => {
+                        const v = parseFloat(loopIn.value);
+                        if (isFinite(v) && v > 0)
+                            morphLive.speed = 1 / Math.max(0.5, Math.min(60, v));
+                        morphBarSync();
                     });
                 const bs = $('bMorphSvg');
                 if (bs)
@@ -79071,6 +79540,13 @@
             }
         };
         window.__box = {
+            // THE TIMELINE: the live morph as the bar shows it, and its controls
+            morph: () => morphRuns.length ? { K: morphRuns[0].keys.length, t: morphLive.t, loop: 1 / morphLive.speed, play: morphLive.play,
+                phases: morphKeyPhases(morphRuns[0].keys.length), ticks: [...document.querySelectorAll('#morphTickList option')].map(o => +o.value),
+                leaves: Array.from(morphRuns[0].sp.leafX) } : null,
+            morphKey: k => morphRuns.length ? { x: Array.from(morphRuns[0].keys[k].x) } : null,
+            recordGif: () => morphRecordGif().then(b => b ? b.size : 0),
+            recordVideo: () => morphRecordVideo().then(b => b ? { size: b.size, type: b.type } : null),
             // the group button's place in the panel's row, or null while it is not shown
             group: () => {
                 const rows = sliderRows();
