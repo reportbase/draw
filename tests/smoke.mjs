@@ -746,7 +746,7 @@ current = 'corners and timing';
     if ((await mp.evaluate(() => window.__box.count())) !== n0 + 1) throw new Error('keep did not drop a pose');
     const [dl] = await Promise.all([mp.waitForEvent('download', { timeout: 30000 }), mp.evaluate(() => document.getElementById('bMorphSvg').click())]);
     const anim = (await readFile(await dl.path())).toString();
-    const vals = (anim.match(/values="([^"]*)"/) || [, ''])[1].split(';');
+    const vals = (anim.match(/attributeName="d"[^>]*values="([^"]*)"/) || [, ''])[1].split(';'); // the outline's own frames
     const counts = new Set(vals.map(v => (v.match(/C/g) || []).length));
     if (vals.length < 4 || counts.size !== 1 || !counts.has(20)) throw new Error('the animated svg\'s frames are not twenty cubics each: ' + [...counts]);
     await mp.waitForTimeout(1200);
@@ -1097,7 +1097,7 @@ current = 'timeline and following';
     };
     const tight = await follow(undefined), lag = await follow({ kind: 'lag', amount: 0.4 }), spring = await follow({ kind: 'spring', amount: 0.5 });
     // lag 0.4 is a tenth of a loop: at t the follower is where tight following put it at t − 0.1
-    if (Math.hypot(lag[2][1].cx - tight[1][1].cx, lag[2][1].cy - tight[1][1].cy) > 1e-6) throw new Error('lag is not tight following a tenth of a loop ago');
+    if (Math.hypot(lag[1][1].cx - tight[0][1].cx, lag[1][1].cy - tight[0][1].cy) > 1e-6) throw new Error('lag is not tight following a tenth of a loop ago');
     const off = spring.map((q, i) => Math.hypot(q[1].cx - tight[i][1].cx, q[1].cy - tight[i][1].cy));
     if (!(Math.max(...off) > 1e-3)) throw new Error('the spring follows as tightly as tight');
     if (Math.hypot(spring[5][1].cx - spring[0][1].cx, spring[5][1].cy - spring[0][1].cy) > 0.02) throw new Error('the spring\'s loop does not close');
