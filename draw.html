@@ -3183,6 +3183,16 @@
             color: var(--fg);
         }
         #morphRunTool.open { display: flex; }
+        /* THE EMBED: the canvas alone, nothing to press */
+        html.embed body > *:not(#main), html.embed #main > *:not(#cv) { display: none !important; }
+        html.embed #cv { pointer-events: none; }
+        /* KEYS AT CHOSEN TIMES: the selected morph's keys on its clock */
+        #morphRunTool .mr-keys { position: relative; width: 220px; height: 22px; border: 1px solid var(--line2); border-radius: 6px; flex: none; }
+        #morphRunTool .mr-step { position: absolute; top: 3px; height: 14px; padding: 0; border: 0; border-radius: 3px; background: rgba(255,255,255,0.04); color: var(--fg-muted); font-size: 9px; line-height: 14px; cursor: pointer; overflow: hidden; }
+        #morphRunTool .mr-step:hover { background: rgba(255,255,255,0.1); }
+        #morphRunTool .mr-step.own { color: var(--gold); }
+        #morphRunTool .mr-key { position: absolute; top: 5px; width: 10px; height: 10px; margin-left: -5px; transform: rotate(45deg); background: var(--gold); border-radius: 2px; cursor: ew-resize; touch-action: none; z-index: 2; }
+        #morphRunTool .mr-head { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(232,236,245,0.55); pointer-events: none; z-index: 1; }
         #morphRunTool .who { color: var(--gold); font-weight: 600; margin-right: 2px; }
         #morphRunTool .lab { color: var(--fg-muted); margin: 0 0 0 6px; }
         #morphRunTool .val { color: var(--fg-muted); min-width: 30px; font-variant-numeric: tabular-nums; }
@@ -4285,6 +4295,9 @@
     <!-- THE MORPH'S OWN SETTINGS (25 Oct 2026): shown while a live morph's shape is selected -->
     <div id="morphRunTool" role="toolbar" aria-label="the selected morph's own settings">
         <span class="who" id="mrWho">morph</span>
+        <span class="lab">keys</span>
+        <div class="mr-keys" id="mrKeys" title="KEYS AT CHOSEN TIMES: the morph's keys on its own clock, one loop end to end. Drag a key to put it at a time of its own; click the stretch between two keys to give it an ease of its own (none follows the bar's, then linear, in and out, in, out)"><span class="mr-head" id="mrHead"></span></div>
+        <button type="button" id="mrEven" title="the keys evenly spaced again, every stretch on the bar's ease">even</button>
         <span class="lab">rate</span>
         <input type="number" id="mrRate" min="1" max="64" step="1" title="how many times round its keys (and its effect) this morph goes each loop: a whole number, so the loop still closes">
         <span class="lab">phase</span>
@@ -6621,7 +6634,7 @@
             <datalist id="morphTickList"></datalist>
             <button id="bMorphPrevKey" data-code="mkb" class="res-btn" title="to the key before — at a key the blend is that key exactly">◀ key</button>
             <button id="bMorphNextKey" data-code="mkn" class="res-btn" title="to the key after">key ▶</button>
-            <button id="bMorphAddKey" data-code="mka" class="res-btn" title="make the pose you are looking at a key, between the key before and the key after. The keys stay evenly round the loop, so the others move up to make room; with two keys this turns the ramp into a loop">+ key</button>
+            <button id="bMorphAddKey" data-code="mka" class="res-btn" title="make the pose you are looking at a key, between the key before and the key after. Evenly spaced keys stay evenly round the loop, so the others move up to make room; keys at times of their own keep them, and the new one goes where you stand; with two keys this turns the ramp into a loop">+ key</button>
             <button id="bMorphDelKey" data-code="mkd" class="res-btn" title="take away the key nearest where you stand (a morph keeps at least two)">− key</button>
             <label title="show the key before (warm) and the key after (cool) as faint outlines"><input type="checkbox" id="tMorphOnion"> onion</label>
             <label for="morphLoop" title="how long one loop takes when it runs, and in a recording">loop</label>
@@ -6761,6 +6774,14 @@
                 return false;
             }
         }
+        // THE EMBED (25 Oct 2026, Tom: "2,5,3,1"): draw.html?embed=1#scene=… is the editor as a
+        // player, for gallery/animated.html's tiles. Only the canvas shows; nothing the editor draws
+        // for itself (selection, guides, numbers) is drawn; and above all it neither reads nor writes
+        // the saved scene, which it shares with every other tab of the editor: a tile playing an
+        // example must never take the place of the drawing someone left in their editor.
+        const EMBED = /[?&]embed(=1)?(&|$)/.test(location.search);
+        if (EMBED)
+            document.documentElement.classList.add('embed');
         const state = {
             // Global N: the "default" / "what the slider currently shows when
             // 'all signals' is active." With per-signal N, each subpath owns its
@@ -39107,7 +39128,7 @@
             // leaf dots, the axes, selection halos and group hull boxes baked into it — there
             // was no way to get the artwork on its own. One flag, checked at each chrome site,
             // rather than a second renderer that would drift from this one.
-            const CHROME = !state.exportMode;
+            const CHROME = !state.exportMode && !EMBED; // THE EMBED draws the artwork alone
             _frameMotion = anyMotion();
             _framePlaying = isPlaying();
             if (state.exportMode && state.exportMode.transparent) {
@@ -50824,9 +50845,9 @@
                     run.freq = morphFreqScale(N);
                 }
                 morphBlendSpectral(run.spec, run.freq,
-                g => morphWeights(morphWarp(g(tt), K), K), run.lag, K > 2, X, Y); // EASING AND HOLDS
+                g => morphWeights(morphWarp(g(tt), K, run), K), run.lag, K > 2, X, Y); // EASING AND HOLDS
             } else {
-                const w = morphWeights(morphWarp(tt, K), K); // EASING AND HOLDS
+                const w = morphWeights(morphWarp(tt, K, run), K); // EASING AND HOLDS
                 X.fill(0);
                 Y.fill(0);
                 for (let k = 0; k < K; k++) {
@@ -51369,8 +51390,9 @@
         // warp is the same on every stretch, so the loop stays seamless. An effect and a path keep
         // the clock's own time: the shimmer and the ride do not stop for a hold.
         const MORPH_EASES = ['inout', 'in', 'out'];
-        function morphEase(u) {
-            const e = state.morphEase;
+        function morphEase(u, e) {
+            if (e === undefined)
+                e = state.morphEase;
             if (e === 'inout')
                 return u * u * (3 - 2 * u);
             if (e === 'in')
@@ -51379,26 +51401,110 @@
                 return 1 - (1 - u) * (1 - u);
             return u;
         }
-        function morphWarp(t, K) {
-            const hold = Math.max(0, Math.min(0.9, +state.morphHold || 0));
-            if (K < 2 || (!(hold > 0) && !MORPH_EASES.includes(state.morphEase)))
+        // KEYS AT CHOSEN TIMES, AND EACH STEP ITS OWN EASE (25 Oct 2026, Tom: "2,5,3,1"). The keys sat
+        // evenly round the loop. Now a morph may put each key at a time of its own (run.times, on its
+        // own clock: with two keys a start and an end in [0, 1], with three or more increasing in
+        // [0, 1), the last stretch going round to the first), and give each stretch between keys an
+        // ease of its own (run.eases[k], the stretch from key k to the next: 'linear', 'inout', 'in',
+        // 'out', or null for the bar's). The kernel still weighs keys at even places; the warp below
+        // carries each chosen stretch onto its even one, so a key is still exact at its own time and
+        // the loop still closes. Two keys hold the first before its time and the last after.
+        function morphKeyTimes(run) {
+            const K = run.keys.length;
+            return run.times && run.times.length === K ? run.times : morphKeyPhases(K);
+        }
+        // times a morph of K keys can take: increasing, in [0, 1] for two keys, in [0, 1) for more
+        function morphTimesOk(T, K) {
+            if (!Array.isArray(T) || T.length !== K || K < 2)
+                return false;
+            for (let k = 0; k < K; k++)
+                if (!Number.isFinite(+T[k]) || T[k] < 0 || T[k] > (K === 2 ? 1 : 0.9999) || (k && !(T[k] > T[k - 1] + 1e-4)))
+                    return false;
+            return true;
+        }
+        function morphEasesOk(E, K) {
+            return Array.isArray(E) && E.length === (K === 2 ? 1 : K) && E.every(e => e == null || e === 'linear' || MORPH_EASES.includes(e));
+        }
+        // the stretch t is in (from key k), and how far along it, on the morph's own clock
+        function morphStretchOf(run, t) {
+            const K = run.keys.length,
+                T = morphKeyTimes(run);
+            if (K === 2)
+                return { k: 0, u: Math.max(0, Math.min(1, (t - T[0]) / ((T[1] - T[0]) || 1))) };
+            const tt = ((t % 1) + 1) % 1;
+            let k = K - 1;
+            for (let i = 0; i < K; i++)
+                if (T[i] <= tt)
+                    k = i;
+            const lo = T[k],
+                hi = k + 1 < K ? T[k + 1] : T[0] + 1,
+                x = tt < lo ? tt + 1 : tt;
+            return { k, u: (x - lo) / (hi - lo) };
+        }
+        function morphWarp(t, K, run) {
+            const hold = Math.max(0, Math.min(0.9, +state.morphHold || 0)),
+                own = run && (run.times || run.eases);
+            if (K < 2 || (!own && !(hold > 0) && !MORPH_EASES.includes(state.morphEase)))
                 return t;
-            let a, b, u;
-            if (K === 2) {
-                a = 0;
-                b = 1;
+            let k, u;
+            if (run && run.keys.length === K)
+                ({ k, u } = morphStretchOf(run, t));
+            else if (K === 2) {
+                k = 0;
                 u = Math.max(0, Math.min(1, t));
             } else {
-                const tt = ((t % 1) + 1) % 1,
-                    k = Math.floor(tt * K - 0.5); // the key before t (-1: the last, round the loop)
-                a = (k + 0.5) / K;
-                b = a + 1 / K;
-                u = (tt - a) * K;
+                const tt = ((t % 1) + 1) % 1;
+                k = ((Math.floor(tt * K - 0.5) % K) + K) % K;
+                u = ((tt - (k + 0.5) / K) % 1 + 1) % 1 * K;
             }
+            const a = K === 2 ? 0 : (k + 0.5) / K,
+                b = K === 2 ? 1 : a + 1 / K;
             let v = hold > 0 ? Math.max(0, Math.min(1, (u - hold / 2) / (1 - hold))) : u;
-            v = morphEase(v);
+            const e = run && run.eases && run.eases[k] != null ? run.eases[k] : undefined;
+            v = morphEase(v, e === 'linear' ? '' : e);
             const r = a + v * (b - a);
             return K === 2 ? r : ((r % 1) + 1) % 1;
+        }
+        // a key moved to a time of its own, kept between its neighbours (the first two keys of a ramp
+        // in [0, 1], a loop's in [0, 1)); every live morph selected with as many keys moves with it
+        const MORPH_KEY_GAP = 0.01;
+        function morphKeyTimeClamp(T, k, v) {
+            const K = T.length,
+                lo = k ? T[k - 1] + MORPH_KEY_GAP : 0,
+                hi = k + 1 < K ? T[k + 1] - MORPH_KEY_GAP : (K === 2 ? 1 : 0.999);
+            return Math.max(lo, Math.min(hi, v));
+        }
+        function morphSetKeyTime(runs, k, v) {
+            if (!runs.length)
+                return null;
+            const T = morphKeyTimes(runs[0]).slice();
+            if (k < 0 || k >= T.length)
+                return null;
+            T[k] = morphKeyTimeClamp(T, k, v);
+            for (const r of runs)
+                if (r.keys.length === T.length) {
+                    r.times = T.slice();
+                    r._centres = null;
+                }
+            return T[k];
+        }
+        function morphSetStepEase(runs, k, e) {
+            for (const r of runs) {
+                const n = r.keys.length === 2 ? 1 : r.keys.length;
+                if (k < 0 || k >= n)
+                    continue;
+                const E = r.eases && r.eases.length === n ? r.eases.slice() : new Array(n).fill(null);
+                E[k] = e === 'linear' || MORPH_EASES.includes(e) ? e : null;
+                r.eases = E.every(x => x == null) ? null : E;
+                r._centres = null;
+            }
+        }
+        function morphEvenTimes(runs) {
+            for (const r of runs) {
+                r.times = null;
+                r.eases = null;
+                r._centres = null;
+            }
         }
         function morphSetTiming(ease, hold) {
             if (ease != null)
@@ -51592,40 +51698,98 @@
                 }
             }
         }
+        // A rounded corner's arc as an edge of its own: the corner becomes the two points where the
+        // rounding meets its edges, and the edge between them the arc's cubic. Drawn the same. Done to
+        // every key of a morph that has curve edges, because a rounding is drawn only between two
+        // straight edges, and in a blended pose any edge curved in some key is a cubic: left as a
+        // radius, a rounded square going to a circle would lose its rounding the moment it moved.
+        function exactBakeRounds(K) {
+            const n = K.x.length,
+                X = [], Y = [], C = [];
+            let changed = false;
+            for (let k = 0; k < n; k++) {
+                const p = (k - 1 + n) % n;
+                const g = K.r[k] > 0 && !K.c[k] && !K.c[p] ? cornerArc(K.x, K.y, k, false, K.r[k]) : null;
+                if (g) {
+                    const h = (4 / 3) * Math.tan((Math.PI - g.phi) / 4) * g.r,
+                        ux = (g.t1x - K.x[k]) / g.t,
+                        uy = (g.t1y - K.y[k]) / g.t,
+                        vx = (g.t2x - K.x[k]) / g.t,
+                        vy = (g.t2y - K.y[k]) / g.t;
+                    X.push(g.t1x, g.t2x);
+                    Y.push(g.t1y, g.t2y);
+                    C.push([g.t1x - ux * h, g.t1y - uy * h, g.t2x - vx * h, g.t2y - vy * h], K.c[k]);
+                    changed = true;
+                } else {
+                    X.push(K.x[k]);
+                    Y.push(K.y[k]);
+                    C.push(K.c[k]);
+                }
+            }
+            if (!changed)
+                return;
+            K.x = Float64Array.from(X);
+            K.y = Float64Array.from(Y);
+            K.r = new Float64Array(X.length);
+            K.c = C;
+        }
         // the keys of an exact morph: as many corners each, wound and turned alike; centred for a solo morph
         function morphExactKeys(src, inPlace, align) {
-            const keys = src.map(exactKeyOf);
-            const n = Math.max(...keys.map(K => K.x.length));
-            for (const K of keys)
-                while (K.x.length < n)
-                    exactSplitOne(K);
-            const c0 = exactCentre(keys[0]),
-                wind = Math.sign(exactArea(keys[0]));
-            for (let k = 1; k < keys.length; k++) {
-                const K = keys[k];
-                if (!align)
-                    continue;
-                if (Math.sign(exactArea(K)) !== wind)
-                    exactReverse(K);
-                const ck = exactCentre(K);
-                let best = 0,
-                    bestCost = Infinity;
-                for (let s = 0; s < n; s++) {
-                    let cost = 0;
-                    for (let j = 0; j < n; j++) {
-                        const i = (j + s) % n,
-                            dx = (K.x[i] - ck.x) - (keys[0].x[j] - c0.x),
-                            dy = (K.y[i] - ck.y) - (keys[0].y[j] - c0.y);
-                        cost += dx * dx + dy * dy;
+            const base = src.map(exactKeyOf);
+            if (base.some(K => K.c.some(Boolean)) && base.some(K => hasRound(K.r)))
+                base.forEach(exactBakeRounds);
+            const n0 = Math.max(...base.map(K => K.x.length));
+            // The keys at N corners each, wound and turned like the first; with the mean squared
+            // distance the corners travel, relative to the first key's size.
+            const at = N => {
+                const keys = base.map(exactKeyCopy);
+                for (const K of keys)
+                    while (K.x.length < N)
+                        exactSplitOne(K);
+                const c0 = exactCentre(keys[0]),
+                    wind = Math.sign(exactArea(keys[0]));
+                let total = 0;
+                for (let k = 1; k < keys.length; k++) {
+                    const K = keys[k];
+                    if (!align)
+                        continue;
+                    if (Math.sign(exactArea(K)) !== wind)
+                        exactReverse(K);
+                    const ck = exactCentre(K);
+                    let best = 0,
+                        bestCost = Infinity;
+                    for (let s = 0; s < N; s++) {
+                        let cost = 0;
+                        for (let j = 0; j < N; j++) {
+                            const i = (j + s) % N,
+                                dx = (K.x[i] - ck.x) - (keys[0].x[j] - c0.x),
+                                dy = (K.y[i] - ck.y) - (keys[0].y[j] - c0.y);
+                            cost += dx * dx + dy * dy;
+                        }
+                        if (cost < bestCost) {
+                            bestCost = cost;
+                            best = s;
+                        }
                     }
-                    if (cost < bestCost) {
-                        bestCost = cost;
-                        best = s;
-                    }
+                    if (best)
+                        exactRoll(K, best);
+                    total += bestCost / N;
                 }
-                if (best)
-                    exactRoll(K, best);
+                return { keys, cost: total / Math.max(1e-12, Math.abs(exactArea(keys[0]))) };
+            };
+            // WHICH CORNER GOES TO WHICH (25 Oct 2026). A square and a circle drawn from 0° have four
+            // corners each, but the square's are at 45° and the circle's at 0°, 90°…: matched one to one
+            // the square turns and leans on its way. With every edge split once more both have a corner
+            // at 45° and the match is right. So twice the corners is tried too, and kept when the
+            // corners travel much less (under half as far, squared): more corners are not free, every
+            // pose carries them, so a morph that matches well already keeps the count it had.
+            let pick = at(n0);
+            if (align && base.length > 1 && pick.cost > 1e-6) {
+                const twice = at(2 * n0);
+                if (twice.cost < 0.5 * pick.cost)
+                    pick = twice;
             }
+            const keys = pick.keys;
             if (!inPlace)
                 for (const K of keys) {
                     const c = exactCentre(K);
@@ -51643,10 +51807,73 @@
                         out[e] = 1;
             return out;
         }
+        // SMOOTH WHERE ANY KEY IS SMOOTH (25 Oct 2026, Tom: "2,5,3,1"). A corner smooth in one key
+        // (its two handles in line, as all of a circle's are) and sharp in another (a square's) used
+        // to blend to a corner half-way bent: a kink at every corner, all the way from the square to
+        // the circle. Such a corner is now smooth in every pose but the sharp key itself. In that
+        // key its straight edges hold their handles at the corner (a cubic with a handle on its end
+        // still draws the straight line), so the blended handles grow from nothing as the morph
+        // leaves the square: the corner opens like a rounding getting bigger. Then the two blended
+        // handles are put in line, each keeping its length, which only straightens what the blend
+        // left a little bent. A corner sharp in some key with a curved edge at an angle is a real
+        // corner, and blends as it did.
+        function exactTangents(Q, j) {
+            const n = Q.x.length,
+                p = (j - 1 + n) % n,
+                f = (j + 1) % n,
+                ci = Q.c[p],
+                co = Q.c[j];
+            let ix = ci ? ci[2] - Q.x[j] : Q.x[p] - Q.x[j],
+                iy = ci ? ci[3] - Q.y[j] : Q.y[p] - Q.y[j],
+                ox = co ? co[0] - Q.x[j] : Q.x[f] - Q.x[j],
+                oy = co ? co[1] - Q.y[j] : Q.y[f] - Q.y[j];
+            if (ci && Math.hypot(ix, iy) < 1e-12) {
+                ix = Q.x[p] - Q.x[j];
+                iy = Q.y[p] - Q.y[j];
+            }
+            if (co && Math.hypot(ox, oy) < 1e-12) {
+                ox = Q.x[f] - Q.x[j];
+                oy = Q.y[f] - Q.y[j];
+            }
+            return { ix, iy, ox, oy, straight: !ci && !co };
+        }
+        function exactIsSmooth(T) {
+            const li = Math.hypot(T.ix, T.iy),
+                lo = Math.hypot(T.ox, T.oy);
+            if (li < 1e-12 || lo < 1e-12)
+                return false;
+            const cr = (T.ix * T.oy - T.iy * T.ox) / (li * lo),
+                dt = (T.ix * T.ox + T.iy * T.oy) / (li * lo);
+            return dt < 0 && Math.abs(cr) < 0.02;
+        }
+        // per corner: 1 to be kept smooth (smooth in some key, smooth or between straight edges in all)
+        function morphExactSmooth(keys, curved) {
+            const n = keys[0].x.length,
+                out = new Uint8Array(n);
+            for (let j = 0; j < n; j++) {
+                if (!curved[j] && !curved[(j - 1 + n) % n])
+                    continue;
+                let any = false,
+                    ok = true;
+                for (const Q of keys) {
+                    const T = exactTangents(Q, j),
+                        sm = exactIsSmooth(T);
+                    if (sm && !T.straight)
+                        any = true;
+                    else if (!sm && !T.straight) {
+                        ok = false;
+                        break;
+                    }
+                }
+                if (any && ok)
+                    out[j] = 1;
+            }
+            return out;
+        }
         // the pose at t: the keys' corners, radii and handles weighed, then the path
         function morphPoseExact(run, t, bare) {
             const K = run.keys.length,
-                w = morphWeights(morphWarp(morphRunT(run, t), K), K),
+                w = morphWeights(morphWarp(morphRunT(run, t), K, run), K),
                 n = run.keys[0].x.length;
             const x = new Float64Array(n),
                 y = new Float64Array(n),
@@ -51663,6 +51890,12 @@
                     r[j] += a * Q.r[j];
                 }
             }
+            if (!run._smooth || run._smoothKeys !== run.keys || run._smoothSig !== K * 1e4 + n) {
+                run._smooth = morphExactSmooth(run.keys, run.curved);
+                run._smoothKeys = run.keys;
+                run._smoothSig = K * 1e4 + n;
+            }
+            const sm = run._smooth;
             for (let e = 0; e < n; e++) {
                 if (!run.curved[e])
                     continue;
@@ -51673,12 +51906,39 @@
                     if (a === 0)
                         continue;
                     const Q = run.keys[k],
-                        q = Q.c[e] || [Q.x[e] + (Q.x[f] - Q.x[e]) / 3, Q.y[e] + (Q.y[f] - Q.y[e]) / 3,
-                        Q.x[f] - (Q.x[f] - Q.x[e]) / 3, Q.y[f] - (Q.y[f] - Q.y[e]) / 3];
+                        q = Q.c[e] || [sm[e] ? Q.x[e] : Q.x[e] + (Q.x[f] - Q.x[e]) / 3, sm[e] ? Q.y[e] : Q.y[e] + (Q.y[f] - Q.y[e]) / 3,
+                        sm[f] ? Q.x[f] : Q.x[f] - (Q.x[f] - Q.x[e]) / 3, sm[f] ? Q.y[f] : Q.y[f] - (Q.y[f] - Q.y[e]) / 3];
                     for (let i = 0; i < 4; i++)
                         acc[i] += a * q[i];
                 }
                 c[e] = acc;
+            }
+            for (let j = 0; j < n; j++) { // the smooth corners' two handles put in line
+                if (!sm[j])
+                    continue;
+                const ci = c[(j - 1 + n) % n],
+                    co = c[j];
+                if (!ci || !co)
+                    continue;
+                const ix = ci[2] - x[j],
+                    iy = ci[3] - y[j],
+                    ox = co[0] - x[j],
+                    oy = co[1] - y[j],
+                    li = Math.hypot(ix, iy),
+                    lo = Math.hypot(ox, oy);
+                if (li < 1e-12 || lo < 1e-12)
+                    continue;
+                let dx = ox / lo - ix / li,
+                    dy = oy / lo - iy / li;
+                const ld = Math.hypot(dx, dy);
+                if (ld < 1e-12)
+                    continue;
+                dx /= ld;
+                dy /= ld;
+                ci[2] = x[j] - dx * li;
+                ci[3] = y[j] - dy * li;
+                co[0] = x[j] + dx * lo;
+                co[1] = y[j] + dy * lo;
             }
             for (let j = 0; j < n; j++)
                 if (!(r[j] > 0))
@@ -51983,7 +52243,7 @@
         }
         function morphColourAt(run, t) {
             const K = run.keys.length,
-                w = morphWeights(morphWarp(morphRunT(run, t), K), K);
+                w = morphWeights(morphWarp(morphRunT(run, t), K, run), K);
             let r = 0,
                 g = 0,
                 b = 0,
@@ -52044,7 +52304,7 @@
                     }
                     return { x: cx / k.x.length, y: cy / k.x.length };
                 })());
-            const w = morphWeights(morphWarp(morphRunT(run, t), run.keys.length), run.keys.length);
+            const w = morphWeights(morphWarp(morphRunT(run, t), run.keys.length, run), run.keys.length);
             let x = 0,
                 y = 0;
             for (let k = 0; k < w.length; k++) {
@@ -52215,20 +52475,26 @@
         // the path as a dashed guide, with a dot where each shape is on it (the editor's, never a recording's)
         function drawMorphPath(w, h) {
             // the shared path, and each morph's own (EACH MORPH ITS OWN PATH)
+            // A follower's own path is carried by its parent like the follower is, so the guide is drawn
+            // where it is now (a moon's orbit round its planet, wherever the planet has got to).
             for (const run of morphRuns)
                 if (run.path)
-                    drawMorphPathOne(run.path, w, h);
+                    drawMorphPathOne(run.path, w, h, run.parent ? morphParentXform(run, morphLive.t) : null);
             if (morphLive.path)
                 drawMorphPathOne(morphLive.path, w, h);
         }
-        function drawMorphPathOne(P, w, h) {
+        function drawMorphPathOne(P, w, h, PX) {
+            const toPx = PX ? (x, y, w, h) => {
+                const [u, v] = PX.at(x, y);
+                return worldToPx(u, v, w, h);
+            } : worldToPx;
             ctx.save();
             ctx.lineWidth = 1.25;
             ctx.setLineDash([3, 5]);
             ctx.strokeStyle = 'rgba(200,200,215,0.45)';
             ctx.beginPath();
             for (let i = 0; i < P.x.length; i++) {
-                const q = worldToPx(P.x[i], P.y[i], w, h);
+                const q = toPx(P.x[i], P.y[i], w, h);
                 if (i)
                     ctx.lineTo(q.x, q.y);
                 else
@@ -52237,7 +52503,7 @@
             ctx.stroke();
             ctx.setLineDash([]);
             ctx.fillStyle = 'rgba(200,200,215,0.7)';
-            const s0 = worldToPx(P.x[0], P.y[0], w, h);
+            const s0 = toPx(P.x[0], P.y[0], w, h);
             ctx.beginPath();
             ctx.arc(s0.x, s0.y, 3, 0, TAU);
             ctx.fill();
@@ -52309,7 +52575,7 @@
                     }
                     return { x: cx / k.x.length, y: cy / k.x.length };
                 })());
-            const w = morphWeights(morphWarp(morphRunT(run, u), run.keys.length), run.keys.length); // EASING AND HOLDS
+            const w = morphWeights(morphWarp(morphRunT(run, u), run.keys.length, run), run.keys.length); // EASING AND HOLDS
             let x = 0,
                 y = 0;
             for (let k = 0; k < w.length; k++) {
@@ -52472,7 +52738,8 @@
             const r = runs[0],
                 line = morphRunToolLine(),
                 state_ = [sig, r.rate, r.phase, r.spin, r.laps, r.at, !!r.path, r.trail && r.trail.kind, r.fx && r.fx.kind,
-                    morphRuns.indexOf(r.parent), morphRuns.length, !!line].join('|');
+                    morphRuns.indexOf(r.parent), morphRuns.length, !!line, r.keys.length, (r.eases || []).join(',')].join('|');
+            mrKeysLayout(r); // KEYS AT CHOSEN TIMES: moved in place, never rebuilt, so a key held by a drag stays held
             if (state_ === _mrSig)
                 return;
             _mrSig = state_;
@@ -52504,6 +52771,64 @@
                 return `<option value="${i}"${bad ? ' disabled' : ''}>morph ${i + 1}</option>`;
             }).join('');
             ps.value = String(r.parent ? morphRuns.indexOf(r.parent) : -1);
+            mrKeysBuild(r);
+            mrKeysLayout(r);
+            $('mrEven').disabled = !runs.some(q => q.times || q.eases);
+        }
+        // KEYS AT CHOSEN TIMES: the track's keys (diamonds) and the stretches between them (the wrap
+        // round the loop drawn as its two ends), built when the count or the eases change, placed every frame
+        const MR_EASES = [null, 'linear', 'inout', 'in', 'out'],
+            MR_EASE_LABEL = { linear: 'lin', inout: 'io', in: 'in', out: 'out' };
+        function mrKeysBuild(r) {
+            const track = $('mrKeys');
+            if (!track)
+                return;
+            const K = r.keys.length,
+                n = K === 2 ? 1 : K,
+                E = r.eases || [];
+            let html = '<span class="mr-head" id="mrHead"></span>';
+            for (let k = 0; k < n; k++) {
+                const e = E[k],
+                    cls = 'mr-step' + (e != null ? ' own' : ''),
+                    lab = e != null ? MR_EASE_LABEL[e] : '',
+                    tip = 'from key ' + (k + 1) + ' to key ' + ((k + 1) % K + 1) + ': ' + (e != null ? (e === 'linear' ? 'linear' : e === 'inout' ? 'in and out' : e) : "the bar's ease") + ' · click for the next';
+                html += `<button type="button" class="${cls}" data-s="${k}" data-part="0" title="${tip}">${lab}</button>`;
+                if (K > 2 && k === K - 1)
+                    html += `<button type="button" class="${cls}" data-s="${k}" data-part="1" title="${tip}">${lab}</button>`;
+            }
+            for (let k = 0; k < K; k++)
+                html += `<span class="mr-key" data-k="${k}" title="key ${k + 1}: drag to move it in time"></span>`;
+            track.innerHTML = html;
+        }
+        function mrKeysLayout(r) {
+            const track = $('mrKeys');
+            if (!track || !r)
+                return;
+            const K = r.keys.length,
+                T = morphKeyTimes(r),
+                pct = v => (100 * Math.max(0, Math.min(1, v))).toFixed(3) + '%';
+            for (const el of track.children) {
+                if (el.classList.contains('mr-key'))
+                    el.style.left = pct(T[+el.dataset.k] != null ? T[+el.dataset.k] : 0);
+                else if (el.classList.contains('mr-step')) {
+                    const k = +el.dataset.s;
+                    let a = T[k],
+                        b = k + 1 < K ? T[k + 1] : 1;
+                    if (K > 2 && k === K - 1 && el.dataset.part === '1') {
+                        a = 0;
+                        b = T[0];
+                    }
+                    if (K === 2) {
+                        a = T[0];
+                        b = T[1];
+                    }
+                    el.style.left = pct(a);
+                    el.style.width = pct(Math.max(0, b - a));
+                }
+            }
+            const hd = $('mrHead');
+            if (hd)
+                hd.style.left = pct(morphRunT(r, morphLive.t));
         }
         function morphRunToolApply(fn) {
             const runs = morphRunToolRuns();
@@ -52562,6 +52887,61 @@
             $('mrStagger').addEventListener('click', () => {
                 const runs = morphRunToolRuns();
                 morphRunToolApply(r => r.phase = runs.indexOf(r) / runs.length);
+            });
+            // KEYS AT CHOSEN TIMES: a key dragged along the track; a stretch clicked for its next ease
+            const track = $('mrKeys');
+            let drag = null;
+            track.addEventListener('pointerdown', e => {
+                const key = e.target.closest('.mr-key');
+                if (!key)
+                    return;
+                e.preventDefault();
+                drag = { k: +key.dataset.k, id: e.pointerId, moved: false };
+                key.setPointerCapture(e.pointerId);
+            });
+            track.addEventListener('pointermove', e => {
+                if (!drag || e.pointerId !== drag.id)
+                    return;
+                const rc = track.getBoundingClientRect(),
+                    runs = morphRunToolRuns(),
+                    v = morphSetKeyTime(runs, drag.k, (e.clientX - rc.left) / rc.width);
+                if (v == null)
+                    return;
+                drag.moved = true;
+                const r = runs[0];
+                morphSetT(!(r.rate > 1) && !r.phase ? v : morphLive.t); // stand on the key being moved, where the clock and the morph's agree
+            });
+            const dragEnd = e => {
+                if (!drag || e.pointerId !== drag.id)
+                    return;
+                const moved = drag.moved;
+                drag = null;
+                if (moved) {
+                    _mrSig = '';
+                    morphBarSync();
+                    pushHistory();
+                    scheduleSave();
+                }
+            };
+            track.addEventListener('pointerup', dragEnd);
+            track.addEventListener('pointercancel', dragEnd);
+            track.addEventListener('click', e => {
+                const st = e.target.closest('.mr-step');
+                if (!st)
+                    return;
+                const runs = morphRunToolRuns(),
+                    k = +st.dataset.s,
+                    E = runs[0] && runs[0].eases,
+                    cur = E && E[k] != null ? E[k] : null,
+                    next = MR_EASES[(MR_EASES.indexOf(cur) + 1) % MR_EASES.length];
+                morphSetStepEase(runs, k, next);
+                morphRunToolApply(() => {});
+                pushHistory();
+            });
+            $('mrEven').addEventListener('click', () => {
+                morphEvenTimes(morphRunToolRuns());
+                morphRunToolApply(() => {});
+                pushHistory();
             });
             $('mrSpread').addEventListener('click', () => {
                 const runs = morphRunToolRuns();
@@ -52627,15 +53007,17 @@
                 return [0, 1];
             return Array.from({ length: K }, (_, k) => (k + 0.5) / K);
         }
-        let _morphTicksK = -1;
+        let _morphTicksK = '';
         function morphTimelineSync() {
             const run = morphRuns[0],
-                K = run ? run.keys.length : 0;
-            if (K !== _morphTicksK) {
-                _morphTicksK = K;
+                K = run ? run.keys.length : 0,
+                T = K ? morphKeyTimes(run) : [],
+                sig = T.map(p => Math.round(p * 1000)).join(','); // KEYS AT CHOSEN TIMES: the ticks where the keys are
+            if (sig !== _morphTicksK) {
+                _morphTicksK = sig;
                 const dl = $('morphTickList');
                 if (dl)
-                    dl.innerHTML = K ? morphKeyPhases(K).map(p => `<option value="${Math.round(p * 1000)}"></option>`).join('') : '';
+                    dl.innerHTML = T.map(p => `<option value="${Math.round(p * 1000)}"></option>`).join('');
             }
             const lp = $('morphLoop');
             if (lp && document.activeElement !== lp) {
@@ -52695,7 +53077,7 @@
             const run = morphRuns[0];
             if (!run)
                 return null;
-            const P = morphKeyPhases(run.keys.length),
+            const P = morphKeyTimes(run),
                 t = morphLive.t,
                 eps = 1e-6;
             let to = dir > 0 ? P.find(p => p > t + eps) : P.slice().reverse().find(p => p < t - eps);
@@ -52705,8 +53087,9 @@
             return P.indexOf(to);
         }
         // which key t is on, or -1
-        function morphKeyAt(K, t) {
-            const P = morphKeyPhases(K);
+        function morphKeyAt(run, t) {
+            const K = run.keys.length,
+                P = morphKeyTimes(run);
             for (let k = 0; k < K; k++)
                 if (Math.abs(P[k] - t) < 1e-6)
                     return k;
@@ -52726,12 +53109,17 @@
                 flashStatus('+ key: a still has one key; morph two or more shapes to blend between them');
                 return 0;
             }
-            if (morphKeyAt(K, t) >= 0) {
+            if (morphKeyAt(morphRuns[0], t) >= 0) {
                 flashStatus('+ key: there is a key here already; move along the track first');
                 return 0;
             }
             // after the key before t: with two keys always between them; round the loop otherwise
-            const at = K === 2 ? 1 : ((Math.floor(t * K - 0.5) % K) + K) % K + 1;
+            // KEYS AT CHOSEN TIMES: a morph whose keys keep times of their own gets the new key where
+            // you stand (before the first key, it becomes the first), and the stretch it lands in gives
+            // its ease to both halves. Evenly spaced keys stay evenly spaced, and two keys becoming
+            // three become a loop, as before.
+            const timed = K > 2 && morphRuns.every(r => r.times);
+            const at = K === 2 ? 1 : timed ? morphRuns[0].times.filter(p => p < t).length : morphStretchOf(morphRuns[0], t).k + 1;
             for (const run of morphRuns) {
                 const sp = morphTargetOf(run);
                 if (!sp)
@@ -52752,10 +53140,24 @@
                 run.freq = null;
                 run._centres = null;
             }
-            morphSetT((at + 0.5) / (K + 1));
+            for (const run of morphRuns) {
+                if (timed && run.times) {
+                    const T = run.times.slice();
+                    T.splice(at, 0, Math.max(0, Math.min(0.999, t)));
+                    run.times = morphTimesOk(T, K + 1) ? T : null;
+                } else
+                    run.times = null;
+                if (run.eases) {
+                    if (K === 2)
+                        run.eases = new Array(3).fill(run.eases[0]);
+                    else
+                        run.eases.splice(at, 0, run.eases[(at - 1 + K) % K]);
+                }
+            }
+            morphSetT(timed && morphRuns[0].times ? morphRuns[0].times[at] : (at + 0.5) / (K + 1));
             pushHistory();
             flashStatus('key ' + (at + 1) + ' of ' + (K + 1) + ' made from the pose in view'
-            + (K === 2 ? ' · three keys sit round a loop, so the ramp is now a loop' : ' · the keys moved up to stay evenly spaced'));
+            + (K === 2 ? ' · three keys sit round a loop, so the ramp is now a loop' : timed ? ' · where you stand' : ' · the keys moved up to stay evenly spaced'));
             return K + 1;
         }
         function morphDelKey() {
@@ -52764,7 +53166,7 @@
                 flashStatus(K ? '− key: a morph needs at least two keys' : '− key: the live morphs have different numbers of keys');
                 return 0;
             }
-            const P = morphKeyPhases(K),
+            const P = morphKeyTimes(morphRuns[0]),
                 t = morphLive.t;
             let best = 0;
             const dist = p => Math.min(Math.abs(p - t), 1 - Math.abs(p - t)); // round the loop
@@ -52772,6 +53174,12 @@
                 if (dist(P[k]) < dist(P[best]))
                     best = k;
             for (const run of morphRuns) {
+                // KEYS AT CHOSEN TIMES: the others keep theirs (a ramp of two is even again); the
+                // stretch that ran into the key taken away runs on to the next, with its ease
+                if (run.times)
+                    run.times = K - 1 > 2 ? run.times.filter((_, k) => k !== best) : null;
+                if (run.eases)
+                    run.eases = K - 1 > 2 ? run.eases.filter((_, k) => k !== best) : [run.eases[best ? best - 1 : K - 1]];
                 run.keys.splice(best, 1);
                 if (run.cols)
                     run.cols.splice(best, 1);
@@ -52781,7 +53189,7 @@
                 if (run.exact)
                     run.curved = morphExactCurved(run.keys);
             }
-            const Q = morphKeyPhases(K - 1);
+            const Q = morphKeyTimes(morphRuns[0]);
             morphSetT(Q[Math.min(best, K - 2)]);
             pushHistory();
             flashStatus('key ' + (best + 1) + ' taken away · ' + (K - 1) + ' keys' + (K - 1 === 2 ? ', a ramp from the first to the second' : ''));
@@ -52799,7 +53207,7 @@
                 eps = 1e-6;
             for (const run of morphRuns) {
                 const K = run.keys.length,
-                    P = morphKeyPhases(K);
+                    P = morphKeyTimes(run);
                 let prev = -1,
                     next = -1;
                 for (let k = 0; k < K; k++)
@@ -68606,6 +69014,8 @@
             + `     tangent-vector morph: the poses are point-matched by construction. -->`;
             const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VB} ${VB}" width="${VB}" height="${VB}">\n`
             + note + '\n' + body.join('\n') + '\n</svg>\n';
+            if (o.noDownload) // the gallery's own playing tiles are written this way (tools/build-animated.mjs)
+                return { paths: body.length, frames: ts.length, bounce, bytes: svg.length, svg };
             downloadTextFile(svg, safeFileName((state.svgName || 'morph') + ' animated', 'svg'));
             flashStatus('morph exported · ' + morphRuns.length + ' animated path' + (morphRuns.length === 1 ? '' : 's')
             + ' + ' + statics.length + ' static · ' + ts.length + ' frames · '
@@ -78742,6 +79152,8 @@
 
         let _lastSaved = null;
         function saveScene() {
+            if (EMBED) // nor writes it
+                return false;
             if (_saveDisabled)
                 return false;
             try {
@@ -78870,6 +79282,8 @@
                 spin: +r.spin || 0,
                 laps: r.laps || 1,
                 start: r.at != null ? +r.at : null,
+                times: r.times ? r.times.map(Number) : null, // KEYS AT CHOSEN TIMES
+                eases: r.eases ? r.eases.slice() : null,
                 trail: r.trail ? { kind: r.trail.kind || '', len: r.trail.len != null ? +r.trail.len : 0.5 } : null,
                 cols: r.cols ? r.cols.map(c => ({ r: +c.r.toPrecision(7), g: +c.g.toPrecision(7), b: +c.b.toPrecision(7), a: +c.a.toPrecision(7) })) : null,
                 path: P ? {
@@ -78892,6 +79306,8 @@
             run.spin = +o.spin || 0;
             run.laps = Math.max(1, Math.round(+o.laps || 1));
             run.at = o.start != null ? +o.start : null;
+            run.times = morphTimesOk(o.times, run.keys.length) ? o.times.map(Number) : null; // KEYS AT CHOSEN TIMES
+            run.eases = morphEasesOk(o.eases, run.keys.length) ? o.eases.slice() : null;
             run.trail = o.trail ? { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: +o.trail.len } : null;
             run.cols = Array.isArray(o.cols) && o.cols.length === run.keys.length ? o.cols.map(c => ({ r: +c.r, g: +c.g, b: +c.b, a: +c.a })) : null;
             if (o.path) {
@@ -79235,7 +79651,7 @@
 
         // Boot: last session if there is one, otherwise a moderate-complexity shape so the
         // first run shows something interesting immediately.
-        const _restored = restoreScene();
+        const _restored = EMBED ? false : restoreScene(); // THE EMBED never reads the saved scene
         if (!_restored) {
             loadSvg(PRESETS.find(p => p.name === 'maple (hand-drawn)').svg, 'maple (hand-drawn)');
             // The boot document settles onto the rung its own contour justifies (loadSvg →
@@ -81526,9 +81942,25 @@
             }
         };
         window.__box = {
+            // SMOOTH WHERE ANY KEY IS SMOOTH: each exact run's pose, how far (degrees) its most bent
+            // unrounded corner turns, and how many corners turn more than a degree
+            kinks: () => morphRuns.filter(r => r.exact && r.pose).map(r => {
+                const P = r.pose,
+                    out = [];
+                for (let j = 0; j < P.x.length; j++) {
+                    if (P.r[j] > 0)
+                        continue;
+                    const T = exactTangents(P, j),
+                        a = Math.atan2(T.iy, T.ix) + Math.PI,
+                        b = Math.atan2(T.oy, T.ox);
+                    let d = Math.abs(((b - a) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
+                    out.push(d * 180 / Math.PI);
+                }
+                return { max: Math.max(0, ...out), bent: out.filter(d => d > 1).length, n: P.x.length };
+            }),
             // THE TIMELINE: the live morph as the bar shows it, and its controls
             morph: () => morphRuns.length ? { K: morphRuns[0].keys.length, t: morphLive.t, loop: 1 / morphLive.speed, play: morphLive.play,
-                phases: morphKeyPhases(morphRuns[0].keys.length), ticks: [...document.querySelectorAll('#morphTickList option')].map(o => +o.value),
+                phases: morphKeyTimes(morphRuns[0]), ticks: [...document.querySelectorAll('#morphTickList option')].map(o => +o.value),
                 // an exact morph's corners, never its leaves (asking for them would turn it into leaves)
                 leaves: morphRuns[0].exact ? Array.from(morphRuns[0].sp._lazy.x) : Array.from(morphRuns[0].sp.leafX),
                 leavesY: morphRuns[0].exact ? Array.from(morphRuns[0].sp._lazy.y) : Array.from(morphRuns[0].sp.leafY),
@@ -81538,16 +81970,20 @@
                 // each morph's own settings and the fill it shows now
                 runs: morphRuns.map(r => ({ K: r.keys.length, exact: !!r.exact, phase: +r.phase || 0, rate: r.rate || 1, spin: +r.spin || 0,
                     parent: r.parent ? morphRuns.indexOf(r.parent) : -1, at: r.at, fx: r.fx ? r.fx.kind : null,
-                    laps: r.laps || 1, path: !!r.path, trail: r.trail ? r.trail.kind : null, fill: r.sp && r.sp.fill ? r.sp.fill.color : null,
+                    laps: r.laps || 1, path: !!r.path, times: morphKeyTimes(r).slice(), eases: r.eases ? r.eases.slice() : null, trail: r.trail ? r.trail.kind : null, fill: r.sp && r.sp.fill ? r.sp.fill.color : null,
                     cx: r.exact ? (r.pose ? exactCentre(r.pose).x : null) : (r.sp.leafX ? r.sp.leafX.reduce((a, b) => a + b) / r.sp.leafX.length : null),
                     cy: r.exact ? (r.pose ? exactCentre(r.pose).y : null) : (r.sp.leafY ? r.sp.leafY.reduce((a, b) => a + b) / r.sp.leafY.length : null),
-                    x0: r.exact ? (r.pose ? r.pose.x[0] : null) : r.sp.leafX[0], y0: r.exact ? (r.pose ? r.pose.y[0] : null) : r.sp.leafY[0] })),
+                    x0: r.exact ? (r.pose ? r.pose.x[0] : null) : r.sp.leafX[0], y0: r.exact ? (r.pose ? r.pose.y[0] : null) : r.sp.leafY[0],
+                    // where its own path's guide begins as drawn (carried by its parent, if it has one)
+                    guide: r.path ? (() => { const PX = r.parent && morphParentXform(r, morphLive.t);
+                        return PX ? PX.at(r.path.x[0], r.path.y[0]) : [r.path.x[0], r.path.y[0]]; })() : null })),
                 path: morphLive.path ? { closed: morphLive.path.closed, mode: morphLive.path.mode, turn: morphLive.path.turn } : null,
                 trail: state.morphTrail || '' } : null,
             // MOTION ALONG A PATH: where the first live shape's centre is on the path at t, and the canvas as drawn
             pathAt: t => morphRuns.length && morphLive.path ? morphPathPlace(morphRuns[0], t) : null,
             canvasUrl: () => { (drawAll.now || drawAll)(); return cv.toDataURL(); }, // drawAll alone waits for the next frame
             morphKey: k => morphRuns.length ? { x: Array.from(morphRuns[0].keys[k].x) } : null,
+            morphSvg: o => { const r = exportMorphSvg(Object.assign({}, o, { noDownload: true })); return r ? r.svg : null; },
             recordGif: () => morphRecordGif().then(b => b ? b.size : 0),
             recordVideo: () => morphRecordVideo().then(b => b ? { size: b.size, type: b.type } : null),
             // the group button's place in the panel's row, or null while it is not shown
@@ -82988,7 +83424,8 @@
         //                          shape a still, two or more blended; each list its own morph,
         //                          or an object with what that morph has of its own: { keys,
         //                          path, laps, at, turn, mode, rate, phase, spin, fx, trail, lag,
-        //                          inPlace } (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL),
+        //                          inPlace, parent, times, eases } (EACH MORPH ITS OWN TIME, PATH,
+        //                          COLOUR, TRAIL; ONE MORPH RIDING ANOTHER; KEYS AT CHOSEN TIMES),
         //     path: i              a line or curve every live shape rides, or absent,
         //     turn, mode ('along' | 'back'), fx: {kind, amount}, trail: {kind, len},
         //     ease, hold, loop (seconds), onion, corners (default true), lag, t, play (default true) }
@@ -83027,7 +83464,7 @@
                 }
                 const label = d.name || 'example',
                     name = 'example · ' + label;
-                const mine = state.subpaths.length && state.svgName !== 'maple (hand-drawn)' && !String(state.svgName || '').startsWith('example · ');
+                const mine = !EMBED && state.subpaths.length && state.svgName !== 'maple (hand-drawn)' && !String(state.svgName || '').startsWith('example · ');
                 if (mine) {
                     const go = await askConfirm({
                         title: 'Open the example?',
@@ -83121,6 +83558,9 @@
                         run.spin = Number.isFinite(+o.spin) ? +o.spin : 0;
                         run.laps = Math.max(1, Math.round(+o.laps || 1));
                         run.at = o.at != null ? clamp(o.at, 0, 1, 0) : null;
+                        // KEYS AT CHOSEN TIMES: `times` a time per key, `eases` an ease per stretch
+                        run.times = morphTimesOk(o.times, run.keys.length) ? o.times.map(Number) : null;
+                        run.eases = morphEasesOk(o.eases, run.keys.length) ? o.eases.slice() : null;
                         if (o.trail)
                             run.trail = { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: clamp(o.trail.len, 0, 1, 0.5) };
                         if (o.path != null && S[o.path])

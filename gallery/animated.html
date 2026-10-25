@@ -1696,6 +1696,51 @@ async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch (_) { return false; }
 }
 
+// ── playing a tile ───────────────────────────────────────────────────────
+// A tile plays in the leaf editor itself: draw.html?embed=1 (THE EMBED in draw.html) is the editor as
+// a player, the canvas alone, which never reads or writes the drawing saved in your editor. So what
+// plays here is exactly what "open in draw" opens, trails, effects and all, from the same link. The
+// editor is a big page, so one tile plays at a time: playing another stops the one before.
+let playing = null;
+function stop() {
+  if (!playing) return;
+  const f = playing.querySelector('iframe.player');
+  if (f) f.remove();
+  const b = playing.querySelector('.play');
+  b.textContent = 'play'; b.classList.remove('on');
+  playing.classList.remove('playing');
+  playing = null;
+}
+function play(tile) {
+  const was = playing;
+  stop();
+  if (was === tile) return;
+  playing = tile;
+  tile.classList.add('playing');
+  const b = tile.querySelector('.play');
+  b.textContent = 'stop'; b.classList.add('on');
+  const u = new URL(tile.dataset.href);
+  u.search = '?embed=1';
+  const f = document.createElement('iframe');
+  f.className = 'player';
+  f.title = tile.querySelector('h3').textContent + ', playing';
+  f.src = u.href;
+  // shown once the example is up and running (the editor opens it a moment after it loads), so the
+  // drawing stays in view until then rather than a blank frame
+  f.addEventListener('load', () => {
+    const t0 = Date.now();
+    const ready = () => {
+      if (playing !== tile) return;
+      let up = false;
+      try { const m = f.contentWindow.__box && f.contentWindow.__box.morph(); up = !!(m && m.play); } catch (_) { up = Date.now() - t0 > 1500; }
+      if (up || Date.now() - t0 > 4000) f.classList.add('on');
+      else setTimeout(ready, 80);
+    };
+    ready();
+  });
+  tile.querySelector('.stage').appendChild(f);
+}
+
 // ── build ────────────────────────────────────────────────────────────────
 (async () => {
   const main = document.getElementById('main');
@@ -1714,12 +1759,15 @@ async function copyText(text) {
       tile.id = ex.id;
       tile.dataset.href = href;
       tile.innerHTML =
-        `<div class="stage">${ex.svg}</div>` +
-        `<div class="tools"><button class="open" title="open this example in the leaf editor, playing — it rides in the link">open in draw ↗</button>` +
+        `<div class="stage" title="play it here">${ex.svg}</div>` +
+        `<div class="tools"><button class="play" title="play it here, in the leaf editor itself (one tile plays at a time)">play</button>` +
+        `<button class="open" title="open this example in the leaf editor, playing — it rides in the link">open in draw ↗</button>` +
         `<button class="link" title="copy this example's link">link</button></div>` +
         `<div class="body"><h3>${esc(ex.name)}</h3><p class="note">${esc(ex.note)}</p>` +
         `<code class="src">${esc(sceneLine(ex.scene))}</code></div>`;
       tile.querySelector('.open').addEventListener('click', () => window.open(href, '_blank', 'noopener'));
+      tile.querySelector('.play').addEventListener('click', () => play(tile));
+      tile.querySelector('.stage').addEventListener('click', () => { if (playing !== tile) play(tile); });
       const lb = tile.querySelector('.link');
       lb.addEventListener('click', async () => {
         if (await copyText(href)) { lb.classList.add('done'); lb.textContent = 'copied'; setTimeout(() => { lb.classList.remove('done'); lb.textContent = 'link'; }, 1400); }
@@ -1730,6 +1778,7 @@ async function copyText(text) {
   }
   document.getElementById('count').textContent = EXAMPLES.length + ' animations';
   window.__animated = EXAMPLES.map(e => ({ id: e.id, name: e.name })); // for the smoke test
+  window.__animatedPlay = id => { const t = document.getElementById(id); if (t) play(t); return !!playing; };
 })();
 </script>
 </body>

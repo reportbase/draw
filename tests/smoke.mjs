@@ -830,8 +830,13 @@ current = 'examples';
     // the moon follows the earth (morph 3): always its orbit's radius from it, as the earth goes round the sun
     if (!moon || moon.parent !== 3) throw new Error('the moon does not follow the earth: ' + JSON.stringify(moon));
     const dist = r => Math.hypot(r[6].cx - r[3].cx, r[6].cy - r[3].cy);
-    const dA = dist(r0), dB = dist(await runsAt(0.37)), dC = dist(await runsAt(0.81));
+    const rB = await runsAt(0.37), rC = await runsAt(0.81);
+    const dA = dist(r0), dB = dist(rB), dC = dist(rC);
     if (Math.abs(dA - dB) > 1e-3 || Math.abs(dA - dC) > 1e-3) throw new Error('the moon wandered from the earth: ' + [dA, dB, dC]);
+    // and its orbit's guide goes round with the earth: as far from it at every time, and not left where it was drawn
+    const gd = r => Math.hypot(r[6].guide[0] - r[3].cx, r[6].guide[1] - r[3].cy);
+    if (!r0[6].guide || Math.abs(gd(r0) - gd(rB)) > 1e-3 || Math.abs(gd(r0) - gd(rC)) > 1e-3 || !(Math.hypot(rB[6].guide[0] - r0[6].guide[0], rB[6].guide[1] - r0[6].guide[1]) > 0.05))
+      throw new Error('the moon\'s orbit was not drawn round the earth: ' + JSON.stringify([r0[6].guide, rB[6].guide, gd(r0), gd(rB), gd(rC)]));
     await runsAt(0);
     r1 = await runsAt(0.2); // a whole lap for the first planet, not for the last
     if (Math.hypot(r1[1].cx - r0[1].cx, r1[1].cy - r0[1].cy) > 1e-3 || !(Math.hypot(r1[5].cx - r0[5].cx, r1[5].cy - r0[5].cy) > 0.05)) throw new Error('the planets do not keep their laps');
@@ -933,6 +938,97 @@ current = 'morph settings';
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the morph's own settings, and one morph riding another`);
   await mp.close();
+}
+
+/* SMOOTH CORNERS AND KEYS AT CHOSEN TIMES (draw.html, 25 Oct 2026). A square going to a circle drawn
+   from 0° morphs with no kink at any corner once it leaves the square, matched corner to corner at
+   45° (twice the corners); a rounded square going to a circle keeps its rounding. A morph's keys put
+   at times of their own (from a scene link) are exact at those times, the bar's ticks are there, a
+   key dragged on the strip's track moves, a stretch clicked takes the next ease, and all of it comes
+   back from a reload and survives an added key. Then the animated gallery plays a tile in place, in
+   the editor's embed, which leaves the drawing saved in the editor alone; one tile at a time. */
+current = 'smooth corners and key times';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const kp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  kp.on('pageerror', e => failures.push(`[key times] ${e.message}`));
+  await kp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  const setT = t => kp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+  const ready = async () => {
+    await kp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await kp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box.morph(), null, { timeout: 15000 });
+    await kp.waitForTimeout(600);
+  };
+  try {
+    const c4 = (cx, cy, r) => { const k = 0.5523 * r; return `M${cx + r} ${cy} C${cx + r} ${cy + k} ${cx + k} ${cy + r} ${cx} ${cy + r} C${cx - k} ${cy + r} ${cx - r} ${cy + k} ${cx - r} ${cy} C${cx - r} ${cy - k} ${cx - k} ${cy - r} ${cx} ${cy - r} C${cx + k} ${cy - r} ${cx + r} ${cy - k} ${cx + r} ${cy}Z`; };
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"><rect x="20" y="20" width="80" height="80" fill="#4f8fd6"/><path d="${c4(160, 60, 40)}" fill="#e05a6a"/>`
+      + `<rect x="220" y="20" width="80" height="80" rx="16" fill="#4fbf8a"/><path d="${c4(340, 60, 40)}" fill="#f2c14e"/></svg>`;
+    await kp.goto(scene({ name: 'corners', svg, play: false, morphs: [[0, 1], [2, 3]] }), { waitUntil: 'load' });
+    await ready();
+    for (const t of [0.1, 0.5, 0.9]) {
+      await setT(t);
+      const k = await kp.evaluate(() => window.__box.kinks());
+      if (k.length !== 2 || k.some(q => q.max > 0.01)) throw new Error('a kink at t = ' + t + ': ' + JSON.stringify(k));
+    }
+    await setT(0);
+    const sq = (await kp.evaluate(() => window.__box.kinks()))[0];
+    if (sq.n !== 8 || sq.bent !== 4) throw new Error('the square was not matched to the circle at 45° (8 corners, its own 4 sharp): ' + JSON.stringify(sq));
+    // keys at chosen times
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"><rect x="20" y="20" width="80" height="80" fill="#4f8fd6"/>'
+      + '<polygon points="160,20 200,100 120,100" fill="#e05a6a"/><rect x="220" y="40" width="120" height="40" fill="#4fbf8a"/></svg>';
+    await kp.goto(scene({ name: 'times', svg, play: false, morphs: [{ keys: [0, 1, 2], times: [0.1, 0.2, 0.7], eases: [null, 'inout', 'linear'] }] }), { waitUntil: 'load' });
+    await ready();
+    let m = await kp.evaluate(() => window.__box.morph());
+    if (m.ticks.join() !== '100,200,700' || m.runs[0].times.join() !== '0.1,0.2,0.7') throw new Error('the keys\' times did not take: ' + JSON.stringify([m.ticks, m.runs[0].times]));
+    for (const [t, k] of [[0.1, 0], [0.2, 1], [0.7, 2]]) {
+      await setT(t);
+      const L = (await kp.evaluate(() => window.__box.morph())).leaves, K = await kp.evaluate(k => window.__box.morphKey(k).x, k);
+      if (L.length !== K.length || L.some((v, j) => Math.abs(v - K[j]) > 1e-9)) throw new Error('key ' + (k + 1) + ' is not itself at its time ' + t);
+    }
+    await kp.evaluate(() => window.__box.select([0]));
+    await kp.waitForTimeout(300);
+    const kb = await kp.locator('#mrKeys .mr-key[data-k="1"]').boundingBox(), tb = await kp.locator('#mrKeys').boundingBox();
+    await kp.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2); await kp.mouse.down();
+    await kp.mouse.move(tb.x + tb.width * 0.45, kb.y + kb.height / 2, { steps: 5 }); await kp.mouse.up();
+    await kp.click('#mrKeys .mr-step[data-s="0"]');
+    m = await kp.evaluate(() => window.__box.morph());
+    if (Math.abs(m.runs[0].times[1] - 0.45) > 0.01 || m.runs[0].eases.join() !== 'linear,inout,linear') throw new Error('the strip\'s track: ' + JSON.stringify([m.runs[0].times, m.runs[0].eases]));
+    await kp.waitForTimeout(1200);
+    await kp.reload(); await kp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await kp.waitForTimeout(700);
+    m = await kp.evaluate(() => window.__box.morph());
+    if (Math.abs(m.runs[0].times[1] - 0.45) > 0.01 || m.runs[0].eases.join() !== 'linear,inout,linear') throw new Error('the times did not come back from a reload: ' + JSON.stringify(m.runs[0]));
+    await setT(0.5); await kp.click('#bMorphAddKey');
+    m = await kp.evaluate(() => window.__box.morph());
+    if (m.K !== 4 || Math.abs(m.runs[0].times[2] - 0.5) > 1e-9 || m.runs[0].eases.length !== 4) throw new Error('a key added between timed keys: ' + JSON.stringify([m.K, m.runs[0].times, m.runs[0].eases]));
+    await kp.close();
+    // the gallery plays a tile in place, and the drawing saved in the editor is left as it was
+    const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    gp.on('pageerror', e => failures.push(`[key times] ${e.message}`));
+    await gp.route(/fonts\.g/, r => r.abort());
+    await gp.goto(new URL('gallery/animated.html', base).href, { waitUntil: 'load' });
+    const saved = await gp.evaluate(() => localStorage.getItem('tangent.scene.v1'));
+    await gp.evaluate(() => localStorage.setItem('tangent.scene.v1', 'the drawing in the editor'));
+    await gp.waitForSelector('#orrery .play', { timeout: 15000 });
+    await gp.click('#orrery .play');
+    await gp.waitForSelector('#orrery iframe.player.on', { timeout: 30000 });
+    const fr = gp.frames().find(f => /embed=1/.test(f.url()));
+    const pm = fr && await fr.evaluate(() => { const m = window.__box.morph(); return m && { play: m.play, runs: m.runs.length }; });
+    if (!pm || !pm.play || pm.runs !== 7) throw new Error('the orrery did not play in its tile: ' + JSON.stringify(pm));
+    if (await fr.evaluate(() => getComputedStyle(document.querySelector('.topbar') || document.body).display) !== 'none') throw new Error('the embed shows the editor\'s bar');
+    await gp.click('#garden .play');
+    await gp.waitForSelector('#garden iframe.player.on', { timeout: 30000 });
+    if ((await gp.$$eval('iframe.player', l => l.length)) !== 1 || (await gp.$eval('#orrery .play', e => e.textContent)) !== 'play') throw new Error('two tiles played at once');
+    await gp.waitForTimeout(1500);
+    const after = await gp.evaluate(() => localStorage.getItem('tangent.scene.v1'));
+    await gp.evaluate(v => v == null ? localStorage.removeItem('tangent.scene.v1') : localStorage.setItem('tangent.scene.v1', v), saved);
+    if (after !== 'the drawing in the editor') throw new Error('a playing tile wrote over the drawing saved in the editor');
+    await gp.close();
+  } catch (e){
+    failures.push(`[key times] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} smooth corner-keeping morphs, keys at chosen times, and tiles that play`);
 }
 
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,

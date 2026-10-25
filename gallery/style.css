@@ -496,3 +496,9 @@ a.paper:hover{background:rgba(124,92,255,.22);color:#d9cfff}
 .page-animated .tile .tools .open:hover{background:#8d72ff}
 .page-animated .tile .tools .link.done{background:var(--ok);border-color:var(--ok);color:#0c0f16}
 .page-animated .tile code.src{cursor:default}
+/* a tile playing: the leaf editor itself over the drawing, faded in once its example runs */
+.page-animated .tile .stage{position:relative;cursor:pointer}
+.page-animated .tile.playing .stage{cursor:default}
+.page-animated .tile .stage iframe.player{position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .3s;pointer-events:none}
+.page-animated .tile .stage iframe.player.on{opacity:1}
+.page-animated .tile .tools .play.on{background:var(--ok);border-color:var(--ok);color:#0c0f16}
