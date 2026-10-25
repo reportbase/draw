@@ -3797,8 +3797,14 @@
             </label>
         </div>
         <div class="pop-row">
+            <label class="toggle" style="display:flex;align-items:center;gap:6px;font-size:10px;" title="MORPHS THAT KEEP THEIR CORNERS: when every shape selected is an exact shape (closed, no holes), the live morph blends their corners, radii and curve edges and stays an exact shape, so sharp corners stay sharp the whole way. A key with fewer corners is given more by splitting its edges, which draws it the same. The lag and the detail effects act on leaves, so an exact morph goes without them. Off, exact shapes morph as leaves, as before.">
+                <input type="checkbox" id="tMorphCorners" checked>
+                 keep corners (exact shapes)
+            </label>
+        </div>
+        <div class="pop-row">
             <button class="pop-act" id="bMorph" style="flex:1;" title="blend the selected shapes and lay the result out — a strip for two, a 4×4 bilinear grid for four. Replaces the current page in one history frame.">strip</button>
-            <button class="pop-act" id="bMorphLive" style="flex:1;" title="blend the selection into ONE shape you can scrub and play, with the t slider in the bottom bar. Two keys are a lerp; three or more sit on a time circle weighted by the cardinal kernel, so the loop closes. Nothing is baked — stop anywhere and `keep` gives you that shape.">live</button>
+            <button class="pop-act" id="bMorphLive" style="flex:1;" title="blend the selection into ONE shape you can scrub and play, with the t slider in the bottom bar. Two keys are a lerp; three or more sit on a time circle weighted by the cardinal kernel, so the loop closes. Nothing is baked — stop anywhere and `keep` gives you that shape. One shape goes live as a still, for the detail effects in the bar.">live</button>
         </div>
     </div>
 
@@ -6553,11 +6559,41 @@
                live the scene is ONE shape and the slider is the only thing in the room. It is
                hidden the rest of the time, so .shape-bar:empty still takes the bar off the
                screen when there is no morph running. -->
-        <div class="control-group" id="morphBar" style="display:none;gap:10px;">
+        <div class="control-group" id="morphBar" style="display:none;gap:8px 10px;flex-wrap:wrap;justify-content:center;flex:1 1 auto;min-width:0;">
             <button id="bMorphPlay" data-code="mpl" class="res-btn" title="run EVERY live morph as a loop. One clock drives all of them, so several morphs started separately stay in register with each other and a still frame is a frame of the same moment. The blend is recomputed from the keys every frame — there is nothing baked, so the shapes you are watching are real shapes at every instant and you can stop anywhere and keep them.">run</button>
             <label for="morphT">t</label>
-            <input type="range" id="morphT" min="0" max="1000" step="1" value="0" style="width:min(340px,38vw);" title="where the blend sits between the keys. With two keys this is a straight lerp; with three or more the keys sit on a TIME CIRCLE and the weights are the same cardinal kernel that reconstructs a contour — so the loop closes and passing t=1 comes back to the first key without a seam.">
+            <input type="range" id="morphT" list="morphTickList" min="0" max="1000" step="1" value="0" style="width:min(340px,38vw);" title="where the blend sits between the keys. With two keys this is a straight lerp; with three or more the keys sit on a TIME CIRCLE and the weights are the same cardinal kernel that reconstructs a contour — so the loop closes and passing t=1 comes back to the first key without a seam.">
             <span class="val" id="morphTVal">0.000</span>
+            <!-- THE TIMELINE (25 Oct 2026): the keys' places as ticks on the track, a step to the key before or
+                 after, a key added where you stand or taken away, the neighbouring keys as ghosts, and how long
+                 one loop takes. -->
+            <datalist id="morphTickList"></datalist>
+            <button id="bMorphPrevKey" data-code="mkb" class="res-btn" title="to the key before — at a key the blend is that key exactly">◀ key</button>
+            <button id="bMorphNextKey" data-code="mkn" class="res-btn" title="to the key after">key ▶</button>
+            <button id="bMorphAddKey" data-code="mka" class="res-btn" title="make the pose you are looking at a key, between the key before and the key after. The keys stay evenly round the loop, so the others move up to make room; with two keys this turns the ramp into a loop">+ key</button>
+            <button id="bMorphDelKey" data-code="mkd" class="res-btn" title="take away the key nearest where you stand (a morph keeps at least two)">− key</button>
+            <label title="show the key before (warm) and the key after (cool) as faint outlines"><input type="checkbox" id="tMorphOnion"> onion</label>
+            <label for="morphLoop" title="how long one loop takes when it runs, and in a recording">loop</label>
+            <input type="number" id="morphLoop" min="0.5" max="60" step="0.5" value="4" style="width:52px;"><span style="color:var(--fg-muted);font-size:11px;">s</span>
+            <!-- DETAIL EFFECTS: the fine harmonics moved and the silhouette left alone, on the same clock -->
+            <label for="morphFx" title="an effect on the detail, the silhouette left alone: shimmer ripples the edge, grow brings the detail in octave by octave and takes it away, boil makes the outline seethe. It plays, records and keeps with the morph">effect</label>
+            <select id="morphFx"><option value="">none</option><option value="shimmer">shimmer</option><option value="grow">grow</option><option value="boil">boil</option></select>
+            <input type="range" id="morphFxAmt" min="0" max="100" step="1" value="50" style="width:min(110px,12vw);" title="how strong the effect is">
+            <!-- EASING AND HOLDS (25 Oct 2026): how the blend moves from key to key -->
+            <label for="morphEase" title="how the blend moves from one key to the next: evenly (none), slow away from a key and slow into the next (in & out), slow away (in) or slow arriving (out). A key is still exact at its place">ease</label>
+            <select id="morphEase"><option value="">none</option><option value="inout">in &amp; out</option><option value="in">in</option><option value="out">out</option></select>
+            <label for="morphHold" title="how long the blend rests on each key, as a share of the stretch from one key to the next (half before the key, half after). The effects and the path do not rest">hold</label>
+            <input type="range" id="morphHold" min="0" max="80" step="1" value="0" style="width:min(90px,10vw);">
+            <!-- MOTION ALONG A PATH and TRAILS (25 Oct 2026): the live shapes ride a line or curve from the
+                 drawing, and leave echoes or a ribbon behind them -->
+            <button id="bMorphPath" data-code="mpa" class="res-btn" title="select a line or a curve in the drawing and press path: every live shape rides it, once a loop, its centre on the path (several shapes spread evenly along it). The path leaves the drawing while it is one and shows as a dashed guide; press again to take it off and put it back">path</button>
+            <label title="the shape turns with the path's direction, as it was drawn at the path's start"><input type="checkbox" id="tMorphTurn" checked> turn</label>
+            <select id="morphPathMode" title="along: start to end once a loop (a closed path, round once); there &amp; back: out and back, slowing at the ends, seamless"><option value="along">along</option><option value="back">there &amp; back</option></select>
+            <label for="morphTrail" title="what a moving shape leaves behind, under the shapes and in a recording: echoes of its earlier poses, fainter the older, or a ribbon along the way its centre came">trail</label>
+            <select id="morphTrail"><option value="">none</option><option value="echoes">echoes</option><option value="ribbon">ribbon</option></select>
+            <input type="range" id="morphTrailLen" min="0" max="100" step="1" value="50" style="width:min(90px,10vw);" title="how far back the trail reaches, up to 40% of a loop">
+            <label for="morphFps" title="frames a second in a video. The video is encoded frame by frame, so every frame is in it however busy the machine">fps</label>
+            <select id="morphFps"><option value="24">24</option><option value="30" selected>30</option><option value="60">60</option></select>
             <!-- The lag is on the bar as well as in the panel, because it is a thing you dial
                      WHILE watching — the panel is where you set it before you start, this is where
                      you find the value that reads right. Both write the same state. -->
@@ -6567,6 +6603,8 @@
             <span id="morphKeys" style="color:var(--fg-muted);font-size:11px;"></span>
             <button id="bMorphKeep" data-code="mkp" class="res-btn" title="Drop a copy of the pose you are looking at into the drawing and KEEP MORPHING. It is an ordinary shape from there on — leaves, rung, colour, everything — and because the morph is still running you can scrub somewhere else and keep again, building a strip by hand one chosen cell at a time. With several morphs live it takes one pose from each, at the same t. SHIFT-CLICK to freeze instead: the morph ends, the pose stays where it stands and the keys are consumed.">keep</button>
             <button id="bMorphSvg" data-code="msv" class="res-btn" title="Write the whole scene out as ONE animated .svg — every live morph on the shared clock, the static shapes around them as a backdrop. It plays in any browser with no library and no runtime, because SMIL's <animate attributeName=&quot;d&quot;> interpolates between path strings and this format guarantees the one thing SMIL requires and cannot check: every frame is the same cubics in the same order. Frame count and loop mode are in the morph panel.">svg</button>
+            <button id="bMorphVideo" data-code="mvd" class="res-btn" title="record one loop as a .webm video (30 frames a second), the drawing alone with no editor marks, the size of the view">video</button>
+            <button id="bMorphGif" data-code="mgf" class="res-btn" title="record one loop as an animated .gif (20 frames a second, at most 480 pixels wide), looping forever">gif</button>
             <button id="bMorphExit" data-code="mex" class="res-btn" title="end every live morph and put all their keys back exactly where they were. Poses you dropped with `keep` are ordinary shapes and stay.">exit</button>
         </div>
         <!-- The line-weight slider used to live here. It is a per-SHAPE value, so it moved
@@ -39153,6 +39191,8 @@
             // canvas across fifteen scenes and toggles — leaves on and off, fills, groups, edit
             // mode, a stack, a crowd, zoomed right out and right in — and every hash must be
             // unchanged. It caught the `r` mistake on the first run. See fp.baseline.
+            if (_morphReady && morphRuns.length)
+                drawMorphTrails(w, h); // TRAILS, under the shapes and in a recording
             drawShapeContours(CHROME, ctx, h, w);
 
             if (CHROME)
@@ -39976,6 +40016,10 @@
                 drawPushRing(); // PUSH AND PULL
             if (CHROME && knifeDrag)
                 drawKnifeLine(); // THE KNIFE
+            if (CHROME && state.morphOnion && morphRunning())
+                drawMorphOnion(w, h); // THE TIMELINE: the neighbouring keys
+            if (CHROME && _morphReady && morphLive.path && morphRunning())
+                drawMorphPath(w, h); // MOTION ALONG A PATH: the guide
             // In-progress pencil stroke (canvas space).
             if (CHROME)
                 drawPenPreview();
@@ -50590,12 +50634,16 @@
         // answer for one run should not have to be spelled differently from the answer for one
         // of many.
         const morphRuns = [];
+        // drawAll can run before this line has (the page's first frames), and morphRuns is not
+        // there to read until it has; a var is, as undefined, so the trails and the guide ask it first.
+        var _morphReady = true;
         const morphLive = {
             t: 0,
             play: false,
             raf: 0,
             speed: 0.25,
             last: 0,
+            path: null, // MOTION ALONG A PATH: the path every live shape rides, or null
             get runs() {
                 return morphRuns;
             },
@@ -50628,6 +50676,10 @@
         }
         function morphWeights(t, K) {
             const w = new Float64Array(K);
+            if (K === 1) { // a still: one key, held (DETAIL EFFECTS animate it)
+                w[0] = 1;
+                return w;
+            }
             if (K === 2) {
                 w[0] = 1 - t;
                 w[1] = t;
@@ -50640,6 +50692,7 @@
         }
         function morphBarSync() {
             const on = morphRunning();
+            morphTimelineSync(); // THE TIMELINE
             const bar = $('morphBar');
             if (bar)
                 bar.style.display = on ? 'flex' : 'none';
@@ -50669,7 +50722,7 @@
                         N = Math.max(N, run.keys[0].x.length);
                     }
                     k.textContent = (morphRuns.length > 1 ? morphRuns.length + ' morphs · ' : '')
-                    + keys + ' keys · N=' + N + (morphLive.inPlace ? ' · in place' : ' · solo');
+                    + keys + ' keys · ' + (morphRuns.every(r => r.exact) ? N + ' corners' : 'N=' + N) + (morphLive.inPlace ? ' · in place' : ' · solo');
                 }
             }
             // Only while a morph is live. The run's lag outlives the run as a stale field, and
@@ -50689,6 +50742,9 @@
         // live — and with several runs going, exactly one place that can be wrong about which run.
         function morphTargetOf(run) {
             const sp = run && run.sp;
+            // an exact morph's shape is never asked for its leaves: asking would turn it into leaves
+            if (sp && run.exact)
+                return state.subpaths.indexOf(sp) < 0 ? null : sp;
             if (!sp || !sp.leafX)
                 return null;
             return state.subpaths.indexOf(sp) < 0 ? null : sp;
@@ -50696,14 +50752,12 @@
         function morphTarget() {
             return morphRuns.length ? morphTargetOf(morphRuns[0]) : null;
         }
-        function morphWriteRun(run) {
-            const sp = morphTargetOf(run);
-            if (!sp)
-                return;
+        // The pose a run shows at time t, written into X and Y: the keys blended, the effect on the
+        // detail, then the path (MOTION ALONG A PATH). morphWriteRun writes it into the live shape at
+        // the clock's t; a trail asks for it at earlier times without touching the shape.
+        function morphPoseInto(run, t, X, Y, bare) { // bare: the keys' blend alone, no effect or path
             const K = run.keys.length,
-                N = sp.leafX.length;
-            const X = sp.leafX,
-                Y = sp.leafY;
+                N = X.length;
             if (run.lag > 0) {
                 // Built on first use and thrown away when the lag goes back to zero, so a run nobody
                 // lags never pays for a transform. wrap = K > 2: two keys ramp between a start and an
@@ -50713,9 +50767,9 @@
                     run.freq = morphFreqScale(N);
                 }
                 morphBlendSpectral(run.spec, run.freq,
-                g => morphWeights(g(morphLive.t), K), run.lag, K > 2, X, Y);
+                g => morphWeights(morphWarp(g(t), K), K), run.lag, K > 2, X, Y); // EASING AND HOLDS
             } else {
-                const w = morphWeights(morphLive.t, K);
+                const w = morphWeights(morphWarp(t, K), K); // EASING AND HOLDS
                 X.fill(0);
                 Y.fill(0);
                 for (let k = 0; k < K; k++) {
@@ -50730,6 +50784,24 @@
                     }
                 }
             }
+            if (bare)
+                return;
+            if (run.fx && run.fx.kind)
+                morphApplyFx(run, X, Y, t); // DETAIL EFFECTS
+            if (morphLive.path)
+                morphApplyPath(run, X, Y, t); // MOTION ALONG A PATH
+        }
+        function morphWriteRun(run) {
+            const sp = morphTargetOf(run);
+            if (!sp)
+                return;
+            if (run.exact) { // MORPHS THAT KEEP THEIR CORNERS
+                morphWriteExact(run, sp, morphPoseExact(run, morphLive.t));
+                return;
+            }
+            const X = sp.leafX,
+                Y = sp.leafY;
+            morphPoseInto(run, morphLive.t, X, Y);
             // The reference follows the leaves. A morph is not a resample of some earlier curve —
             // each pose IS the shape, so a pose dropped by `keep` has to be its own origin or every
             // downstream reading would be taken against a curve that is not there.
@@ -50763,8 +50835,10 @@
                 if (i >= 0)
                     morphRuns.splice(i, 1);
             }
-            if (!morphRuns.length)
+            if (!morphRuns.length) {
                 morphClockStop();
+                morphLive.path = null; // MOTION ALONG A PATH: the page has moved on without it
+            }
             morphBarSync();
         }
         // Called wherever a page might have been swapped underneath a running morph. The check is
@@ -50786,7 +50860,21 @@
         }
         // A standalone copy of a run's shape as it stands right now. Deliberately minimal and
         // built the same way the live shape was: leaves are the origin, the reference follows.
-        function morphPoseClone(sp, label) {
+        function morphPoseClone(sp, label, run) {
+            if (run && run.exact) { // an exact morph's pose is kept as an exact shape, corners and all
+                const P = exactKeyCopy(run.pose || morphPoseExact(run, morphLive.t)),
+                    clone = {
+                        refLength: 0,
+                        source: 'draw',
+                        dirty: false,
+                        stroke: sp.stroke || null,
+                        lineWidth: sp.lineWidth,
+                        fill: sp.fill ? Object.assign({}, sp.fill) : null,
+                        gname: label || null
+                    };
+                makeLazy(clone, P.x, P.y, 0, null, { exact: true, round: hasRound(P.r) ? P.r : null, ctrl: hasCtrl(P.c) ? P.c : null });
+                return clone;
+            }
             const lx = Float64Array.from(sp.leafX),
                 ly = Float64Array.from(sp.leafY);
             return {
@@ -50826,6 +50914,7 @@
                 // Freeze: the live shapes stay exactly where they are and stop being live. Their
                 // keys go with the runs, which is the whole point of this reading.
                 const n = morphRuns.length;
+                morphPathRelease(true); // MOTION ALONG A PATH: the path back where it was
                 morphAbandon();
                 rebuildScroller();
                 applyShapeSelection(new Set());
@@ -50844,7 +50933,7 @@
                 // shoulders in front of the previous one and a hand-built strip reads backwards. If
                 // that pose has since been deleted or moved away, fall back to the live shape.
                 const anchor = (run.tail && state.subpaths.indexOf(run.tail) >= 0) ? run.tail : sp;
-                const clone = morphPoseClone(sp, label);
+                const clone = morphPoseClone(sp, label, run);
                 state.subpaths.splice(state.subpaths.indexOf(anchor) + 1, 0, clone);
                 run.tail = clone;
                 made++;
@@ -50891,6 +50980,8 @@
                 arr = out;
             }
             state.subpaths = arr;
+            if (morphRuns.every(r => list.indexOf(r) >= 0))
+                morphPathRelease(true); // MOTION ALONG A PATH: the path back where it was
             morphAbandon(list);
             rebuildSignalSelect();
             rebuildScroller();
@@ -50935,15 +51026,23 @@
             if (!inPlaceWanted && morphRuns.length)
                 morphAbandon();
             const sel = selectedIndices();
-            if (sel.length < 2) {
-                flashStatus('morph: select two or more shapes to blend between');
+            // ONE SHAPE GOES LIVE TOO (DETAIL EFFECTS): a single key is a still, which an effect animates.
+            if (sel.length < 1) {
+                flashStatus('morph: select one shape to animate, or two or more to blend between');
                 return null;
             }
-            const idx = sel.filter(i => {
+            // MORPHS THAT KEEP THEIR CORNERS: exact shapes (closed, no holes) morph as exact shapes, their
+            // corners, radii and curve edges blended, unless the panel's switch says leaves. Asked
+            // before anything reads their leaves, which would turn them into leaves.
+            const exactMode = state.morphCorners !== false && sel.every(i => {
+                const sp = state.subpaths[i];
+                return sp && sp._lazy && sp._lazy.exact && !sp._lazy.open && !sp._lazy.holes && sp._lazy.x.length >= 3;
+            });
+            const idx = exactMode ? sel.slice() : sel.filter(i => {
                 const sp = state.subpaths[i];
                 return sp && sp.leafX && sp.leafX.length >= 3;
             });
-            if (idx.length < 2) {
+            if (idx.length < 1) {
                 flashStatus('morph: those shapes have no leaves');
                 return null;
             }
@@ -50967,42 +51066,59 @@
                 else
                     members.push(sp);
             }
-            const N = Math.max(...src.map(sp => sp.leafX.length));
-            // Two copies of every key: one centred, one where it stands. The centred set is what
-            // the alignment is measured on and what a solo morph blends; the standing set is what
-            // an in-place morph blends, so the pose travels between the two positions the drawing
-            // already put them in. resample is a kernel interpolation whose weights sum to one, so
-            // it commutes with the translation and the pair stays a pair.
-            const cen = [],
-                raw = [];
-            for (const sp of src) {
-                let cx = 0,
-                    cy = 0;
-                const n = sp.leafX.length;
-                for (let k = 0; k < n; k++) {
-                    cx += sp.leafX[k];
-                    cy += sp.leafY[k];
+            let N, keys;
+            if (exactMode) {
+                keys = morphExactKeys(src, inPlace, align);
+                N = keys[0].x.length;
+            } else {
+                N = Math.max(...src.map(sp => sp.leafX.length));
+                // Two copies of every key: one centred, one where it stands. The centred set is what
+                // the alignment is measured on and what a solo morph blends; the standing set is what
+                // an in-place morph blends, so the pose travels between the two positions the drawing
+                // already put them in. resample is a kernel interpolation whose weights sum to one, so
+                // it commutes with the translation and the pair stays a pair.
+                const cen = [],
+                    raw = [];
+                for (const sp of src) {
+                    let cx = 0,
+                        cy = 0;
+                    const n = sp.leafX.length;
+                    for (let k = 0; k < n; k++) {
+                        cx += sp.leafX[k];
+                        cy += sp.leafY[k];
+                    }
+                    cx /= n;
+                    cy /= n;
+                    let R = new tvf.Shape(Float64Array.from(sp.leafX, v => v / hR),
+                    Float64Array.from(sp.leafY, v => v / hR));
+                    let C = new tvf.Shape(Float64Array.from(sp.leafX, v => (v - cx) / hR),
+                    Float64Array.from(sp.leafY, v => (v - cy) / hR));
+                    if (R.N !== N) {
+                        R = R.resample(N);
+                        C = C.resample(N);
+                    }
+                    raw.push(R);
+                    cen.push(C);
                 }
-                cx /= n;
-                cy /= n;
-                let R = new tvf.Shape(Float64Array.from(sp.leafX, v => v / hR),
-                Float64Array.from(sp.leafY, v => v / hR));
-                let C = new tvf.Shape(Float64Array.from(sp.leafX, v => (v - cx) / hR),
-                Float64Array.from(sp.leafY, v => (v - cy) / hR));
-                if (R.N !== N) {
-                    R = R.resample(N);
-                    C = C.resample(N);
-                }
-                raw.push(R);
-                cen.push(C);
+                const plans = cen.map((S, i) => (i === 0 || !align) ? null : morphAlignPlan(cen[0], S));
+                const base = inPlace ? raw : cen;
+                keys = base.map((S, i) => morphApplyPlan(S, plans[i])).map(S => ({
+                    x: Float64Array.from(S.x, v => v * hR),
+                    y: Float64Array.from(S.y, v => v * hR)
+                }));
             }
-            const plans = cen.map((S, i) => (i === 0 || !align) ? null : morphAlignPlan(cen[0], S));
-            const base = inPlace ? raw : cen;
-            const keys = base.map((S, i) => morphApplyPlan(S, plans[i]));
 
             if (state.editMode)
                 exitEditMode();
-            const sp0 = {
+            // an exact morph's live shape is an exact shape, made again every frame (morphWriteExact)
+            const sp0 = exactMode ? {
+                refLength: 0,
+                source: 'draw',
+                dirty: false,
+                stroke: src[0].stroke || null,
+                lineWidth: src[0].lineWidth,
+                fill: src[0].fill || null
+            } : {
                 refX: new Float64Array(N),
                 refY: new Float64Array(N),
                 leafX: new Float64Array(N),
@@ -51016,15 +51132,15 @@
                 fill: src[0].fill || null
             };
             const run = {
-                keys: keys.map(S => ({
-                    x: Float64Array.from(S.x, v => v * hR),
-                    y: Float64Array.from(S.y, v => v * hR)
-                })),
+                keys,
+                exact: exactMode, // MORPHS THAT KEEP THEIR CORNERS
+                curved: exactMode ? morphExactCurved(keys) : null,
                 sp: sp0,
                 inPlace,
-                lag,
+                lag: exactMode ? 0 : lag,
                 spec: null,
                 freq: null,
+                fx: exactMode ? null : state.morphFx ? { kind: state.morphFx, amount: state.morphFxAmount != null ? state.morphFxAmount : 0.5 } : null, // DETAIL EFFECTS
                 // For solo the run owned the whole page, so what it has to put back IS the whole page.
                 members: inPlace ? members : state.subpaths.slice(),
             };
@@ -51075,18 +51191,1577 @@
             drawAll();
             pushHistory();
             scheduleSave();
-            flashStatus('morph live · ' + keys.length + ' keys at N=' + N
+            flashStatus('morph live · ' + keys.length + (exactMode ? ' keys of ' + N + ' corners, kept sharp (an exact morph: the lag and the effects act on leaves, so they wait)' : ' keys at N=' + N)
             + (inPlace ? ' · in place — the other ' + (state.subpaths.length - 1) + ' shape'
             + (state.subpaths.length === 2 ? '' : 's') + ' and the camera are untouched,'
             + ' and the pose travels between the positions you drew them at'
             : ' · solo — the page is the morph, each key on its own centroid')
             + (morphRuns.length > 1 ? ' · ' + morphRuns.length + ' morphs are now live and they share one clock,'
             + ' so `run` moves all of them together' : '')
-            + (keys.length === 2 ? ' — t is a straight lerp between them'
+            + (keys.length === 1 ? ' — one key, a still: pick an effect in the bar to animate it' : keys.length === 2 ? ' — t is a straight lerp between them'
             : ' — the keys sit on a time circle, weighted by the same cardinal kernel that reconstructs a contour, so the loop closes')
             + (lag > 0 ? ' · detail lag ' + lag.toFixed(2) + ': the silhouette arrives first and the fine harmonics follow it by an octave-spaced stagger' : '')
             + ' · nothing is baked: `keep` drops a copy of the pose you are looking at and leaves the morph running, `exit` puts the keys back');
             return keys.length;
+        }
+
+        // ── DETAIL EFFECTS (25 Oct 2026, Tom: "yes, proceed") ──────────────────────────
+        // A shape's outline is its harmonics: the centroid, the base circle, then finer and finer
+        // detail, an octave at a time (morphFreqScale lays them from 0, the base, to 1, the finest).
+        // So an effect can move the detail and leave the silhouette alone, which a drawing tool that
+        // holds points cannot. Each pose of a live morph (or a single shape gone live, a still) is
+        // taken to its harmonics after the blend, each harmonic changed by where it sits on that
+        // scale and by the clock, and brought back:
+        //   shimmer  the fine harmonics turn a little to and fro, each at its own whole number of
+        //            cycles a loop, so the edge ripples while the shape stays put;
+        //   grow     the detail arrives octave by octave over the first half of the loop, from the
+        //            base ellipse to the whole shape, and leaves again over the second;
+        //   boil     the fine harmonics swell and turn by uneven amounts, a calm outline seething.
+        // h and N - h (the two directions of one harmonic) always share a change, so every frame is
+        // a closed curve; every rate is a whole number of cycles a loop, so the loop is seamless.
+        // `amount` (0 to 1) scales the effect. A key is no longer exact where an effect moves it:
+        // the effect is on top of the timeline, not in it.
+        const MORPH_FX = ['shimmer', 'grow', 'boil'];
+        function fxHash(m, salt) {
+            const v = Math.sin(m * 127.1 + salt * 311.7) * 43758.5453;
+            return v - Math.floor(v);
+        }
+        const fxSmooth = (a, b, x) => {
+            const u = Math.max(0, Math.min(1, (x - a) / (b - a)));
+            return u * u * (3 - 2 * u);
+        };
+        function morphApplyFx(run, X, Y, t) {
+            const N = X.length,
+                half = N >> 1,
+                fx = run.fx,
+                amt = Math.max(0, Math.min(1, fx.amount != null ? +fx.amount : 0.5));
+            if (!(amt > 0) || N < 4)
+                return;
+            if (!run.fxFreq || run.fxFreq.length !== N)
+                run.fxFreq = morphFreqScale(N);
+            const f = run.fxFreq,
+                S = morphFwd(Float64Array.from(X), Float64Array.from(Y)),
+                re = S.re,
+                im = S.im,
+                tri = 1 - Math.abs(2 * t - 1); // 0 at the loop's ends, 1 half way
+            for (let h = 0; h < N; h++) {
+                const m = h <= half ? h : N - h,
+                    fh = f[h];
+                if (fh <= 0)
+                    continue; // the centroid and the base circle never move
+                let g = 1,
+                    phi = 0;
+                if (fx.kind === 'shimmer') {
+                    const s = fxSmooth(0.3, 0.65, fh),
+                        c = 1 + Math.floor(fxHash(m, 1) * 3);
+                    phi = amt * 0.9 * s * Math.sin(TAU * (c * t + fxHash(m, 2)));
+                } else if (fx.kind === 'grow') {
+                    const L = (1 - amt) + amt * tri; // how far up the scale the detail has come
+                    g = Math.max(0, Math.min(1, (L - fh) / 0.12 + 0.5));
+                } else if (fx.kind === 'boil') {
+                    const s = fxSmooth(0.2, 0.55, fh),
+                        c1 = 1 + Math.floor(fxHash(m, 3) * 5),
+                        c2 = 1 + Math.floor(fxHash(m, 4) * 5);
+                    g = 1 + amt * 0.5 * s * Math.sin(TAU * (c1 * t + fxHash(m, 5)));
+                    phi = amt * 0.8 * s * Math.sin(TAU * (c2 * t + fxHash(m, 6)));
+                }
+                if (g === 1 && phi === 0)
+                    continue;
+                const c = Math.cos(phi) * g,
+                    sn = Math.sin(phi) * g,
+                    a = re[h],
+                    b = im[h];
+                re[h] = a * c - b * sn;
+                im[h] = a * sn + b * c;
+            }
+            const out = morphInv(re, im);
+            X.set(out.re);
+            Y.set(out.im);
+        }
+        function morphSetFx(kind, amount) {
+            for (const run of morphRuns) {
+                run.fx = { kind: MORPH_FX.includes(kind) ? kind : '', amount: amount != null ? amount : (run.fx ? run.fx.amount : 0.5) };
+            }
+            state.morphFx = MORPH_FX.includes(kind) ? kind : '';
+            state.morphFxAmount = amount != null ? amount : (state.morphFxAmount != null ? state.morphFxAmount : 0.5);
+            morphWrite();
+            morphBarSync();
+            drawAll();
+            scheduleSave();
+        }
+
+        // ── EASING AND HOLDS (25 Oct 2026, Tom: "1,2") ───────────────────────────────────
+        // Time on the loop is warped before the keys are weighed. Each stretch from one key to the
+        // next is held still for `hold` of its length (half at each end) and eased across the rest:
+        // in and out (slow from a key and into the next), in (slow away from a key), out (slow into
+        // the next). A key's own time maps to itself, so a key is still exact at its place, and the
+        // warp is the same on every stretch, so the loop stays seamless. An effect and a path keep
+        // the clock's own time: the shimmer and the ride do not stop for a hold.
+        const MORPH_EASES = ['inout', 'in', 'out'];
+        function morphEase(u) {
+            const e = state.morphEase;
+            if (e === 'inout')
+                return u * u * (3 - 2 * u);
+            if (e === 'in')
+                return u * u;
+            if (e === 'out')
+                return 1 - (1 - u) * (1 - u);
+            return u;
+        }
+        function morphWarp(t, K) {
+            const hold = Math.max(0, Math.min(0.9, +state.morphHold || 0));
+            if (K < 2 || (!(hold > 0) && !MORPH_EASES.includes(state.morphEase)))
+                return t;
+            let a, b, u;
+            if (K === 2) {
+                a = 0;
+                b = 1;
+                u = Math.max(0, Math.min(1, t));
+            } else {
+                const tt = ((t % 1) + 1) % 1,
+                    k = Math.floor(tt * K - 0.5); // the key before t (-1: the last, round the loop)
+                a = (k + 0.5) / K;
+                b = a + 1 / K;
+                u = (tt - a) * K;
+            }
+            let v = hold > 0 ? Math.max(0, Math.min(1, (u - hold / 2) / (1 - hold))) : u;
+            v = morphEase(v);
+            const r = a + v * (b - a);
+            return K === 2 ? r : ((r % 1) + 1) % 1;
+        }
+        function morphSetTiming(ease, hold) {
+            if (ease != null)
+                state.morphEase = MORPH_EASES.includes(ease) ? ease : '';
+            if (hold != null)
+                state.morphHold = Math.max(0, Math.min(0.9, +hold));
+            for (const r of morphRuns)
+                r._centres = null;
+            morphWrite();
+            morphBarSync();
+            drawAll();
+            scheduleSave();
+        }
+
+        // ── MORPHS THAT KEEP THEIR CORNERS (25 Oct 2026, Tom: "1,2") ───────────────────────
+        // Leaves are band-limited, so a square blended through leaves arrives with its corners
+        // rounded off. Exact shapes need not go through leaves at all: their corners, their radii
+        // and their curve edges are numbers, and numbers blend. So when every key is an exact
+        // closed shape the morph is exact: the live shape is an exact shape at every frame, its
+        // corners where the blend puts them, each radius blended, each curved edge's two handles
+        // blended (an edge curved in any key is a cubic in all of them, a straight edge being the
+        // cubic with its handles at the thirds, which draws the same line). Sharp corners stay sharp.
+        //
+        // Keys need as many corners each. A key with fewer is given more by splitting its edges:
+        // a curved edge at its middle (de Casteljau, so it draws the same curve), a straight one
+        // between its rounded ends (so no radius has less room than it had); the edge with most to
+        // give first. Then every key is wound the way the first is, and turned (which corner is
+        // first) to the one that moves the corners least, measured about each key's centre.
+        //
+        // The lag and the detail effects work on a shape's harmonics, which an exact morph does not
+        // have, so they wait for a leaf morph; the path, the trails, the timeline and the
+        // recordings all work. The panel's "keep corners" switch, off, morphs exact shapes as leaves.
+        function exactKeyOf(sp) {
+            const lz = sp._lazy,
+                X = Float64Array.from(lz.x),
+                Y = Float64Array.from(lz.y),
+                n = X.length;
+            const R0 = lzRoundBaked(lz),
+                S = lz.smooth,
+                C = lzCtrlBaked(lz);
+            const r = new Float64Array(n),
+                c = new Array(n).fill(null);
+            for (let k = 0; k < n; k++) {
+                r[k] = R0 && R0[k] > 0 && !(S && S[k]) ? R0[k] : 0;
+                const cc = edgeCtrl(X, Y, S, false, k, (k + 1) % n, C);
+                c[k] = cc ? [cc.c1x, cc.c1y, cc.c2x, cc.c2y] : null;
+            }
+            return { x: X, y: Y, r, c };
+        }
+        function exactKeyCopy(P) {
+            return { x: Float64Array.from(P.x), y: Float64Array.from(P.y), r: Float64Array.from(P.r), c: P.c.map(e => e ? e.slice() : null) };
+        }
+        // how far along each end of a straight edge its corner's rounding reaches (0 if none)
+        function exactTangentLen(K, k) {
+            const n = K.x.length;
+            if (!(K.r[k] > 0) || K.c[k] || K.c[(k - 1 + n) % n])
+                return 0;
+            const g = cornerArc(K.x, K.y, k, false, K.r[k]);
+            return g ? g.t : 0;
+        }
+        // one more corner: the edge with most room split, the drawn outline unchanged
+        function exactSplitOne(K) {
+            const n = K.x.length;
+            let best = -1,
+                bestScore = -Infinity,
+                bestAt = 0.5;
+            for (let e = 0; e < n; e++) {
+                const f = (e + 1) % n,
+                    L = Math.hypot(K.x[f] - K.x[e], K.y[f] - K.y[e]);
+                let score,
+                    at = 0.5;
+                if (K.c[e])
+                    score = L;
+                else {
+                    const te = exactTangentLen(K, e),
+                        tf = exactTangentLen(K, f);
+                    score = L - 2 * te - 2 * tf;
+                    if (L > 0)
+                        at = (L + 2 * te - 2 * tf) / (2 * L);
+                }
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = e;
+                    bestAt = at;
+                }
+            }
+            const e = best,
+                f = (e + 1) % n,
+                x0 = K.x[e],
+                y0 = K.y[e],
+                x3 = K.x[f],
+                y3 = K.y[f],
+                c = K.c[e];
+            let mx,
+                my,
+                cA = null,
+                cB = null;
+            if (c) {
+                const [x1, y1, x2, y2] = c;
+                const ax = (x0 + x1) / 2,
+                    ay = (y0 + y1) / 2,
+                    bx = (x1 + x2) / 2,
+                    by = (y1 + y2) / 2,
+                    dx = (x2 + x3) / 2,
+                    dy = (y2 + y3) / 2;
+                const ex = (ax + bx) / 2,
+                    ey = (ay + by) / 2,
+                    gx = (bx + dx) / 2,
+                    gy = (by + dy) / 2;
+                mx = (ex + gx) / 2;
+                my = (ey + gy) / 2;
+                cA = [ax, ay, ex, ey];
+                cB = [gx, gy, dx, dy];
+            } else {
+                mx = x0 + bestAt * (x3 - x0);
+                my = y0 + bestAt * (y3 - y0);
+            }
+            const ins = (arr, v) => {
+                const a = Array.from(arr);
+                a.splice(e + 1, 0, v);
+                return Float64Array.from(a);
+            };
+            K.x = ins(K.x, mx);
+            K.y = ins(K.y, my);
+            K.r = ins(K.r, 0);
+            const cs = K.c.slice();
+            cs.splice(e, 1, cA, cB);
+            K.c = cs;
+        }
+        // the drawn outline as points, and its centre (by length along it)
+        function exactDenseOf(K) {
+            return exactDense(K.x, K.y, hasRound(K.r) ? K.r : null, false, null, hasCtrl(K.c) ? K.c : null);
+        }
+        function exactCentre(K) {
+            const D = exactDenseOf(K),
+                n = D.x.length;
+            let sx = 0,
+                sy = 0,
+                sl = 0;
+            for (let i = 0; i < n; i++) {
+                const j = (i + 1) % n,
+                    l = Math.hypot(D.x[j] - D.x[i], D.y[j] - D.y[i]);
+                sx += l * (D.x[i] + D.x[j]) / 2;
+                sy += l * (D.y[i] + D.y[j]) / 2;
+                sl += l;
+            }
+            return sl > 0 ? { x: sx / sl, y: sy / sl } : { x: D.x[0], y: D.y[0] };
+        }
+        function exactArea(K) {
+            const D = exactDenseOf(K),
+                n = D.x.length;
+            let a = 0;
+            for (let i = 0; i < n; i++) {
+                const j = (i + 1) % n;
+                a += D.x[i] * D.y[j] - D.x[j] * D.y[i];
+            }
+            return a / 2;
+        }
+        function exactReverse(K) {
+            const n = K.x.length,
+                o = exactKeyCopy(K);
+            for (let j = 0; j < n; j++) {
+                K.x[j] = o.x[n - 1 - j];
+                K.y[j] = o.y[n - 1 - j];
+                K.r[j] = o.r[n - 1 - j];
+                const e = o.c[(n - 2 - j + n) % n];
+                K.c[j] = e ? [e[2], e[3], e[0], e[1]] : null;
+            }
+        }
+        function exactRoll(K, s) {
+            const n = K.x.length,
+                o = exactKeyCopy(K);
+            for (let j = 0; j < n; j++) {
+                const i = (j + s) % n;
+                K.x[j] = o.x[i];
+                K.y[j] = o.y[i];
+                K.r[j] = o.r[i];
+                K.c[j] = o.c[i];
+            }
+        }
+        function exactMove(K, dx, dy) {
+            for (let j = 0; j < K.x.length; j++) {
+                K.x[j] += dx;
+                K.y[j] += dy;
+                const e = K.c[j];
+                if (e) {
+                    e[0] += dx;
+                    e[1] += dy;
+                    e[2] += dx;
+                    e[3] += dy;
+                }
+            }
+        }
+        // the keys of an exact morph: as many corners each, wound and turned alike; centred for a solo morph
+        function morphExactKeys(src, inPlace, align) {
+            const keys = src.map(exactKeyOf);
+            const n = Math.max(...keys.map(K => K.x.length));
+            for (const K of keys)
+                while (K.x.length < n)
+                    exactSplitOne(K);
+            const c0 = exactCentre(keys[0]),
+                wind = Math.sign(exactArea(keys[0]));
+            for (let k = 1; k < keys.length; k++) {
+                const K = keys[k];
+                if (!align)
+                    continue;
+                if (Math.sign(exactArea(K)) !== wind)
+                    exactReverse(K);
+                const ck = exactCentre(K);
+                let best = 0,
+                    bestCost = Infinity;
+                for (let s = 0; s < n; s++) {
+                    let cost = 0;
+                    for (let j = 0; j < n; j++) {
+                        const i = (j + s) % n,
+                            dx = (K.x[i] - ck.x) - (keys[0].x[j] - c0.x),
+                            dy = (K.y[i] - ck.y) - (keys[0].y[j] - c0.y);
+                        cost += dx * dx + dy * dy;
+                    }
+                    if (cost < bestCost) {
+                        bestCost = cost;
+                        best = s;
+                    }
+                }
+                if (best)
+                    exactRoll(K, best);
+            }
+            if (!inPlace)
+                for (const K of keys) {
+                    const c = exactCentre(K);
+                    exactMove(K, -c.x, -c.y);
+                }
+            return keys;
+        }
+        // which edges are curved in some key (they are cubics in every pose)
+        function morphExactCurved(keys) {
+            const n = keys[0].x.length,
+                out = new Uint8Array(n);
+            for (const K of keys)
+                for (let e = 0; e < n; e++)
+                    if (K.c[e])
+                        out[e] = 1;
+            return out;
+        }
+        // the pose at t: the keys' corners, radii and handles weighed, then the path
+        function morphPoseExact(run, t, bare) {
+            const K = run.keys.length,
+                w = morphWeights(morphWarp(t, K), K),
+                n = run.keys[0].x.length;
+            const x = new Float64Array(n),
+                y = new Float64Array(n),
+                r = new Float64Array(n),
+                c = new Array(n).fill(null);
+            for (let k = 0; k < K; k++) {
+                const a = w[k];
+                if (a === 0)
+                    continue;
+                const Q = run.keys[k];
+                for (let j = 0; j < n; j++) {
+                    x[j] += a * Q.x[j];
+                    y[j] += a * Q.y[j];
+                    r[j] += a * Q.r[j];
+                }
+            }
+            for (let e = 0; e < n; e++) {
+                if (!run.curved[e])
+                    continue;
+                const f = (e + 1) % n,
+                    acc = [0, 0, 0, 0];
+                for (let k = 0; k < K; k++) {
+                    const a = w[k];
+                    if (a === 0)
+                        continue;
+                    const Q = run.keys[k],
+                        q = Q.c[e] || [Q.x[e] + (Q.x[f] - Q.x[e]) / 3, Q.y[e] + (Q.y[f] - Q.y[e]) / 3,
+                        Q.x[f] - (Q.x[f] - Q.x[e]) / 3, Q.y[f] - (Q.y[f] - Q.y[e]) / 3];
+                    for (let i = 0; i < 4; i++)
+                        acc[i] += a * q[i];
+                }
+                c[e] = acc;
+            }
+            for (let j = 0; j < n; j++)
+                if (!(r[j] > 0))
+                    r[j] = 0;
+            const P = { x, y, r, c };
+            if (morphLive.path && !bare) { // MOTION ALONG A PATH: the corners and handles carried
+                const ctr = exactCentre(P),
+                    q = morphPathPlace(run, t),
+                    cs = Math.cos(q.turn),
+                    sn = Math.sin(q.turn);
+                const tf = (px, py) => [q.x + cs * (px - ctr.x) - sn * (py - ctr.y), q.y + sn * (px - ctr.x) + cs * (py - ctr.y)];
+                for (let j = 0; j < n; j++) {
+                    [x[j], y[j]] = tf(x[j], y[j]);
+                    const e = c[j];
+                    if (e) {
+                        [e[0], e[1]] = tf(e[0], e[1]);
+                        [e[2], e[3]] = tf(e[2], e[3]);
+                    }
+                }
+            }
+            return P;
+        }
+        function morphWriteExact(run, sp, P) {
+            makeLazy(sp, P.x, P.y, 0, null, {
+                exact: true,
+                round: hasRound(P.r) ? P.r : null,
+                ctrl: hasCtrl(P.c) ? P.c : null
+            });
+            run.pose = P;
+        }
+        // a pose as 2n cubics in a fixed order, for the animated svg: at each corner its rounding
+        // (an arc's cubic, or none, all four points at the corner), then the edge to the next
+        function morphExactCubics(P) {
+            const n = P.x.length,
+                ends = [];
+            for (let k = 0; k < n; k++) {
+                const g = P.r[k] > 0 && !P.c[k] && !P.c[(k - 1 + n) % n] ? cornerArc(P.x, P.y, k, false, P.r[k]) : null;
+                if (g) {
+                    const h = (4 / 3) * Math.tan((Math.PI - g.phi) / 4) * g.r,
+                        ux = (g.t1x - P.x[k]) / g.t,
+                        uy = (g.t1y - P.y[k]) / g.t,
+                        vx = (g.t2x - P.x[k]) / g.t,
+                        vy = (g.t2y - P.y[k]) / g.t;
+                    ends.push({ a: { x: g.t1x, y: g.t1y }, c1: { x: g.t1x - ux * h, y: g.t1y - uy * h }, c2: { x: g.t2x - vx * h, y: g.t2y - vy * h }, b: { x: g.t2x, y: g.t2y } });
+                } else {
+                    const p = { x: P.x[k], y: P.y[k] };
+                    ends.push({ a: p, c1: p, c2: p, b: p });
+                }
+            }
+            const pts = [ends[0].b];
+            for (let k = 0; k < n; k++) {
+                const A = ends[k].b,
+                    B = ends[(k + 1) % n].a,
+                    e = P.c[k];
+                if (e)
+                    pts.push({ x: e[0], y: e[1] }, { x: e[2], y: e[3] }, B);
+                else
+                    pts.push({ x: A.x + (B.x - A.x) / 3, y: A.y + (B.y - A.y) / 3 }, { x: B.x - (B.x - A.x) / 3, y: B.y - (B.y - A.y) / 3 }, B);
+                const F = ends[(k + 1) % n];
+                pts.push(F.c1, F.c2, F.b);
+            }
+            return pts;
+        }
+        // an exact shape's outline (and its holes) as svg path data, through mp (world to the file's
+        // units): lines, its curve edges' cubics, and each rounded corner's arc as its cubic
+        function exactPathD(lz, mp, dp) {
+            const q = Math.pow(10, dp),
+                f = v => Math.round(v * q) / q,
+                P = (x, y) => {
+                    const p = mp({ x, y });
+                    return f(p.x) + ' ' + f(p.y);
+                };
+            const ring = (X, Y, R, open, S, C) => {
+                if (X.length < (open ? 2 : 3))
+                    return '';
+                const E = exactSegs(X, Y, R, open, S, C);
+                let d = 'M' + P(E.start.x, E.start.y);
+                for (const g of E.segs) {
+                    if (g.type === 'L')
+                        d += 'L' + P(g.x, g.y);
+                    else if (g.type === 'C')
+                        d += 'C' + P(g.c1x, g.c1y) + ' ' + P(g.c2x, g.c2y) + ' ' + P(g.x, g.y);
+                    else {
+                        const a = g.g,
+                            h = (4 / 3) * Math.tan((Math.PI - a.phi) / 4) * a.r,
+                            ux = (a.t1x - g.px) / a.t,
+                            uy = (a.t1y - g.py) / a.t,
+                            vx = (a.t2x - g.px) / a.t,
+                            vy = (a.t2y - g.py) / a.t;
+                        d += 'L' + P(a.t1x, a.t1y) + 'C' + P(a.t1x - ux * h, a.t1y - uy * h) + ' ' + P(a.t2x - vx * h, a.t2y - vy * h) + ' ' + P(a.t2x, a.t2y);
+                    }
+                }
+                return d + (open ? '' : 'Z');
+            };
+            let d = ring(lz.x, lz.y, lzRoundBaked(lz), lz.open, lz.smooth, lzCtrlBaked(lz));
+            for (const hl of (lzHolesBaked(lz) || []))
+                d += ring(hl.x, hl.y, null, false, hl.smooth, hl.ctrl);
+            return d;
+        }
+        function cubicsToPathD(pts, dp) {
+            const q = Math.pow(10, dp),
+                f = v => Math.round(v * q) / q;
+            let d = 'M' + f(pts[0].x) + ' ' + f(pts[0].y);
+            for (let i = 1; i + 2 < pts.length; i += 3)
+                d += 'C' + f(pts[i].x) + ' ' + f(pts[i].y) + ' ' + f(pts[i + 1].x) + ' ' + f(pts[i + 1].y) + ' ' + f(pts[i + 2].x) + ' ' + f(pts[i + 2].y);
+            return d + 'Z';
+        }
+        // a run's drawn outline at time u, as points (an exact pose's, or the leaves' curve)
+        function morphOutlineAt(run, u) {
+            if (run.exact)
+                return exactDenseOf(morphPoseExact(run, u));
+            const sp = morphTargetOf(run);
+            if (!sp)
+                return null;
+            const B = morphTrailBuf(sp.leafX.length);
+            morphPoseInto(run, u, B.x, B.y);
+            return new tvf.Shape(B.x, B.y).sample(256);
+        }
+
+        // ── MOTION ALONG A PATH (25 Oct 2026, Tom: "1,3") ───────────────────────────────
+        // A line or a curve in the drawing becomes a path, and every live shape rides it on the
+        // shared clock: the pose's centre (its leaves' mean, which is the curve's own centroid) is
+        // put on the path, and with `turn` on the pose turns with the path's direction, as drawn at
+        // the path's start. The path is sampled evenly by length, so the ride is at an even speed.
+        // A closed path goes round once a loop; an open one goes from its start to its end and jumps
+        // back, or with `there & back` goes out and comes back, slowing at the ends, so its loop is
+        // seamless too. Several live shapes share one path, spread evenly along it, a procession.
+        //
+        // The path shape leaves the drawing while it is a path (it is the motion's, not the
+        // picture's, so a recording does not show it) and is drawn as a dashed guide; taking the
+        // path off, or exit, puts it back where it was.
+        const MORPH_PATH_M = 512;
+        // a shape's outline as a polyline in the world, and whether it closes
+        function morphPathFrom(sp) {
+            if (!sp)
+                return null;
+            if (sp._lazy) {
+                const P = lzOutlinePts(sp._lazy),
+                    open = !!sp._lazy.open;
+                if (!P || P.x.length < (open ? 2 : 3))
+                    return null;
+                return { x: Float64Array.from(P.x), y: Float64Array.from(P.y), closed: !open };
+            }
+            if (!sp.leafX || sp.leafX.length < 3)
+                return null;
+            const g = new tvf.Shape(Float64Array.from(sp.leafX), Float64Array.from(sp.leafY)).sample(MORPH_PATH_M);
+            return { x: Float64Array.from(g.x), y: Float64Array.from(g.y), closed: true };
+        }
+        // the polyline sampled at M + 1 evenly spaced lengths (the last is the first, closed), each
+        // with the direction there, taken over a few samples so a polygon's corner turns over a
+        // short stretch rather than in one frame
+        function morphPathBuild(px, py, closed) {
+            const n = px.length,
+                xs = Array.from(px),
+                ys = Array.from(py);
+            if (closed) {
+                xs.push(xs[0]);
+                ys.push(ys[0]);
+            }
+            const L = [0];
+            for (let i = 1; i < xs.length; i++)
+                L.push(L[i - 1] + Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]));
+            const total = L[L.length - 1];
+            if (!(total > 0) || n < 2)
+                return null;
+            const M = MORPH_PATH_M,
+                x = new Float64Array(M + 1),
+                y = new Float64Array(M + 1),
+                ang = new Float64Array(M + 1);
+            let j = 0;
+            for (let i = 0; i <= M; i++) {
+                const s = total * i / M;
+                while (j < L.length - 2 && L[j + 1] < s)
+                    j++;
+                const seg = L[j + 1] - L[j],
+                    u = seg > 0 ? (s - L[j]) / seg : 0;
+                x[i] = xs[j] + u * (xs[j + 1] - xs[j]);
+                y[i] = ys[j] + u * (ys[j + 1] - ys[j]);
+            }
+            const W = 3;
+            for (let i = 0; i <= M; i++) {
+                let a = i - W,
+                    b = i + W;
+                if (closed) {
+                    a = ((a % M) + M) % M;
+                    b = b % M;
+                } else {
+                    a = Math.max(0, a);
+                    b = Math.min(M, b);
+                }
+                ang[i] = Math.atan2(y[b] - y[a], x[b] - x[a]);
+            }
+            if (closed)
+                ang[M] = ang[0];
+            return { x, y, ang, closed, len: total, src: { x: Float64Array.from(px), y: Float64Array.from(py) } };
+        }
+        // where along the path (0 to 1) the clock puts it, for the run at `phase` along a procession
+        function morphPathS(P, t, phase) {
+            if (P.mode === 'back') {
+                const u = ((t + phase) % 1 + 1) % 1;
+                return (1 - Math.cos(TAU * u)) / 2;
+            }
+            return ((t + phase) % 1 + 1) % 1;
+        }
+        function morphPathAt(P, s) {
+            const M = P.x.length - 1,
+                f = Math.max(0, Math.min(M, s * M)),
+                i = Math.min(M - 1, Math.floor(f)),
+                u = f - i;
+            let da = P.ang[i + 1] - P.ang[i];
+            da -= TAU * Math.round(da / TAU);
+            return {
+                x: P.x[i] + u * (P.x[i + 1] - P.x[i]),
+                y: P.y[i] + u * (P.y[i + 1] - P.y[i]),
+                a: P.ang[i] + u * da
+            };
+        }
+        // which way the pose faces is the path's direction there, less the direction at the start,
+        // so a shape that starts on the path looks as drawn. There and back it comes back facing the
+        // same way, backing along the path: a half turn at the far end would happen in one frame.
+        function morphPathPlace(run, t) {
+            const P = morphLive.path,
+                k = Math.max(0, morphRuns.indexOf(run)),
+                phase = morphRuns.length > 1 ? k / morphRuns.length : 0,
+                s = morphPathS(P, t, phase),
+                q = morphPathAt(P, s);
+            return { x: q.x, y: q.y, turn: P.turn ? q.a - P.ang[0] : 0 };
+        }
+        function morphApplyPath(run, X, Y, t) {
+            const N = X.length;
+            let cx = 0,
+                cy = 0;
+            for (let i = 0; i < N; i++) {
+                cx += X[i];
+                cy += Y[i];
+            }
+            cx /= N;
+            cy /= N;
+            const q = morphPathPlace(run, t),
+                c = Math.cos(q.turn),
+                s = Math.sin(q.turn);
+            for (let i = 0; i < N; i++) {
+                const dx = X[i] - cx,
+                    dy = Y[i] - cy;
+                X[i] = q.x + c * dx - s * dy;
+                Y[i] = q.y + s * dx + c * dy;
+            }
+        }
+        // the selected line or curve becomes the path; with a path on, the button takes it off
+        function morphSetPath(o) {
+            o = o || {};
+            if (!morphRunning())
+                return 0;
+            if (morphLive.path && !o.replace) {
+                morphPathRelease(true);
+                pushHistory();
+                morphBarSync();
+                morphWrite();
+                drawAll();
+                scheduleSave();
+                flashStatus('path taken off · the line is back in the drawing and the shapes stand where they morph');
+                return 0;
+            }
+            const live = new Set(morphRuns.map(r => r.sp));
+            const idx = (o.index != null ? [o.index] : selectedIndices()).filter(i => state.subpaths[i] && !live.has(state.subpaths[i]));
+            const sp = idx.length ? state.subpaths[idx[0]] : null;
+            const poly = morphPathFrom(sp);
+            const P = poly && morphPathBuild(poly.x, poly.y, poly.closed);
+            if (!P) {
+                flashStatus('path: select a line or a curve in the drawing (not a live shape), then press path; the live shapes will ride it');
+                return 0;
+            }
+            if (morphLive.path)
+                morphPathRelease(true);
+            P.turn = state.morphPathTurn !== false;
+            P.mode = state.morphPathMode === 'back' ? 'back' : 'along';
+            P.member = sp;
+            P.at = state.subpaths.indexOf(sp);
+            state.subpaths.splice(P.at, 1);
+            morphLive.path = P;
+            applyShapeSelection(new Set());
+            rebuildSignalSelect();
+            rebuildScroller();
+            morphWrite();
+            morphBarSync();
+            drawAll();
+            pushHistory();
+            scheduleSave();
+            flashStatus('path · ' + (P.closed ? 'a closed curve: round once a loop' : P.mode === 'back' ? 'a line: out and back once a loop' : 'a line: start to end once a loop')
+            + (morphRuns.length > 1 ? ' · ' + morphRuns.length + ' shapes spread evenly along it' : '')
+            + (P.turn ? ' · turning with it' : ''));
+            return 1;
+        }
+        // the path's shape back into the drawing (restore), or dropped with a page that has moved on
+        function morphPathRelease(restore) {
+            const P = morphLive.path;
+            if (!P)
+                return;
+            morphLive.path = null;
+            if (restore && P.member && state.subpaths.indexOf(P.member) < 0)
+                state.subpaths.splice(Math.max(0, Math.min(state.subpaths.length, P.at)), 0, P.member);
+            if (restore) {
+                rebuildSignalSelect();
+                rebuildScroller();
+            }
+        }
+        function morphPathOptions(turn, mode) {
+            if (turn != null)
+                state.morphPathTurn = !!turn;
+            if (mode != null)
+                state.morphPathMode = mode === 'back' ? 'back' : 'along';
+            const P = morphLive.path;
+            if (P) {
+                P.turn = state.morphPathTurn !== false;
+                P.mode = state.morphPathMode === 'back' ? 'back' : 'along';
+            }
+            morphWrite();
+            morphBarSync();
+            drawAll();
+            scheduleSave();
+        }
+        // the path as a dashed guide, with a dot where each shape is on it (the editor's, never a recording's)
+        function drawMorphPath(w, h) {
+            const P = morphLive.path;
+            if (!P)
+                return;
+            ctx.save();
+            ctx.lineWidth = 1.25;
+            ctx.setLineDash([3, 5]);
+            ctx.strokeStyle = 'rgba(200,200,215,0.45)';
+            ctx.beginPath();
+            for (let i = 0; i < P.x.length; i++) {
+                const q = worldToPx(P.x[i], P.y[i], w, h);
+                if (i)
+                    ctx.lineTo(q.x, q.y);
+                else
+                    ctx.moveTo(q.x, q.y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(200,200,215,0.7)';
+            const s0 = worldToPx(P.x[0], P.y[0], w, h);
+            ctx.beginPath();
+            ctx.arc(s0.x, s0.y, 3, 0, TAU);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // ── TRAILS (25 Oct 2026, Tom: "1,3") ──────────────────────────────────────────────
+        // What a moving shape leaves behind, drawn under the shapes and in a recording:
+        //   echoes  the pose at a few earlier moments, fainter the older, each in the shape's own
+        //           fill and line (the morph and the effect included, so a shimmering shape leaves
+        //           shimmering echoes);
+        //   ribbon  the way its centre came, a tapering band as wide as the shape at its head.
+        // `length` is how far back the trail reaches, up to 40% of a loop. A trail reaches back round
+        // the loop only where the motion is a loop; where it jumps back (a two-key ramp, a line ridden
+        // start to end) it begins at t = 0, so it never streaks across the jump.
+        const MORPH_TRAILS = ['echoes', 'ribbon'],
+            MORPH_ECHOES = 7;
+        function morphTrailSpan() {
+            const L = state.morphTrailLen != null ? +state.morphTrailLen : 0.5;
+            return 0.04 + 0.36 * Math.max(0, Math.min(1, L));
+        }
+        function morphLoops(run) {
+            const P = morphLive.path;
+            if (P)
+                return P.closed || P.mode === 'back';
+            return run.keys.length !== 2;
+        }
+        // the time `back` before t, or null where the motion does not reach back that far
+        function morphTrailTime(run, t, back) {
+            let u = t - back;
+            if (u < 0) {
+                if (!morphLoops(run))
+                    return null;
+                u += 1;
+            }
+            return u;
+        }
+        let _trailBuf = null;
+        function morphTrailBuf(N) {
+            if (!_trailBuf || _trailBuf.x.length !== N)
+                _trailBuf = { x: new Float64Array(N), y: new Float64Array(N) };
+            return _trailBuf;
+        }
+        // a pose's centre at time u, without building the pose: the path's point, or the keys'
+        // centres blended (the blend is linear, and neither the lag nor an effect moves a centre)
+        function morphCentreAt(run, u) {
+            if (morphLive.path)
+                return morphPathPlace(run, u);
+            if (!run._centres || run._centres.length !== run.keys.length)
+                run._centres = run.keys.map(k => run.exact ? exactCentre(k) : (() => {
+                    let cx = 0,
+                        cy = 0;
+                    for (let i = 0; i < k.x.length; i++) {
+                        cx += k.x[i];
+                        cy += k.y[i];
+                    }
+                    return { x: cx / k.x.length, y: cy / k.x.length };
+                })());
+            const w = morphWeights(morphWarp(u, run.keys.length), run.keys.length); // EASING AND HOLDS
+            let x = 0,
+                y = 0;
+            for (let k = 0; k < w.length; k++) {
+                x += w[k] * run._centres[k].x;
+                y += w[k] * run._centres[k].y;
+            }
+            return { x, y };
+        }
+        function drawMorphTrails(w, h) {
+            const kind = state.morphTrail;
+            if (!MORPH_TRAILS.includes(kind) || !morphRuns.length)
+                return;
+            const span = morphTrailSpan(),
+                t = morphLive.t;
+            ctx.save();
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            for (const run of morphRuns) {
+                const sp = morphTargetOf(run);
+                if (!sp)
+                    continue;
+                const fillCol = state.showFills && sp.fill && sp.fill.color ? sp.fill.color : null,
+                    fillA = sp.fill && sp.fill.opacity != null ? sp.fill.opacity : 1,
+                    lineCol = sp.stroke || (fillCol ? null : 'rgba(212,160,82,1)'),
+                    lw = sp.lineWidth != null ? sp.lineWidth : state.lineWidth;
+                if (kind === 'echoes') {
+                    for (let k = MORPH_ECHOES; k >= 1; k--) {
+                        const u = morphTrailTime(run, t, span * k / MORPH_ECHOES);
+                        if (u == null)
+                            continue;
+                        const g = morphOutlineAt(run, u), // an exact morph's echoes keep their corners
+                            a = 0.6 * (1 - k / (MORPH_ECHOES + 1));
+                        if (!g)
+                            continue;
+                        ctx.beginPath();
+                        for (let i = 0; i < g.x.length; i++) {
+                            const q = worldToPx(g.x[i], g.y[i], w, h);
+                            if (i)
+                                ctx.lineTo(q.x, q.y);
+                            else
+                                ctx.moveTo(q.x, q.y);
+                        }
+                        ctx.closePath();
+                        if (fillCol) {
+                            ctx.globalAlpha = a * fillA;
+                            ctx.fillStyle = fillCol;
+                            ctx.fill('evenodd');
+                        }
+                        if (lineCol && lw > 0) {
+                            ctx.globalAlpha = a;
+                            ctx.strokeStyle = lineCol;
+                            ctx.lineWidth = lw;
+                            ctx.stroke();
+                        }
+                    }
+                } else {
+                    // the head's width: twice the pose's mean distance from its centre, on screen
+                    const O = run.exact ? exactDenseOf(run.pose || morphPoseExact(run, t)) : { x: sp.leafX, y: sp.leafY },
+                        X = O.x,
+                        Y = O.y,
+                        N = X.length;
+                    let cx = 0,
+                        cy = 0;
+                    for (let i = 0; i < N; i++) {
+                        cx += X[i];
+                        cy += Y[i];
+                    }
+                    cx /= N;
+                    cy /= N;
+                    let r = 0;
+                    for (let i = 0; i < N; i++)
+                        r += Math.hypot(X[i] - cx, Y[i] - cy);
+                    r /= N;
+                    const c0 = worldToPx(cx, cy, w, h),
+                        c1 = worldToPx(cx + r, cy, w, h),
+                        head = 2 * Math.hypot(c1.x - c0.x, c1.y - c0.y),
+                        S = 48;
+                    ctx.strokeStyle = fillCol || lineCol || 'rgba(212,160,82,1)';
+                    let prev = null;
+                    for (let k = S; k >= 0; k--) {
+                        const u = morphTrailTime(run, t, span * k / S);
+                        if (u == null) {
+                            prev = null;
+                            continue;
+                        }
+                        const c = morphCentreAt(run, u),
+                            q = worldToPx(c.x, c.y, w, h);
+                        if (prev) {
+                            const f = 1 - k / S; // 0 at the tail, 1 at the head
+                            ctx.globalAlpha = 0.5 * f * (fillCol ? fillA : 1);
+                            ctx.lineWidth = Math.max(0.5, head * 0.8 * f);
+                            ctx.beginPath();
+                            ctx.moveTo(prev.x, prev.y);
+                            ctx.lineTo(q.x, q.y);
+                            ctx.stroke();
+                        }
+                        prev = q;
+                    }
+                }
+            }
+            ctx.restore();
+        }
+        function morphSetTrail(kind, len) {
+            if (kind != null)
+                state.morphTrail = MORPH_TRAILS.includes(kind) ? kind : '';
+            if (len != null)
+                state.morphTrailLen = Math.max(0, Math.min(1, +len));
+            morphBarSync();
+            drawAll();
+            scheduleSave();
+        }
+
+        // ── THE TIMELINE (25 Oct 2026, Tom: "1,2") ──────────────────────────────────────
+        // A live morph already is a timeline: its K keys sit evenly round the time circle (or, with
+        // two, at the two ends of a ramp), and at a key's own place the cardinal kernel gives that key
+        // exactly. What it lacked was a way to see and work the keys as moments. So: their places as
+        // ticks on the track; a step to the key before or after; a key made from the pose in view, put
+        // between its neighbours; a key taken away; the neighbouring keys drawn faintly round the pose
+        // (onion skins); and the loop's length in seconds, which is also a recording's length.
+        //
+        // The keys stay EVENLY spaced. That is what makes each key exact and the loop seamless (the
+        // band limit is the easing), so a new key does not sit at an arbitrary time: it goes between
+        // the key before and the key after where you stand, and every key moves to keep the spacing.
+        // The pose on screen does not change, because t moves to the new key's place.
+        //
+        // All runs share the clock, so adding or removing a key happens in every run at once, and
+        // only when they all have as many keys (otherwise they would disagree about where a key is).
+        function morphKeyPhases(K) {
+            if (K === 1)
+                return [0.5];
+            if (K === 2)
+                return [0, 1];
+            return Array.from({ length: K }, (_, k) => (k + 0.5) / K);
+        }
+        let _morphTicksK = -1;
+        function morphTimelineSync() {
+            const run = morphRuns[0],
+                K = run ? run.keys.length : 0;
+            if (K !== _morphTicksK) {
+                _morphTicksK = K;
+                const dl = $('morphTickList');
+                if (dl)
+                    dl.innerHTML = K ? morphKeyPhases(K).map(p => `<option value="${Math.round(p * 1000)}"></option>`).join('') : '';
+            }
+            const lp = $('morphLoop');
+            if (lp && document.activeElement !== lp) {
+                const v = +(1 / morphLive.speed).toFixed(2);
+                if (+lp.value !== v)
+                    lp.value = String(v);
+            }
+            const on = $('tMorphOnion');
+            if (on)
+                on.checked = !!state.morphOnion;
+            const run0 = morphRuns[0],
+                fxs = $('morphFx'),
+                fxa = $('morphFxAmt');
+            if (fxs && document.activeElement !== fxs)
+                fxs.value = run0 && run0.fx ? run0.fx.kind : '';
+            if (fxa && document.activeElement !== fxa)
+                fxa.value = String(Math.round(100 * (run0 && run0.fx && run0.fx.amount != null ? run0.fx.amount : 0.5)));
+            // EASING AND HOLDS
+            const es = $('morphEase'),
+                hi = $('morphHold');
+            if (es && document.activeElement !== es)
+                es.value = ['inout', 'in', 'out'].includes(state.morphEase) ? state.morphEase : '';
+            if (hi && document.activeElement !== hi)
+                hi.value = String(Math.round(100 * (+state.morphHold || 0)));
+            // MOTION ALONG A PATH and TRAILS
+            const pb = $('bMorphPath');
+            if (pb) {
+                pb.classList.toggle('active', !!morphLive.path);
+                pb.textContent = morphLive.path ? 'path ✓' : 'path';
+            }
+            const tt = $('tMorphTurn');
+            if (tt)
+                tt.checked = state.morphPathTurn !== false;
+            const pm = $('morphPathMode');
+            if (pm && document.activeElement !== pm)
+                pm.value = state.morphPathMode === 'back' ? 'back' : 'along';
+            const tr = $('morphTrail'),
+                tl = $('morphTrailLen');
+            if (tr && document.activeElement !== tr)
+                tr.value = state.morphTrail === 'echoes' || state.morphTrail === 'ribbon' ? state.morphTrail : '';
+            if (tl && document.activeElement !== tl)
+                tl.value = String(Math.round(100 * (state.morphTrailLen != null ? state.morphTrailLen : 0.5)));
+            const fs = $('morphFps');
+            if (fs && document.activeElement !== fs)
+                fs.value = String([24, 30, 60].includes(+state.morphFps) ? +state.morphFps : 30);
+        }
+        function morphSetT(t) {
+            morphClockStop();
+            morphLive.t = Math.max(0, Math.min(1, t));
+            morphWrite();
+            morphBarSync();
+            drawAll();
+            scheduleSave(); // THE TIMELINE IS SAVED
+        }
+        // the key before or after where you stand (round the loop with three or more keys)
+        function morphStepKey(dir) {
+            const run = morphRuns[0];
+            if (!run)
+                return null;
+            const P = morphKeyPhases(run.keys.length),
+                t = morphLive.t,
+                eps = 1e-6;
+            let to = dir > 0 ? P.find(p => p > t + eps) : P.slice().reverse().find(p => p < t - eps);
+            if (to === undefined)
+                to = dir > 0 ? P[0] : P[P.length - 1];
+            morphSetT(to);
+            return P.indexOf(to);
+        }
+        // which key t is on, or -1
+        function morphKeyAt(K, t) {
+            const P = morphKeyPhases(K);
+            for (let k = 0; k < K; k++)
+                if (Math.abs(P[k] - t) < 1e-6)
+                    return k;
+            return -1;
+        }
+        function morphSameK() {
+            return morphRuns.length && morphRuns.every(r => r.keys.length === morphRuns[0].keys.length) ? morphRuns[0].keys.length : 0;
+        }
+        function morphAddKey() {
+            const K = morphSameK();
+            if (!K) {
+                flashStatus('+ key: the live morphs have different numbers of keys, so they would disagree about where a new one goes');
+                return 0;
+            }
+            const t = morphLive.t;
+            if (K === 1) {
+                flashStatus('+ key: a still has one key; morph two or more shapes to blend between them');
+                return 0;
+            }
+            if (morphKeyAt(K, t) >= 0) {
+                flashStatus('+ key: there is a key here already; move along the track first');
+                return 0;
+            }
+            // after the key before t: with two keys always between them; round the loop otherwise
+            const at = K === 2 ? 1 : ((Math.floor(t * K - 0.5) % K) + K) % K + 1;
+            for (const run of morphRuns) {
+                const sp = morphTargetOf(run);
+                if (!sp)
+                    continue;
+                // the keys' blend where you stand, without the effect or the path (which act on every key)
+                let key;
+                if (run.exact)
+                    key = morphPoseExact(run, t, true);
+                else {
+                    key = { x: new Float64Array(sp.leafX.length), y: new Float64Array(sp.leafX.length) };
+                    morphPoseInto(run, t, key.x, key.y, true);
+                }
+                run.keys.splice(at, 0, key);
+                run.spec = null;
+                run.freq = null;
+                run._centres = null;
+            }
+            morphSetT((at + 0.5) / (K + 1));
+            pushHistory();
+            flashStatus('key ' + (at + 1) + ' of ' + (K + 1) + ' made from the pose in view'
+            + (K === 2 ? ' · three keys sit round a loop, so the ramp is now a loop' : ' · the keys moved up to stay evenly spaced'));
+            return K + 1;
+        }
+        function morphDelKey() {
+            const K = morphSameK();
+            if (!K || K <= 2) {
+                flashStatus(K ? '− key: a morph needs at least two keys' : '− key: the live morphs have different numbers of keys');
+                return 0;
+            }
+            const P = morphKeyPhases(K),
+                t = morphLive.t;
+            let best = 0;
+            const dist = p => Math.min(Math.abs(p - t), 1 - Math.abs(p - t)); // round the loop
+            for (let k = 1; k < K; k++)
+                if (dist(P[k]) < dist(P[best]))
+                    best = k;
+            for (const run of morphRuns) {
+                run.keys.splice(best, 1);
+                run.spec = null;
+                run.freq = null;
+                run._centres = null;
+                if (run.exact)
+                    run.curved = morphExactCurved(run.keys);
+            }
+            const Q = morphKeyPhases(K - 1);
+            morphSetT(Q[Math.min(best, K - 2)]);
+            pushHistory();
+            flashStatus('key ' + (best + 1) + ' taken away · ' + (K - 1) + ' keys' + (K - 1 === 2 ? ', a ramp from the first to the second' : ''));
+            return K - 1;
+        }
+        // The key before (warm) and after (cool) where you stand, as faint dashed outlines. At a key,
+        // its neighbours; between keys, the two it is blending most.
+        function drawMorphOnion(w, h) {
+            if (!state.morphOnion || !morphRuns.length)
+                return;
+            ctx.save();
+            ctx.lineWidth = 1.25;
+            ctx.setLineDash([5, 4]);
+            const t = morphLive.t,
+                eps = 1e-6;
+            for (const run of morphRuns) {
+                const K = run.keys.length,
+                    P = morphKeyPhases(K);
+                let prev = -1,
+                    next = -1;
+                for (let k = 0; k < K; k++)
+                    if (P[k] < t - eps)
+                        prev = k;
+                for (let k = K - 1; k >= 0; k--)
+                    if (P[k] > t + eps)
+                        next = k;
+                if (K > 2) {
+                    if (prev < 0)
+                        prev = K - 1;
+                    if (next < 0)
+                        next = 0;
+                }
+                for (const [k, col] of [[prev, 'rgba(255,150,90,0.6)'], [next, 'rgba(110,180,255,0.6)']]) {
+                    if (k < 0)
+                        continue;
+                    const key = run.keys[k];
+                    if (!key._ghost)
+                        key._ghost = run.exact ? exactDenseOf(key) : new tvf.Shape(Float64Array.from(key.x), Float64Array.from(key.y)).sample(240);
+                    const g = key._ghost;
+                    ctx.strokeStyle = col;
+                    ctx.beginPath();
+                    for (let i = 0; i < g.x.length; i++) {
+                        const q = worldToPx(g.x[i], g.y[i], w, h);
+                        if (i)
+                            ctx.lineTo(q.x, q.y);
+                        else
+                            ctx.moveTo(q.x, q.y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
+        // ── RECORDING A LOOP (25 Oct 2026, Tom: "1,2") ───────────────────────────────────
+        // One loop, frame by frame on the shared clock, rendered as the png export renders (the
+        // drawing alone, no editor marks, the view as it stands), into a .webm (the browser's own
+        // MediaRecorder: a captured canvas stream fed one frame at a time, paced at the frame rate so
+        // the video's clock is the loop's) or an animated .gif (encoded here: a fixed palette of 252
+        // colours, LZW, looping forever). Frame i is t = i/F, so the last frame stops one step short of
+        // the first and the loop plays seamlessly; a two-key ramp jumps back, as `run` does.
+        function morphRecordFrames(fps, maxW) {
+            const loop = 1 / morphLive.speed,
+                F = Math.max(2, Math.round(loop * fps));
+            const t0 = morphLive.t,
+                prevScale = _renderScale,
+                prevExport = state.exportMode;
+            const frame = document.createElement('canvas');
+            let fctx = null;
+            const begin = () => {
+                _renderScale = 1;
+                state.exportMode = { transparent: false };
+            };
+            const end = () => {
+                _renderScale = prevScale;
+                state.exportMode = prevExport;
+                morphLive.t = t0;
+                morphWrite();
+                drawAll();
+            };
+            const render = i => {
+                morphLive.t = i / F;
+                morphWrite();
+                drawAll();
+                if (!fctx) {
+                    const s = Math.min(1, maxW / cv.width);
+                    frame.width = Math.max(2, Math.round(cv.width * s / 2) * 2); // even sides, as the video codecs want
+                    frame.height = Math.max(2, Math.round(cv.height * s / 2) * 2);
+                    fctx = frame.getContext('2d');
+                }
+                fctx.drawImage(cv, 0, 0, frame.width, frame.height);
+                return frame;
+            };
+            return { F, fps, frame, begin, end, render };
+        }
+        function morphDownload(blob, ext) {
+            const url = URL.createObjectURL(blob),
+                a = document.createElement('a');
+            a.href = url;
+            a.download = safeFileName((state.svgName || 'morph') + ' loop', ext);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+        }
+        // FRAME-EXACT VIDEO (25 Oct 2026, Tom: "1,3"). The browser's own encoder (WebCodecs) takes
+        // the loop one frame at a time, as fast as it can and no faster, so every frame is in the
+        // video however busy the machine: frame i of F at i/fps seconds, F = loop × fps, the frame
+        // rate chosen in the bar (24, 30 or 60). The encoded frames are put in a .webm here
+        // (webmMux). Where the browser has no encoder, the real-time recorder below does it, and a
+        // slow machine drops frames there.
+        let morphRecording = false;
+        async function morphVideoCodec(W, H, fps) {
+            if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined')
+                return null;
+            for (const [codec, id] of [['vp09.00.10.08', 'V_VP9'], ['vp8', 'V_VP8']]) {
+                const config = { codec, width: W, height: H, bitrate: 8e6, framerate: fps };
+                try {
+                    const r = await VideoEncoder.isConfigSupported(config);
+                    if (r && r.supported)
+                        return { config, id };
+                } catch (_) {}
+            }
+            return null;
+        }
+        async function morphRecordVideo() {
+            if (!morphRunning() || morphRecording)
+                return null;
+            const fps = [24, 30, 60].includes(+state.morphFps) ? +state.morphFps : 30;
+            const R = morphRecordFrames(fps, 1280);
+            morphClockStop();
+            morphRecording = true;
+            // the frame is sized on its first render, as the drawing renders for export
+            R.begin();
+            R.render(0);
+            const probe = R.frame,
+                W = probe.width,
+                H = probe.height;
+            const C = await morphVideoCodec(W, H, fps);
+            if (!C) {
+                R.end();
+                morphRecording = false;
+                return morphRecordVideoRealtime(R);
+            }
+            morphBarSync();
+            const chunks = [];
+            let failed = null;
+            const enc = new VideoEncoder({
+                output: (chunk) => {
+                    const data = new Uint8Array(chunk.byteLength);
+                    chunk.copyTo(data);
+                    chunks.push({ data, key: chunk.type === 'key', ts: chunk.timestamp });
+                },
+                error: e => failed = e,
+            });
+            try {
+                enc.configure(C.config);
+                const step = 1e6 / fps;
+                for (let i = 0; i < R.F; i++) {
+                    if (failed)
+                        throw failed;
+                    if (i % 10 === 0)
+                        flashStatus('encoding ' + (i + 1) + ' / ' + R.F);
+                    R.render(i);
+                    const vf = new VideoFrame(probe, { timestamp: Math.round(i * step), duration: Math.round(step) });
+                    enc.encode(vf, { keyFrame: i % (fps * 2) === 0 });
+                    vf.close();
+                    // let the encoder keep up, so the queue of frames waiting never grows long
+                    while (enc.encodeQueueSize > 4)
+                        await new Promise(res => setTimeout(res, 1));
+                }
+                await enc.flush();
+                if (failed)
+                    throw failed;
+            } finally {
+                try {
+                    enc.close();
+                } catch (_) {}
+                R.end();
+                morphRecording = false;
+                morphBarSync();
+            }
+            const bytes = webmMux({ codec: C.id, width: W, height: H, fps, frames: R.F, chunks });
+            const blob = new Blob([bytes], { type: 'video/webm' });
+            morphDownload(blob, 'webm');
+            flashStatus('recorded one loop · every one of ' + R.F + ' frames at ' + fps + ' a second · ' + W + '×' + H + ' ' + (C.id === 'V_VP9' ? 'VP9' : 'VP8') + ' webm, ' + Math.round(bytes.length / 1024) + ' KB');
+            return blob;
+        }
+        // A .webm of encoded video frames: the EBML header, then one Segment holding its Info (the
+        // duration), its one track, and the frames as SimpleBlocks in Clusters, a new Cluster at each
+        // key frame (a block's time is kept as an offset from its Cluster's, in 16 bits). Times in
+        // milliseconds. No Cues: players play it from the start and seek by scanning.
+        function webmMux(o) {
+            const vint = n => { // an element's size, in as few bytes as hold it
+                let len = 1;
+                while (len < 8 && n >= Math.pow(2, 7 * len) - 1)
+                    len++;
+                const b = new Uint8Array(len);
+                let v = n;
+                for (let i = len - 1; i >= 0; i--) {
+                    b[i] = v % 256;
+                    v = Math.floor(v / 256);
+                }
+                b[0] |= 1 << (8 - len);
+                return b;
+            };
+            const idBytes = id => {
+                const b = [];
+                while (id > 0) {
+                    b.unshift(id & 255);
+                    id = Math.floor(id / 256);
+                }
+                return Uint8Array.from(b);
+            };
+            const cat = parts => {
+                let n = 0;
+                for (const p of parts)
+                    n += p.length;
+                const out = new Uint8Array(n);
+                let at = 0;
+                for (const p of parts) {
+                    out.set(p, at);
+                    at += p.length;
+                }
+                return out;
+            };
+            const el = (id, body) => cat([idBytes(id), vint(body.length), body]);
+            const uint = (id, v) => {
+                const b = [];
+                do {
+                    b.unshift(v % 256);
+                    v = Math.floor(v / 256);
+                } while (v > 0);
+                return el(id, Uint8Array.from(b));
+            };
+            const str = (id, s) => el(id, Uint8Array.from(s, c => c.charCodeAt(0)));
+            const f64 = (id, v) => {
+                const b = new Uint8Array(8);
+                new DataView(b.buffer).setFloat64(0, v);
+                return el(id, b);
+            };
+            const header = el(0x1A45DFA3, cat([
+                uint(0x4286, 1), uint(0x42F7, 1), uint(0x42F2, 4), uint(0x42F3, 8),
+                str(0x4282, 'webm'), uint(0x4287, 4), uint(0x4285, 2)]));
+            const info = el(0x1549A966, cat([
+                uint(0x2AD7B1, 1000000), // milliseconds
+                str(0x4D80, 'draw'), str(0x5741, 'draw'),
+                f64(0x4489, o.frames * 1000 / o.fps)]));
+            const tracks = el(0x1654AE6B, el(0xAE, cat([
+                uint(0xD7, 1), uint(0x73C5, 1), uint(0x83, 1), uint(0x9C, 0),
+                str(0x86, o.codec),
+                uint(0x23E383, Math.round(1e9 / o.fps)),
+                el(0xE0, cat([uint(0xB0, o.width), uint(0xBA, o.height)]))])));
+            const clusters = [];
+            let blocks = null,
+                base = 0;
+            const close = () => {
+                if (blocks)
+                    clusters.push(el(0x1F43B675, cat([uint(0xE7, base)].concat(blocks))));
+            };
+            for (const c of o.chunks) {
+                const ms = Math.round(c.ts / 1000);
+                if (!blocks || c.key || ms - base > 30000) {
+                    close();
+                    blocks = [];
+                    base = ms;
+                }
+                const head = new Uint8Array(4);
+                head[0] = 0x81; // track 1
+                new DataView(head.buffer).setInt16(1, ms - base);
+                head[3] = c.key ? 0x80 : 0;
+                blocks.push(el(0xA3, cat([head, c.data])));
+            }
+            close();
+            const body = cat([info, tracks].concat(clusters));
+            return cat([header, el(0x18538067, body)]);
+        }
+        // the real-time recorder, for a browser with no WebCodecs: MediaRecorder on a captured canvas
+        async function morphRecordVideoRealtime(R) {
+            if (typeof MediaRecorder === 'undefined' || !R.frame.captureStream) {
+                flashStatus('video: this browser cannot record a canvas; try gif');
+                return null;
+            }
+            const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m));
+            if (!mime) {
+                flashStatus('video: this browser records no webm; try gif');
+                return null;
+            }
+            morphClockStop();
+            morphRecording = true;
+            morphBarSync();
+            R.begin();
+            try {
+                R.render(0);
+                const stream = R.frame.captureStream(0),
+                    track = stream.getVideoTracks()[0];
+                const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8e6 }),
+                    chunks = [];
+                rec.ondataavailable = e => {
+                    if (e.data && e.data.size)
+                        chunks.push(e.data);
+                };
+                const stopped = new Promise(res => rec.onstop = res);
+                rec.start();
+                for (let i = 0; i < R.F; i++) {
+                    flashStatus('recording ' + (i + 1) + ' / ' + R.F);
+                    R.render(i);
+                    if (track.requestFrame)
+                        track.requestFrame();
+                    await new Promise(res => setTimeout(res, 1000 / R.fps));
+                }
+                rec.stop();
+                await stopped;
+                track.stop();
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                morphDownload(blob, 'webm');
+                flashStatus('recorded one loop · ' + R.F + ' frames at ' + R.fps + ' a second · ' + R.frame.width + '×' + R.frame.height + ' webm');
+                return blob;
+            } finally {
+                R.end();
+                morphRecording = false;
+                morphBarSync();
+            }
+        }
+        async function morphRecordGif() {
+            if (!morphRunning() || morphRecording)
+                return null;
+            const R = morphRecordFrames(20, 480);
+            morphClockStop();
+            morphRecording = true;
+            const frames = [];
+            R.begin();
+            try {
+                for (let i = 0; i < R.F; i++) {
+                    const f = R.render(i);
+                    frames.push(f.getContext('2d').getImageData(0, 0, f.width, f.height));
+                }
+            } finally {
+                R.end();
+                morphRecording = false;
+            }
+            flashStatus('encoding ' + frames.length + ' frames…');
+            await new Promise(res => setTimeout(res, 0));
+            const bytes = gifEncode(frames, R.frame.width, R.frame.height, Math.round(100 / R.fps));
+            const blob = new Blob([bytes], { type: 'image/gif' });
+            morphDownload(blob, 'gif');
+            flashStatus('recorded one loop · ' + frames.length + ' frames at ' + R.fps + ' a second · ' + R.frame.width + '×' + R.frame.height + ' gif, ' + Math.round(bytes.length / 1024) + ' KB');
+            return blob;
+        }
+        // An animated GIF from frames of RGBA pixels. One palette for every frame: 6 levels of red, 7
+        // of green (the eye is keenest there) and 6 of blue, 252 colours, each pixel to the nearest
+        // level; LZW at 8 bits; NETSCAPE2.0 to loop forever; delay in hundredths of a second.
+        function gifEncode(frames, W, H, delayCs) {
+            const out = [];
+            const b = v => out.push(v & 255),
+                w16 = v => {
+                    b(v);
+                    b(v >> 8);
+                },
+                str = t => {
+                    for (let i = 0; i < t.length; i++)
+                        b(t.charCodeAt(i));
+                };
+            str('GIF89a');
+            w16(W);
+            w16(H);
+            b(0xF7); // a global colour table of 256
+            b(0);
+            b(0);
+            for (let i = 0; i < 256; i++) {
+                if (i < 252) {
+                    const r = Math.floor(i / 42),
+                        g = Math.floor(i / 6) % 7,
+                        bl = i % 6;
+                    b(Math.round(r * 255 / 5));
+                    b(Math.round(g * 255 / 6));
+                    b(Math.round(bl * 255 / 5));
+                } else {
+                    b(0);
+                    b(0);
+                    b(0);
+                }
+            }
+            b(0x21);
+            b(0xFF);
+            b(11);
+            str('NETSCAPE2.0');
+            b(3);
+            b(1);
+            w16(0);
+            b(0); // loop forever
+            const idx = new Uint8Array(W * H);
+            for (const im of frames) {
+                const d = im.data;
+                for (let p = 0, q = 0; p < idx.length; p++, q += 4)
+                    idx[p] = Math.round(d[q] * 5 / 255) * 42 + Math.round(d[q + 1] * 6 / 255) * 6 + Math.round(d[q + 2] * 5 / 255);
+                b(0x21);
+                b(0xF9);
+                b(4);
+                b(0);
+                w16(delayCs);
+                b(0);
+                b(0); // graphic control
+                b(0x2C);
+                w16(0);
+                w16(0);
+                w16(W);
+                w16(H);
+                b(0); // image, no local table
+                b(8);
+                const data = gifLzw(idx, 8);
+                for (let i = 0; i < data.length; i += 255) {
+                    const n = Math.min(255, data.length - i);
+                    b(n);
+                    for (let j = 0; j < n; j++)
+                        out.push(data[i + j]);
+                }
+                b(0);
+            }
+            b(0x3B);
+            return Uint8Array.from(out);
+        }
+        function gifLzw(idx, minCode) {
+            const clear = 1 << minCode,
+                eoi = clear + 1,
+                out = [],
+                dict = new Map();
+            let size = minCode + 1,
+                next = eoi + 1,
+                cur = 0,
+                bits = 0;
+            const emit = c => {
+                cur |= c << bits;
+                bits += size;
+                while (bits >= 8) {
+                    out.push(cur & 255);
+                    cur >>>= 8;
+                    bits -= 8;
+                }
+            };
+            emit(clear);
+            let prefix = idx[0];
+            for (let i = 1; i < idx.length; i++) {
+                const k = idx[i],
+                    key = prefix * 256 + k,
+                    hit = dict.get(key);
+                if (hit !== undefined) {
+                    prefix = hit;
+                    continue;
+                }
+                emit(prefix);
+                if (next === 4096) { // the table is full: start it again
+                    emit(clear);
+                    dict.clear();
+                    size = minCode + 1;
+                    next = eoi + 1;
+                } else {
+                    if (next >= (1 << size))
+                        size++;
+                    dict.set(key, next++);
+                }
+                prefix = k;
+            }
+            emit(prefix);
+            emit(eoi);
+            if (bits > 0)
+                out.push(cur & 255);
+            return out;
         }
 
         // ── LEAF-COLOUR TESTS: THE FIVE PAINTS, EACH AGAINST THE WHOLE CORPUS ────────
@@ -63059,6 +64734,80 @@
                             + ' — shift-click to freeze and end it instead');
                         }
                     });
+                // THE TIMELINE and RECORDING A LOOP
+                const onKey = (id, fn) => {
+                    const el = $(id);
+                    if (el)
+                        el.addEventListener('click', () => {
+                            if (orphaned())
+                                return;
+                            fn();
+                        });
+                };
+                onKey('bMorphPrevKey', () => morphStepKey(-1));
+                onKey('bMorphNextKey', () => morphStepKey(1));
+                onKey('bMorphAddKey', morphAddKey);
+                onKey('bMorphDelKey', morphDelKey);
+                onKey('bMorphVideo', () => morphRecordVideo().catch(e => flashStatus('video failed: ' + e.message)));
+                onKey('bMorphGif', () => morphRecordGif().catch(e => flashStatus('gif failed: ' + e.message)));
+                const onion = $('tMorphOnion');
+                if (onion)
+                    onion.addEventListener('change', () => {
+                        state.morphOnion = onion.checked;
+                        drawAll();
+                        scheduleSave();
+                    });
+                const fxSel = $('morphFx'),
+                    fxAmt = $('morphFxAmt');
+                if (fxSel)
+                    fxSel.addEventListener('change', () => {
+                        if (orphaned())
+                            return;
+                        morphSetFx(fxSel.value, fxAmt ? (+fxAmt.value) / 100 : 0.5);
+                        pushHistory();
+                    });
+                if (fxAmt)
+                    fxAmt.addEventListener('input', () => {
+                        if (orphaned())
+                            return;
+                        morphSetFx(fxSel ? fxSel.value : '', (+fxAmt.value) / 100);
+                    });
+                // EASING AND HOLDS
+                const easeSel = $('morphEase'),
+                    holdIn = $('morphHold');
+                if (easeSel)
+                    easeSel.addEventListener('change', () => morphSetTiming(easeSel.value, null));
+                if (holdIn)
+                    holdIn.addEventListener('input', () => morphSetTiming(null, (+holdIn.value) / 100));
+                // MOTION ALONG A PATH and TRAILS
+                onKey('bMorphPath', () => morphSetPath());
+                const turnT = $('tMorphTurn'),
+                    pathMode = $('morphPathMode');
+                if (turnT)
+                    turnT.addEventListener('change', () => morphPathOptions(turnT.checked, null));
+                if (pathMode)
+                    pathMode.addEventListener('change', () => morphPathOptions(null, pathMode.value));
+                const trailSel = $('morphTrail'),
+                    trailLen = $('morphTrailLen');
+                if (trailSel)
+                    trailSel.addEventListener('change', () => morphSetTrail(trailSel.value, null));
+                if (trailLen)
+                    trailLen.addEventListener('input', () => morphSetTrail(null, (+trailLen.value) / 100));
+                const fpsSel = $('morphFps');
+                if (fpsSel)
+                    fpsSel.addEventListener('change', () => {
+                        state.morphFps = +fpsSel.value || 30;
+                        scheduleSave();
+                    });
+                const loopIn = $('morphLoop');
+                if (loopIn)
+                    loopIn.addEventListener('change', () => {
+                        const v = parseFloat(loopIn.value);
+                        if (isFinite(v) && v > 0)
+                            morphLive.speed = 1 / Math.max(0.5, Math.min(60, v));
+                        morphBarSync();
+                        scheduleSave();
+                    });
                 const bs = $('bMorphSvg');
                 if (bs)
                     bs.addEventListener('click', () => {
@@ -63121,6 +64870,12 @@
                         });
             }
             {
+                const tMC = $('tMorphCorners'); // MORPHS THAT KEEP THEIR CORNERS
+                if (tMC)
+                    tMC.addEventListener('change', () => {
+                        state.morphCorners = !!tMC.checked;
+                        scheduleSave();
+                    });
                 const tIP = $('tMorphInPlace');
                 if (tIP)
                     tIP.addEventListener('change', () => {
@@ -66228,14 +67983,15 @@
             // frame of every run at once. Framing on the pose that happens to be on screen would clip
             // the animation the moment it moved.
             const seq = morphRuns.map(() => []);
-            const runS = morphRuns.map(morphRunS); // fixed per run, before any frame is taken
+            const runS = morphRuns.map(r => r.exact ? 0 : morphRunS(r)); // fixed per run, before any frame is taken
             try {
                 for (const t of ts) {
                     morphLive.t = t;
                     morphRuns.forEach((run, ri) => {
                         morphWriteRun(run);
                         const sp = morphTargetOf(run);
-                        seq[ri].push(sp ? morphExportRing(sp, runS[ri]) : null);
+                        // MORPHS THAT KEEP THEIR CORNERS: the pose as its fixed run of cubics, corners sharp
+                        seq[ri].push(sp ? (run.exact ? morphExactCubics(run.pose) : morphExportRing(sp, runS[ri])) : null);
                     });
                 }
             } finally {
@@ -66243,8 +67999,15 @@
                 morphWrite();
             }
 
-            const statics = state.subpaths.filter(sp => sp && sp.leafX && sp.leafX.length >= 3 && !liveSet.has(sp));
-            const staticRings = statics.map(sp => morphExportRing(sp, morphExportS(sp)));
+            // An exact shape goes in as its own outline (exactPathD), corners and curves as drawn; asking it for
+            // its leaves, as this once did of every shape, turned each exact shape in the drawing into leaves.
+            const statics = state.subpaths.filter(sp => sp && !liveSet.has(sp) && (sp._lazy ? sp._lazy.x.length >= 2 : sp.leafX && sp.leafX.length >= 3));
+            const staticRings = statics.map(sp => {
+                if (!sp._lazy)
+                    return morphExportRing(sp, morphExportS(sp));
+                const O = lzOutlinePts(sp._lazy);
+                return Array.from(O.x, (x, i) => ({ x, y: O.y[i] }));
+            });
 
             let minx = Infinity,
                 miny = Infinity,
@@ -66307,12 +68070,14 @@
 
             const body = [];
             if (staticRings.length) {
+                const mapPt = p => ({ x: half + (p.x - ox) * scale, y: half - (p.y - oy) * scale });
                 const bits = statics.map((sp, i) => {
-                    const d = ringToPathD(mapRing(staticRings[i]), DP);
+                    const d = sp._lazy ? exactPathD(sp._lazy, mapPt, DP) : ringToPathD(mapRing(staticRings[i]), DP);
                     if (!d)
                         return '';
                     const title = sp.gname ? `<title>${xmlEsc(sp.gname)}</title>` : '';
-                    return `    <path d="${d}" ${styleOf(sp)}>${title}</path>`;
+                    const rule = sp._lazy && sp._lazy.holes ? ' fill-rule="evenodd"' : '';
+                    return `    <path d="${d}" ${sp._lazy && sp._lazy.open ? styleOf(sp).replace(/fill="[^"]*"( fill-opacity="[^"]*")?/, 'fill="none"') : styleOf(sp)}${rule}>${title}</path>`;
                 }).filter(Boolean);
                 if (bits.length)
                     body.push('  <g id="scene">\n' + bits.join('\n') + '\n  </g>');
@@ -66321,7 +68086,7 @@
                 const rings = seq[ri];
                 if (!rings.length || !rings[0])
                     return;
-                const ds = rings.map(r => r ? ringToPathD(mapRing(r), DP) : null).filter(Boolean);
+                const ds = rings.map(r => r ? (run.exact ? cubicsToPathD(mapRing(r), DP) : ringToPathD(mapRing(r), DP)) : null).filter(Boolean);
                 if (ds.length < 2)
                     return;
                 const sp = run.sp;
@@ -67738,7 +69503,7 @@
                 editing ? 'arrange — not in edit mode' : 'the page needs two or more shapes to arrange');
                 const morphWhy = editing ? 'morph — not in edit mode' : 'select two shapes (or four, for a grid) to morph';
                 grey($('bMorph'), !editing && sel >= 2, morphWhy);
-                grey($('bMorphLive'), !editing && sel >= 2, morphWhy);
+                grey($('bMorphLive'), !editing && sel >= 1, editing ? morphWhy : 'select a shape to animate (a still, for an effect), or two or more to blend');
             }
             for (const [btnId, popId] of [['bArrangeOpen', 'arrangePop'], ['bMorphOpen', 'morphPop']]) {
                 const btn = $(btnId),
@@ -76328,6 +78093,7 @@
         // dropRefs: the second attempt, when the full scene will not fit. Reference polylines
         // are only needed by "reset leaves" — losing them costs that one command, not the art.
         function serializeScene(dropRefs) {
+            const saved = state.subpaths.filter(spSaveable);
             return JSON.stringify({
                 v: 1,
                 name: state.svgName || null,
@@ -76362,6 +78128,7 @@
                 arrangeExtent: state.arrangeExtent || 'fit',
                 morphLag: +state.morphLag || 0,
                 morphInPlace: state.morphInPlace !== false,
+                morphCorners: state.morphCorners !== false,
                 morphFrames: +state.morphFrames || 24,
                 morphLoop: state.morphLoop || 'auto',
                 arrangeCellW: state.arrangeCellW || 0,
@@ -76387,50 +78154,95 @@
                 droppedRefs: !!dropRefs,
                 // An unconverted shape (CONVERT ON TOUCH) is saved as its import, under `lz`, and
                 // comes back unconverted; its outline is its only geometry, so dropRefs keeps it.
-                subpaths: state.subpaths.filter(sp => sp && (sp._lazy || (sp.leafX && sp.leafX.length >= 2))).map(sp => ({
-                    lz: sp._lazy ? (sp._lazy.exact ? (sp._lazy.open ? 3 : 2) : 1) : 0, // 2 exact, 3 exact line
-                    ls: sp._lazy ? sp._lazy.scale : 0,
-                    rr: sp._lazy && sp._lazy.exact && hasRound(sp._lazy.round) ? Array.from(lzRoundBaked(sp._lazy), r => +r.toPrecision(7)) : null, // corner radii, in x's units
-                    sm: sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth) : null, // smooth corners (1)
-                    ho: sp._lazy && sp._lazy.holes ? lzHolesBaked(sp._lazy).map(h => ({ // HOLES, in rx's units as rx is
-                        x: _f32b64(h.x),
-                        y: _f32b64(h.y),
-                        s: h.smooth ? Array.from(h.smooth) : null,
-                        c: h.ctrl || null
-                    })) : null,
-                    cc: sp._lazy && sp._lazy.exact && sp._lazy.ctrl ? lzCtrlBaked(sp._lazy) : null, // CURVE EDGES, in rx's units
-                    x: sp._lazy ? '' : _f32b64(sp.leafX),
-                    y: sp._lazy ? '' : _f32b64(sp.leafY),
-                    rx: sp._lazy ? _f32b64(sp._lazy.x) : dropRefs ? '' : _f32b64(sp.refX),
-                    ry: sp._lazy ? _f32b64(sp._lazy.y) : dropRefs ? '' : _f32b64(sp.refY),
-                    src: sp.source || null,
-                    dirty: !!sp.dirty,
-                    coV: sp.srcCoV != null ? sp.srcCoV : null,
-                    fill: sp.fill ? {
-                        c: sp.fill.color,
-                        o: sp.fill.opacity
-                    } : null,
-                    stroke: sp.stroke || null,
-                    so: sp.strokeOpacity != null ? sp.strokeOpacity : null,
-                    lst: sp.lineStyle || null, // dashes and arrowheads (LINE STYLE)
-                    lw: sp.lineWidth != null ? sp.lineWidth : null,
-                    sm: sp.smoothing != null ? sp.smoothing : null,
-                    tr: sp.textRun != null ? sp.textRun : null,
-                    tm: sp.textMeta || null,
-                    gid: sp.gid != null ? sp.gid : null,
-                    lead: !!sp.groupLead,
-                    gname: sp.gname || null,
-                    note: sp.note || null,
-                    tag: sp.tag || null,
-                    // The four (or five) numbers that made a parametric shape. This is the field the
-                    // globe panel's own comment said could not exist — "the four numbers are not in
-                    // the saved file, and cannot be" — which was true only because nothing wrote
-                    // them. A reloaded globe is no longer adopted; it is the globe those numbers make.
-                    build: sp.build || null,
-                    // motion / leafMotion are no longer persisted: the animation feature is
-                    // removed, and saving its structs would smuggle it back in through restore.
-                    leafColor: sp.leafColor || null,
-                })),
+                subpaths: saved.map(sp => spSave(sp, dropRefs)),
+                // THE TIMELINE IS SAVED (25 Oct 2026, Tom: "yes, proceed"): each live morph, its live shape
+                // by its place among the saved shapes, its keys, and the shapes it lifted out of the
+                // drawing (so a reload mid-morph no longer loses them); the clock's place and loop.
+                morphs: morphRuns.map(r => ({
+                    at: saved.indexOf(r.sp),
+                    inPlace: r.inPlace !== false,
+                    lag: +r.lag || 0,
+                    fx: r.fx && r.fx.kind ? { kind: r.fx.kind, amount: +r.fx.amount } : null,
+                    exact: !!r.exact, // MORPHS THAT KEEP THEIR CORNERS: corners, radii and handles
+                    keys: r.keys.map(k => r.exact ? {
+                        x: Array.from(k.x, v => +v.toPrecision(9)),
+                        y: Array.from(k.y, v => +v.toPrecision(9)),
+                        r: Array.from(k.r, v => +v.toPrecision(9)),
+                        c: k.c.map(e => e ? e.map(v => +v.toPrecision(9)) : null)
+                    } : {
+                        x: _f32b64(k.x),
+                        y: _f32b64(k.y)
+                    }),
+                    members: (r.members || []).filter(spSaveable).map(m => spSave(m, dropRefs)),
+                })).filter(m => m.at >= 0),
+                morphT: morphLive.t,
+                morphSecs: 1 / morphLive.speed,
+                morphOnion: !!state.morphOnion,
+                // MOTION ALONG A PATH and TRAILS: the path as it was drawn and the shape it came from
+                morphPath: morphRuns.length && morphLive.path ? {
+                    x: _f32b64(morphLive.path.src.x),
+                    y: _f32b64(morphLive.path.src.y),
+                    closed: !!morphLive.path.closed,
+                    at: morphLive.path.at,
+                    member: spSaveable(morphLive.path.member) ? spSave(morphLive.path.member, dropRefs) : null,
+                } : null,
+                morphPathTurn: state.morphPathTurn !== false,
+                morphPathMode: state.morphPathMode === 'back' ? 'back' : 'along',
+                morphTrail: state.morphTrail || '',
+                morphTrailLen: state.morphTrailLen != null ? +state.morphTrailLen : 0.5,
+                morphEase: state.morphEase || '', // EASING AND HOLDS
+                morphHold: +state.morphHold || 0,
+                morphFps: +state.morphFps || 30,
+            });
+        }
+        function spSaveable(sp) {
+            return !!(sp && (sp._lazy || (sp.leafX && sp.leafX.length >= 2)));
+        }
+        // one shape as the autosave holds it
+        function spSave(sp, dropRefs) {
+            return ({
+                lz: sp._lazy ? (sp._lazy.exact ? (sp._lazy.open ? 3 : 2) : 1) : 0, // 2 exact, 3 exact line
+                ls: sp._lazy ? sp._lazy.scale : 0,
+                rr: sp._lazy && sp._lazy.exact && hasRound(sp._lazy.round) ? Array.from(lzRoundBaked(sp._lazy), r => +r.toPrecision(7)) : null, // corner radii, in x's units
+                sm: sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth) : null, // smooth corners (1)
+                ho: sp._lazy && sp._lazy.holes ? lzHolesBaked(sp._lazy).map(h => ({ // HOLES, in rx's units as rx is
+                    x: _f32b64(h.x),
+                    y: _f32b64(h.y),
+                    s: h.smooth ? Array.from(h.smooth) : null,
+                    c: h.ctrl || null
+                })) : null,
+                cc: sp._lazy && sp._lazy.exact && sp._lazy.ctrl ? lzCtrlBaked(sp._lazy) : null, // CURVE EDGES, in rx's units
+                x: sp._lazy ? '' : _f32b64(sp.leafX),
+                y: sp._lazy ? '' : _f32b64(sp.leafY),
+                rx: sp._lazy ? _f32b64(sp._lazy.x) : dropRefs ? '' : _f32b64(sp.refX),
+                ry: sp._lazy ? _f32b64(sp._lazy.y) : dropRefs ? '' : _f32b64(sp.refY),
+                src: sp.source || null,
+                dirty: !!sp.dirty,
+                coV: sp.srcCoV != null ? sp.srcCoV : null,
+                fill: sp.fill ? {
+                    c: sp.fill.color,
+                    o: sp.fill.opacity
+                } : null,
+                stroke: sp.stroke || null,
+                so: sp.strokeOpacity != null ? sp.strokeOpacity : null,
+                lst: sp.lineStyle || null, // dashes and arrowheads (LINE STYLE)
+                lw: sp.lineWidth != null ? sp.lineWidth : null,
+                sm: sp.smoothing != null ? sp.smoothing : null,
+                tr: sp.textRun != null ? sp.textRun : null,
+                tm: sp.textMeta || null,
+                gid: sp.gid != null ? sp.gid : null,
+                lead: !!sp.groupLead,
+                gname: sp.gname || null,
+                note: sp.note || null,
+                tag: sp.tag || null,
+                // The four (or five) numbers that made a parametric shape. This is the field the
+                // globe panel's own comment said could not exist — "the four numbers are not in
+                // the saved file, and cannot be" — which was true only because nothing wrote
+                // them. A reloaded globe is no longer adopted; it is the globe those numbers make.
+                build: sp.build || null,
+                // motion / leafMotion are no longer persisted: the animation feature is
+                // removed, and saving its structs would smuggle it back in through restore.
+                leafColor: sp.leafColor || null,
             });
         }
 
@@ -76494,6 +78306,145 @@
             } catch (_) {}
         }
 
+        // one shape back from the autosave
+        function spLoad(sp) {
+            const RX = _b64f32(sp.rx),
+                RY = _b64f32(sp.ry);
+            const lz = sp.lz && RX && RY ? {
+                x: RX,
+                y: RY,
+                scale: +sp.ls || 0,
+                exact: sp.lz >= 2,
+                open: sp.lz === 3,
+                round: Array.isArray(sp.rr) ? sp.rr : null,
+                smooth: Array.isArray(sp.sm) ? sp.sm : null,
+                holes: Array.isArray(sp.ho) ? sp.ho.map(h => ({
+                    x: _b64f32(h.x),
+                    y: _b64f32(h.y),
+                    smooth: Array.isArray(h.s) ? h.s : null,
+                    ctrl: Array.isArray(h.c) ? h.c : null
+                })).filter(h => h.x && h.y && h.x.length >= 3 && h.x.length === h.y.length) : null,
+                ctrl: Array.isArray(sp.cc) ? sp.cc : null
+            } : null;
+            const X = lz ? null : _b64f32(sp.x),
+                Y = lz ? null : _b64f32(sp.y);
+            return relazy(lz, {
+                leafX: X,
+                leafY: Y,
+                refX: RX || X.slice(),
+                refY: RY || Y.slice(),
+                refLength: 0,
+                source: sp.src || 'restored',
+                dirty: !!sp.dirty,
+                srcCoV: sp.coV,
+                fill: sp.fill ? {
+                    color: sp.fill.c,
+                    opacity: sp.fill.o
+                } : null,
+                stroke: sp.stroke || null,
+                strokeOpacity: sp.so != null ? sp.so : null,
+                lineStyle: sp.lst || null,
+                lineWidth: sp.lw != null ? sp.lw : null,
+                smoothing: sp.sm != null ? sp.sm : null,
+                textRun: sp.tr != null ? sp.tr : null,
+                textMeta: sp.tm || null,
+                gid: sp.gid != null ? sp.gid : null,
+                groupLead: !!sp.lead,
+                gname: sp.gname || null,
+                note: sp.note || null,
+                tag: sp.tag || null,
+                build: sp.build || null,
+                // saves from before the builder have none
+                // Saves from before the animation feature was removed may carry motion
+                // structs; they are deliberately dropped so nothing ever animates again.
+                motion: null,
+                leafMotion: null,
+                leafColor: sp.leafColor || null,
+            });
+        }
+        // Each saved morph comes back live: its keys, its live shape (already among the restored shapes,
+        // found by its place), and the shapes it had lifted out, so exit still puts them back. A morph
+        // whose live shape or keys do not fit is dropped, and its live shape stays an ordinary shape.
+        function restoreMorphs(d) {
+            state.morphPathTurn = d.morphPathTurn !== false; // MOTION ALONG A PATH and TRAILS
+            state.morphPathMode = d.morphPathMode === 'back' ? 'back' : 'along';
+            state.morphTrail = d.morphTrail === 'echoes' || d.morphTrail === 'ribbon' ? d.morphTrail : '';
+            state.morphTrailLen = d.morphTrailLen != null ? Math.max(0, Math.min(1, +d.morphTrailLen)) : 0.5;
+            state.morphFps = [24, 30, 60].includes(+d.morphFps) ? +d.morphFps : 30;
+            state.morphEase = MORPH_EASES.includes(d.morphEase) ? d.morphEase : ''; // EASING AND HOLDS
+            state.morphHold = Math.max(0, Math.min(0.9, +d.morphHold || 0));
+            if (!Array.isArray(d.morphs) || !d.morphs.length)
+                return;
+            for (const m of d.morphs) {
+                try {
+                    if (m.exact) { // MORPHS THAT KEEP THEIR CORNERS: its shape is exact; never ask it for leaves
+                        const sp = state.subpaths[m.at];
+                        if (!sp || !sp._lazy || !Array.isArray(m.keys) || !m.keys.length)
+                            continue;
+                        const keys = m.keys.map(k => ({
+                            x: Float64Array.from(k.x),
+                            y: Float64Array.from(k.y),
+                            r: Float64Array.from(k.r),
+                            c: k.c.map(e => Array.isArray(e) && e.length === 4 ? e.map(Number) : null)
+                        }));
+                        const n = keys[0].x.length;
+                        if (n < 3 || keys.some(k => k.x.length !== n || k.y.length !== n || k.r.length !== n || k.c.length !== n))
+                            continue;
+                        morphRuns.push({
+                            keys,
+                            exact: true,
+                            curved: morphExactCurved(keys),
+                            sp,
+                            inPlace: m.inPlace !== false,
+                            lag: 0,
+                            spec: null,
+                            freq: null,
+                            fx: null,
+                            members: Array.isArray(m.members) ? m.members.map(q => { try { return spLoad(q); } catch (_) { return null; } }).filter(Boolean) : [],
+                        });
+                        continue;
+                    }
+                    const sp = state.subpaths[m.at];
+                    if (!sp || !sp.leafX || !Array.isArray(m.keys) || m.keys.length < 1)
+                        continue;
+                    const keys = m.keys.map(k => ({ x: _b64f32(k.x), y: _b64f32(k.y) }));
+                    if (keys.some(k => !k.x || !k.y || k.x.length !== sp.leafX.length || k.y.length !== sp.leafX.length))
+                        continue;
+                    morphRuns.push({
+                        keys,
+                        sp,
+                        inPlace: m.inPlace !== false,
+                        lag: Math.max(0, Math.min(MORPH_LAG_MAX, +m.lag || 0)),
+                        spec: null,
+                        freq: null,
+                        fx: m.fx && MORPH_FX.includes(m.fx.kind) ? { kind: m.fx.kind, amount: Math.max(0, Math.min(1, +m.fx.amount || 0)) } : null,
+                        members: Array.isArray(m.members) ? m.members.map(q => { try { return spLoad(q); } catch (_) { return null; } }).filter(Boolean) : [],
+                    });
+                } catch (_) {}
+            }
+            if (!morphRuns.length)
+                return;
+            morphLive.t = Math.max(0, Math.min(1, +d.morphT || 0));
+            if (+d.morphSecs > 0)
+                morphLive.speed = 1 / Math.max(0.5, Math.min(60, +d.morphSecs));
+            state.morphOnion = !!d.morphOnion;
+            if (d.morphPath) {
+                try {
+                    const px = _b64f32(d.morphPath.x),
+                        py = _b64f32(d.morphPath.y),
+                        P = px && py && px.length === py.length ? morphPathBuild(px, py, !!d.morphPath.closed) : null;
+                    if (P) {
+                        P.turn = state.morphPathTurn;
+                        P.mode = state.morphPathMode;
+                        P.at = +d.morphPath.at || 0;
+                        P.member = d.morphPath.member ? spLoad(d.morphPath.member) : null;
+                        morphLive.path = P;
+                    }
+                } catch (_) {}
+            }
+            morphWrite();
+            morphBarSync();
+        }
         function restoreScene() {
             let raw;
             try {
@@ -76513,64 +78464,11 @@
             if (!d || d.v !== 1 || !Array.isArray(d.subpaths) || !d.subpaths.length)
                 return false;
             try {
-                state.subpaths = d.subpaths.map(sp => {
-                    const RX = _b64f32(sp.rx),
-                        RY = _b64f32(sp.ry);
-                    const lz = sp.lz && RX && RY ? {
-                        x: RX,
-                        y: RY,
-                        scale: +sp.ls || 0,
-                        exact: sp.lz >= 2,
-                        open: sp.lz === 3,
-                        round: Array.isArray(sp.rr) ? sp.rr : null,
-                        smooth: Array.isArray(sp.sm) ? sp.sm : null,
-                        holes: Array.isArray(sp.ho) ? sp.ho.map(h => ({
-                            x: _b64f32(h.x),
-                            y: _b64f32(h.y),
-                            smooth: Array.isArray(h.s) ? h.s : null,
-                            ctrl: Array.isArray(h.c) ? h.c : null
-                        })).filter(h => h.x && h.y && h.x.length >= 3 && h.x.length === h.y.length) : null,
-                        ctrl: Array.isArray(sp.cc) ? sp.cc : null
-                    } : null;
-                    const X = lz ? null : _b64f32(sp.x),
-                        Y = lz ? null : _b64f32(sp.y);
-                    return relazy(lz, {
-                        leafX: X,
-                        leafY: Y,
-                        refX: RX || X.slice(),
-                        refY: RY || Y.slice(),
-                        refLength: 0,
-                        source: sp.src || 'restored',
-                        dirty: !!sp.dirty,
-                        srcCoV: sp.coV,
-                        fill: sp.fill ? {
-                            color: sp.fill.c,
-                            opacity: sp.fill.o
-                        } : null,
-                        stroke: sp.stroke || null,
-                        strokeOpacity: sp.so != null ? sp.so : null,
-                        lineStyle: sp.lst || null,
-                        lineWidth: sp.lw != null ? sp.lw : null,
-                        smoothing: sp.sm != null ? sp.sm : null,
-                        textRun: sp.tr != null ? sp.tr : null,
-                        textMeta: sp.tm || null,
-                        gid: sp.gid != null ? sp.gid : null,
-                        groupLead: !!sp.lead,
-                        gname: sp.gname || null,
-                        note: sp.note || null,
-                        tag: sp.tag || null,
-                        build: sp.build || null,
-                        // saves from before the builder have none
-                        // Saves from before the animation feature was removed may carry motion
-                        // structs; they are deliberately dropped so nothing ever animates again.
-                        motion: null,
-                        leafMotion: null,
-                        leafColor: sp.leafColor || null,
-                    });
-                });
+                state.subpaths = d.subpaths.map(spLoad);
             } catch (_) {
                 return false;
             }
+            restoreMorphs(d); // THE TIMELINE IS SAVED
             state.svgName = d.name || 'restored';
             if (d.view) {
                 state.view.zoom = d.view.zoom;
@@ -76659,6 +78557,8 @@
                 state.morphLag = Math.max(0, Math.min(MORPH_LAG_MAX, +d.morphLag || 0));
             if (d.morphInPlace != null)
                 state.morphInPlace = !!d.morphInPlace;
+            if (d.morphCorners != null)
+                state.morphCorners = !!d.morphCorners;
             if (d.morphFrames != null)
                 state.morphFrames = Math.max(4, Math.min(240, +d.morphFrames || 24));
             if (d.morphLoop === 'auto' || d.morphLoop === 'cycle' || d.morphLoop === 'bounce')
@@ -76759,6 +78659,9 @@
                 const mip = $('tMorphInPlace');
                 if (mip)
                     mip.checked = state.morphInPlace !== false;
+                const mco = $('tMorphCorners');
+                if (mco)
+                    mco.checked = state.morphCorners !== false;
                 const mfr = $('selMorphFrames');
                 if (mfr)
                     mfr.value = String(state.morphFrames || 24);
@@ -79071,6 +80974,23 @@
             }
         };
         window.__box = {
+            // THE TIMELINE: the live morph as the bar shows it, and its controls
+            morph: () => morphRuns.length ? { K: morphRuns[0].keys.length, t: morphLive.t, loop: 1 / morphLive.speed, play: morphLive.play,
+                phases: morphKeyPhases(morphRuns[0].keys.length), ticks: [...document.querySelectorAll('#morphTickList option')].map(o => +o.value),
+                // an exact morph's corners, never its leaves (asking for them would turn it into leaves)
+                leaves: morphRuns[0].exact ? Array.from(morphRuns[0].sp._lazy.x) : Array.from(morphRuns[0].sp.leafX),
+                leavesY: morphRuns[0].exact ? Array.from(morphRuns[0].sp._lazy.y) : Array.from(morphRuns[0].sp.leafY),
+                exact: !!morphRuns[0].exact, lazy: !!morphRuns[0].sp._lazy,
+                round: morphRuns[0].exact && morphRuns[0].pose ? Array.from(morphRuns[0].pose.r) : null,
+                ease: state.morphEase || '', hold: +state.morphHold || 0,
+                path: morphLive.path ? { closed: morphLive.path.closed, mode: morphLive.path.mode, turn: morphLive.path.turn } : null,
+                trail: state.morphTrail || '' } : null,
+            // MOTION ALONG A PATH: where the first live shape's centre is on the path at t, and the canvas as drawn
+            pathAt: t => morphRuns.length && morphLive.path ? morphPathPlace(morphRuns[0], t) : null,
+            canvasUrl: () => { (drawAll.now || drawAll)(); return cv.toDataURL(); }, // drawAll alone waits for the next frame
+            morphKey: k => morphRuns.length ? { x: Array.from(morphRuns[0].keys[k].x) } : null,
+            recordGif: () => morphRecordGif().then(b => b ? b.size : 0),
+            recordVideo: () => morphRecordVideo().then(b => b ? { size: b.size, type: b.type } : null),
             // the group button's place in the panel's row, or null while it is not shown
             group: () => {
                 const rows = sliderRows();

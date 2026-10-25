@@ -497,6 +497,278 @@ current = 'svg as exact shapes';
   await sp.close();
 }
 
+// A webm's frames: walk its EBML elements, into the Segment and its Clusters, counting SimpleBlocks.
+function webmBlocks(buf) {
+  const vint = (p, keep) => { let len = 1; while (len <= 8 && !(buf[p] & (0x80 >> (len - 1)))) len++;
+    let v = keep ? buf[p] : buf[p] & (0xff >> len); for (let i = 1; i < len; i++) v = v * 256 + buf[p + i]; return { v, len }; };
+  let frames = 0, docType = '', firstKey = false;
+  const walk = (p, end) => {
+    while (p < end) {
+      const id = vint(p, true), sz = vint(p + id.len, false), body = p + id.len + sz.len;
+      if (id.v === 0x18538067 || id.v === 0x1F43B675 || id.v === 0x1A45DFA3) walk(body, body + sz.v);
+      else if (id.v === 0x4282) docType = buf.toString('latin1', body, body + sz.v);
+      else if (id.v === 0xA3) { if (!frames) firstKey = !!(buf[body + 3] & 0x80); frames++; }
+      p = body + sz.v;
+    }
+  };
+  walk(0, buf.length);
+  return { frames, docType, firstKey };
+}
+
+/* THE TIMELINE AND RECORDING A LOOP (draw.html). Three shapes morphed live: their keys' places as
+   ticks on the track, a step to the next key landing on it exactly (the live shape is that key), a key
+   made from the pose between two keys (the pose unchanged, four ticks), a key taken away, onion skins
+   and the loop's length; then one loop recorded as a .gif (parsed: a frame for every step of a 2 s loop
+   at 20 a second, looping) and, where the browser records, a .webm. Then the timeline is saved: a
+   reload brings it back, and exit after it the three shapes. Then detail effects on one shape gone
+   live: shimmer moving the edge and not the centroid, its loop meeting at its ends, grow starting from
+   the base ellipse, and the effect saved. */
+current = 'timeline and recording';
+{
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[timeline] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await mp.evaluate(() => { const t = document.getElementById('tSvgExact'); t.checked = false; t.dispatchEvent(new Event('change')); });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+      + '<rect x="110" y="10" width="80" height="80" fill="#48c"/><polygon points="250,10 290,90 210,90" fill="#4c8"/></svg>';
+    await mp.setInputFiles('#fLoad', { name: 'three.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+    await mp.waitForTimeout(1200);
+    await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(300);
+    await mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    await mp.waitForTimeout(400);
+    const m = () => mp.evaluate(() => window.__box.morph());
+    let s = await m();
+    if (!s || s.K !== 3 || s.ticks.join() !== '167,500,833') throw new Error('no live morph with three keys ticked on the track: ' + JSON.stringify(s && { K: s.K, ticks: s.ticks }));
+    await mp.click('#bMorphNextKey'); await mp.click('#bMorphNextKey');
+    s = await m();
+    const key1 = await mp.evaluate(() => window.__box.morphKey(1).x);
+    if (Math.abs(s.t - 0.5) > 1e-9 || Math.max(...s.leaves.map((v, i) => Math.abs(v - key1[i]))) > 1e-9) throw new Error('stepping to a key did not land on it exactly: t ' + s.t);
+    await mp.evaluate(() => { const r = document.getElementById('morphT'); r.value = 600; r.dispatchEvent(new Event('input')); });
+    const pose = (await m()).leaves;
+    await mp.click('#bMorphAddKey');
+    s = await m();
+    if (s.K !== 4 || s.ticks.length !== 4 || Math.max(...s.leaves.map((v, i) => Math.abs(v - pose[i]))) > 1e-9) throw new Error('+ key did not keep the pose as a fourth key: K ' + s.K);
+    await mp.click('#bMorphDelKey');
+    if ((await m()).K !== 3) throw new Error('− key did not take a key away');
+    await mp.evaluate(() => { const c = document.getElementById('tMorphOnion'); c.checked = true; c.dispatchEvent(new Event('change'));
+      const l = document.getElementById('morphLoop'); l.value = 2; l.dispatchEvent(new Event('change')); });
+    if (Math.abs((await m()).loop - 2) > 1e-9) throw new Error('the loop length did not take');
+    const [dg] = await Promise.all([mp.waitForEvent('download', { timeout: 60000 }), mp.evaluate(() => window.__box.recordGif())]);
+    const gif = await readFile(await dg.path());
+    // walk the GIF's blocks: the header and global table, then extensions and images to the trailer
+    let p = 13 + 768, frames = 0, loops = false;
+    if (gif.toString('latin1', 0, 6) !== 'GIF89a') throw new Error('the recording is not a GIF');
+    while (p < gif.length && gif[p] !== 0x3B) {
+      if (gif[p] === 0x21) { if (gif.toString('latin1', p + 3, p + 14) === 'NETSCAPE2.0') loops = true; p += 2; while (gif[p]) p += gif[p] + 1; p++; }
+      else if (gif[p] === 0x2C) { frames++; p += 10 + 1; while (gif[p]) p += gif[p] + 1; p++; }
+      else throw new Error('the GIF has a stray byte at ' + p);
+    }
+    if (frames !== 40 || !loops || gif[p] !== 0x3B) throw new Error('the GIF holds ' + frames + ' frames (looping ' + loops + '), not one 2 s loop at 20 a second');
+    if (await mp.evaluate(() => typeof VideoEncoder !== 'undefined' || typeof MediaRecorder !== 'undefined')) {
+      const exact = await mp.evaluate(() => typeof VideoEncoder !== 'undefined');
+      const [dv] = await Promise.all([mp.waitForEvent('download', { timeout: 60000 }), mp.evaluate(() => window.__box.recordVideo())]);
+      const vid = await readFile(await dv.path());
+      if (vid.length < 1000 || vid.readUInt32BE(0) !== 0x1A45DFA3) throw new Error('the video is not a webm: ' + vid.length + ' bytes');
+      // FRAME-EXACT VIDEO: walk the webm's elements and count its frames, every one of a 2 s loop at 30
+      if (exact) {
+        const blocks = webmBlocks(vid);
+        if (blocks.frames !== 60 || blocks.docType !== 'webm' || !blocks.firstKey) throw new Error('the frame-exact video holds ' + blocks.frames + ' frames (' + blocks.docType + '), not every frame of a 2 s loop at 30 a second');
+      }
+    }
+    if (!(await m())) throw new Error('recording ended the morph');
+    // THE TIMELINE IS SAVED: a reload brings the morph back, its keys, place, loop and onion, and exit
+    // still puts the original three shapes back
+    await mp.evaluate(() => { const r = document.getElementById('morphT'); r.value = 600; r.dispatchEvent(new Event('input')); });
+    await mp.click('#bMorphAddKey');
+    const kept = await m();
+    await mp.waitForTimeout(1200);
+    await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(500);
+    const back = await m();
+    if (!back || back.K !== kept.K || Math.abs(back.t - kept.t) > 1e-9 || Math.abs(back.loop - 2) > 1e-9 || !(await mp.evaluate(() => document.getElementById('tMorphOnion').checked)))
+      throw new Error('the morph did not come back from a reload: ' + JSON.stringify(back && { K: back.K, t: back.t, loop: back.loop }));
+    if (Math.max(...back.leaves.map((v, i) => Math.abs(v - kept.leaves[i]))) > 1e-5) throw new Error('the morph came back in another pose');
+    await mp.click('#bMorphExit'); await mp.waitForTimeout(300);
+    if ((await mp.evaluate(() => window.__box.count())) !== 3) throw new Error('exit after a reload did not put the three shapes back');
+    // DETAIL EFFECTS: one shape goes live as a still; shimmer moves its edge and not its centroid, the
+    // loop's ends meet, grow at full amount starts from the base ellipse, and the effect is saved
+    await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(200);
+    await mp.evaluate(() => { const s = window.__box; s.select && s.select([2]); });   // the triangle: a circle has no detail to move
+    await mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    await mp.waitForTimeout(300);
+    const still = await m();
+    if (!still || still.K !== 1) throw new Error('one shape did not go live as a still: ' + JSON.stringify(still && still.K));
+    const at = async t => { await mp.evaluate(t => { const r = document.getElementById('morphT'); r.value = Math.round(t * 1000); r.dispatchEvent(new Event('input')); }, t); return (await m()).leaves; };
+    await mp.selectOption('#morphFx', 'shimmer');
+    const a0 = await at(0), a1 = await at(1), a3 = await at(0.3);
+    const mean = v => v.reduce((x, y) => x + y, 0) / v.length;
+    if (Math.max(...a0.map((v, i) => Math.abs(v - a1[i]))) > 1e-9) throw new Error('the shimmer loop does not meet at its ends');
+    if (!(Math.max(...a3.map((v, i) => Math.abs(v - a0[i]))) > 1e-4) || Math.abs(mean(a3) - mean(still.leaves)) > 1e-9) throw new Error('shimmer did not move the edge, or moved the centroid');
+    await mp.selectOption('#morphFx', 'grow');
+    await mp.evaluate(() => { const a = document.getElementById('morphFxAmt'); a.value = 100; a.dispatchEvent(new Event('input')); });
+    const g0 = await at(0), g5 = await at(0.5);
+    const rough = v => { let s = 0; for (let i = 0; i < v.length; i++) { const d = v[(i + 1) % v.length] - 2 * v[i] + v[(i + v.length - 1) % v.length]; s += d * d; } return s; };
+    if (!(rough(g0) < rough(g5) / 20)) throw new Error('grow did not start from the base ellipse: ' + rough(g0) + ' against ' + rough(g5));
+    await mp.waitForTimeout(1200);
+    await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(500);
+    if ((await mp.evaluate(() => document.getElementById('morphFx').value)) !== 'grow') throw new Error('the effect was not saved with the morph');
+  } catch (e){
+    failures.push(`[timeline] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} timeline and recording a loop`);
+  await mp.close();
+}
+
+/* MOTION ALONG A PATH AND TRAILS (draw.html). A triangle goes live and a circle in the drawing
+   becomes its path: the circle leaves the drawing, the triangle's centre is on the path at every t and
+   the path's points round a circle, at an even speed; it turns with the path (half round at t = ½) and
+   its loop meets at its ends. There and back reaches the far side at a quarter. Echoes and a ribbon draw
+   a trail (the canvas changes); a reload keeps the path and the trail; exit puts the circle back. */
+current = 'path and trails';
+{
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[path] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await mp.evaluate(() => { const t = document.getElementById('tSvgExact'); t.checked = false; t.dispatchEvent(new Event('change')); });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"><polygon points="40,20 70,80 10,80" fill="#4c8"/>'
+      + '<circle cx="150" cy="100" r="90" fill="none" stroke="#888"/></svg>';
+    await mp.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+    await mp.waitForTimeout(1200);
+    await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(200);
+    await mp.evaluate(() => window.__box.select([0]));
+    await mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    await mp.waitForTimeout(300);
+    await mp.evaluate(() => window.__box.select([1]));
+    await mp.click('#bMorphPath');
+    const m = () => mp.evaluate(() => window.__box.morph());
+    const at = async t => { await mp.evaluate(t => { const r = document.getElementById('morphT'); r.value = Math.round(t * 1000); r.dispatchEvent(new Event('input')); }, t); return m(); };
+    const mean = v => v.reduce((x, y) => x + y, 0) / v.length;
+    let s = await m();
+    if (!s || !s.path || !s.path.closed || (await mp.evaluate(() => window.__box.count())) !== 1) throw new Error('the circle did not become a closed path out of the drawing: ' + JSON.stringify(s && s.path));
+    const pts = [];
+    for (const t of [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875]) {
+      s = await at(t);
+      const p = await mp.evaluate(t => window.__box.pathAt(t), t);
+      if (Math.hypot(mean(s.leaves) - p.x, mean(s.leavesY) - p.y) > 1e-9) throw new Error('the shape\'s centre is not on the path at t ' + t);
+      pts.push(p);
+    }
+    const cx = mean(pts.map(p => p.x)), cy = mean(pts.map(p => p.y)), rs = pts.map(p => Math.hypot(p.x - cx, p.y - cy));
+    const gaps = pts.map((p, i) => Math.hypot(p.x - pts[(i + 1) % 8].x, p.y - pts[(i + 1) % 8].y));
+    if (Math.max(...rs) / Math.min(...rs) > 1.02 || Math.max(...gaps) / Math.min(...gaps) > 1.02) throw new Error('the ride is not round the circle at an even speed: ' + rs.map(r => r.toFixed(3)) + ' / ' + gaps.map(g => g.toFixed(3)));
+    const ang = l => Math.atan2(l.leavesY[0] - mean(l.leavesY), l.leaves[0] - mean(l.leaves));
+    const s0 = await at(0), s5 = await at(0.5), s1 = await at(1);
+    const turned = Math.abs(((ang(s5) - ang(s0) - Math.PI) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); // how far from a half turn
+    if (turned > 0.1) throw new Error('the shape did not turn half round with the path: off by ' + turned);
+    if (Math.max(...s0.leaves.map((v, i) => Math.abs(v - s1.leaves[i]))) > 1e-9) throw new Error('the ride\'s loop does not meet at its ends');
+    await mp.selectOption('#morphPathMode', 'back');
+    const b25 = await at(0.25), p50 = pts[4];
+    if (Math.hypot(mean(b25.leaves) - p50.x, mean(b25.leavesY) - p50.y) > 1e-6) throw new Error('there and back is not at the far side at a quarter');
+    await mp.selectOption('#morphPathMode', 'along');
+    await at(0.3);
+    const none = await mp.evaluate(() => window.__box.canvasUrl());
+    await mp.selectOption('#morphTrail', 'ribbon');
+    const ribbon = await mp.evaluate(() => window.__box.canvasUrl());
+    await mp.selectOption('#morphTrail', 'echoes');
+    const echoes = await mp.evaluate(() => window.__box.canvasUrl());
+    if (ribbon === none || echoes === none || echoes === ribbon) throw new Error('a trail drew nothing');
+    await mp.waitForTimeout(1200);
+    await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(500);
+    s = await m();
+    if (!s || !s.path || s.trail !== 'echoes' || Math.abs(s.t - 0.3) > 1e-9) throw new Error('the path and trail did not come back from a reload: ' + JSON.stringify(s && { path: s.path, trail: s.trail, t: s.t }));
+    const p3 = await mp.evaluate(() => window.__box.pathAt(0.3));
+    if (Math.hypot(mean(s.leaves) - p3.x, mean(s.leavesY) - p3.y) > 1e-5) throw new Error('after a reload the shape is off its path');
+    await mp.click('#bMorphExit'); await mp.waitForTimeout(300);
+    if ((await mp.evaluate(() => window.__box.count())) !== 2) throw new Error('exit did not put the path\'s circle back');
+  } catch (e){
+    failures.push(`[path] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} motion along a path and trails`);
+  await mp.close();
+}
+
+/* MORPHS THAT KEEP THEIR CORNERS, AND EASING AND HOLDS (draw.html). A square and a five-pointed star,
+   exact shapes, morph live as an exact shape: the square given ten corners (all on its outline, its
+   own four among them), the star's ten at its two radii, the pose exact (never leaves) between them.
+   A hold rests on the key exactly and leaves the middle where it was; a key added and a pose kept stay
+   exact; the animated svg's frames are the same twenty cubics each; a reload keeps the exact morph,
+   the ease and the hold; exit puts both shapes back exact. With "keep corners" off they morph as leaves. */
+current = 'corners and timing';
+{
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[corners] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const star = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 18 : 40; return (200 + r * Math.cos(a)).toFixed(3) + ',' + (60 + r * Math.sin(a)).toFixed(3); }).join(' ');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120"><rect x="20" y="20" width="80" height="80" fill="#48c"/><polygon points="${star}" fill="#c84"/></svg>`;
+    await mp.setInputFiles('#fLoad', { name: 'sq.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+    await mp.waitForTimeout(1200);
+    await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(300);
+    const live = () => mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    await live(); await mp.waitForTimeout(300);
+    const m = () => mp.evaluate(() => window.__box.morph());
+    const at = async t => { await mp.evaluate(t => { const r = document.getElementById('morphT'); r.value = Math.round(t * 1000); r.dispatchEvent(new Event('input')); }, t); return m(); };
+    let s = await at(0);
+    if (!s || !s.exact || !s.lazy || s.leaves.length !== 10) throw new Error('the square and the star did not morph as an exact shape of ten corners: ' + JSON.stringify(s && { exact: s.exact, lazy: s.lazy, n: s.leaves.length }));
+    const X = s.leaves, Y = s.leavesY, x0 = Math.min(...X), x1 = Math.max(...X), y0 = Math.min(...Y), y1 = Math.max(...Y), e = 1e-6;
+    if (!X.every((x, i) => Math.abs(x - x0) < e || Math.abs(x - x1) < e || Math.abs(Y[i] - y0) < e || Math.abs(Y[i] - y1) < e)) throw new Error('a corner given to the square is off its outline');
+    for (const [cx, cy] of [[x0, y0], [x0, y1], [x1, y0], [x1, y1]])
+      if (!X.some((x, i) => Math.abs(x - cx) < e && Math.abs(Y[i] - cy) < e)) throw new Error('the square lost a corner of its own');
+    const mid = await at(0.5);
+    if (!mid.lazy || !mid.exact || mid.leaves.length !== 10) throw new Error('half way the pose is not an exact shape');
+    s = await at(1);
+    const mx = s.leaves.reduce((a, b) => a + b) / 10, my = s.leavesY.reduce((a, b) => a + b) / 10;
+    const rs = s.leaves.map((x, i) => Math.hypot(x - mx, s.leavesY[i] - my)).sort((a, b) => a - b);
+    if (Math.abs(rs[9] / rs[0] - 40 / 18) > 0.01 || Math.abs(rs[4] / rs[0] - 1) > 0.01) throw new Error('the star did not arrive with its points and dips: ' + rs.map(r => r.toFixed(3)));
+    // EASING AND HOLDS: rest on a key exactly, the middle unmoved
+    await mp.selectOption('#morphEase', 'inout');
+    await mp.evaluate(() => { const a = document.getElementById('morphHold'); a.value = 40; a.dispatchEvent(new Event('input')); });
+    const h0 = await at(0), h1 = await at(0.15), h5 = await at(0.5), h3 = await at(0.3);
+    const diff = (a, b) => Math.max(...a.leaves.map((v, i) => Math.abs(v - b.leaves[i])), ...a.leavesY.map((v, i) => Math.abs(v - b.leavesY[i])));
+    if (diff(h0, h1) > 1e-12) throw new Error('the hold did not rest on the key');
+    if (diff(h5, mid) > 1e-9) throw new Error('easing moved the middle of the stretch');
+    if (!(diff(h3, h0) > 1e-3) || !(diff(h3, mid) > 1e-3)) throw new Error('past the hold the blend did not move');
+    await at(0.6);
+    await mp.click('#bMorphAddKey');
+    s = await m();
+    if (s.K !== 3 || !s.exact) throw new Error('+ key did not make a third exact key');
+    const n0 = await mp.evaluate(() => window.__box.count());
+    await mp.click('#bMorphKeep');
+    if ((await mp.evaluate(() => window.__box.count())) !== n0 + 1) throw new Error('keep did not drop a pose');
+    const [dl] = await Promise.all([mp.waitForEvent('download', { timeout: 30000 }), mp.evaluate(() => document.getElementById('bMorphSvg').click())]);
+    const anim = (await readFile(await dl.path())).toString();
+    const vals = (anim.match(/values="([^"]*)"/) || [, ''])[1].split(';');
+    const counts = new Set(vals.map(v => (v.match(/C/g) || []).length));
+    if (vals.length < 4 || counts.size !== 1 || !counts.has(20)) throw new Error('the animated svg\'s frames are not twenty cubics each: ' + [...counts]);
+    await mp.waitForTimeout(1200);
+    await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(500);
+    s = await m();
+    if (!s || !s.exact || !s.lazy || s.K !== 3 || s.ease !== 'inout' || Math.abs(s.hold - 0.4) > 1e-9) throw new Error('the exact morph, ease and hold did not come back from a reload: ' + JSON.stringify(s && { exact: s.exact, K: s.K, ease: s.ease, hold: s.hold }));
+    await mp.click('#bMorphExit'); await mp.waitForTimeout(300);
+    await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(300);
+    const back = await mp.evaluate(() => window.__box.shapes());
+    if (back.length !== 3 || back.some(g => !g)) throw new Error('exit did not leave the square, the star and the kept pose as exact shapes: ' + JSON.stringify(back.map(g => g && g.n)));
+    await mp.evaluate(() => window.__box.select([0, 2]));
+    await mp.evaluate(() => { const c = document.getElementById('tMorphCorners'); c.checked = false; c.dispatchEvent(new Event('change')); });
+    await live(); await mp.waitForTimeout(300);
+    s = await m();
+    if (!s || s.exact) throw new Error('with keep corners off the shapes did not morph as leaves');
+  } catch (e){
+    failures.push(`[corners] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} morphs that keep their corners, easing and holds`);
+  await mp.close();
+}
+
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,
    edges straight, never leaves until asked. A triangle closed on its start point and a line of
    two points finished by a double-click; both held exact through a click and a drag of a
