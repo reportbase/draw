@@ -693,6 +693,82 @@ current = 'path and trails';
   await mp.close();
 }
 
+/* MORPHS THAT KEEP THEIR CORNERS, AND EASING AND HOLDS (draw.html). A square and a five-pointed star,
+   exact shapes, morph live as an exact shape: the square given ten corners (all on its outline, its
+   own four among them), the star's ten at its two radii, the pose exact (never leaves) between them.
+   A hold rests on the key exactly and leaves the middle where it was; a key added and a pose kept stay
+   exact; the animated svg's frames are the same twenty cubics each; a reload keeps the exact morph,
+   the ease and the hold; exit puts both shapes back exact. With "keep corners" off they morph as leaves. */
+current = 'corners and timing';
+{
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[corners] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const star = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 18 : 40; return (200 + r * Math.cos(a)).toFixed(3) + ',' + (60 + r * Math.sin(a)).toFixed(3); }).join(' ');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120"><rect x="20" y="20" width="80" height="80" fill="#48c"/><polygon points="${star}" fill="#c84"/></svg>`;
+    await mp.setInputFiles('#fLoad', { name: 'sq.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+    await mp.waitForTimeout(1200);
+    await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(300);
+    const live = () => mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    await live(); await mp.waitForTimeout(300);
+    const m = () => mp.evaluate(() => window.__box.morph());
+    const at = async t => { await mp.evaluate(t => { const r = document.getElementById('morphT'); r.value = Math.round(t * 1000); r.dispatchEvent(new Event('input')); }, t); return m(); };
+    let s = await at(0);
+    if (!s || !s.exact || !s.lazy || s.leaves.length !== 10) throw new Error('the square and the star did not morph as an exact shape of ten corners: ' + JSON.stringify(s && { exact: s.exact, lazy: s.lazy, n: s.leaves.length }));
+    const X = s.leaves, Y = s.leavesY, x0 = Math.min(...X), x1 = Math.max(...X), y0 = Math.min(...Y), y1 = Math.max(...Y), e = 1e-6;
+    if (!X.every((x, i) => Math.abs(x - x0) < e || Math.abs(x - x1) < e || Math.abs(Y[i] - y0) < e || Math.abs(Y[i] - y1) < e)) throw new Error('a corner given to the square is off its outline');
+    for (const [cx, cy] of [[x0, y0], [x0, y1], [x1, y0], [x1, y1]])
+      if (!X.some((x, i) => Math.abs(x - cx) < e && Math.abs(Y[i] - cy) < e)) throw new Error('the square lost a corner of its own');
+    const mid = await at(0.5);
+    if (!mid.lazy || !mid.exact || mid.leaves.length !== 10) throw new Error('half way the pose is not an exact shape');
+    s = await at(1);
+    const mx = s.leaves.reduce((a, b) => a + b) / 10, my = s.leavesY.reduce((a, b) => a + b) / 10;
+    const rs = s.leaves.map((x, i) => Math.hypot(x - mx, s.leavesY[i] - my)).sort((a, b) => a - b);
+    if (Math.abs(rs[9] / rs[0] - 40 / 18) > 0.01 || Math.abs(rs[4] / rs[0] - 1) > 0.01) throw new Error('the star did not arrive with its points and dips: ' + rs.map(r => r.toFixed(3)));
+    // EASING AND HOLDS: rest on a key exactly, the middle unmoved
+    await mp.selectOption('#morphEase', 'inout');
+    await mp.evaluate(() => { const a = document.getElementById('morphHold'); a.value = 40; a.dispatchEvent(new Event('input')); });
+    const h0 = await at(0), h1 = await at(0.15), h5 = await at(0.5), h3 = await at(0.3);
+    const diff = (a, b) => Math.max(...a.leaves.map((v, i) => Math.abs(v - b.leaves[i])), ...a.leavesY.map((v, i) => Math.abs(v - b.leavesY[i])));
+    if (diff(h0, h1) > 1e-12) throw new Error('the hold did not rest on the key');
+    if (diff(h5, mid) > 1e-9) throw new Error('easing moved the middle of the stretch');
+    if (!(diff(h3, h0) > 1e-3) || !(diff(h3, mid) > 1e-3)) throw new Error('past the hold the blend did not move');
+    await at(0.6);
+    await mp.click('#bMorphAddKey');
+    s = await m();
+    if (s.K !== 3 || !s.exact) throw new Error('+ key did not make a third exact key');
+    const n0 = await mp.evaluate(() => window.__box.count());
+    await mp.click('#bMorphKeep');
+    if ((await mp.evaluate(() => window.__box.count())) !== n0 + 1) throw new Error('keep did not drop a pose');
+    const [dl] = await Promise.all([mp.waitForEvent('download', { timeout: 30000 }), mp.evaluate(() => document.getElementById('bMorphSvg').click())]);
+    const anim = (await readFile(await dl.path())).toString();
+    const vals = (anim.match(/values="([^"]*)"/) || [, ''])[1].split(';');
+    const counts = new Set(vals.map(v => (v.match(/C/g) || []).length));
+    if (vals.length < 4 || counts.size !== 1 || !counts.has(20)) throw new Error('the animated svg\'s frames are not twenty cubics each: ' + [...counts]);
+    await mp.waitForTimeout(1200);
+    await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(500);
+    s = await m();
+    if (!s || !s.exact || !s.lazy || s.K !== 3 || s.ease !== 'inout' || Math.abs(s.hold - 0.4) > 1e-9) throw new Error('the exact morph, ease and hold did not come back from a reload: ' + JSON.stringify(s && { exact: s.exact, K: s.K, ease: s.ease, hold: s.hold }));
+    await mp.click('#bMorphExit'); await mp.waitForTimeout(300);
+    await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(300);
+    const back = await mp.evaluate(() => window.__box.shapes());
+    if (back.length !== 3 || back.some(g => !g)) throw new Error('exit did not leave the square, the star and the kept pose as exact shapes: ' + JSON.stringify(back.map(g => g && g.n)));
+    await mp.evaluate(() => window.__box.select([0, 2]));
+    await mp.evaluate(() => { const c = document.getElementById('tMorphCorners'); c.checked = false; c.dispatchEvent(new Event('change')); });
+    await live(); await mp.waitForTimeout(300);
+    s = await m();
+    if (!s || s.exact) throw new Error('with keep corners off the shapes did not morph as leaves');
+  } catch (e){
+    failures.push(`[corners] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} morphs that keep their corners, easing and holds`);
+  await mp.close();
+}
+
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,
    edges straight, never leaves until asked. A triangle closed on its start point and a line of
    two points finished by a double-click; both held exact through a click and a drag of a

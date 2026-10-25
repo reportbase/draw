@@ -3797,6 +3797,12 @@
             </label>
         </div>
         <div class="pop-row">
+            <label class="toggle" style="display:flex;align-items:center;gap:6px;font-size:10px;" title="MORPHS THAT KEEP THEIR CORNERS: when every shape selected is an exact shape (closed, no holes), the live morph blends their corners, radii and curve edges and stays an exact shape, so sharp corners stay sharp the whole way. A key with fewer corners is given more by splitting its edges, which draws it the same. The lag and the detail effects act on leaves, so an exact morph goes without them. Off, exact shapes morph as leaves, as before.">
+                <input type="checkbox" id="tMorphCorners" checked>
+                 keep corners (exact shapes)
+            </label>
+        </div>
+        <div class="pop-row">
             <button class="pop-act" id="bMorph" style="flex:1;" title="blend the selected shapes and lay the result out — a strip for two, a 4×4 bilinear grid for four. Replaces the current page in one history frame.">strip</button>
             <button class="pop-act" id="bMorphLive" style="flex:1;" title="blend the selection into ONE shape you can scrub and play, with the t slider in the bottom bar. Two keys are a lerp; three or more sit on a time circle weighted by the cardinal kernel, so the loop closes. Nothing is baked — stop anywhere and `keep` gives you that shape. One shape goes live as a still, for the detail effects in the bar.">live</button>
         </div>
@@ -6573,6 +6579,11 @@
             <label for="morphFx" title="an effect on the detail, the silhouette left alone: shimmer ripples the edge, grow brings the detail in octave by octave and takes it away, boil makes the outline seethe. It plays, records and keeps with the morph">effect</label>
             <select id="morphFx"><option value="">none</option><option value="shimmer">shimmer</option><option value="grow">grow</option><option value="boil">boil</option></select>
             <input type="range" id="morphFxAmt" min="0" max="100" step="1" value="50" style="width:min(110px,12vw);" title="how strong the effect is">
+            <!-- EASING AND HOLDS (25 Oct 2026): how the blend moves from key to key -->
+            <label for="morphEase" title="how the blend moves from one key to the next: evenly (none), slow away from a key and slow into the next (in & out), slow away (in) or slow arriving (out). A key is still exact at its place">ease</label>
+            <select id="morphEase"><option value="">none</option><option value="inout">in &amp; out</option><option value="in">in</option><option value="out">out</option></select>
+            <label for="morphHold" title="how long the blend rests on each key, as a share of the stretch from one key to the next (half before the key, half after). The effects and the path do not rest">hold</label>
+            <input type="range" id="morphHold" min="0" max="80" step="1" value="0" style="width:min(90px,10vw);">
             <!-- MOTION ALONG A PATH and TRAILS (25 Oct 2026): the live shapes ride a line or curve from the
                  drawing, and leave echoes or a ribbon behind them -->
             <button id="bMorphPath" data-code="mpa" class="res-btn" title="select a line or a curve in the drawing and press path: every live shape rides it, once a loop, its centre on the path (several shapes spread evenly along it). The path leaves the drawing while it is one and shows as a dashed guide; press again to take it off and put it back">path</button>
@@ -50711,7 +50722,7 @@
                         N = Math.max(N, run.keys[0].x.length);
                     }
                     k.textContent = (morphRuns.length > 1 ? morphRuns.length + ' morphs · ' : '')
-                    + keys + ' keys · N=' + N + (morphLive.inPlace ? ' · in place' : ' · solo');
+                    + keys + ' keys · ' + (morphRuns.every(r => r.exact) ? N + ' corners' : 'N=' + N) + (morphLive.inPlace ? ' · in place' : ' · solo');
                 }
             }
             // Only while a morph is live. The run's lag outlives the run as a stale field, and
@@ -50731,6 +50742,9 @@
         // live — and with several runs going, exactly one place that can be wrong about which run.
         function morphTargetOf(run) {
             const sp = run && run.sp;
+            // an exact morph's shape is never asked for its leaves: asking would turn it into leaves
+            if (sp && run.exact)
+                return state.subpaths.indexOf(sp) < 0 ? null : sp;
             if (!sp || !sp.leafX)
                 return null;
             return state.subpaths.indexOf(sp) < 0 ? null : sp;
@@ -50741,7 +50755,7 @@
         // The pose a run shows at time t, written into X and Y: the keys blended, the effect on the
         // detail, then the path (MOTION ALONG A PATH). morphWriteRun writes it into the live shape at
         // the clock's t; a trail asks for it at earlier times without touching the shape.
-        function morphPoseInto(run, t, X, Y) {
+        function morphPoseInto(run, t, X, Y, bare) { // bare: the keys' blend alone, no effect or path
             const K = run.keys.length,
                 N = X.length;
             if (run.lag > 0) {
@@ -50753,9 +50767,9 @@
                     run.freq = morphFreqScale(N);
                 }
                 morphBlendSpectral(run.spec, run.freq,
-                g => morphWeights(g(t), K), run.lag, K > 2, X, Y);
+                g => morphWeights(morphWarp(g(t), K), K), run.lag, K > 2, X, Y); // EASING AND HOLDS
             } else {
-                const w = morphWeights(t, K);
+                const w = morphWeights(morphWarp(t, K), K); // EASING AND HOLDS
                 X.fill(0);
                 Y.fill(0);
                 for (let k = 0; k < K; k++) {
@@ -50770,6 +50784,8 @@
                     }
                 }
             }
+            if (bare)
+                return;
             if (run.fx && run.fx.kind)
                 morphApplyFx(run, X, Y, t); // DETAIL EFFECTS
             if (morphLive.path)
@@ -50779,6 +50795,10 @@
             const sp = morphTargetOf(run);
             if (!sp)
                 return;
+            if (run.exact) { // MORPHS THAT KEEP THEIR CORNERS
+                morphWriteExact(run, sp, morphPoseExact(run, morphLive.t));
+                return;
+            }
             const X = sp.leafX,
                 Y = sp.leafY;
             morphPoseInto(run, morphLive.t, X, Y);
@@ -50840,7 +50860,21 @@
         }
         // A standalone copy of a run's shape as it stands right now. Deliberately minimal and
         // built the same way the live shape was: leaves are the origin, the reference follows.
-        function morphPoseClone(sp, label) {
+        function morphPoseClone(sp, label, run) {
+            if (run && run.exact) { // an exact morph's pose is kept as an exact shape, corners and all
+                const P = exactKeyCopy(run.pose || morphPoseExact(run, morphLive.t)),
+                    clone = {
+                        refLength: 0,
+                        source: 'draw',
+                        dirty: false,
+                        stroke: sp.stroke || null,
+                        lineWidth: sp.lineWidth,
+                        fill: sp.fill ? Object.assign({}, sp.fill) : null,
+                        gname: label || null
+                    };
+                makeLazy(clone, P.x, P.y, 0, null, { exact: true, round: hasRound(P.r) ? P.r : null, ctrl: hasCtrl(P.c) ? P.c : null });
+                return clone;
+            }
             const lx = Float64Array.from(sp.leafX),
                 ly = Float64Array.from(sp.leafY);
             return {
@@ -50899,7 +50933,7 @@
                 // shoulders in front of the previous one and a hand-built strip reads backwards. If
                 // that pose has since been deleted or moved away, fall back to the live shape.
                 const anchor = (run.tail && state.subpaths.indexOf(run.tail) >= 0) ? run.tail : sp;
-                const clone = morphPoseClone(sp, label);
+                const clone = morphPoseClone(sp, label, run);
                 state.subpaths.splice(state.subpaths.indexOf(anchor) + 1, 0, clone);
                 run.tail = clone;
                 made++;
@@ -50997,7 +51031,14 @@
                 flashStatus('morph: select one shape to animate, or two or more to blend between');
                 return null;
             }
-            const idx = sel.filter(i => {
+            // MORPHS THAT KEEP THEIR CORNERS: exact shapes (closed, no holes) morph as exact shapes, their
+            // corners, radii and curve edges blended, unless the panel's switch says leaves. Asked
+            // before anything reads their leaves, which would turn them into leaves.
+            const exactMode = state.morphCorners !== false && sel.every(i => {
+                const sp = state.subpaths[i];
+                return sp && sp._lazy && sp._lazy.exact && !sp._lazy.open && !sp._lazy.holes && sp._lazy.x.length >= 3;
+            });
+            const idx = exactMode ? sel.slice() : sel.filter(i => {
                 const sp = state.subpaths[i];
                 return sp && sp.leafX && sp.leafX.length >= 3;
             });
@@ -51025,42 +51066,59 @@
                 else
                     members.push(sp);
             }
-            const N = Math.max(...src.map(sp => sp.leafX.length));
-            // Two copies of every key: one centred, one where it stands. The centred set is what
-            // the alignment is measured on and what a solo morph blends; the standing set is what
-            // an in-place morph blends, so the pose travels between the two positions the drawing
-            // already put them in. resample is a kernel interpolation whose weights sum to one, so
-            // it commutes with the translation and the pair stays a pair.
-            const cen = [],
-                raw = [];
-            for (const sp of src) {
-                let cx = 0,
-                    cy = 0;
-                const n = sp.leafX.length;
-                for (let k = 0; k < n; k++) {
-                    cx += sp.leafX[k];
-                    cy += sp.leafY[k];
+            let N, keys;
+            if (exactMode) {
+                keys = morphExactKeys(src, inPlace, align);
+                N = keys[0].x.length;
+            } else {
+                N = Math.max(...src.map(sp => sp.leafX.length));
+                // Two copies of every key: one centred, one where it stands. The centred set is what
+                // the alignment is measured on and what a solo morph blends; the standing set is what
+                // an in-place morph blends, so the pose travels between the two positions the drawing
+                // already put them in. resample is a kernel interpolation whose weights sum to one, so
+                // it commutes with the translation and the pair stays a pair.
+                const cen = [],
+                    raw = [];
+                for (const sp of src) {
+                    let cx = 0,
+                        cy = 0;
+                    const n = sp.leafX.length;
+                    for (let k = 0; k < n; k++) {
+                        cx += sp.leafX[k];
+                        cy += sp.leafY[k];
+                    }
+                    cx /= n;
+                    cy /= n;
+                    let R = new tvf.Shape(Float64Array.from(sp.leafX, v => v / hR),
+                    Float64Array.from(sp.leafY, v => v / hR));
+                    let C = new tvf.Shape(Float64Array.from(sp.leafX, v => (v - cx) / hR),
+                    Float64Array.from(sp.leafY, v => (v - cy) / hR));
+                    if (R.N !== N) {
+                        R = R.resample(N);
+                        C = C.resample(N);
+                    }
+                    raw.push(R);
+                    cen.push(C);
                 }
-                cx /= n;
-                cy /= n;
-                let R = new tvf.Shape(Float64Array.from(sp.leafX, v => v / hR),
-                Float64Array.from(sp.leafY, v => v / hR));
-                let C = new tvf.Shape(Float64Array.from(sp.leafX, v => (v - cx) / hR),
-                Float64Array.from(sp.leafY, v => (v - cy) / hR));
-                if (R.N !== N) {
-                    R = R.resample(N);
-                    C = C.resample(N);
-                }
-                raw.push(R);
-                cen.push(C);
+                const plans = cen.map((S, i) => (i === 0 || !align) ? null : morphAlignPlan(cen[0], S));
+                const base = inPlace ? raw : cen;
+                keys = base.map((S, i) => morphApplyPlan(S, plans[i])).map(S => ({
+                    x: Float64Array.from(S.x, v => v * hR),
+                    y: Float64Array.from(S.y, v => v * hR)
+                }));
             }
-            const plans = cen.map((S, i) => (i === 0 || !align) ? null : morphAlignPlan(cen[0], S));
-            const base = inPlace ? raw : cen;
-            const keys = base.map((S, i) => morphApplyPlan(S, plans[i]));
 
             if (state.editMode)
                 exitEditMode();
-            const sp0 = {
+            // an exact morph's live shape is an exact shape, made again every frame (morphWriteExact)
+            const sp0 = exactMode ? {
+                refLength: 0,
+                source: 'draw',
+                dirty: false,
+                stroke: src[0].stroke || null,
+                lineWidth: src[0].lineWidth,
+                fill: src[0].fill || null
+            } : {
                 refX: new Float64Array(N),
                 refY: new Float64Array(N),
                 leafX: new Float64Array(N),
@@ -51074,16 +51132,15 @@
                 fill: src[0].fill || null
             };
             const run = {
-                keys: keys.map(S => ({
-                    x: Float64Array.from(S.x, v => v * hR),
-                    y: Float64Array.from(S.y, v => v * hR)
-                })),
+                keys,
+                exact: exactMode, // MORPHS THAT KEEP THEIR CORNERS
+                curved: exactMode ? morphExactCurved(keys) : null,
                 sp: sp0,
                 inPlace,
-                lag,
+                lag: exactMode ? 0 : lag,
                 spec: null,
                 freq: null,
-                fx: state.morphFx ? { kind: state.morphFx, amount: state.morphFxAmount != null ? state.morphFxAmount : 0.5 } : null, // DETAIL EFFECTS
+                fx: exactMode ? null : state.morphFx ? { kind: state.morphFx, amount: state.morphFxAmount != null ? state.morphFxAmount : 0.5 } : null, // DETAIL EFFECTS
                 // For solo the run owned the whole page, so what it has to put back IS the whole page.
                 members: inPlace ? members : state.subpaths.slice(),
             };
@@ -51134,7 +51191,7 @@
             drawAll();
             pushHistory();
             scheduleSave();
-            flashStatus('morph live · ' + keys.length + ' keys at N=' + N
+            flashStatus('morph live · ' + keys.length + (exactMode ? ' keys of ' + N + ' corners, kept sharp (an exact morph: the lag and the effects act on leaves, so they wait)' : ' keys at N=' + N)
             + (inPlace ? ' · in place — the other ' + (state.subpaths.length - 1) + ' shape'
             + (state.subpaths.length === 2 ? '' : 's') + ' and the camera are untouched,'
             + ' and the pose travels between the positions you drew them at'
@@ -51231,6 +51288,443 @@
             morphBarSync();
             drawAll();
             scheduleSave();
+        }
+
+        // ── EASING AND HOLDS (25 Oct 2026, Tom: "1,2") ───────────────────────────────────
+        // Time on the loop is warped before the keys are weighed. Each stretch from one key to the
+        // next is held still for `hold` of its length (half at each end) and eased across the rest:
+        // in and out (slow from a key and into the next), in (slow away from a key), out (slow into
+        // the next). A key's own time maps to itself, so a key is still exact at its place, and the
+        // warp is the same on every stretch, so the loop stays seamless. An effect and a path keep
+        // the clock's own time: the shimmer and the ride do not stop for a hold.
+        const MORPH_EASES = ['inout', 'in', 'out'];
+        function morphEase(u) {
+            const e = state.morphEase;
+            if (e === 'inout')
+                return u * u * (3 - 2 * u);
+            if (e === 'in')
+                return u * u;
+            if (e === 'out')
+                return 1 - (1 - u) * (1 - u);
+            return u;
+        }
+        function morphWarp(t, K) {
+            const hold = Math.max(0, Math.min(0.9, +state.morphHold || 0));
+            if (K < 2 || (!(hold > 0) && !MORPH_EASES.includes(state.morphEase)))
+                return t;
+            let a, b, u;
+            if (K === 2) {
+                a = 0;
+                b = 1;
+                u = Math.max(0, Math.min(1, t));
+            } else {
+                const tt = ((t % 1) + 1) % 1,
+                    k = Math.floor(tt * K - 0.5); // the key before t (-1: the last, round the loop)
+                a = (k + 0.5) / K;
+                b = a + 1 / K;
+                u = (tt - a) * K;
+            }
+            let v = hold > 0 ? Math.max(0, Math.min(1, (u - hold / 2) / (1 - hold))) : u;
+            v = morphEase(v);
+            const r = a + v * (b - a);
+            return K === 2 ? r : ((r % 1) + 1) % 1;
+        }
+        function morphSetTiming(ease, hold) {
+            if (ease != null)
+                state.morphEase = MORPH_EASES.includes(ease) ? ease : '';
+            if (hold != null)
+                state.morphHold = Math.max(0, Math.min(0.9, +hold));
+            for (const r of morphRuns)
+                r._centres = null;
+            morphWrite();
+            morphBarSync();
+            drawAll();
+            scheduleSave();
+        }
+
+        // ── MORPHS THAT KEEP THEIR CORNERS (25 Oct 2026, Tom: "1,2") ───────────────────────
+        // Leaves are band-limited, so a square blended through leaves arrives with its corners
+        // rounded off. Exact shapes need not go through leaves at all: their corners, their radii
+        // and their curve edges are numbers, and numbers blend. So when every key is an exact
+        // closed shape the morph is exact: the live shape is an exact shape at every frame, its
+        // corners where the blend puts them, each radius blended, each curved edge's two handles
+        // blended (an edge curved in any key is a cubic in all of them, a straight edge being the
+        // cubic with its handles at the thirds, which draws the same line). Sharp corners stay sharp.
+        //
+        // Keys need as many corners each. A key with fewer is given more by splitting its edges:
+        // a curved edge at its middle (de Casteljau, so it draws the same curve), a straight one
+        // between its rounded ends (so no radius has less room than it had); the edge with most to
+        // give first. Then every key is wound the way the first is, and turned (which corner is
+        // first) to the one that moves the corners least, measured about each key's centre.
+        //
+        // The lag and the detail effects work on a shape's harmonics, which an exact morph does not
+        // have, so they wait for a leaf morph; the path, the trails, the timeline and the
+        // recordings all work. The panel's "keep corners" switch, off, morphs exact shapes as leaves.
+        function exactKeyOf(sp) {
+            const lz = sp._lazy,
+                X = Float64Array.from(lz.x),
+                Y = Float64Array.from(lz.y),
+                n = X.length;
+            const R0 = lzRoundBaked(lz),
+                S = lz.smooth,
+                C = lzCtrlBaked(lz);
+            const r = new Float64Array(n),
+                c = new Array(n).fill(null);
+            for (let k = 0; k < n; k++) {
+                r[k] = R0 && R0[k] > 0 && !(S && S[k]) ? R0[k] : 0;
+                const cc = edgeCtrl(X, Y, S, false, k, (k + 1) % n, C);
+                c[k] = cc ? [cc.c1x, cc.c1y, cc.c2x, cc.c2y] : null;
+            }
+            return { x: X, y: Y, r, c };
+        }
+        function exactKeyCopy(P) {
+            return { x: Float64Array.from(P.x), y: Float64Array.from(P.y), r: Float64Array.from(P.r), c: P.c.map(e => e ? e.slice() : null) };
+        }
+        // how far along each end of a straight edge its corner's rounding reaches (0 if none)
+        function exactTangentLen(K, k) {
+            const n = K.x.length;
+            if (!(K.r[k] > 0) || K.c[k] || K.c[(k - 1 + n) % n])
+                return 0;
+            const g = cornerArc(K.x, K.y, k, false, K.r[k]);
+            return g ? g.t : 0;
+        }
+        // one more corner: the edge with most room split, the drawn outline unchanged
+        function exactSplitOne(K) {
+            const n = K.x.length;
+            let best = -1,
+                bestScore = -Infinity,
+                bestAt = 0.5;
+            for (let e = 0; e < n; e++) {
+                const f = (e + 1) % n,
+                    L = Math.hypot(K.x[f] - K.x[e], K.y[f] - K.y[e]);
+                let score,
+                    at = 0.5;
+                if (K.c[e])
+                    score = L;
+                else {
+                    const te = exactTangentLen(K, e),
+                        tf = exactTangentLen(K, f);
+                    score = L - 2 * te - 2 * tf;
+                    if (L > 0)
+                        at = (L + 2 * te - 2 * tf) / (2 * L);
+                }
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = e;
+                    bestAt = at;
+                }
+            }
+            const e = best,
+                f = (e + 1) % n,
+                x0 = K.x[e],
+                y0 = K.y[e],
+                x3 = K.x[f],
+                y3 = K.y[f],
+                c = K.c[e];
+            let mx,
+                my,
+                cA = null,
+                cB = null;
+            if (c) {
+                const [x1, y1, x2, y2] = c;
+                const ax = (x0 + x1) / 2,
+                    ay = (y0 + y1) / 2,
+                    bx = (x1 + x2) / 2,
+                    by = (y1 + y2) / 2,
+                    dx = (x2 + x3) / 2,
+                    dy = (y2 + y3) / 2;
+                const ex = (ax + bx) / 2,
+                    ey = (ay + by) / 2,
+                    gx = (bx + dx) / 2,
+                    gy = (by + dy) / 2;
+                mx = (ex + gx) / 2;
+                my = (ey + gy) / 2;
+                cA = [ax, ay, ex, ey];
+                cB = [gx, gy, dx, dy];
+            } else {
+                mx = x0 + bestAt * (x3 - x0);
+                my = y0 + bestAt * (y3 - y0);
+            }
+            const ins = (arr, v) => {
+                const a = Array.from(arr);
+                a.splice(e + 1, 0, v);
+                return Float64Array.from(a);
+            };
+            K.x = ins(K.x, mx);
+            K.y = ins(K.y, my);
+            K.r = ins(K.r, 0);
+            const cs = K.c.slice();
+            cs.splice(e, 1, cA, cB);
+            K.c = cs;
+        }
+        // the drawn outline as points, and its centre (by length along it)
+        function exactDenseOf(K) {
+            return exactDense(K.x, K.y, hasRound(K.r) ? K.r : null, false, null, hasCtrl(K.c) ? K.c : null);
+        }
+        function exactCentre(K) {
+            const D = exactDenseOf(K),
+                n = D.x.length;
+            let sx = 0,
+                sy = 0,
+                sl = 0;
+            for (let i = 0; i < n; i++) {
+                const j = (i + 1) % n,
+                    l = Math.hypot(D.x[j] - D.x[i], D.y[j] - D.y[i]);
+                sx += l * (D.x[i] + D.x[j]) / 2;
+                sy += l * (D.y[i] + D.y[j]) / 2;
+                sl += l;
+            }
+            return sl > 0 ? { x: sx / sl, y: sy / sl } : { x: D.x[0], y: D.y[0] };
+        }
+        function exactArea(K) {
+            const D = exactDenseOf(K),
+                n = D.x.length;
+            let a = 0;
+            for (let i = 0; i < n; i++) {
+                const j = (i + 1) % n;
+                a += D.x[i] * D.y[j] - D.x[j] * D.y[i];
+            }
+            return a / 2;
+        }
+        function exactReverse(K) {
+            const n = K.x.length,
+                o = exactKeyCopy(K);
+            for (let j = 0; j < n; j++) {
+                K.x[j] = o.x[n - 1 - j];
+                K.y[j] = o.y[n - 1 - j];
+                K.r[j] = o.r[n - 1 - j];
+                const e = o.c[(n - 2 - j + n) % n];
+                K.c[j] = e ? [e[2], e[3], e[0], e[1]] : null;
+            }
+        }
+        function exactRoll(K, s) {
+            const n = K.x.length,
+                o = exactKeyCopy(K);
+            for (let j = 0; j < n; j++) {
+                const i = (j + s) % n;
+                K.x[j] = o.x[i];
+                K.y[j] = o.y[i];
+                K.r[j] = o.r[i];
+                K.c[j] = o.c[i];
+            }
+        }
+        function exactMove(K, dx, dy) {
+            for (let j = 0; j < K.x.length; j++) {
+                K.x[j] += dx;
+                K.y[j] += dy;
+                const e = K.c[j];
+                if (e) {
+                    e[0] += dx;
+                    e[1] += dy;
+                    e[2] += dx;
+                    e[3] += dy;
+                }
+            }
+        }
+        // the keys of an exact morph: as many corners each, wound and turned alike; centred for a solo morph
+        function morphExactKeys(src, inPlace, align) {
+            const keys = src.map(exactKeyOf);
+            const n = Math.max(...keys.map(K => K.x.length));
+            for (const K of keys)
+                while (K.x.length < n)
+                    exactSplitOne(K);
+            const c0 = exactCentre(keys[0]),
+                wind = Math.sign(exactArea(keys[0]));
+            for (let k = 1; k < keys.length; k++) {
+                const K = keys[k];
+                if (!align)
+                    continue;
+                if (Math.sign(exactArea(K)) !== wind)
+                    exactReverse(K);
+                const ck = exactCentre(K);
+                let best = 0,
+                    bestCost = Infinity;
+                for (let s = 0; s < n; s++) {
+                    let cost = 0;
+                    for (let j = 0; j < n; j++) {
+                        const i = (j + s) % n,
+                            dx = (K.x[i] - ck.x) - (keys[0].x[j] - c0.x),
+                            dy = (K.y[i] - ck.y) - (keys[0].y[j] - c0.y);
+                        cost += dx * dx + dy * dy;
+                    }
+                    if (cost < bestCost) {
+                        bestCost = cost;
+                        best = s;
+                    }
+                }
+                if (best)
+                    exactRoll(K, best);
+            }
+            if (!inPlace)
+                for (const K of keys) {
+                    const c = exactCentre(K);
+                    exactMove(K, -c.x, -c.y);
+                }
+            return keys;
+        }
+        // which edges are curved in some key (they are cubics in every pose)
+        function morphExactCurved(keys) {
+            const n = keys[0].x.length,
+                out = new Uint8Array(n);
+            for (const K of keys)
+                for (let e = 0; e < n; e++)
+                    if (K.c[e])
+                        out[e] = 1;
+            return out;
+        }
+        // the pose at t: the keys' corners, radii and handles weighed, then the path
+        function morphPoseExact(run, t, bare) {
+            const K = run.keys.length,
+                w = morphWeights(morphWarp(t, K), K),
+                n = run.keys[0].x.length;
+            const x = new Float64Array(n),
+                y = new Float64Array(n),
+                r = new Float64Array(n),
+                c = new Array(n).fill(null);
+            for (let k = 0; k < K; k++) {
+                const a = w[k];
+                if (a === 0)
+                    continue;
+                const Q = run.keys[k];
+                for (let j = 0; j < n; j++) {
+                    x[j] += a * Q.x[j];
+                    y[j] += a * Q.y[j];
+                    r[j] += a * Q.r[j];
+                }
+            }
+            for (let e = 0; e < n; e++) {
+                if (!run.curved[e])
+                    continue;
+                const f = (e + 1) % n,
+                    acc = [0, 0, 0, 0];
+                for (let k = 0; k < K; k++) {
+                    const a = w[k];
+                    if (a === 0)
+                        continue;
+                    const Q = run.keys[k],
+                        q = Q.c[e] || [Q.x[e] + (Q.x[f] - Q.x[e]) / 3, Q.y[e] + (Q.y[f] - Q.y[e]) / 3,
+                        Q.x[f] - (Q.x[f] - Q.x[e]) / 3, Q.y[f] - (Q.y[f] - Q.y[e]) / 3];
+                    for (let i = 0; i < 4; i++)
+                        acc[i] += a * q[i];
+                }
+                c[e] = acc;
+            }
+            for (let j = 0; j < n; j++)
+                if (!(r[j] > 0))
+                    r[j] = 0;
+            const P = { x, y, r, c };
+            if (morphLive.path && !bare) { // MOTION ALONG A PATH: the corners and handles carried
+                const ctr = exactCentre(P),
+                    q = morphPathPlace(run, t),
+                    cs = Math.cos(q.turn),
+                    sn = Math.sin(q.turn);
+                const tf = (px, py) => [q.x + cs * (px - ctr.x) - sn * (py - ctr.y), q.y + sn * (px - ctr.x) + cs * (py - ctr.y)];
+                for (let j = 0; j < n; j++) {
+                    [x[j], y[j]] = tf(x[j], y[j]);
+                    const e = c[j];
+                    if (e) {
+                        [e[0], e[1]] = tf(e[0], e[1]);
+                        [e[2], e[3]] = tf(e[2], e[3]);
+                    }
+                }
+            }
+            return P;
+        }
+        function morphWriteExact(run, sp, P) {
+            makeLazy(sp, P.x, P.y, 0, null, {
+                exact: true,
+                round: hasRound(P.r) ? P.r : null,
+                ctrl: hasCtrl(P.c) ? P.c : null
+            });
+            run.pose = P;
+        }
+        // a pose as 2n cubics in a fixed order, for the animated svg: at each corner its rounding
+        // (an arc's cubic, or none, all four points at the corner), then the edge to the next
+        function morphExactCubics(P) {
+            const n = P.x.length,
+                ends = [];
+            for (let k = 0; k < n; k++) {
+                const g = P.r[k] > 0 && !P.c[k] && !P.c[(k - 1 + n) % n] ? cornerArc(P.x, P.y, k, false, P.r[k]) : null;
+                if (g) {
+                    const h = (4 / 3) * Math.tan((Math.PI - g.phi) / 4) * g.r,
+                        ux = (g.t1x - P.x[k]) / g.t,
+                        uy = (g.t1y - P.y[k]) / g.t,
+                        vx = (g.t2x - P.x[k]) / g.t,
+                        vy = (g.t2y - P.y[k]) / g.t;
+                    ends.push({ a: { x: g.t1x, y: g.t1y }, c1: { x: g.t1x - ux * h, y: g.t1y - uy * h }, c2: { x: g.t2x - vx * h, y: g.t2y - vy * h }, b: { x: g.t2x, y: g.t2y } });
+                } else {
+                    const p = { x: P.x[k], y: P.y[k] };
+                    ends.push({ a: p, c1: p, c2: p, b: p });
+                }
+            }
+            const pts = [ends[0].b];
+            for (let k = 0; k < n; k++) {
+                const A = ends[k].b,
+                    B = ends[(k + 1) % n].a,
+                    e = P.c[k];
+                if (e)
+                    pts.push({ x: e[0], y: e[1] }, { x: e[2], y: e[3] }, B);
+                else
+                    pts.push({ x: A.x + (B.x - A.x) / 3, y: A.y + (B.y - A.y) / 3 }, { x: B.x - (B.x - A.x) / 3, y: B.y - (B.y - A.y) / 3 }, B);
+                const F = ends[(k + 1) % n];
+                pts.push(F.c1, F.c2, F.b);
+            }
+            return pts;
+        }
+        // an exact shape's outline (and its holes) as svg path data, through mp (world to the file's
+        // units): lines, its curve edges' cubics, and each rounded corner's arc as its cubic
+        function exactPathD(lz, mp, dp) {
+            const q = Math.pow(10, dp),
+                f = v => Math.round(v * q) / q,
+                P = (x, y) => {
+                    const p = mp({ x, y });
+                    return f(p.x) + ' ' + f(p.y);
+                };
+            const ring = (X, Y, R, open, S, C) => {
+                if (X.length < (open ? 2 : 3))
+                    return '';
+                const E = exactSegs(X, Y, R, open, S, C);
+                let d = 'M' + P(E.start.x, E.start.y);
+                for (const g of E.segs) {
+                    if (g.type === 'L')
+                        d += 'L' + P(g.x, g.y);
+                    else if (g.type === 'C')
+                        d += 'C' + P(g.c1x, g.c1y) + ' ' + P(g.c2x, g.c2y) + ' ' + P(g.x, g.y);
+                    else {
+                        const a = g.g,
+                            h = (4 / 3) * Math.tan((Math.PI - a.phi) / 4) * a.r,
+                            ux = (a.t1x - g.px) / a.t,
+                            uy = (a.t1y - g.py) / a.t,
+                            vx = (a.t2x - g.px) / a.t,
+                            vy = (a.t2y - g.py) / a.t;
+                        d += 'L' + P(a.t1x, a.t1y) + 'C' + P(a.t1x - ux * h, a.t1y - uy * h) + ' ' + P(a.t2x - vx * h, a.t2y - vy * h) + ' ' + P(a.t2x, a.t2y);
+                    }
+                }
+                return d + (open ? '' : 'Z');
+            };
+            let d = ring(lz.x, lz.y, lzRoundBaked(lz), lz.open, lz.smooth, lzCtrlBaked(lz));
+            for (const hl of (lzHolesBaked(lz) || []))
+                d += ring(hl.x, hl.y, null, false, hl.smooth, hl.ctrl);
+            return d;
+        }
+        function cubicsToPathD(pts, dp) {
+            const q = Math.pow(10, dp),
+                f = v => Math.round(v * q) / q;
+            let d = 'M' + f(pts[0].x) + ' ' + f(pts[0].y);
+            for (let i = 1; i + 2 < pts.length; i += 3)
+                d += 'C' + f(pts[i].x) + ' ' + f(pts[i].y) + ' ' + f(pts[i + 1].x) + ' ' + f(pts[i + 1].y) + ' ' + f(pts[i + 2].x) + ' ' + f(pts[i + 2].y);
+            return d + 'Z';
+        }
+        // a run's drawn outline at time u, as points (an exact pose's, or the leaves' curve)
+        function morphOutlineAt(run, u) {
+            if (run.exact)
+                return exactDenseOf(morphPoseExact(run, u));
+            const sp = morphTargetOf(run);
+            if (!sp)
+                return null;
+            const B = morphTrailBuf(sp.leafX.length);
+            morphPoseInto(run, u, B.x, B.y);
+            return new tvf.Shape(B.x, B.y).sample(256);
         }
 
         // ── MOTION ALONG A PATH (25 Oct 2026, Tom: "1,3") ───────────────────────────────
@@ -51505,7 +51999,7 @@
             if (morphLive.path)
                 return morphPathPlace(run, u);
             if (!run._centres || run._centres.length !== run.keys.length)
-                run._centres = run.keys.map(k => {
+                run._centres = run.keys.map(k => run.exact ? exactCentre(k) : (() => {
                     let cx = 0,
                         cy = 0;
                     for (let i = 0; i < k.x.length; i++) {
@@ -51513,8 +52007,8 @@
                         cy += k.y[i];
                     }
                     return { x: cx / k.x.length, y: cy / k.x.length };
-                });
-            const w = morphWeights(u, run.keys.length);
+                })());
+            const w = morphWeights(morphWarp(u, run.keys.length), run.keys.length); // EASING AND HOLDS
             let x = 0,
                 y = 0;
             for (let k = 0; k < w.length; k++) {
@@ -51541,14 +52035,14 @@
                     lineCol = sp.stroke || (fillCol ? null : 'rgba(212,160,82,1)'),
                     lw = sp.lineWidth != null ? sp.lineWidth : state.lineWidth;
                 if (kind === 'echoes') {
-                    const B = morphTrailBuf(sp.leafX.length);
                     for (let k = MORPH_ECHOES; k >= 1; k--) {
                         const u = morphTrailTime(run, t, span * k / MORPH_ECHOES);
                         if (u == null)
                             continue;
-                        morphPoseInto(run, u, B.x, B.y);
-                        const g = new tvf.Shape(B.x, B.y).sample(256),
+                        const g = morphOutlineAt(run, u), // an exact morph's echoes keep their corners
                             a = 0.6 * (1 - k / (MORPH_ECHOES + 1));
+                        if (!g)
+                            continue;
                         ctx.beginPath();
                         for (let i = 0; i < g.x.length; i++) {
                             const q = worldToPx(g.x[i], g.y[i], w, h);
@@ -51572,8 +52066,9 @@
                     }
                 } else {
                     // the head's width: twice the pose's mean distance from its centre, on screen
-                    const X = sp.leafX,
-                        Y = sp.leafY,
+                    const O = run.exact ? exactDenseOf(run.pose || morphPoseExact(run, t)) : { x: sp.leafX, y: sp.leafY },
+                        X = O.x,
+                        Y = O.y,
                         N = X.length;
                     let cx = 0,
                         cy = 0;
@@ -51674,6 +52169,13 @@
                 fxs.value = run0 && run0.fx ? run0.fx.kind : '';
             if (fxa && document.activeElement !== fxa)
                 fxa.value = String(Math.round(100 * (run0 && run0.fx && run0.fx.amount != null ? run0.fx.amount : 0.5)));
+            // EASING AND HOLDS
+            const es = $('morphEase'),
+                hi = $('morphHold');
+            if (es && document.activeElement !== es)
+                es.value = ['inout', 'in', 'out'].includes(state.morphEase) ? state.morphEase : '';
+            if (hi && document.activeElement !== hi)
+                hi.value = String(Math.round(100 * (+state.morphHold || 0)));
             // MOTION ALONG A PATH and TRAILS
             const pb = $('bMorphPath');
             if (pb) {
@@ -51750,12 +52252,18 @@
                 const sp = morphTargetOf(run);
                 if (!sp)
                     continue;
-                run.keys.splice(at, 0, {
-                    x: Float64Array.from(sp.leafX),
-                    y: Float64Array.from(sp.leafY)
-                });
+                // the keys' blend where you stand, without the effect or the path (which act on every key)
+                let key;
+                if (run.exact)
+                    key = morphPoseExact(run, t, true);
+                else {
+                    key = { x: new Float64Array(sp.leafX.length), y: new Float64Array(sp.leafX.length) };
+                    morphPoseInto(run, t, key.x, key.y, true);
+                }
+                run.keys.splice(at, 0, key);
                 run.spec = null;
                 run.freq = null;
+                run._centres = null;
             }
             morphSetT((at + 0.5) / (K + 1));
             pushHistory();
@@ -51780,6 +52288,9 @@
                 run.keys.splice(best, 1);
                 run.spec = null;
                 run.freq = null;
+                run._centres = null;
+                if (run.exact)
+                    run.curved = morphExactCurved(run.keys);
             }
             const Q = morphKeyPhases(K - 1);
             morphSetT(Q[Math.min(best, K - 2)]);
@@ -51819,7 +52330,7 @@
                         continue;
                     const key = run.keys[k];
                     if (!key._ghost)
-                        key._ghost = new tvf.Shape(Float64Array.from(key.x), Float64Array.from(key.y)).sample(240);
+                        key._ghost = run.exact ? exactDenseOf(key) : new tvf.Shape(Float64Array.from(key.x), Float64Array.from(key.y)).sample(240);
                     const g = key._ghost;
                     ctx.strokeStyle = col;
                     ctx.beginPath();
@@ -64261,6 +64772,13 @@
                             return;
                         morphSetFx(fxSel ? fxSel.value : '', (+fxAmt.value) / 100);
                     });
+                // EASING AND HOLDS
+                const easeSel = $('morphEase'),
+                    holdIn = $('morphHold');
+                if (easeSel)
+                    easeSel.addEventListener('change', () => morphSetTiming(easeSel.value, null));
+                if (holdIn)
+                    holdIn.addEventListener('input', () => morphSetTiming(null, (+holdIn.value) / 100));
                 // MOTION ALONG A PATH and TRAILS
                 onKey('bMorphPath', () => morphSetPath());
                 const turnT = $('tMorphTurn'),
@@ -64352,6 +64870,12 @@
                         });
             }
             {
+                const tMC = $('tMorphCorners'); // MORPHS THAT KEEP THEIR CORNERS
+                if (tMC)
+                    tMC.addEventListener('change', () => {
+                        state.morphCorners = !!tMC.checked;
+                        scheduleSave();
+                    });
                 const tIP = $('tMorphInPlace');
                 if (tIP)
                     tIP.addEventListener('change', () => {
@@ -67459,14 +67983,15 @@
             // frame of every run at once. Framing on the pose that happens to be on screen would clip
             // the animation the moment it moved.
             const seq = morphRuns.map(() => []);
-            const runS = morphRuns.map(morphRunS); // fixed per run, before any frame is taken
+            const runS = morphRuns.map(r => r.exact ? 0 : morphRunS(r)); // fixed per run, before any frame is taken
             try {
                 for (const t of ts) {
                     morphLive.t = t;
                     morphRuns.forEach((run, ri) => {
                         morphWriteRun(run);
                         const sp = morphTargetOf(run);
-                        seq[ri].push(sp ? morphExportRing(sp, runS[ri]) : null);
+                        // MORPHS THAT KEEP THEIR CORNERS: the pose as its fixed run of cubics, corners sharp
+                        seq[ri].push(sp ? (run.exact ? morphExactCubics(run.pose) : morphExportRing(sp, runS[ri])) : null);
                     });
                 }
             } finally {
@@ -67474,8 +67999,15 @@
                 morphWrite();
             }
 
-            const statics = state.subpaths.filter(sp => sp && sp.leafX && sp.leafX.length >= 3 && !liveSet.has(sp));
-            const staticRings = statics.map(sp => morphExportRing(sp, morphExportS(sp)));
+            // An exact shape goes in as its own outline (exactPathD), corners and curves as drawn; asking it for
+            // its leaves, as this once did of every shape, turned each exact shape in the drawing into leaves.
+            const statics = state.subpaths.filter(sp => sp && !liveSet.has(sp) && (sp._lazy ? sp._lazy.x.length >= 2 : sp.leafX && sp.leafX.length >= 3));
+            const staticRings = statics.map(sp => {
+                if (!sp._lazy)
+                    return morphExportRing(sp, morphExportS(sp));
+                const O = lzOutlinePts(sp._lazy);
+                return Array.from(O.x, (x, i) => ({ x, y: O.y[i] }));
+            });
 
             let minx = Infinity,
                 miny = Infinity,
@@ -67538,12 +68070,14 @@
 
             const body = [];
             if (staticRings.length) {
+                const mapPt = p => ({ x: half + (p.x - ox) * scale, y: half - (p.y - oy) * scale });
                 const bits = statics.map((sp, i) => {
-                    const d = ringToPathD(mapRing(staticRings[i]), DP);
+                    const d = sp._lazy ? exactPathD(sp._lazy, mapPt, DP) : ringToPathD(mapRing(staticRings[i]), DP);
                     if (!d)
                         return '';
                     const title = sp.gname ? `<title>${xmlEsc(sp.gname)}</title>` : '';
-                    return `    <path d="${d}" ${styleOf(sp)}>${title}</path>`;
+                    const rule = sp._lazy && sp._lazy.holes ? ' fill-rule="evenodd"' : '';
+                    return `    <path d="${d}" ${sp._lazy && sp._lazy.open ? styleOf(sp).replace(/fill="[^"]*"( fill-opacity="[^"]*")?/, 'fill="none"') : styleOf(sp)}${rule}>${title}</path>`;
                 }).filter(Boolean);
                 if (bits.length)
                     body.push('  <g id="scene">\n' + bits.join('\n') + '\n  </g>');
@@ -67552,7 +68086,7 @@
                 const rings = seq[ri];
                 if (!rings.length || !rings[0])
                     return;
-                const ds = rings.map(r => r ? ringToPathD(mapRing(r), DP) : null).filter(Boolean);
+                const ds = rings.map(r => r ? (run.exact ? cubicsToPathD(mapRing(r), DP) : ringToPathD(mapRing(r), DP)) : null).filter(Boolean);
                 if (ds.length < 2)
                     return;
                 const sp = run.sp;
@@ -77594,6 +78128,7 @@
                 arrangeExtent: state.arrangeExtent || 'fit',
                 morphLag: +state.morphLag || 0,
                 morphInPlace: state.morphInPlace !== false,
+                morphCorners: state.morphCorners !== false,
                 morphFrames: +state.morphFrames || 24,
                 morphLoop: state.morphLoop || 'auto',
                 arrangeCellW: state.arrangeCellW || 0,
@@ -77628,10 +78163,16 @@
                     inPlace: r.inPlace !== false,
                     lag: +r.lag || 0,
                     fx: r.fx && r.fx.kind ? { kind: r.fx.kind, amount: +r.fx.amount } : null,
-                    keys: r.keys.map(k => ({
+                    exact: !!r.exact, // MORPHS THAT KEEP THEIR CORNERS: corners, radii and handles
+                    keys: r.keys.map(k => r.exact ? {
+                        x: Array.from(k.x, v => +v.toPrecision(9)),
+                        y: Array.from(k.y, v => +v.toPrecision(9)),
+                        r: Array.from(k.r, v => +v.toPrecision(9)),
+                        c: k.c.map(e => e ? e.map(v => +v.toPrecision(9)) : null)
+                    } : {
                         x: _f32b64(k.x),
                         y: _f32b64(k.y)
-                    })),
+                    }),
                     members: (r.members || []).filter(spSaveable).map(m => spSave(m, dropRefs)),
                 })).filter(m => m.at >= 0),
                 morphT: morphLive.t,
@@ -77649,6 +78190,8 @@
                 morphPathMode: state.morphPathMode === 'back' ? 'back' : 'along',
                 morphTrail: state.morphTrail || '',
                 morphTrailLen: state.morphTrailLen != null ? +state.morphTrailLen : 0.5,
+                morphEase: state.morphEase || '', // EASING AND HOLDS
+                morphHold: +state.morphHold || 0,
                 morphFps: +state.morphFps || 30,
             });
         }
@@ -77828,10 +78371,39 @@
             state.morphTrail = d.morphTrail === 'echoes' || d.morphTrail === 'ribbon' ? d.morphTrail : '';
             state.morphTrailLen = d.morphTrailLen != null ? Math.max(0, Math.min(1, +d.morphTrailLen)) : 0.5;
             state.morphFps = [24, 30, 60].includes(+d.morphFps) ? +d.morphFps : 30;
+            state.morphEase = MORPH_EASES.includes(d.morphEase) ? d.morphEase : ''; // EASING AND HOLDS
+            state.morphHold = Math.max(0, Math.min(0.9, +d.morphHold || 0));
             if (!Array.isArray(d.morphs) || !d.morphs.length)
                 return;
             for (const m of d.morphs) {
                 try {
+                    if (m.exact) { // MORPHS THAT KEEP THEIR CORNERS: its shape is exact; never ask it for leaves
+                        const sp = state.subpaths[m.at];
+                        if (!sp || !sp._lazy || !Array.isArray(m.keys) || !m.keys.length)
+                            continue;
+                        const keys = m.keys.map(k => ({
+                            x: Float64Array.from(k.x),
+                            y: Float64Array.from(k.y),
+                            r: Float64Array.from(k.r),
+                            c: k.c.map(e => Array.isArray(e) && e.length === 4 ? e.map(Number) : null)
+                        }));
+                        const n = keys[0].x.length;
+                        if (n < 3 || keys.some(k => k.x.length !== n || k.y.length !== n || k.r.length !== n || k.c.length !== n))
+                            continue;
+                        morphRuns.push({
+                            keys,
+                            exact: true,
+                            curved: morphExactCurved(keys),
+                            sp,
+                            inPlace: m.inPlace !== false,
+                            lag: 0,
+                            spec: null,
+                            freq: null,
+                            fx: null,
+                            members: Array.isArray(m.members) ? m.members.map(q => { try { return spLoad(q); } catch (_) { return null; } }).filter(Boolean) : [],
+                        });
+                        continue;
+                    }
                     const sp = state.subpaths[m.at];
                     if (!sp || !sp.leafX || !Array.isArray(m.keys) || m.keys.length < 1)
                         continue;
@@ -77985,6 +78557,8 @@
                 state.morphLag = Math.max(0, Math.min(MORPH_LAG_MAX, +d.morphLag || 0));
             if (d.morphInPlace != null)
                 state.morphInPlace = !!d.morphInPlace;
+            if (d.morphCorners != null)
+                state.morphCorners = !!d.morphCorners;
             if (d.morphFrames != null)
                 state.morphFrames = Math.max(4, Math.min(240, +d.morphFrames || 24));
             if (d.morphLoop === 'auto' || d.morphLoop === 'cycle' || d.morphLoop === 'bounce')
@@ -78085,6 +78659,9 @@
                 const mip = $('tMorphInPlace');
                 if (mip)
                     mip.checked = state.morphInPlace !== false;
+                const mco = $('tMorphCorners');
+                if (mco)
+                    mco.checked = state.morphCorners !== false;
                 const mfr = $('selMorphFrames');
                 if (mfr)
                     mfr.value = String(state.morphFrames || 24);
@@ -80400,12 +80977,17 @@
             // THE TIMELINE: the live morph as the bar shows it, and its controls
             morph: () => morphRuns.length ? { K: morphRuns[0].keys.length, t: morphLive.t, loop: 1 / morphLive.speed, play: morphLive.play,
                 phases: morphKeyPhases(morphRuns[0].keys.length), ticks: [...document.querySelectorAll('#morphTickList option')].map(o => +o.value),
-                leaves: Array.from(morphRuns[0].sp.leafX), leavesY: Array.from(morphRuns[0].sp.leafY),
+                // an exact morph's corners, never its leaves (asking for them would turn it into leaves)
+                leaves: morphRuns[0].exact ? Array.from(morphRuns[0].sp._lazy.x) : Array.from(morphRuns[0].sp.leafX),
+                leavesY: morphRuns[0].exact ? Array.from(morphRuns[0].sp._lazy.y) : Array.from(morphRuns[0].sp.leafY),
+                exact: !!morphRuns[0].exact, lazy: !!morphRuns[0].sp._lazy,
+                round: morphRuns[0].exact && morphRuns[0].pose ? Array.from(morphRuns[0].pose.r) : null,
+                ease: state.morphEase || '', hold: +state.morphHold || 0,
                 path: morphLive.path ? { closed: morphLive.path.closed, mode: morphLive.path.mode, turn: morphLive.path.turn } : null,
                 trail: state.morphTrail || '' } : null,
             // MOTION ALONG A PATH: where the first live shape's centre is on the path at t, and the canvas as drawn
             pathAt: t => morphRuns.length && morphLive.path ? morphPathPlace(morphRuns[0], t) : null,
-            canvasUrl: () => { drawAll(); return cv.toDataURL(); },
+            canvasUrl: () => { (drawAll.now || drawAll)(); return cv.toDataURL(); }, // drawAll alone waits for the next frame
             morphKey: k => morphRuns.length ? { x: Array.from(morphRuns[0].keys[k].x) } : null,
             recordGif: () => morphRecordGif().then(b => b ? b.size : 0),
             recordVideo: () => morphRecordVideo().then(b => b ? { size: b.size, type: b.type } : null),
