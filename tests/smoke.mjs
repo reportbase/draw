@@ -497,6 +497,24 @@ current = 'svg as exact shapes';
   await sp.close();
 }
 
+// A webm's frames: walk its EBML elements, into the Segment and its Clusters, counting SimpleBlocks.
+function webmBlocks(buf) {
+  const vint = (p, keep) => { let len = 1; while (len <= 8 && !(buf[p] & (0x80 >> (len - 1)))) len++;
+    let v = keep ? buf[p] : buf[p] & (0xff >> len); for (let i = 1; i < len; i++) v = v * 256 + buf[p + i]; return { v, len }; };
+  let frames = 0, docType = '', firstKey = false;
+  const walk = (p, end) => {
+    while (p < end) {
+      const id = vint(p, true), sz = vint(p + id.len, false), body = p + id.len + sz.len;
+      if (id.v === 0x18538067 || id.v === 0x1F43B675 || id.v === 0x1A45DFA3) walk(body, body + sz.v);
+      else if (id.v === 0x4282) docType = buf.toString('latin1', body, body + sz.v);
+      else if (id.v === 0xA3) { if (!frames) firstKey = !!(buf[body + 3] & 0x80); frames++; }
+      p = body + sz.v;
+    }
+  };
+  walk(0, buf.length);
+  return { frames, docType, firstKey };
+}
+
 /* THE TIMELINE AND RECORDING A LOOP (draw.html). Three shapes morphed live: their keys' places as
    ticks on the track, a step to the next key landing on it exactly (the live shape is that key), a key
    made from the pose between two keys (the pose unchanged, four ticks), a key taken away, onion skins
@@ -550,10 +568,16 @@ current = 'timeline and recording';
       else throw new Error('the GIF has a stray byte at ' + p);
     }
     if (frames !== 40 || !loops || gif[p] !== 0x3B) throw new Error('the GIF holds ' + frames + ' frames (looping ' + loops + '), not one 2 s loop at 20 a second');
-    if (await mp.evaluate(() => typeof MediaRecorder !== 'undefined')) {
+    if (await mp.evaluate(() => typeof VideoEncoder !== 'undefined' || typeof MediaRecorder !== 'undefined')) {
+      const exact = await mp.evaluate(() => typeof VideoEncoder !== 'undefined');
       const [dv] = await Promise.all([mp.waitForEvent('download', { timeout: 60000 }), mp.evaluate(() => window.__box.recordVideo())]);
       const vid = await readFile(await dv.path());
       if (vid.length < 1000 || vid.readUInt32BE(0) !== 0x1A45DFA3) throw new Error('the video is not a webm: ' + vid.length + ' bytes');
+      // FRAME-EXACT VIDEO: walk the webm's elements and count its frames, every one of a 2 s loop at 30
+      if (exact) {
+        const blocks = webmBlocks(vid);
+        if (blocks.frames !== 60 || blocks.docType !== 'webm' || !blocks.firstKey) throw new Error('the frame-exact video holds ' + blocks.frames + ' frames (' + blocks.docType + '), not every frame of a 2 s loop at 30 a second');
+      }
     }
     if (!(await m())) throw new Error('recording ended the morph');
     // THE TIMELINE IS SAVED: a reload brings the morph back, its keys, place, loop and onion, and exit
@@ -595,6 +619,77 @@ current = 'timeline and recording';
     failures.push(`[timeline] ${e.message.split('\n')[0]}`);
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} timeline and recording a loop`);
+  await mp.close();
+}
+
+/* MOTION ALONG A PATH AND TRAILS (draw.html). A triangle goes live and a circle in the drawing
+   becomes its path: the circle leaves the drawing, the triangle's centre is on the path at every t and
+   the path's points round a circle, at an even speed; it turns with the path (half round at t = ½) and
+   its loop meets at its ends. There and back reaches the far side at a quarter. Echoes and a ribbon draw
+   a trail (the canvas changes); a reload keeps the path and the trail; exit puts the circle back. */
+current = 'path and trails';
+{
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[path] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await mp.evaluate(() => { const t = document.getElementById('tSvgExact'); t.checked = false; t.dispatchEvent(new Event('change')); });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"><polygon points="40,20 70,80 10,80" fill="#4c8"/>'
+      + '<circle cx="150" cy="100" r="90" fill="none" stroke="#888"/></svg>';
+    await mp.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+    await mp.waitForTimeout(1200);
+    await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(200);
+    await mp.evaluate(() => window.__box.select([0]));
+    await mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    await mp.waitForTimeout(300);
+    await mp.evaluate(() => window.__box.select([1]));
+    await mp.click('#bMorphPath');
+    const m = () => mp.evaluate(() => window.__box.morph());
+    const at = async t => { await mp.evaluate(t => { const r = document.getElementById('morphT'); r.value = Math.round(t * 1000); r.dispatchEvent(new Event('input')); }, t); return m(); };
+    const mean = v => v.reduce((x, y) => x + y, 0) / v.length;
+    let s = await m();
+    if (!s || !s.path || !s.path.closed || (await mp.evaluate(() => window.__box.count())) !== 1) throw new Error('the circle did not become a closed path out of the drawing: ' + JSON.stringify(s && s.path));
+    const pts = [];
+    for (const t of [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875]) {
+      s = await at(t);
+      const p = await mp.evaluate(t => window.__box.pathAt(t), t);
+      if (Math.hypot(mean(s.leaves) - p.x, mean(s.leavesY) - p.y) > 1e-9) throw new Error('the shape\'s centre is not on the path at t ' + t);
+      pts.push(p);
+    }
+    const cx = mean(pts.map(p => p.x)), cy = mean(pts.map(p => p.y)), rs = pts.map(p => Math.hypot(p.x - cx, p.y - cy));
+    const gaps = pts.map((p, i) => Math.hypot(p.x - pts[(i + 1) % 8].x, p.y - pts[(i + 1) % 8].y));
+    if (Math.max(...rs) / Math.min(...rs) > 1.02 || Math.max(...gaps) / Math.min(...gaps) > 1.02) throw new Error('the ride is not round the circle at an even speed: ' + rs.map(r => r.toFixed(3)) + ' / ' + gaps.map(g => g.toFixed(3)));
+    const ang = l => Math.atan2(l.leavesY[0] - mean(l.leavesY), l.leaves[0] - mean(l.leaves));
+    const s0 = await at(0), s5 = await at(0.5), s1 = await at(1);
+    const turned = Math.abs(((ang(s5) - ang(s0) - Math.PI) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); // how far from a half turn
+    if (turned > 0.1) throw new Error('the shape did not turn half round with the path: off by ' + turned);
+    if (Math.max(...s0.leaves.map((v, i) => Math.abs(v - s1.leaves[i]))) > 1e-9) throw new Error('the ride\'s loop does not meet at its ends');
+    await mp.selectOption('#morphPathMode', 'back');
+    const b25 = await at(0.25), p50 = pts[4];
+    if (Math.hypot(mean(b25.leaves) - p50.x, mean(b25.leavesY) - p50.y) > 1e-6) throw new Error('there and back is not at the far side at a quarter');
+    await mp.selectOption('#morphPathMode', 'along');
+    await at(0.3);
+    const none = await mp.evaluate(() => window.__box.canvasUrl());
+    await mp.selectOption('#morphTrail', 'ribbon');
+    const ribbon = await mp.evaluate(() => window.__box.canvasUrl());
+    await mp.selectOption('#morphTrail', 'echoes');
+    const echoes = await mp.evaluate(() => window.__box.canvasUrl());
+    if (ribbon === none || echoes === none || echoes === ribbon) throw new Error('a trail drew nothing');
+    await mp.waitForTimeout(1200);
+    await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(500);
+    s = await m();
+    if (!s || !s.path || s.trail !== 'echoes' || Math.abs(s.t - 0.3) > 1e-9) throw new Error('the path and trail did not come back from a reload: ' + JSON.stringify(s && { path: s.path, trail: s.trail, t: s.t }));
+    const p3 = await mp.evaluate(() => window.__box.pathAt(0.3));
+    if (Math.hypot(mean(s.leaves) - p3.x, mean(s.leavesY) - p3.y) > 1e-5) throw new Error('after a reload the shape is off its path');
+    await mp.click('#bMorphExit'); await mp.waitForTimeout(300);
+    if ((await mp.evaluate(() => window.__box.count())) !== 2) throw new Error('exit did not put the path\'s circle back');
+  } catch (e){
+    failures.push(`[path] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} motion along a path and trails`);
   await mp.close();
 }
 
