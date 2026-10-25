@@ -6562,10 +6562,10 @@
                  after, a key added where you stand or taken away, the neighbouring keys as ghosts, and how long
                  one loop takes. -->
             <datalist id="morphTickList"></datalist>
-            <button id="bMorphPrevKey" class="res-btn" title="to the key before — at a key the blend is that key exactly">◀ key</button>
-            <button id="bMorphNextKey" class="res-btn" title="to the key after">key ▶</button>
-            <button id="bMorphAddKey" class="res-btn" title="make the pose you are looking at a key, between the key before and the key after. The keys stay evenly round the loop, so the others move up to make room; with two keys this turns the ramp into a loop">+ key</button>
-            <button id="bMorphDelKey" class="res-btn" title="take away the key nearest where you stand (a morph keeps at least two)">− key</button>
+            <button id="bMorphPrevKey" data-code="mkb" class="res-btn" title="to the key before — at a key the blend is that key exactly">◀ key</button>
+            <button id="bMorphNextKey" data-code="mkn" class="res-btn" title="to the key after">key ▶</button>
+            <button id="bMorphAddKey" data-code="mka" class="res-btn" title="make the pose you are looking at a key, between the key before and the key after. The keys stay evenly round the loop, so the others move up to make room; with two keys this turns the ramp into a loop">+ key</button>
+            <button id="bMorphDelKey" data-code="mkd" class="res-btn" title="take away the key nearest where you stand (a morph keeps at least two)">− key</button>
             <label title="show the key before (warm) and the key after (cool) as faint outlines"><input type="checkbox" id="tMorphOnion"> onion</label>
             <label for="morphLoop" title="how long one loop takes when it runs, and in a recording">loop</label>
             <input type="number" id="morphLoop" min="0.5" max="60" step="0.5" value="4" style="width:52px;"><span style="color:var(--fg-muted);font-size:11px;">s</span>
@@ -6578,8 +6578,8 @@
             <span id="morphKeys" style="color:var(--fg-muted);font-size:11px;"></span>
             <button id="bMorphKeep" data-code="mkp" class="res-btn" title="Drop a copy of the pose you are looking at into the drawing and KEEP MORPHING. It is an ordinary shape from there on — leaves, rung, colour, everything — and because the morph is still running you can scrub somewhere else and keep again, building a strip by hand one chosen cell at a time. With several morphs live it takes one pose from each, at the same t. SHIFT-CLICK to freeze instead: the morph ends, the pose stays where it stands and the keys are consumed.">keep</button>
             <button id="bMorphSvg" data-code="msv" class="res-btn" title="Write the whole scene out as ONE animated .svg — every live morph on the shared clock, the static shapes around them as a backdrop. It plays in any browser with no library and no runtime, because SMIL's <animate attributeName=&quot;d&quot;> interpolates between path strings and this format guarantees the one thing SMIL requires and cannot check: every frame is the same cubics in the same order. Frame count and loop mode are in the morph panel.">svg</button>
-            <button id="bMorphVideo" class="res-btn" title="record one loop as a .webm video (30 frames a second), the drawing alone with no editor marks, the size of the view">video</button>
-            <button id="bMorphGif" class="res-btn" title="record one loop as an animated .gif (20 frames a second, at most 480 pixels wide), looping forever">gif</button>
+            <button id="bMorphVideo" data-code="mvd" class="res-btn" title="record one loop as a .webm video (30 frames a second), the drawing alone with no editor marks, the size of the view">video</button>
+            <button id="bMorphGif" data-code="mgf" class="res-btn" title="record one loop as an animated .gif (20 frames a second, at most 480 pixels wide), looping forever">gif</button>
             <button id="bMorphExit" data-code="mex" class="res-btn" title="end every live morph and put all their keys back exactly where they were. Poses you dropped with `keep` are ordinary shapes and stay.">exit</button>
         </div>
         <!-- The line-weight slider used to live here. It is a per-SHAPE value, so it moved
