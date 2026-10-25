@@ -501,7 +501,10 @@ current = 'svg as exact shapes';
    ticks on the track, a step to the next key landing on it exactly (the live shape is that key), a key
    made from the pose between two keys (the pose unchanged, four ticks), a key taken away, onion skins
    and the loop's length; then one loop recorded as a .gif (parsed: a frame for every step of a 2 s loop
-   at 20 a second, looping) and, where the browser records, a .webm. */
+   at 20 a second, looping) and, where the browser records, a .webm. Then the timeline is saved: a
+   reload brings it back, and exit after it the three shapes. Then detail effects on one shape gone
+   live: shimmer moving the edge and not the centroid, its loop meeting at its ends, grow starting from
+   the base ellipse, and the effect saved. */
 current = 'timeline and recording';
 {
   const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -553,6 +556,41 @@ current = 'timeline and recording';
       if (vid.length < 1000 || vid.readUInt32BE(0) !== 0x1A45DFA3) throw new Error('the video is not a webm: ' + vid.length + ' bytes');
     }
     if (!(await m())) throw new Error('recording ended the morph');
+    // THE TIMELINE IS SAVED: a reload brings the morph back, its keys, place, loop and onion, and exit
+    // still puts the original three shapes back
+    await mp.evaluate(() => { const r = document.getElementById('morphT'); r.value = 600; r.dispatchEvent(new Event('input')); });
+    await mp.click('#bMorphAddKey');
+    const kept = await m();
+    await mp.waitForTimeout(1200);
+    await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(500);
+    const back = await m();
+    if (!back || back.K !== kept.K || Math.abs(back.t - kept.t) > 1e-9 || Math.abs(back.loop - 2) > 1e-9 || !(await mp.evaluate(() => document.getElementById('tMorphOnion').checked)))
+      throw new Error('the morph did not come back from a reload: ' + JSON.stringify(back && { K: back.K, t: back.t, loop: back.loop }));
+    if (Math.max(...back.leaves.map((v, i) => Math.abs(v - kept.leaves[i]))) > 1e-5) throw new Error('the morph came back in another pose');
+    await mp.click('#bMorphExit'); await mp.waitForTimeout(300);
+    if ((await mp.evaluate(() => window.__box.count())) !== 3) throw new Error('exit after a reload did not put the three shapes back');
+    // DETAIL EFFECTS: one shape goes live as a still; shimmer moves its edge and not its centroid, the
+    // loop's ends meet, grow at full amount starts from the base ellipse, and the effect is saved
+    await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(200);
+    await mp.evaluate(() => { const s = window.__box; s.select && s.select([2]); });   // the triangle: a circle has no detail to move
+    await mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    await mp.waitForTimeout(300);
+    const still = await m();
+    if (!still || still.K !== 1) throw new Error('one shape did not go live as a still: ' + JSON.stringify(still && still.K));
+    const at = async t => { await mp.evaluate(t => { const r = document.getElementById('morphT'); r.value = Math.round(t * 1000); r.dispatchEvent(new Event('input')); }, t); return (await m()).leaves; };
+    await mp.selectOption('#morphFx', 'shimmer');
+    const a0 = await at(0), a1 = await at(1), a3 = await at(0.3);
+    const mean = v => v.reduce((x, y) => x + y, 0) / v.length;
+    if (Math.max(...a0.map((v, i) => Math.abs(v - a1[i]))) > 1e-9) throw new Error('the shimmer loop does not meet at its ends');
+    if (!(Math.max(...a3.map((v, i) => Math.abs(v - a0[i]))) > 1e-4) || Math.abs(mean(a3) - mean(still.leaves)) > 1e-9) throw new Error('shimmer did not move the edge, or moved the centroid');
+    await mp.selectOption('#morphFx', 'grow');
+    await mp.evaluate(() => { const a = document.getElementById('morphFxAmt'); a.value = 100; a.dispatchEvent(new Event('input')); });
+    const g0 = await at(0), g5 = await at(0.5);
+    const rough = v => { let s = 0; for (let i = 0; i < v.length; i++) { const d = v[(i + 1) % v.length] - 2 * v[i] + v[(i + v.length - 1) % v.length]; s += d * d; } return s; };
+    if (!(rough(g0) < rough(g5) / 20)) throw new Error('grow did not start from the base ellipse: ' + rough(g0) + ' against ' + rough(g5));
+    await mp.waitForTimeout(1200);
+    await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(500);
+    if ((await mp.evaluate(() => document.getElementById('morphFx').value)) !== 'grow') throw new Error('the effect was not saved with the morph');
   } catch (e){
     failures.push(`[timeline] ${e.message.split('\n')[0]}`);
   }

@@ -3798,7 +3798,7 @@
         </div>
         <div class="pop-row">
             <button class="pop-act" id="bMorph" style="flex:1;" title="blend the selected shapes and lay the result out — a strip for two, a 4×4 bilinear grid for four. Replaces the current page in one history frame.">strip</button>
-            <button class="pop-act" id="bMorphLive" style="flex:1;" title="blend the selection into ONE shape you can scrub and play, with the t slider in the bottom bar. Two keys are a lerp; three or more sit on a time circle weighted by the cardinal kernel, so the loop closes. Nothing is baked — stop anywhere and `keep` gives you that shape.">live</button>
+            <button class="pop-act" id="bMorphLive" style="flex:1;" title="blend the selection into ONE shape you can scrub and play, with the t slider in the bottom bar. Two keys are a lerp; three or more sit on a time circle weighted by the cardinal kernel, so the loop closes. Nothing is baked — stop anywhere and `keep` gives you that shape. One shape goes live as a still, for the detail effects in the bar.">live</button>
         </div>
     </div>
 
@@ -6569,6 +6569,10 @@
             <label title="show the key before (warm) and the key after (cool) as faint outlines"><input type="checkbox" id="tMorphOnion"> onion</label>
             <label for="morphLoop" title="how long one loop takes when it runs, and in a recording">loop</label>
             <input type="number" id="morphLoop" min="0.5" max="60" step="0.5" value="4" style="width:52px;"><span style="color:var(--fg-muted);font-size:11px;">s</span>
+            <!-- DETAIL EFFECTS: the fine harmonics moved and the silhouette left alone, on the same clock -->
+            <label for="morphFx" title="an effect on the detail, the silhouette left alone: shimmer ripples the edge, grow brings the detail in octave by octave and takes it away, boil makes the outline seethe. It plays, records and keeps with the morph">effect</label>
+            <select id="morphFx"><option value="">none</option><option value="shimmer">shimmer</option><option value="grow">grow</option><option value="boil">boil</option></select>
+            <input type="range" id="morphFxAmt" min="0" max="100" step="1" value="50" style="width:min(110px,12vw);" title="how strong the effect is">
             <!-- The lag is on the bar as well as in the panel, because it is a thing you dial
                      WHILE watching — the panel is where you set it before you start, this is where
                      you find the value that reads right. Both write the same state. -->
@@ -50643,6 +50647,10 @@
         }
         function morphWeights(t, K) {
             const w = new Float64Array(K);
+            if (K === 1) { // a still: one key, held (DETAIL EFFECTS animate it)
+                w[0] = 1;
+                return w;
+            }
             if (K === 2) {
                 w[0] = 1 - t;
                 w[1] = t;
@@ -50746,6 +50754,8 @@
                     }
                 }
             }
+            if (run.fx && run.fx.kind)
+                morphApplyFx(run, X, Y, morphLive.t); // DETAIL EFFECTS
             // The reference follows the leaves. A morph is not a resample of some earlier curve —
             // each pose IS the shape, so a pose dropped by `keep` has to be its own origin or every
             // downstream reading would be taken against a curve that is not there.
@@ -50951,15 +50961,16 @@
             if (!inPlaceWanted && morphRuns.length)
                 morphAbandon();
             const sel = selectedIndices();
-            if (sel.length < 2) {
-                flashStatus('morph: select two or more shapes to blend between');
+            // ONE SHAPE GOES LIVE TOO (DETAIL EFFECTS): a single key is a still, which an effect animates.
+            if (sel.length < 1) {
+                flashStatus('morph: select one shape to animate, or two or more to blend between');
                 return null;
             }
             const idx = sel.filter(i => {
                 const sp = state.subpaths[i];
                 return sp && sp.leafX && sp.leafX.length >= 3;
             });
-            if (idx.length < 2) {
+            if (idx.length < 1) {
                 flashStatus('morph: those shapes have no leaves');
                 return null;
             }
@@ -51041,6 +51052,7 @@
                 lag,
                 spec: null,
                 freq: null,
+                fx: state.morphFx ? { kind: state.morphFx, amount: state.morphFxAmount != null ? state.morphFxAmount : 0.5 } : null, // DETAIL EFFECTS
                 // For solo the run owned the whole page, so what it has to put back IS the whole page.
                 members: inPlace ? members : state.subpaths.slice(),
             };
@@ -51098,11 +51110,96 @@
             : ' · solo — the page is the morph, each key on its own centroid')
             + (morphRuns.length > 1 ? ' · ' + morphRuns.length + ' morphs are now live and they share one clock,'
             + ' so `run` moves all of them together' : '')
-            + (keys.length === 2 ? ' — t is a straight lerp between them'
+            + (keys.length === 1 ? ' — one key, a still: pick an effect in the bar to animate it' : keys.length === 2 ? ' — t is a straight lerp between them'
             : ' — the keys sit on a time circle, weighted by the same cardinal kernel that reconstructs a contour, so the loop closes')
             + (lag > 0 ? ' · detail lag ' + lag.toFixed(2) + ': the silhouette arrives first and the fine harmonics follow it by an octave-spaced stagger' : '')
             + ' · nothing is baked: `keep` drops a copy of the pose you are looking at and leaves the morph running, `exit` puts the keys back');
             return keys.length;
+        }
+
+        // ── DETAIL EFFECTS (25 Oct 2026, Tom: "yes, proceed") ──────────────────────────
+        // A shape's outline is its harmonics: the centroid, the base circle, then finer and finer
+        // detail, an octave at a time (morphFreqScale lays them from 0, the base, to 1, the finest).
+        // So an effect can move the detail and leave the silhouette alone, which a drawing tool that
+        // holds points cannot. Each pose of a live morph (or a single shape gone live, a still) is
+        // taken to its harmonics after the blend, each harmonic changed by where it sits on that
+        // scale and by the clock, and brought back:
+        //   shimmer  the fine harmonics turn a little to and fro, each at its own whole number of
+        //            cycles a loop, so the edge ripples while the shape stays put;
+        //   grow     the detail arrives octave by octave over the first half of the loop, from the
+        //            base ellipse to the whole shape, and leaves again over the second;
+        //   boil     the fine harmonics swell and turn by uneven amounts, a calm outline seething.
+        // h and N - h (the two directions of one harmonic) always share a change, so every frame is
+        // a closed curve; every rate is a whole number of cycles a loop, so the loop is seamless.
+        // `amount` (0 to 1) scales the effect. A key is no longer exact where an effect moves it:
+        // the effect is on top of the timeline, not in it.
+        const MORPH_FX = ['shimmer', 'grow', 'boil'];
+        function fxHash(m, salt) {
+            const v = Math.sin(m * 127.1 + salt * 311.7) * 43758.5453;
+            return v - Math.floor(v);
+        }
+        const fxSmooth = (a, b, x) => {
+            const u = Math.max(0, Math.min(1, (x - a) / (b - a)));
+            return u * u * (3 - 2 * u);
+        };
+        function morphApplyFx(run, X, Y, t) {
+            const N = X.length,
+                half = N >> 1,
+                fx = run.fx,
+                amt = Math.max(0, Math.min(1, fx.amount != null ? +fx.amount : 0.5));
+            if (!(amt > 0) || N < 4)
+                return;
+            if (!run.fxFreq || run.fxFreq.length !== N)
+                run.fxFreq = morphFreqScale(N);
+            const f = run.fxFreq,
+                S = morphFwd(Float64Array.from(X), Float64Array.from(Y)),
+                re = S.re,
+                im = S.im,
+                tri = 1 - Math.abs(2 * t - 1); // 0 at the loop's ends, 1 half way
+            for (let h = 0; h < N; h++) {
+                const m = h <= half ? h : N - h,
+                    fh = f[h];
+                if (fh <= 0)
+                    continue; // the centroid and the base circle never move
+                let g = 1,
+                    phi = 0;
+                if (fx.kind === 'shimmer') {
+                    const s = fxSmooth(0.3, 0.65, fh),
+                        c = 1 + Math.floor(fxHash(m, 1) * 3);
+                    phi = amt * 0.9 * s * Math.sin(TAU * (c * t + fxHash(m, 2)));
+                } else if (fx.kind === 'grow') {
+                    const L = (1 - amt) + amt * tri; // how far up the scale the detail has come
+                    g = Math.max(0, Math.min(1, (L - fh) / 0.12 + 0.5));
+                } else if (fx.kind === 'boil') {
+                    const s = fxSmooth(0.2, 0.55, fh),
+                        c1 = 1 + Math.floor(fxHash(m, 3) * 5),
+                        c2 = 1 + Math.floor(fxHash(m, 4) * 5);
+                    g = 1 + amt * 0.5 * s * Math.sin(TAU * (c1 * t + fxHash(m, 5)));
+                    phi = amt * 0.8 * s * Math.sin(TAU * (c2 * t + fxHash(m, 6)));
+                }
+                if (g === 1 && phi === 0)
+                    continue;
+                const c = Math.cos(phi) * g,
+                    sn = Math.sin(phi) * g,
+                    a = re[h],
+                    b = im[h];
+                re[h] = a * c - b * sn;
+                im[h] = a * sn + b * c;
+            }
+            const out = morphInv(re, im);
+            X.set(out.re);
+            Y.set(out.im);
+        }
+        function morphSetFx(kind, amount) {
+            for (const run of morphRuns) {
+                run.fx = { kind: MORPH_FX.includes(kind) ? kind : '', amount: amount != null ? amount : (run.fx ? run.fx.amount : 0.5) };
+            }
+            state.morphFx = MORPH_FX.includes(kind) ? kind : '';
+            state.morphFxAmount = amount != null ? amount : (state.morphFxAmount != null ? state.morphFxAmount : 0.5);
+            morphWrite();
+            morphBarSync();
+            drawAll();
+            scheduleSave();
         }
 
         // ── THE TIMELINE (25 Oct 2026, Tom: "1,2") ──────────────────────────────────────
@@ -51121,6 +51218,8 @@
         // All runs share the clock, so adding or removing a key happens in every run at once, and
         // only when they all have as many keys (otherwise they would disagree about where a key is).
         function morphKeyPhases(K) {
+            if (K === 1)
+                return [0.5];
             if (K === 2)
                 return [0, 1];
             return Array.from({ length: K }, (_, k) => (k + 0.5) / K);
@@ -51144,6 +51243,13 @@
             const on = $('tMorphOnion');
             if (on)
                 on.checked = !!state.morphOnion;
+            const run0 = morphRuns[0],
+                fxs = $('morphFx'),
+                fxa = $('morphFxAmt');
+            if (fxs && document.activeElement !== fxs)
+                fxs.value = run0 && run0.fx ? run0.fx.kind : '';
+            if (fxa && document.activeElement !== fxa)
+                fxa.value = String(Math.round(100 * (run0 && run0.fx && run0.fx.amount != null ? run0.fx.amount : 0.5)));
         }
         function morphSetT(t) {
             morphClockStop();
@@ -51151,6 +51257,7 @@
             morphWrite();
             morphBarSync();
             drawAll();
+            scheduleSave(); // THE TIMELINE IS SAVED
         }
         // the key before or after where you stand (round the loop with three or more keys)
         function morphStepKey(dir) {
@@ -51184,6 +51291,10 @@
                 return 0;
             }
             const t = morphLive.t;
+            if (K === 1) {
+                flashStatus('+ key: a still has one key; morph two or more shapes to blend between them');
+                return 0;
+            }
             if (morphKeyAt(K, t) >= 0) {
                 flashStatus('+ key: there is a key here already; move along the track first');
                 return 0;
@@ -63519,6 +63630,22 @@
                     onion.addEventListener('change', () => {
                         state.morphOnion = onion.checked;
                         drawAll();
+                        scheduleSave();
+                    });
+                const fxSel = $('morphFx'),
+                    fxAmt = $('morphFxAmt');
+                if (fxSel)
+                    fxSel.addEventListener('change', () => {
+                        if (orphaned())
+                            return;
+                        morphSetFx(fxSel.value, fxAmt ? (+fxAmt.value) / 100 : 0.5);
+                        pushHistory();
+                    });
+                if (fxAmt)
+                    fxAmt.addEventListener('input', () => {
+                        if (orphaned())
+                            return;
+                        morphSetFx(fxSel ? fxSel.value : '', (+fxAmt.value) / 100);
                     });
                 const loopIn = $('morphLoop');
                 if (loopIn)
@@ -63527,6 +63654,7 @@
                         if (isFinite(v) && v > 0)
                             morphLive.speed = 1 / Math.max(0.5, Math.min(60, v));
                         morphBarSync();
+                        scheduleSave();
                     });
                 const bs = $('bMorphSvg');
                 if (bs)
@@ -68207,7 +68335,7 @@
                 editing ? 'arrange — not in edit mode' : 'the page needs two or more shapes to arrange');
                 const morphWhy = editing ? 'morph — not in edit mode' : 'select two shapes (or four, for a grid) to morph';
                 grey($('bMorph'), !editing && sel >= 2, morphWhy);
-                grey($('bMorphLive'), !editing && sel >= 2, morphWhy);
+                grey($('bMorphLive'), !editing && sel >= 1, editing ? morphWhy : 'select a shape to animate (a still, for an effect), or two or more to blend');
             }
             for (const [btnId, popId] of [['bArrangeOpen', 'arrangePop'], ['bMorphOpen', 'morphPop']]) {
                 const btn = $(btnId),
@@ -76797,6 +76925,7 @@
         // dropRefs: the second attempt, when the full scene will not fit. Reference polylines
         // are only needed by "reset leaves" — losing them costs that one command, not the art.
         function serializeScene(dropRefs) {
+            const saved = state.subpaths.filter(spSaveable);
             return JSON.stringify({
                 v: 1,
                 name: state.svgName || null,
@@ -76856,50 +76985,74 @@
                 droppedRefs: !!dropRefs,
                 // An unconverted shape (CONVERT ON TOUCH) is saved as its import, under `lz`, and
                 // comes back unconverted; its outline is its only geometry, so dropRefs keeps it.
-                subpaths: state.subpaths.filter(sp => sp && (sp._lazy || (sp.leafX && sp.leafX.length >= 2))).map(sp => ({
-                    lz: sp._lazy ? (sp._lazy.exact ? (sp._lazy.open ? 3 : 2) : 1) : 0, // 2 exact, 3 exact line
-                    ls: sp._lazy ? sp._lazy.scale : 0,
-                    rr: sp._lazy && sp._lazy.exact && hasRound(sp._lazy.round) ? Array.from(lzRoundBaked(sp._lazy), r => +r.toPrecision(7)) : null, // corner radii, in x's units
-                    sm: sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth) : null, // smooth corners (1)
-                    ho: sp._lazy && sp._lazy.holes ? lzHolesBaked(sp._lazy).map(h => ({ // HOLES, in rx's units as rx is
-                        x: _f32b64(h.x),
-                        y: _f32b64(h.y),
-                        s: h.smooth ? Array.from(h.smooth) : null,
-                        c: h.ctrl || null
-                    })) : null,
-                    cc: sp._lazy && sp._lazy.exact && sp._lazy.ctrl ? lzCtrlBaked(sp._lazy) : null, // CURVE EDGES, in rx's units
-                    x: sp._lazy ? '' : _f32b64(sp.leafX),
-                    y: sp._lazy ? '' : _f32b64(sp.leafY),
-                    rx: sp._lazy ? _f32b64(sp._lazy.x) : dropRefs ? '' : _f32b64(sp.refX),
-                    ry: sp._lazy ? _f32b64(sp._lazy.y) : dropRefs ? '' : _f32b64(sp.refY),
-                    src: sp.source || null,
-                    dirty: !!sp.dirty,
-                    coV: sp.srcCoV != null ? sp.srcCoV : null,
-                    fill: sp.fill ? {
-                        c: sp.fill.color,
-                        o: sp.fill.opacity
-                    } : null,
-                    stroke: sp.stroke || null,
-                    so: sp.strokeOpacity != null ? sp.strokeOpacity : null,
-                    lst: sp.lineStyle || null, // dashes and arrowheads (LINE STYLE)
-                    lw: sp.lineWidth != null ? sp.lineWidth : null,
-                    sm: sp.smoothing != null ? sp.smoothing : null,
-                    tr: sp.textRun != null ? sp.textRun : null,
-                    tm: sp.textMeta || null,
-                    gid: sp.gid != null ? sp.gid : null,
-                    lead: !!sp.groupLead,
-                    gname: sp.gname || null,
-                    note: sp.note || null,
-                    tag: sp.tag || null,
-                    // The four (or five) numbers that made a parametric shape. This is the field the
-                    // globe panel's own comment said could not exist — "the four numbers are not in
-                    // the saved file, and cannot be" — which was true only because nothing wrote
-                    // them. A reloaded globe is no longer adopted; it is the globe those numbers make.
-                    build: sp.build || null,
-                    // motion / leafMotion are no longer persisted: the animation feature is
-                    // removed, and saving its structs would smuggle it back in through restore.
-                    leafColor: sp.leafColor || null,
-                })),
+                subpaths: saved.map(sp => spSave(sp, dropRefs)),
+                // THE TIMELINE IS SAVED (25 Oct 2026, Tom: "yes, proceed"): each live morph, its live shape
+                // by its place among the saved shapes, its keys, and the shapes it lifted out of the
+                // drawing (so a reload mid-morph no longer loses them); the clock's place and loop.
+                morphs: morphRuns.map(r => ({
+                    at: saved.indexOf(r.sp),
+                    inPlace: r.inPlace !== false,
+                    lag: +r.lag || 0,
+                    fx: r.fx && r.fx.kind ? { kind: r.fx.kind, amount: +r.fx.amount } : null,
+                    keys: r.keys.map(k => ({
+                        x: _f32b64(k.x),
+                        y: _f32b64(k.y)
+                    })),
+                    members: (r.members || []).filter(spSaveable).map(m => spSave(m, dropRefs)),
+                })).filter(m => m.at >= 0),
+                morphT: morphLive.t,
+                morphSecs: 1 / morphLive.speed,
+                morphOnion: !!state.morphOnion,
+            });
+        }
+        function spSaveable(sp) {
+            return !!(sp && (sp._lazy || (sp.leafX && sp.leafX.length >= 2)));
+        }
+        // one shape as the autosave holds it
+        function spSave(sp, dropRefs) {
+            return ({
+                lz: sp._lazy ? (sp._lazy.exact ? (sp._lazy.open ? 3 : 2) : 1) : 0, // 2 exact, 3 exact line
+                ls: sp._lazy ? sp._lazy.scale : 0,
+                rr: sp._lazy && sp._lazy.exact && hasRound(sp._lazy.round) ? Array.from(lzRoundBaked(sp._lazy), r => +r.toPrecision(7)) : null, // corner radii, in x's units
+                sm: sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth) : null, // smooth corners (1)
+                ho: sp._lazy && sp._lazy.holes ? lzHolesBaked(sp._lazy).map(h => ({ // HOLES, in rx's units as rx is
+                    x: _f32b64(h.x),
+                    y: _f32b64(h.y),
+                    s: h.smooth ? Array.from(h.smooth) : null,
+                    c: h.ctrl || null
+                })) : null,
+                cc: sp._lazy && sp._lazy.exact && sp._lazy.ctrl ? lzCtrlBaked(sp._lazy) : null, // CURVE EDGES, in rx's units
+                x: sp._lazy ? '' : _f32b64(sp.leafX),
+                y: sp._lazy ? '' : _f32b64(sp.leafY),
+                rx: sp._lazy ? _f32b64(sp._lazy.x) : dropRefs ? '' : _f32b64(sp.refX),
+                ry: sp._lazy ? _f32b64(sp._lazy.y) : dropRefs ? '' : _f32b64(sp.refY),
+                src: sp.source || null,
+                dirty: !!sp.dirty,
+                coV: sp.srcCoV != null ? sp.srcCoV : null,
+                fill: sp.fill ? {
+                    c: sp.fill.color,
+                    o: sp.fill.opacity
+                } : null,
+                stroke: sp.stroke || null,
+                so: sp.strokeOpacity != null ? sp.strokeOpacity : null,
+                lst: sp.lineStyle || null, // dashes and arrowheads (LINE STYLE)
+                lw: sp.lineWidth != null ? sp.lineWidth : null,
+                sm: sp.smoothing != null ? sp.smoothing : null,
+                tr: sp.textRun != null ? sp.textRun : null,
+                tm: sp.textMeta || null,
+                gid: sp.gid != null ? sp.gid : null,
+                lead: !!sp.groupLead,
+                gname: sp.gname || null,
+                note: sp.note || null,
+                tag: sp.tag || null,
+                // The four (or five) numbers that made a parametric shape. This is the field the
+                // globe panel's own comment said could not exist — "the four numbers are not in
+                // the saved file, and cannot be" — which was true only because nothing wrote
+                // them. A reloaded globe is no longer adopted; it is the globe those numbers make.
+                build: sp.build || null,
+                // motion / leafMotion are no longer persisted: the animation feature is
+                // removed, and saving its structs would smuggle it back in through restore.
+                leafColor: sp.leafColor || null,
             });
         }
 
@@ -76963,6 +77116,97 @@
             } catch (_) {}
         }
 
+        // one shape back from the autosave
+        function spLoad(sp) {
+            const RX = _b64f32(sp.rx),
+                RY = _b64f32(sp.ry);
+            const lz = sp.lz && RX && RY ? {
+                x: RX,
+                y: RY,
+                scale: +sp.ls || 0,
+                exact: sp.lz >= 2,
+                open: sp.lz === 3,
+                round: Array.isArray(sp.rr) ? sp.rr : null,
+                smooth: Array.isArray(sp.sm) ? sp.sm : null,
+                holes: Array.isArray(sp.ho) ? sp.ho.map(h => ({
+                    x: _b64f32(h.x),
+                    y: _b64f32(h.y),
+                    smooth: Array.isArray(h.s) ? h.s : null,
+                    ctrl: Array.isArray(h.c) ? h.c : null
+                })).filter(h => h.x && h.y && h.x.length >= 3 && h.x.length === h.y.length) : null,
+                ctrl: Array.isArray(sp.cc) ? sp.cc : null
+            } : null;
+            const X = lz ? null : _b64f32(sp.x),
+                Y = lz ? null : _b64f32(sp.y);
+            return relazy(lz, {
+                leafX: X,
+                leafY: Y,
+                refX: RX || X.slice(),
+                refY: RY || Y.slice(),
+                refLength: 0,
+                source: sp.src || 'restored',
+                dirty: !!sp.dirty,
+                srcCoV: sp.coV,
+                fill: sp.fill ? {
+                    color: sp.fill.c,
+                    opacity: sp.fill.o
+                } : null,
+                stroke: sp.stroke || null,
+                strokeOpacity: sp.so != null ? sp.so : null,
+                lineStyle: sp.lst || null,
+                lineWidth: sp.lw != null ? sp.lw : null,
+                smoothing: sp.sm != null ? sp.sm : null,
+                textRun: sp.tr != null ? sp.tr : null,
+                textMeta: sp.tm || null,
+                gid: sp.gid != null ? sp.gid : null,
+                groupLead: !!sp.lead,
+                gname: sp.gname || null,
+                note: sp.note || null,
+                tag: sp.tag || null,
+                build: sp.build || null,
+                // saves from before the builder have none
+                // Saves from before the animation feature was removed may carry motion
+                // structs; they are deliberately dropped so nothing ever animates again.
+                motion: null,
+                leafMotion: null,
+                leafColor: sp.leafColor || null,
+            });
+        }
+        // Each saved morph comes back live: its keys, its live shape (already among the restored shapes,
+        // found by its place), and the shapes it had lifted out, so exit still puts them back. A morph
+        // whose live shape or keys do not fit is dropped, and its live shape stays an ordinary shape.
+        function restoreMorphs(d) {
+            if (!Array.isArray(d.morphs) || !d.morphs.length)
+                return;
+            for (const m of d.morphs) {
+                try {
+                    const sp = state.subpaths[m.at];
+                    if (!sp || !sp.leafX || !Array.isArray(m.keys) || m.keys.length < 1)
+                        continue;
+                    const keys = m.keys.map(k => ({ x: _b64f32(k.x), y: _b64f32(k.y) }));
+                    if (keys.some(k => !k.x || !k.y || k.x.length !== sp.leafX.length || k.y.length !== sp.leafX.length))
+                        continue;
+                    morphRuns.push({
+                        keys,
+                        sp,
+                        inPlace: m.inPlace !== false,
+                        lag: Math.max(0, Math.min(MORPH_LAG_MAX, +m.lag || 0)),
+                        spec: null,
+                        freq: null,
+                        fx: m.fx && MORPH_FX.includes(m.fx.kind) ? { kind: m.fx.kind, amount: Math.max(0, Math.min(1, +m.fx.amount || 0)) } : null,
+                        members: Array.isArray(m.members) ? m.members.map(q => { try { return spLoad(q); } catch (_) { return null; } }).filter(Boolean) : [],
+                    });
+                } catch (_) {}
+            }
+            if (!morphRuns.length)
+                return;
+            morphLive.t = Math.max(0, Math.min(1, +d.morphT || 0));
+            if (+d.morphSecs > 0)
+                morphLive.speed = 1 / Math.max(0.5, Math.min(60, +d.morphSecs));
+            state.morphOnion = !!d.morphOnion;
+            morphWrite();
+            morphBarSync();
+        }
         function restoreScene() {
             let raw;
             try {
@@ -76982,64 +77226,11 @@
             if (!d || d.v !== 1 || !Array.isArray(d.subpaths) || !d.subpaths.length)
                 return false;
             try {
-                state.subpaths = d.subpaths.map(sp => {
-                    const RX = _b64f32(sp.rx),
-                        RY = _b64f32(sp.ry);
-                    const lz = sp.lz && RX && RY ? {
-                        x: RX,
-                        y: RY,
-                        scale: +sp.ls || 0,
-                        exact: sp.lz >= 2,
-                        open: sp.lz === 3,
-                        round: Array.isArray(sp.rr) ? sp.rr : null,
-                        smooth: Array.isArray(sp.sm) ? sp.sm : null,
-                        holes: Array.isArray(sp.ho) ? sp.ho.map(h => ({
-                            x: _b64f32(h.x),
-                            y: _b64f32(h.y),
-                            smooth: Array.isArray(h.s) ? h.s : null,
-                            ctrl: Array.isArray(h.c) ? h.c : null
-                        })).filter(h => h.x && h.y && h.x.length >= 3 && h.x.length === h.y.length) : null,
-                        ctrl: Array.isArray(sp.cc) ? sp.cc : null
-                    } : null;
-                    const X = lz ? null : _b64f32(sp.x),
-                        Y = lz ? null : _b64f32(sp.y);
-                    return relazy(lz, {
-                        leafX: X,
-                        leafY: Y,
-                        refX: RX || X.slice(),
-                        refY: RY || Y.slice(),
-                        refLength: 0,
-                        source: sp.src || 'restored',
-                        dirty: !!sp.dirty,
-                        srcCoV: sp.coV,
-                        fill: sp.fill ? {
-                            color: sp.fill.c,
-                            opacity: sp.fill.o
-                        } : null,
-                        stroke: sp.stroke || null,
-                        strokeOpacity: sp.so != null ? sp.so : null,
-                        lineStyle: sp.lst || null,
-                        lineWidth: sp.lw != null ? sp.lw : null,
-                        smoothing: sp.sm != null ? sp.sm : null,
-                        textRun: sp.tr != null ? sp.tr : null,
-                        textMeta: sp.tm || null,
-                        gid: sp.gid != null ? sp.gid : null,
-                        groupLead: !!sp.lead,
-                        gname: sp.gname || null,
-                        note: sp.note || null,
-                        tag: sp.tag || null,
-                        build: sp.build || null,
-                        // saves from before the builder have none
-                        // Saves from before the animation feature was removed may carry motion
-                        // structs; they are deliberately dropped so nothing ever animates again.
-                        motion: null,
-                        leafMotion: null,
-                        leafColor: sp.leafColor || null,
-                    });
-                });
+                state.subpaths = d.subpaths.map(spLoad);
             } catch (_) {
                 return false;
             }
+            restoreMorphs(d); // THE TIMELINE IS SAVED
             state.svgName = d.name || 'restored';
             if (d.view) {
                 state.view.zoom = d.view.zoom;
