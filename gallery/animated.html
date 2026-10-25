@@ -28,11 +28,17 @@
     examples come in as leaves. An example replaces the drawing in the editor's tab, asking first when the
     tab holds a drawing of yours.
   </p>
+  <p class="sub">
+    The <b>showpieces</b> come first: each shape a morph of its own, on its own clock (a rate and a phase), its own
+    path (laps and a start), its own spin, colour that blends with its keys, and its own trail and effect, dozens
+    of them at once on one loop that closes. The <b>first steps</b> after them take one idea at a time.
+  </p>
 </header>
 
 <div class="bar"><div class="bar-in">
   <span class="count" id="count"></span>
   <div class="spacer"></div>
+  <a class="jump" href="#showpieces">showpieces</a>
   <a class="jump" href="#corners">corners kept</a>
   <a class="jump" href="#paths">paths and trails</a>
   <a class="jump" href="#effects">detail effects</a>
@@ -1345,12 +1351,293 @@ const EXAMPLES = [
   },
 ];
 
+// ── THE SHOWPIECES (25 Oct 2026, Tom: "these are simple hello world animations. can you do some top quality
+// animation examples, to really push the framework?") ────────────────────────────────────────────────────────
+// Each uses what a morph has of its own (draw.html, EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL): a clock
+// running at its own rate and phase, a spin, a path of its own with laps and a start, a trail, an effect, keys
+// that repeat, and the keys' fills blended. The drawings are made here; every number below is a choice made
+// for the picture.
+const TAU = 2 * Math.PI;
+// points round (cx, cy): n of them at radius r(angle, i), starting at angle `turn`
+const around = (cx, cy, n, r, turn = 0) => Array.from({ length: n }, (_, i) => {
+  const a = turn + i * TAU / n, R = r(a, i);
+  return [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+});
+const pts = P => P.map(([x, y]) => f(x) + ',' + f(y)).join(' ');
+const polyOf = (P, fill, extra = '') => `<polygon points="${pts(P)}" fill="${fill}"${extra}/>`;
+// a closed smooth curve through the points (Catmull-Rom as cubics): an exact shape whose every edge is a curve
+function smoothD(P) {
+  const n = P.length, q = i => P[(i + n) % n];
+  let d = `M${f(P[0][0])} ${f(P[0][1])}`;
+  for (let i = 0; i < n; i++) {
+    const [a, b, c, e] = [q(i - 1), q(i), q(i + 1), q(i + 2)];
+    d += `C${f(b[0] + (c[0] - a[0]) / 6)} ${f(b[1] + (c[1] - a[1]) / 6)} ${f(c[0] - (e[0] - b[0]) / 6)} ${f(c[1] - (e[1] - b[1]) / 6)} ${f(c[0])} ${f(c[1])}`;
+  }
+  return d + 'Z';
+}
+const smooth = (P, fill, extra = '') => `<path d="${smoothD(P)}" fill="${fill}"${extra}/>`;
+// an open smooth curve through the points, as a line (a path to ride, or a stem)
+function smoothOpenD(P) {
+  const n = P.length, q = i => P[Math.max(0, Math.min(n - 1, i))];
+  let d = `M${f(P[0][0])} ${f(P[0][1])}`;
+  for (let i = 0; i < n - 1; i++) {
+    const [a, b, c, e] = [q(i - 1), q(i), q(i + 1), q(i + 2)];
+    d += `C${f(b[0] + (c[0] - a[0]) / 6)} ${f(b[1] + (c[1] - a[1]) / 6)} ${f(c[0] - (e[0] - b[0]) / 6)} ${f(c[1] - (e[1] - b[1]) / 6)} ${f(c[0])} ${f(c[1])}`;
+  }
+  return d;
+}
+const stroke = (d, col, w) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}"/>`;
+// a circle as four quarter arcs whose ends sit on the diagonals, so it morphs with a square corner for corner
+function circ4(cx, cy, r, fill, extra = '') {
+  const k = 0.5523 * r, s = Math.SQRT1_2;
+  const P = [45, 135, 225, 315].map(d => [cx + r * Math.cos(d * Math.PI / 180), cy + r * Math.sin(d * Math.PI / 180)]);
+  let d = `M${f(P[0][0])} ${f(P[0][1])}`;
+  for (let i = 0; i < 4; i++) {
+    const a = (45 + 90 * i) * Math.PI / 180, b = a + Math.PI / 2, [x0, y0] = P[i], [x1, y1] = P[(i + 1) % 4];
+    d += `C${f(x0 - k * Math.sin(a))} ${f(y0 + k * Math.cos(a))} ${f(x1 + k * Math.sin(b))} ${f(y1 - k * Math.cos(b))} ${f(x1)} ${f(y1)}`;
+  }
+  return `<path d="${d}Z" fill="${fill}"${extra}/>`;
+}
+// a gear of n teeth of module m (pitch radius m·n/2), a tooth centred at angle `a0`
+function gear(cx, cy, n, m, a0, fill) {
+  const r = m * n / 2, rt = r + m, rr = r - 1.25 * m, p = TAU / n, P = [];
+  for (let k = 0; k < n; k++) {
+    const a = a0 + k * p;
+    for (const [da, R] of [[-0.31, rr], [-0.17, rt], [0.17, rt], [0.31, rr]])
+      P.push([cx + R * Math.cos(a + da * p), cy + R * Math.sin(a + da * p)]);
+  }
+  return polyOf(P, fill);
+}
+// a small seeded random, so a drawing comes out the same every time
+// hsl (degrees, 0–1, 0–1) as #rrggbb, which every svg reader takes
+const hsl = (h, sat, l) => {
+  const a = sat * Math.min(l, 1 - l), k = n => (n + h / 30) % 12, c = n => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+  return '#' + [0, 8, 4].map(n => Math.round(255 * c(n)).toString(16).padStart(2, '0')).join('');
+};
+const rnd = (seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647)(20261025);
+
+const SHOWPIECES = [];
+
+// 1. CLOCKWORK: four meshing gears, each a still with its own spin, in the ratio of their teeth, so every gear
+// advances six teeth a loop and the loop closes; hubs turn with them.
+{
+  const m = 8, A = [260, 250], nA = 24, nB = 12, nC = 16, nD = 10;
+  const rA = m * nA / 2, rB = m * nB / 2, rC = m * nC / 2, rD = m * nD / 2;
+  const B = [A[0] + rA + rB, A[1]], C = [B[0] + rB + rC, B[1]], D = [A[0], A[1] - rA - rD];
+  const pB = TAU / nB, pC = TAU / nC, pD = TAU / nD;
+  const s = 0.25;
+  const hub = (c, r, fill) => polyOf(around(c[0], c[1], 6, () => r, 0), fill);
+  const bolt = (x, y) => `<circle cx="${x}" cy="${y}" r="6" fill="#3a4152"/>`;
+  SHOWPIECES.push({
+    id: 'clockwork', name: 'clockwork', section: 'showpieces', tags: ['spin', 'ratios', '8 morphs'],
+    note: 'Four gears, each spinning at its own rate in the ratio of their teeth (24, 12, 16 and 10), so each one advances exactly six teeth a loop and the loop closes without a seam. Each hub turns with its gear.',
+    svg: svg(640, 420, `<rect x="40" y="30" width="560" height="360" rx="28" fill="#1a1f2b"/>` + bolt(70, 60) + bolt(570, 60) + bolt(70, 360) + bolt(570, 360)
+      + gear(A[0], A[1], nA, m, 0, '#d4a84f') + gear(B[0], B[1], nB, m, Math.PI + pB / 2, '#9fb0c4')
+      + gear(C[0], C[1], nC, m, Math.PI, '#c8743f') + gear(D[0], D[1], nD, m, Math.PI / 2 + pD / 2, '#e6c56a')
+      + hub(A, 30, '#2a2f3a') + hub(B, 16, '#2a2f3a') + hub(C, 22, '#2a2f3a') + hub(D, 13, '#2a2f3a')),
+    // shapes: 0 plate, 1–4 bolts, 5–8 gears A B C D, 9–12 hubs
+    scene: {
+      morphs: [{ keys: [5], spin: s }, { keys: [6], spin: -s * nA / nB }, { keys: [7], spin: s * nA / nC }, { keys: [8], spin: -s * nA / nD },
+               { keys: [9], spin: s }, { keys: [10], spin: -s * nA / nB }, { keys: [11], spin: s * nA / nC }, { keys: [12], spin: -s * nA / nD }],
+      loop: 6
+    }
+  });
+}
+
+// 2. ORRERY: five planets each on an orbit of its own, the inner ones lapping faster (5, 4, 3, 2 and 1 laps a
+// loop), each with a ribbon; a sun that seethes; faint orbit rings and stars standing still.
+{
+  const C = [400, 260], orbits = [[70, 46], [112, 74], [160, 104], [214, 138], [300, 190]];
+  const cols = ['#b8b2a8', '#e6b26a', '#4f9be0', '#e0634a', '#d9b48a'], sizes = [7, 11, 12, 9, 22];
+  const ell = (rx, ry) => smoothD(around(C[0], C[1], 48, a => rx * ry / Math.hypot(ry * Math.cos(a), rx * Math.sin(a))));
+  let stars = '';
+  for (let i = 0; i < 26; i++) stars += `<circle cx="${f(30 + rnd() * 740)}" cy="${f(20 + rnd() * 480)}" r="${f(1.2 + rnd() * 1.8)}" fill="#cfd6ff" fill-opacity="${f(0.35 + rnd() * 0.5)}"/>`;
+  const rings = orbits.map(([rx, ry]) => stroke(ell(rx, ry), '#2a3248', 1.5)).join('');
+  const sun = smooth(around(C[0], C[1], 36, (a, i) => i % 2 ? 30 : 38), '#ffb53a');
+  const planets = orbits.map(([rx], i) => circ4(C[0] + rx, C[1], sizes[i], cols[i])).join('');
+  const paths = orbits.map(([rx, ry]) => stroke(ell(rx, ry), '#556', 1)).join('');
+  // shapes: 0–25 stars, 26–30 rings, 31 sun, 32–36 planets, 37–41 their paths
+  SHOWPIECES.push({
+    id: 'orrery', name: 'orrery', section: 'showpieces', tags: ['own paths', 'laps', 'ribbons', 'boil'],
+    note: 'Five planets, each on an orbit of its own, the inner ones lapping faster: five, four, three, two and one laps a loop, so all of them come back together and the loop closes. Each leaves a ribbon; the sun seethes. Leaves, for the sun\'s effect.',
+    svg: svg(800, 520, stars + rings + sun + planets + paths),
+    scene: {
+      exact: false, loop: 20,
+      morphs: [{ keys: [31], fx: { kind: 'boil', amount: 0.45 }, trail: { kind: '' } }].concat(
+        orbits.map((_, i) => ({ keys: [32 + i], path: 37 + i, laps: 5 - i, at: [0.1, 0.55, 0.3, 0.8, 0.62][i], turn: false, trail: { kind: 'ribbon', len: [0.06, 0.09, 0.13, 0.2, 0.32][i] } })))
+    }
+  });
+}
+
+// 3. MURMURATION: twelve birds on one figure-of-eight at dusk, spread along it, each flapping on its own clock
+// (eight times as fast as the loop, its own phase), in front of a sun going down in bands of colour.
+{
+  const bands = ['#2b1d3a', '#432544', '#69304d', '#9c3f4f', '#cf6248', '#ef9a4a'];
+  let sky = bands.map((c, i) => `<rect x="0" y="${i * 70}" width="900" height="72" fill="${c}"/>`).join('');
+  sky += `<circle cx="450" cy="390" r="80" fill="#ffd27a"/>` + `<rect x="0" y="400" width="900" height="80" fill="#1c1426"/>`;
+  const up = s => [[-16, -9], [-8, -3], [0, -1], [8, -3], [16, -9], [8, 0], [1, 3], [-1, 3], [-8, 0]].map(([x, y]) => [x * s, y * s]);
+  const dn = s => [[-16, 6], [-8, -2], [0, -1], [8, -2], [16, 6], [8, 1], [1, 3], [-1, 3], [-8, 1]].map(([x, y]) => [x * s, y * s]);
+  const at = (P, x, y) => P.map(([a, b]) => [a + x, b + y]);
+  let birds = '';
+  const N = 12, scales = [];
+  for (let i = 0; i < N; i++) {
+    const s = 0.9 + 0.7 * rnd(); scales.push(s);
+    birds += polyOf(at(up(s), 80 + i * 60, 40), '#120e18') + polyOf(at(dn(s), 80 + i * 60, 80), '#120e18');
+  }
+  const eight = smoothD(around(450, 200, 40, () => 1).map((_, i) => {
+    const a = i * TAU / 40, d = 1 + Math.sin(a) ** 2;
+    return [450 + 330 * Math.cos(a) / d, 200 + 260 * Math.sin(a) * Math.cos(a) / d];
+  }));
+  // shapes: 0–5 bands, 6 sun, 7 ground, 8.. birds (up, down) pairs, then the path
+  const first = 8, path = first + 2 * N;
+  SHOWPIECES.push({
+    id: 'murmuration', name: 'murmuration', section: 'showpieces', tags: ['shared path', 'rate', 'phase', '12 morphs'],
+    note: 'Twelve birds of different sizes spread along one figure-of-eight, each flapping on its own clock, eight wingbeats a loop at its own phase, so the flock never beats in step. Wings up and wings down are the keys, each used twice round the loop.',
+    svg: svg(900, 480, sky + birds + stroke(eight, '#000', 1)),
+    scene: {
+      loop: 10, path, turn: false,
+      morphs: Array.from({ length: N }, (_, i) => ({ keys: [first + 2 * i, first + 2 * i + 1, first + 2 * i, first + 2 * i + 1], rate: 4, phase: rnd() }))
+    }
+  });
+}
+
+// 4. GARDEN: five flowers bloom in a wave and close again (bud, bloom, bloom, bud, each flower a quarter beat
+// behind the last, its petals green to its colour and its heart coming in), while a bee loops between them on
+// a path of its own, wings beating, leaving echoes.
+{
+  const ground = `<rect x="0" y="330" width="900" height="110" fill="#1f3a26"/>` + `<rect x="0" y="330" width="900" height="8" fill="#2f5a36"/>`;
+  const X = [130, 290, 450, 610, 770], H = [210, 170, 200, 160, 215], petals = ['#ff6f91', '#ffb547', '#a77bff', '#ff8a5c', '#5ec8ff'];
+  let stems = '', leaves = '', heads = '', hearts = '';
+  const NP = 40;
+  X.forEach((x, i) => {
+    const y = H[i];
+    stems += stroke(`M${x} 334 C ${x - 18} 290 ${x + 16} ${y + 70} ${x} ${y + 26}`, '#3f8a4a', 5);
+    leaves += smooth(around(x + 22, 290, 16, a => 18 * 9 / Math.hypot(9 * Math.cos(a), 18 * Math.sin(a)), -0.6), '#4f9d55');
+    const bloom = around(x, y, NP, a => 46 * (0.5 + 0.5 * Math.abs(Math.cos(2.5 * (a + Math.PI / 2))) ** 0.7), -Math.PI / 2);
+    const bud = around(x, y + 10, NP, a => 15 * (1 + 0.55 * Math.max(0, -Math.sin(a)) ** 2), -Math.PI / 2);
+    heads += smooth(bud, '#5a9e4b') + smooth(bloom, petals[i]);
+    hearts += smooth(around(x, y + 10, 16, () => 3), '#5a9e4b') + smooth(around(x, y, 16, () => 13), '#ffd84d');
+  });
+  const beePath = smoothD([[120, 120], [230, 80], [330, 150], [450, 90], [560, 150], [690, 80], [800, 130], [700, 230], [520, 200], [380, 240], [220, 210]]);
+  const wingsOpen = smooth(around(120, 120, 24, a => 16 * (0.18 + 0.82 * Math.abs(Math.sin(a)) ** 0.8)), '#e8f4ff', ' fill-opacity="0.75"');
+  const wingsShut = smooth(around(120, 120, 24, a => 7 * (0.3 + 0.7 * Math.abs(Math.sin(a)) ** 0.8)), '#e8f4ff', ' fill-opacity="0.75"');
+  const body = smooth(around(120, 120, 16, a => 10 * 6 / Math.hypot(6 * Math.cos(a), 10 * Math.sin(a))), '#ffcf3f');
+  // shapes: 0–1 ground, 2–6 stems, 7–11 leaves, 12.. heads (bud, bloom) pairs, then hearts (bud, open) pairs,
+  // then wings open, wings shut, body, the bee's path
+  const h0 = 12, c0 = h0 + 10, w0 = c0 + 10;
+  SHOWPIECES.push({
+    id: 'garden', name: 'garden', section: 'showpieces', tags: ['colour', 'phase', 'own path', 'echoes', '12 morphs'],
+    note: 'Five flowers bloom in a wave: bud, bloom, bloom, bud as keys, each flower a little behind the last, its petals going from green to its own colour and its heart coming in yellow. A bee loops between them on a path of its own, its wings beating twelve times a loop, leaving echoes.',
+    svg: svg(900, 440, ground + stems + leaves + heads + hearts + wingsOpen + wingsShut + body + stroke(beePath, '#000', 1)),
+    scene: {
+      loop: 8, ease: 'inout', hold: 0.15,
+      morphs: X.flatMap((_, i) => [
+        { keys: [h0 + 2 * i, h0 + 2 * i + 1, h0 + 2 * i + 1, h0 + 2 * i], phase: 0.84 - 0.09 * i },
+        { keys: [c0 + 2 * i, c0 + 2 * i + 1, c0 + 2 * i + 1, c0 + 2 * i], phase: 0.84 - 0.09 * i }
+      ]).concat([
+        { keys: [w0, w0 + 1, w0, w0 + 1], rate: 6, path: w0 + 3, turn: true, at: 0, trail: { kind: '' } },
+        { keys: [w0 + 2], path: w0 + 3, turn: true, at: 0, trail: { kind: 'echoes', len: 0.12 } }
+      ])
+    }
+  });
+}
+
+// 5. LAVA LAMP: wax rising and falling, each blob on a tall loop of its own at its own start, seething, and
+// warming from deep red to orange twice a loop; the lamp itself stands still.
+{
+  const lamp = smooth([[300, 70], [340, 70], [372, 300], [396, 470], [204, 470], [228, 300], [260, 70]].map(p => p), '#2a1438')
+    + `<path d="M196 470 L404 470 L430 560 L170 560 Z" fill="#3b3f4c"/>` + `<path d="M262 40 L338 40 L346 72 L254 72 Z" fill="#3b3f4c"/>`
+    + smooth([[312, 90], [322, 90], [344, 300], [360, 440], [350, 440], [334, 300]], '#ffffff', ' fill-opacity="0.07"');
+  const blobs = [[300, 380, 30], [282, 300, 22], [318, 200, 18], [296, 140, 14], [308, 430, 26]];
+  const loops = [[300, 270, 24, 170], [286, 280, 30, 160], [314, 260, 22, 150], [298, 250, 18, 140], [306, 300, 28, 140]];
+  let body = '', paths = '';
+  blobs.forEach(([x, y, r]) => {
+    body += smooth(around(x, y, 24, a => r * (1 + 0.08 * Math.cos(3 * a))), '#9c1f2a') + smooth(around(x, y, 24, a => r * 1.05 * (1 + 0.1 * Math.cos(2 * a))), '#ff8a3c');
+  });
+  loops.forEach(([x, y, rx, ry]) => { paths += stroke(smoothD(around(x, y, 32, a => rx * ry / Math.hypot(ry * Math.cos(a), rx * Math.sin(a)))), '#000', 1); });
+  // shapes: 0 glass, 1 base, 2 cap, 3 highlight, 4.. blobs (deep, warm) pairs, then the loops
+  const b0 = 4, p0 = b0 + 10;
+  SHOWPIECES.push({
+    id: 'lava', name: 'lava lamp', section: 'showpieces', tags: ['own paths', 'boil', 'colour', 'leaves'],
+    note: 'Five blobs of wax, each rising and falling on a tall loop of its own from its own start, seething all the while, and warming from deep red to orange and back twice a loop. Leaves, for the seethe.',
+    svg: svg(600, 600, lamp + body + paths),
+    scene: {
+      exact: false, loop: 14,
+      morphs: blobs.map((_, i) => ({ keys: [b0 + 2 * i, b0 + 2 * i + 1, b0 + 2 * i, b0 + 2 * i + 1], path: p0 + i, at: [0.1, 0.45, 0.7, 0.25, 0.9][i], turn: false, phase: 0.2 * i, fx: { kind: 'boil', amount: 0.35 } }))
+    }
+  });
+}
+
+// 6. RIPPLE: a field of forty squares that become circles and back in a wave spreading from the middle, each
+// half turning as it goes and shifting from its cool square colour to its warm circle colour.
+{
+  const cols = 8, rows = 5, g = 70, s = 46, x0 = 60, y0 = 60;
+  let sq = '', ci = '';
+  const cx = x0 + (cols - 1) * g / 2, cy = y0 + (rows - 1) * g / 2, dmax = Math.hypot(cx - x0, cy - y0);
+  const ph = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const x = x0 + c * g, y = y0 + r * g;
+    sq += `<rect x="${x - s / 2}" y="${y - s / 2}" width="${s}" height="${s}" fill="${hsl(200 + c * 9, 0.7, 0.55)}"/>`;
+    ci += circ4(x, y, s * 0.56, hsl(330 + c * 6, 0.85, 0.62));
+    ph.push(-0.5 * Math.hypot(x - cx, y - cy) / dmax);
+  }
+  const n = cols * rows;
+  SHOWPIECES.push({
+    id: 'ripple', name: 'ripple', section: 'showpieces', tags: ['phase', 'spin', 'colour', '40 morphs'],
+    note: 'Forty squares become circles and back in a wave that spreads from the middle: each cell\'s clock runs behind by its distance from the centre. Each half turns as it goes and shifts from its cool square colour to its warm circle colour, corner for corner.',
+    svg: svg(620, 400, sq + ci),
+    scene: {
+      loop: 6, ease: 'inout',
+      morphs: Array.from({ length: n }, (_, i) => ({ keys: [i, n + i, i, n + i], phase: ((ph[i] % 1) + 1) % 1, spin: 0.5 }))
+    }
+  });
+}
+
+// 7. METAMORPHOSIS: one shape through six icons, circle, heart, star, bolt, drop and moon, each in its own
+// colour, resting on each and leaving a faint smear behind it; solo, so it has the page to itself.
+{
+  const R = 60, Y = 90;
+  const star5 = (cx) => polyOf(around(cx, Y, 10, (a, i) => i % 2 ? R * 0.42 : R, -Math.PI / 2), '#f2c14e');
+  const bolt = cx => `<polygon points="${pts([[12, -60], [-30, 8], [-4, 8], [-14, 60], [30, -10], [4, -10]].map(([x, y]) => [cx + x, Y + y]))}" fill="#b388ff"/>`;
+  const drop = cx => `<path d="M${cx} ${Y - 62} C ${cx + 10} ${Y - 30} ${cx + 46} ${Y - 4} ${cx + 46} ${Y + 22} C ${cx + 46} ${Y + 48} ${cx + 24} ${Y + 64} ${cx} ${Y + 64} C ${cx - 24} ${Y + 64} ${cx - 46} ${Y + 48} ${cx - 46} ${Y + 22} C ${cx - 46} ${Y - 4} ${cx - 10} ${Y - 30} ${cx} ${Y - 62} Z" fill="#3ec7e0"/>`;
+  const moon = cx => `<path d="M${cx + 10} ${Y - 60} C ${cx - 40} ${Y - 56} ${cx - 62} ${Y - 10} ${cx - 50} ${Y + 26} C ${cx - 38} ${Y + 60} ${cx + 4} ${Y + 72} ${cx + 38} ${Y + 50} C ${cx + 6} ${Y + 50} ${cx - 22} ${Y + 24} ${cx - 22} ${Y - 6} C ${cx - 22} ${Y - 34} ${cx - 6} ${Y - 52} ${cx + 10} ${Y - 60} Z" fill="#e8ecf5"/>`;
+  const W = 150;
+  SHOWPIECES.push({
+    id: 'metamorphosis', name: 'metamorphosis', section: 'showpieces', tags: ['corners kept', 'colour', '6 keys', 'solo'],
+    note: 'One shape through six icons, each in its own colour: a circle, a heart, a star, a lightning bolt, a drop and a crescent moon, corners where they have them and curves where they have those. It rests on each and leaves a faint smear as it changes. Solo, so the shape has the page to itself.',
+    svg: svg(6 * W, 180, circ4(W / 2, Y, R, '#4f8fd6') + heart(1.5 * W, Y + 4, 130, '#e0475a') + star5(2.5 * W) + bolt(3.5 * W) + drop(4.5 * W) + moon(5.5 * W)),
+    scene: { loop: 9, ease: 'inout', hold: 0.3, morphs: [{ keys: [0, 1, 2, 3, 4, 5], inPlace: false, trail: { kind: 'echoes', len: 0.1 } }] }
+  });
+}
+
+// 8. PENDULUM WAVE: fifteen bobs, each swinging on an arc of its own, the longest twenty times a loop and each
+// shorter one once more, so they fall out of step into snakes and waves and all come back together at the end.
+{
+  const N = 15, P0 = [450, 30];
+  let bar = `<rect x="80" y="18" width="740" height="12" rx="6" fill="#3b3f4c"/>`, bobs = '', arcs = '';
+  for (let i = 0; i < N; i++) {
+    const L = 380 - i * 16, amp = 0.42, x = 120 + i * (660 / (N - 1));
+    const arc = Array.from({ length: 9 }, (_, j) => { const a = -amp + j * (2 * amp / 8); return [x + L * Math.sin(a), P0[1] + L * Math.cos(a)]; });
+    arcs += stroke(smoothOpenD(arc), '#000', 1);
+    bobs += circ4(x - L * Math.sin(amp), P0[1] + L * Math.cos(amp), 15, hsl(200 + i * 10, 0.8, 0.62));
+  }
+  SHOWPIECES.push({
+    id: 'pendulum-wave', name: 'pendulum wave', section: 'showpieces', tags: ['own paths', 'laps', 'there & back', '15 morphs'],
+    note: 'Fifteen bobs, each swinging on an arc of its own: the first twenty times a loop and each next one once more, so they fall out of step into snakes and waves and all come back together as the loop closes. There and back slows each at the ends of its swing, as a pendulum does.',
+    svg: svg(900, 440, bar + bobs + arcs),
+    scene: { loop: 40, morphs: Array.from({ length: N }, (_, i) => ({ keys: [1 + i], path: 1 + N + i, laps: 20 + i, mode: 'back', turn: false })) }
+  });
+}
+EXAMPLES.push(...SHOWPIECES);
+
 const SECTIONS = [
-  { id: 'corners', title: 'corners kept', ids: ['square-star', 'shape-loop', 'heartbeat'],
+  { id: 'showpieces', title: 'showpieces', ids: ['clockwork', 'orrery', 'murmuration', 'garden', 'lava', 'ripple', 'metamorphosis', 'pendulum-wave'],
+    note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
+  { id: 'corners', title: 'first steps: corners kept', ids: ['square-star', 'shape-loop', 'heartbeat'],
     note: 'Exact shapes morph as exact shapes: their corners, radii and curve edges blended, so a sharp corner stays sharp the whole way. A key with fewer corners is given more on its edges, which draws it the same.' },
-  { id: 'paths', title: 'paths and trails', ids: ['orbit', 'pendulum', 'fish', 'procession'],
+  { id: 'paths', title: 'first steps: paths and trails', ids: ['orbit', 'pendulum', 'fish', 'procession'],
     note: 'A line or a curve in the drawing becomes a path: every live shape rides it once a loop at an even speed, turning with it if asked, and leaves echoes or a ribbon behind. The path itself leaves the drawing while it is one.' },
-  { id: 'effects', title: 'detail effects', ids: ['shimmer', 'grow', 'boil', 'lag'],
+  { id: 'effects', title: 'first steps: detail effects', ids: ['shimmer', 'grow', 'boil', 'lag'],
     note: 'A shape\'s outline is its harmonics, so an effect can move the detail and leave the silhouette alone, and a lag can make the detail arrive after the silhouette. These examples come in as leaves.' },
 ];
 
@@ -1372,15 +1659,25 @@ async function sceneCode(ex) {
   }
   return 'r' + b64url(json);
 }
-// the settings as one line, the way the other pages show a tile's source
+// the settings as one line, the way the other pages show a tile's source: the keys of a single morph, or how
+// many morphs and what they have of their own
 function sceneLine(s) {
-  const bits = [];
-  bits.push('morphs ' + JSON.stringify(s.morphs));
+  const runs = s.morphs.map(m => Array.isArray(m) ? { keys: m } : m), bits = [];
+  const uniq = a => [...new Set(a)];
+  const list = (name, vals, fmt = v => v) => { const u = uniq(vals.filter(v => v != null && v !== 0)); if (u.length) bits.push(name + ' ' + (u.length > 4 ? u.slice(0, 3).map(fmt).join(', ') + ' …' : u.map(fmt).join(', '))); };
+  bits.push(runs.length === 1 ? 'keys ' + JSON.stringify(runs[0].keys) : runs.length + ' morphs');
   if (s.exact === false) bits.push('leaves');
-  if (s.path != null) bits.push('path ' + s.path + (s.mode === 'back' ? ' there & back' : '') + (s.turn ? ' · turn' : ''));
-  if (s.fx) bits.push(s.fx.kind + ' ' + s.fx.amount);
+  if (runs.some(r => r.inPlace === false)) bits.push('solo');
+  if (s.path != null) bits.push('shared path' + (s.mode === 'back' ? ' there & back' : '') + (s.turn ? ' · turn' : ''));
+  const own = runs.filter(r => r.path != null).length;
+  if (own) bits.push(own + ' own path' + (own > 1 ? 's' : '') + (runs.some(r => r.mode === 'back') ? ' there & back' : ''));
+  list('laps', runs.map(r => r.laps));
+  list('rate', runs.map(r => r.rate));
+  if (runs.filter(r => r.phase).length > 1) bits.push('phases staggered');
+  list('spin', runs.map(r => r.spin), v => +v.toFixed(3));
+  list('effect', runs.map(r => r.fx ? r.fx.kind + ' ' + r.fx.amount : null).concat(s.fx ? [s.fx.kind + ' ' + s.fx.amount] : []));
+  list('trail', runs.map(r => r.trail && r.trail.kind ? r.trail.kind : null).concat(s.trail ? [s.trail.kind] : []));
   if (s.lag) bits.push('lag ' + s.lag);
-  if (s.trail) bits.push('trail ' + s.trail.kind + ' ' + s.trail.len);
   if (s.ease) bits.push('ease ' + s.ease);
   if (s.hold) bits.push('hold ' + s.hold);
   if (s.onion) bits.push('onion');

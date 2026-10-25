@@ -40019,7 +40019,7 @@
                 drawKnifeLine(); // THE KNIFE
             if (CHROME && state.morphOnion && morphRunning())
                 drawMorphOnion(w, h); // THE TIMELINE: the neighbouring keys
-            if (CHROME && _morphReady && morphLive.path && morphRunning())
+            if (CHROME && _morphReady && morphRunning() && (morphLive.path || morphRuns.some(r => r.path)))
                 drawMorphPath(w, h); // MOTION ALONG A PATH: the guide
             // In-progress pencil stroke (canvas space).
             if (CHROME)
@@ -50758,7 +50758,8 @@
         // the clock's t; a trail asks for it at earlier times without touching the shape.
         function morphPoseInto(run, t, X, Y, bare) { // bare: the keys' blend alone, no effect or path
             const K = run.keys.length,
-                N = X.length;
+                N = X.length,
+                tt = morphRunT(run, t); // EACH MORPH ITS OWN TIME: the keys and the effect on the morph's clock
             if (run.lag > 0) {
                 // Built on first use and thrown away when the lag goes back to zero, so a run nobody
                 // lags never pays for a transform. wrap = K > 2: two keys ramp between a start and an
@@ -50768,9 +50769,9 @@
                     run.freq = morphFreqScale(N);
                 }
                 morphBlendSpectral(run.spec, run.freq,
-                g => morphWeights(morphWarp(g(t), K), K), run.lag, K > 2, X, Y); // EASING AND HOLDS
+                g => morphWeights(morphWarp(g(tt), K), K), run.lag, K > 2, X, Y); // EASING AND HOLDS
             } else {
-                const w = morphWeights(morphWarp(t, K), K); // EASING AND HOLDS
+                const w = morphWeights(morphWarp(tt, K), K); // EASING AND HOLDS
                 X.fill(0);
                 Y.fill(0);
                 for (let k = 0; k < K; k++) {
@@ -50788,9 +50789,9 @@
             if (bare)
                 return;
             if (run.fx && run.fx.kind)
-                morphApplyFx(run, X, Y, t); // DETAIL EFFECTS
-            if (morphLive.path)
-                morphApplyPath(run, X, Y, t); // MOTION ALONG A PATH
+                morphApplyFx(run, X, Y, tt); // DETAIL EFFECTS
+            if (morphPathOf(run) || run.spin)
+                morphApplyPath(run, X, Y, t); // MOTION ALONG A PATH, and the morph's spin
         }
         function morphWriteRun(run) {
             const sp = morphTargetOf(run);
@@ -50798,11 +50799,15 @@
                 return;
             if (run.exact) { // MORPHS THAT KEEP THEIR CORNERS
                 morphWriteExact(run, sp, morphPoseExact(run, morphLive.t));
+                if (run.cols)
+                    sp.fill = morphColourAt(run, morphLive.t); // COLOUR THAT MORPHS
                 return;
             }
             const X = sp.leafX,
                 Y = sp.leafY;
             morphPoseInto(run, morphLive.t, X, Y);
+            if (run.cols)
+                sp.fill = morphColourAt(run, morphLive.t); // COLOUR THAT MORPHS
             // The reference follows the leaves. A morph is not a resample of some earlier curve —
             // each pose IS the shape, so a pose dropped by `keep` has to be its own origin or every
             // downstream reading would be taken against a curve that is not there.
@@ -50915,6 +50920,7 @@
                 // Freeze: the live shapes stay exactly where they are and stop being live. Their
                 // keys go with the runs, which is the whole point of this reading.
                 const n = morphRuns.length;
+                morphRunPathsRelease(morphRuns.slice()); // EACH MORPH ITS OWN PATH
                 morphPathRelease(true); // MOTION ALONG A PATH: the path back where it was
                 morphAbandon();
                 rebuildScroller();
@@ -50981,6 +50987,7 @@
                 arr = out;
             }
             state.subpaths = arr;
+            morphRunPathsRelease(list); // EACH MORPH ITS OWN PATH: each back where it was
             if (morphRuns.every(r => list.indexOf(r) >= 0))
                 morphPathRelease(true); // MOTION ALONG A PATH: the path back where it was
             morphAbandon(list);
@@ -51136,6 +51143,7 @@
                 keys,
                 exact: exactMode, // MORPHS THAT KEEP THEIR CORNERS
                 curved: exactMode ? morphExactCurved(keys) : null,
+                cols: morphColsOf(src.map(sp => sp.fill)), // COLOUR THAT MORPHS
                 sp: sp0,
                 inPlace,
                 lag: exactMode ? 0 : lag,
@@ -51576,7 +51584,7 @@
         // the pose at t: the keys' corners, radii and handles weighed, then the path
         function morphPoseExact(run, t, bare) {
             const K = run.keys.length,
-                w = morphWeights(morphWarp(t, K), K),
+                w = morphWeights(morphWarp(morphRunT(run, t), K), K),
                 n = run.keys[0].x.length;
             const x = new Float64Array(n),
                 y = new Float64Array(n),
@@ -51614,9 +51622,9 @@
                 if (!(r[j] > 0))
                     r[j] = 0;
             const P = { x, y, r, c };
-            if (morphLive.path && !bare) { // MOTION ALONG A PATH: the corners and handles carried
+            if ((morphPathOf(run) || run.spin) && !bare) { // MOTION ALONG A PATH and spin: the corners and handles carried
                 const ctr = exactCentre(P),
-                    q = morphPathPlace(run, t),
+                    q = morphPlace(run, t, ctr),
                     cs = Math.cos(q.turn),
                     sn = Math.sin(q.turn);
                 const tf = (px, py) => [q.x + cs * (px - ctr.x) - sn * (py - ctr.y), q.y + sn * (px - ctr.x) + cs * (py - ctr.y)];
@@ -51829,13 +51837,94 @@
         // which way the pose faces is the path's direction there, less the direction at the start,
         // so a shape that starts on the path looks as drawn. There and back it comes back facing the
         // same way, backing along the path: a half turn at the far end would happen in one frame.
+        // ── EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL (25 Oct 2026, Tom: "can you do some top quality
+        // animation examples, to really push the framework?") ────────────────────────────────────────
+        // One clock drives every live morph, which keeps them in register, and that stays. What a morph
+        // may now have of its own, on that clock:
+        //   rate, phase   its keys and its effect run `rate` times round a loop (a whole number, so the
+        //                 loop closes), `phase` of a loop ahead: a field of shapes rippling, a flock whose
+        //                 wings never beat together;
+        //   spin          whole or fractional turns a loop about its own centre: gears in the ratio of
+        //                 their teeth, a windmill (a fraction closes the loop only where the shape's own
+        //                 symmetry does);
+        //   path, laps, at   a path of its own, ridden `laps` times a loop from `at` along it: planets
+        //                 lapping at their own speeds; without one it rides the shared path, spread;
+        //   cols          the keys' fills, blended with the keys by the same weights, in linear light;
+        //   trail, fx     its own trail and effect, where the bar's would not suit every morph.
+        // The scene link sets them (THE SCENE LINK); the autosave keeps them (morphSaveOwn); the bar's
+        // controls still act on every morph at once.
+        // A morph rides its own path if it has one (EACH MORPH ITS OWN PATH), else the shared one.
+        // On its own path it starts at `at` (0 to 1 along it) and goes round `laps` times a loop; on
+        // the shared path the morphs riding it are spread evenly along it, unless one says where.
+        function morphPathOf(run) {
+            return (run && run.path) || morphLive.path;
+        }
         function morphPathPlace(run, t) {
-            const P = morphLive.path,
-                k = Math.max(0, morphRuns.indexOf(run)),
-                phase = morphRuns.length > 1 ? k / morphRuns.length : 0,
-                s = morphPathS(P, t, phase),
+            const P = morphPathOf(run);
+            let start = run.at;
+            if (start == null) {
+                const riders = run.path ? [run] : morphRuns.filter(r => !r.path),
+                    k = Math.max(0, riders.indexOf(run));
+                start = riders.length > 1 ? k / riders.length : 0;
+            }
+            const s = morphPathS(P, t * (run.laps || 1), start),
                 q = morphPathAt(P, s);
             return { x: q.x, y: q.y, turn: P.turn ? q.a - P.ang[0] : 0 };
+        }
+        // where the pose's centre goes and which way it faces at t: on its path (if any) and turned
+        // by its spin, `spin` whole turns a loop about its own centre (EACH MORPH ITS OWN TIME)
+        function morphPlace(run, t, ctr) {
+            const q = morphPathOf(run) ? morphPathPlace(run, t) : { x: ctr.x, y: ctr.y, turn: 0 };
+            if (run.spin)
+                q.turn += TAU * run.spin * t;
+            return q;
+        }
+        // the morph's own clock: `rate` times round a loop, `phase` ahead (0 to 1); the shared clock
+        // when it has neither. A whole rate keeps the loop seamless.
+        function morphRunT(run, t) {
+            const r = run.rate || 1,
+                p = run.phase || 0;
+            if (r === 1 && !p)
+                return t;
+            return ((t * r + p) % 1 + 1) % 1;
+        }
+        // COLOUR THAT MORPHS (25 Oct 2026): each key's fill, blended by the keys' own weights in
+        // linear light (so red to green passes through yellow, not mud), as the fill of the pose.
+        // run.cols holds each key's colour as linear {r, g, b} and an opacity, or is null when the
+        // keys share one colour.
+        const _lin = v => (v /= 255) <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4),
+            _srgb = v => Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055));
+        function morphColOf(fill) {
+            const m = fill && typeof fill.color === 'string' && fill.color.match(/^#([0-9a-f]{6})$/i);
+            if (!m)
+                return null;
+            const v = parseInt(m[1], 16);
+            return { r: _lin(v >> 16), g: _lin((v >> 8) & 255), b: _lin(v & 255), a: fill.opacity != null ? +fill.opacity : 1 };
+        }
+        function morphColsOf(fills) {
+            const cols = fills.map(morphColOf);
+            if (cols.length < 2 || cols.some(c => !c))
+                return null;
+            const same = cols.every(c => Math.abs(c.r - cols[0].r) + Math.abs(c.g - cols[0].g) + Math.abs(c.b - cols[0].b) + Math.abs(c.a - cols[0].a) < 1e-9);
+            return same ? null : cols;
+        }
+        function morphColourAt(run, t) {
+            const K = run.keys.length,
+                w = morphWeights(morphWarp(morphRunT(run, t), K), K);
+            let r = 0,
+                g = 0,
+                b = 0,
+                a = 0;
+            for (let k = 0; k < K; k++) {
+                const c = run.cols[k];
+                r += w[k] * c.r;
+                g += w[k] * c.g;
+                b += w[k] * c.b;
+                a += w[k] * c.a;
+            }
+            const cl = v => Math.max(0, Math.min(1, v)),
+                hx = v => _srgb(cl(v)).toString(16).padStart(2, '0');
+            return { color: '#' + hx(r) + hx(g) + hx(b), opacity: cl(a) };
         }
         function morphApplyPath(run, X, Y, t) {
             const N = X.length;
@@ -51847,7 +51936,7 @@
             }
             cx /= N;
             cy /= N;
-            const q = morphPathPlace(run, t),
+            const q = morphPlace(run, t, { x: cx, y: cy }),
                 c = Math.cos(q.turn),
                 s = Math.sin(q.turn);
             for (let i = 0; i < N; i++) {
@@ -51915,6 +52004,32 @@
                 rebuildScroller();
             }
         }
+        // each listed morph's own path back into the drawing, the last lifted first so the places hold
+        function morphRunPathsRelease(list) {
+            for (const run of list.slice().reverse()) {
+                const P = run.path;
+                if (!P)
+                    continue;
+                run.path = null;
+                if (P.member && state.subpaths.indexOf(P.member) < 0)
+                    state.subpaths.splice(Math.max(0, Math.min(state.subpaths.length, P.at)), 0, P.member);
+            }
+        }
+        // a morph's own path, from a shape in the drawing, which leaves the drawing while it is one
+        function morphRunPathSet(run, sp, turn, mode) {
+            const poly = morphPathFrom(sp),
+                P = poly && morphPathBuild(poly.x, poly.y, poly.closed);
+            if (!P)
+                return false;
+            P.turn = turn !== false;
+            P.mode = mode === 'back' ? 'back' : 'along';
+            P.member = sp;
+            P.at = state.subpaths.indexOf(sp);
+            if (P.at >= 0)
+                state.subpaths.splice(P.at, 1);
+            run.path = P;
+            return true;
+        }
         function morphPathOptions(turn, mode) {
             if (turn != null)
                 state.morphPathTurn = !!turn;
@@ -51932,9 +52047,14 @@
         }
         // the path as a dashed guide, with a dot where each shape is on it (the editor's, never a recording's)
         function drawMorphPath(w, h) {
-            const P = morphLive.path;
-            if (!P)
-                return;
+            // the shared path, and each morph's own (EACH MORPH ITS OWN PATH)
+            for (const run of morphRuns)
+                if (run.path)
+                    drawMorphPathOne(run.path, w, h);
+            if (morphLive.path)
+                drawMorphPathOne(morphLive.path, w, h);
+        }
+        function drawMorphPathOne(P, w, h) {
             ctx.save();
             ctx.lineWidth = 1.25;
             ctx.setLineDash([3, 5]);
@@ -51968,12 +52088,17 @@
         // start to end) it begins at t = 0, so it never streaks across the jump.
         const MORPH_TRAILS = ['echoes', 'ribbon'],
             MORPH_ECHOES = 7;
-        function morphTrailSpan() {
-            const L = state.morphTrailLen != null ? +state.morphTrailLen : 0.5;
+        // a morph's own trail (EACH MORPH ITS OWN TRAIL), else the bar's
+        function morphTrailOf(run) {
+            return run && run.trail ? run.trail : { kind: state.morphTrail, len: state.morphTrailLen };
+        }
+        function morphTrailSpan(run) {
+            const tr = morphTrailOf(run),
+                L = tr.len != null ? +tr.len : 0.5;
             return 0.04 + 0.36 * Math.max(0, Math.min(1, L));
         }
         function morphLoops(run) {
-            const P = morphLive.path;
+            const P = morphPathOf(run);
             if (P)
                 return P.closed || P.mode === 'back';
             return run.keys.length !== 2;
@@ -51997,7 +52122,7 @@
         // a pose's centre at time u, without building the pose: the path's point, or the keys'
         // centres blended (the blend is linear, and neither the lag nor an effect moves a centre)
         function morphCentreAt(run, u) {
-            if (morphLive.path)
+            if (morphPathOf(run))
                 return morphPathPlace(run, u);
             if (!run._centres || run._centres.length !== run.keys.length)
                 run._centres = run.keys.map(k => run.exact ? exactCentre(k) : (() => {
@@ -52009,7 +52134,7 @@
                     }
                     return { x: cx / k.x.length, y: cy / k.x.length };
                 })());
-            const w = morphWeights(morphWarp(u, run.keys.length), run.keys.length); // EASING AND HOLDS
+            const w = morphWeights(morphWarp(morphRunT(run, u), run.keys.length), run.keys.length); // EASING AND HOLDS
             let x = 0,
                 y = 0;
             for (let k = 0; k < w.length; k++) {
@@ -52019,15 +52144,17 @@
             return { x, y };
         }
         function drawMorphTrails(w, h) {
-            const kind = state.morphTrail;
-            if (!MORPH_TRAILS.includes(kind) || !morphRuns.length)
+            if (!morphRuns.length)
                 return;
-            const span = morphTrailSpan(),
-                t = morphLive.t;
+            const t = morphLive.t;
             ctx.save();
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
             for (const run of morphRuns) {
+                const kind = morphTrailOf(run).kind;
+                if (!MORPH_TRAILS.includes(kind))
+                    continue;
+                const span = morphTrailSpan(run);
                 const sp = morphTargetOf(run);
                 if (!sp)
                     continue;
@@ -52054,8 +52181,9 @@
                         }
                         ctx.closePath();
                         if (fillCol) {
-                            ctx.globalAlpha = a * fillA;
-                            ctx.fillStyle = fillCol;
+                            const C = run.cols ? morphColourAt(run, u) : null; // the colour it had then
+                            ctx.globalAlpha = a * (C ? C.opacity : fillA);
+                            ctx.fillStyle = C ? C.color : fillCol;
                             ctx.fill('evenodd');
                         }
                         if (lineCol && lw > 0) {
@@ -52261,7 +52389,10 @@
                     key = { x: new Float64Array(sp.leafX.length), y: new Float64Array(sp.leafX.length) };
                     morphPoseInto(run, t, key.x, key.y, true);
                 }
+                const C = run.cols ? morphColOf(morphColourAt(run, t)) : null; // the colour where you stand, as the new key's
                 run.keys.splice(at, 0, key);
+                if (run.cols)
+                    run.cols.splice(at, 0, C);
                 run.spec = null;
                 run.freq = null;
                 run._centres = null;
@@ -52287,6 +52418,8 @@
                     best = k;
             for (const run of morphRuns) {
                 run.keys.splice(best, 1);
+                if (run.cols)
+                    run.cols.splice(best, 1);
                 run.spec = null;
                 run.freq = null;
                 run._centres = null;
@@ -68096,10 +68229,14 @@
                 // No keyTimes: with calcMode="linear" SMIL distributes the values evenly, which is
                 // exactly what an even t schedule wants, and leaving it out keeps the file smaller
                 // and removes a second list that could disagree with the first.
+                // COLOUR THAT MORPHS: the fill as a second animation on the same schedule
+                const fillAnim = run.cols ? `    <animate attributeName="fill" calcMode="linear" dur="${dur.toFixed(2)}s"`
+                + ` repeatCount="indefinite" values="${ts.map(t => morphColourAt(run, t).color).join(';')}"/>\n` : '';
                 body.push(`  <path d="${ds[0]}" ${styleOf(sp)}>\n`
                 + `    ${title}\n`
                 + `    <animate attributeName="d" calcMode="linear" dur="${dur.toFixed(2)}s"`
                 + ` repeatCount="indefinite" values="${ds.join(';')}"/>\n`
+                + fillAnim
                 + `  </path>`);
             });
             if (!body.length) {
@@ -78175,6 +78312,7 @@
                         y: _f32b64(k.y)
                     }),
                     members: (r.members || []).filter(spSaveable).map(m => spSave(m, dropRefs)),
+                    own: morphSaveOwn(r, dropRefs), // EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL
                 })).filter(m => m.at >= 0),
                 morphT: morphLive.t,
                 morphSecs: 1 / morphLive.speed,
@@ -78366,6 +78504,53 @@
         // Each saved morph comes back live: its keys, its live shape (already among the restored shapes,
         // found by its place), and the shapes it had lifted out, so exit still puts them back. A morph
         // whose live shape or keys do not fit is dropped, and its live shape stays an ordinary shape.
+        // what a morph has of its own, as the autosave holds it, and back
+        function morphSaveOwn(r, dropRefs) {
+            const P = r.path;
+            return {
+                phase: +r.phase || 0,
+                rate: r.rate || 1,
+                spin: +r.spin || 0,
+                laps: r.laps || 1,
+                start: r.at != null ? +r.at : null,
+                trail: r.trail ? { kind: r.trail.kind || '', len: r.trail.len != null ? +r.trail.len : 0.5 } : null,
+                cols: r.cols ? r.cols.map(c => ({ r: +c.r.toPrecision(7), g: +c.g.toPrecision(7), b: +c.b.toPrecision(7), a: +c.a.toPrecision(7) })) : null,
+                path: P ? {
+                    x: _f32b64(P.src.x),
+                    y: _f32b64(P.src.y),
+                    closed: !!P.closed,
+                    turn: !!P.turn,
+                    mode: P.mode,
+                    at: P.at,
+                    member: spSaveable(P.member) ? spSave(P.member, dropRefs) : null
+                } : null
+            };
+        }
+        function morphRestoreOwn(run, o) {
+            if (!run || !o)
+                return;
+            run.phase = +o.phase || 0;
+            run.rate = Math.max(1, Math.round(+o.rate || 1));
+            run.spin = +o.spin || 0;
+            run.laps = Math.max(1, Math.round(+o.laps || 1));
+            run.at = o.start != null ? +o.start : null;
+            run.trail = o.trail ? { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: +o.trail.len } : null;
+            run.cols = Array.isArray(o.cols) && o.cols.length === run.keys.length ? o.cols.map(c => ({ r: +c.r, g: +c.g, b: +c.b, a: +c.a })) : null;
+            if (o.path) {
+                try {
+                    const px = _b64f32(o.path.x),
+                        py = _b64f32(o.path.y),
+                        P = px && py && px.length === py.length ? morphPathBuild(px, py, !!o.path.closed) : null;
+                    if (P) {
+                        P.turn = !!o.path.turn;
+                        P.mode = o.path.mode === 'back' ? 'back' : 'along';
+                        P.at = +o.path.at || 0;
+                        P.member = o.path.member ? spLoad(o.path.member) : null;
+                        run.path = P;
+                    }
+                } catch (_) {}
+            }
+        }
         function restoreMorphs(d) {
             state.morphPathTurn = d.morphPathTurn !== false; // MOTION ALONG A PATH and TRAILS
             state.morphPathMode = d.morphPathMode === 'back' ? 'back' : 'along';
@@ -78403,6 +78588,7 @@
                             fx: null,
                             members: Array.isArray(m.members) ? m.members.map(q => { try { return spLoad(q); } catch (_) { return null; } }).filter(Boolean) : [],
                         });
+                        morphRestoreOwn(morphRuns[morphRuns.length - 1], m.own);
                         continue;
                     }
                     const sp = state.subpaths[m.at];
@@ -78421,6 +78607,7 @@
                         fx: m.fx && MORPH_FX.includes(m.fx.kind) ? { kind: m.fx.kind, amount: Math.max(0, Math.min(1, +m.fx.amount || 0)) } : null,
                         members: Array.isArray(m.members) ? m.members.map(q => { try { return spLoad(q); } catch (_) { return null; } }).filter(Boolean) : [],
                     });
+                    morphRestoreOwn(morphRuns[morphRuns.length - 1], m.own);
                 } catch (_) {}
             }
             if (!morphRuns.length)
@@ -80984,6 +81171,12 @@
                 exact: !!morphRuns[0].exact, lazy: !!morphRuns[0].sp._lazy,
                 round: morphRuns[0].exact && morphRuns[0].pose ? Array.from(morphRuns[0].pose.r) : null,
                 ease: state.morphEase || '', hold: +state.morphHold || 0,
+                // each morph's own settings and the fill it shows now
+                runs: morphRuns.map(r => ({ K: r.keys.length, exact: !!r.exact, phase: +r.phase || 0, rate: r.rate || 1, spin: +r.spin || 0,
+                    laps: r.laps || 1, path: !!r.path, trail: r.trail ? r.trail.kind : null, fill: r.sp && r.sp.fill ? r.sp.fill.color : null,
+                    cx: r.exact ? (r.pose ? exactCentre(r.pose).x : null) : (r.sp.leafX ? r.sp.leafX.reduce((a, b) => a + b) / r.sp.leafX.length : null),
+                    cy: r.exact ? (r.pose ? exactCentre(r.pose).y : null) : (r.sp.leafY ? r.sp.leafY.reduce((a, b) => a + b) / r.sp.leafY.length : null),
+                    x0: r.exact ? (r.pose ? r.pose.x[0] : null) : r.sp.leafX[0], y0: r.exact ? (r.pose ? r.pose.y[0] : null) : r.sp.leafY[0] })),
                 path: morphLive.path ? { closed: morphLive.path.closed, mode: morphLive.path.mode, turn: morphLive.path.turn } : null,
                 trail: state.morphTrail || '' } : null,
             // MOTION ALONG A PATH: where the first live shape's centre is on the path at t, and the canvas as drawn
@@ -82428,6 +82621,9 @@
         //   { v: 1, name, svg, exact (default true: the shapes come in exact),
         //     morphs: [[i, …], …]  the shapes (by their order in the SVG) of each live morph, one
         //                          shape a still, two or more blended; each list its own morph,
+        //                          or an object with what that morph has of its own: { keys,
+        //                          path, laps, at, turn, mode, rate, phase, spin, fx, trail, lag,
+        //                          inPlace } (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL),
         //     path: i              a line or curve every live shape rides, or absent,
         //     turn, mode ('along' | 'back'), fx: {kind, amount}, trail: {kind, len},
         //     ease, hold, loop (seconds), onion, corners (default true), lag, t, play (default true) }
@@ -82487,6 +82683,11 @@
                     state.svgExact = keepExact;
                 }
                 const S = state.subpaths.slice();
+                // An example is a picture: a shape the SVG gave no stroke is drawn by its fill alone, not
+                // with the editor's own outline round it (which exact shapes carry by default).
+                for (const sp of S)
+                    if (sp && !sp.stroke && sp.fill && sp.fill.color)
+                        sp.lineWidth = 0;
                 // the look and the timing first: a morph takes its effect from these as it starts
                 const fx = d.fx || {},
                     tr = d.trail || {};
@@ -82502,14 +82703,59 @@
                 const keepCorners = state.morphCorners;
                 state.morphCorners = d.corners !== false;
                 try {
-                    for (const list of Array.isArray(d.morphs) ? d.morphs : []) {
-                        const idx = (Array.isArray(list) ? list : [list]).map(i => state.subpaths.indexOf(S[i])).filter(i => i >= 0);
-                        if (!idx.length)
+                    // each entry a list of shapes, or an object with the keys and what the morph has of
+                    // its own: { keys, path, laps, at, turn, mode, rate, phase, spin, fx, trail, lag,
+                    // inPlace } (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL). A shape may be a key
+                    // more than once (bud, bloom, bud).
+                    for (const entry of Array.isArray(d.morphs) ? d.morphs : []) {
+                        const o = Array.isArray(entry) ? { keys: entry } : typeof entry === 'number' ? { keys: [entry] } : (entry || {});
+                        const list = (Array.isArray(o.keys) ? o.keys : [o.keys]).filter(i => S[i]),
+                            uniq = [...new Set(list)],
+                            idx = uniq.map(i => state.subpaths.indexOf(S[i]));
+                        if (!idx.length || idx.some(i => i < 0))
                             continue;
                         state.activeSet = new Set(idx);
                         state.activeSp = idx.length === 1 ? idx[0] : -1;
                         state.selected.clear();
-                        morphLiveStart({ inPlace: true, align: true, lag: clamp(d.lag, 0, MORPH_LAG_MAX, 0) });
+                        const last = morphRuns[morphRuns.length - 1],
+                            fxKeep = state.morphFx,
+                            fxAmtKeep = state.morphFxAmount;
+                        if (o.fx) {
+                            state.morphFx = MORPH_FX.includes(o.fx.kind) ? o.fx.kind : '';
+                            state.morphFxAmount = clamp(o.fx.amount, 0, 1, 0.5);
+                        }
+                        try {
+                            morphLiveStart({ inPlace: o.inPlace !== false, align: true, lag: clamp(o.lag != null ? o.lag : d.lag, 0, MORPH_LAG_MAX, 0) });
+                        } finally {
+                            state.morphFx = fxKeep;
+                            state.morphFxAmount = fxAmtKeep;
+                        }
+                        const run = morphRuns[morphRuns.length - 1];
+                        if (!run || run === last)
+                            continue;
+                        if (list.length !== uniq.length) { // the keys in the order the list gives them
+                            const byShape = run.keys.slice(),
+                                copy = k => run.exact ? exactKeyCopy(k) : { x: Float64Array.from(k.x), y: Float64Array.from(k.y) };
+                            run.keys = list.map(i => copy(byShape[uniq.indexOf(i)]));
+                            if (run.cols) {
+                                const cs = run.cols;
+                                run.cols = list.map(i => cs[uniq.indexOf(i)]);
+                            }
+                            if (run.exact)
+                                run.curved = morphExactCurved(run.keys);
+                            run.spec = null;
+                            run.freq = null;
+                            run._centres = null;
+                        }
+                        run.phase = Number.isFinite(+o.phase) ? ((+o.phase % 1) + 1) % 1 : 0;
+                        run.rate = Math.max(1, Math.round(+o.rate || 1));
+                        run.spin = Number.isFinite(+o.spin) ? +o.spin : 0;
+                        run.laps = Math.max(1, Math.round(+o.laps || 1));
+                        run.at = o.at != null ? clamp(o.at, 0, 1, 0) : null;
+                        if (o.trail)
+                            run.trail = { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: clamp(o.trail.len, 0, 1, 0.5) };
+                        if (o.path != null && S[o.path])
+                            morphRunPathSet(run, S[o.path], o.turn != null ? o.turn : d.turn, o.mode || d.mode);
                     }
                 } finally {
                     state.morphCorners = keepCorners;

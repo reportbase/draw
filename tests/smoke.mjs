@@ -771,8 +771,10 @@ current = 'corners and timing';
 
 /* THE ANIMATED GALLERY AND THE SCENE LINK (gallery/animated.html, draw.html#scene=). The page lists its examples, each
    with a link; three open live in the editor as they say (an exact morph of two keys, three shapes on one path,
-   a leaf still with an effect); and a link opened over a drawing of the user's asks first, and keeps the
-   drawing when told to. */
+   a leaf still with an effect); the showpieces do what they say (gears spinning in the ratio of their teeth about
+   fixed axles, planets on orbits of their own lapping 5 to 1 times and kept through a reload, a ripple of staggered
+   clocks and blending colours, a bee whose wings and body ride one path together); and a link opened over a
+   drawing of the user's asks first, and keeps the drawing when told to. */
 current = 'examples';
 {
   const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -804,7 +806,46 @@ current = 'examples';
     s = await open('shimmer');
     const fx = await ep.evaluate(() => document.getElementById('morphFx').value);
     if (!s || s.K !== 1 || s.exact || fx !== 'shimmer') throw new Error('the shimmering leaf did not open as a leaf still with shimmer: ' + JSON.stringify(s) + ' ' + fx);
+    // THE SHOWPIECES, and what each morph has of its own
+    const runsAt = async t => { await ep.evaluate(t => { const r = document.getElementById('morphT'); r.value = Math.round(t * 1000); r.dispatchEvent(new Event('input')); }, t); return ep.evaluate(() => window.__box.morph().runs); };
+    const turnOf = r => Math.atan2(r.y0 - r.cy, r.x0 - r.cx);
+    const dturn = (a, b) => { let d = turnOf(b) - turnOf(a); d -= 2 * Math.PI * Math.round(d / (2 * Math.PI)); return d; };
+    // clockwork: eight stills spinning in the ratio of their teeth, each about a fixed centre
+    s = await open('clockwork');
+    let r0 = await runsAt(0), r1 = await runsAt(0.1);
+    if (r0.length !== 8) throw new Error('clockwork opened with ' + r0.length + ' morphs');
+    const spins = r0.slice(0, 4).map(r => r.spin), want = [0.25, -0.5, 0.375, -0.6];
+    if (spins.some((v, i) => Math.abs(v - want[i]) > 1e-9)) throw new Error('the gears spin at ' + spins);
+    for (let i = 0; i < 4; i++) {
+      if (Math.hypot(r1[i].cx - r0[i].cx, r1[i].cy - r0[i].cy) > 1e-6) throw new Error('gear ' + i + ' moved off its axle');
+      if (Math.abs(dturn(r0[i], r1[i]) - 2 * Math.PI * want[i] * 0.1) > 1e-3) throw new Error('gear ' + i + ' turned ' + dturn(r0[i], r1[i]));
+    }
+    // orrery: each planet on its own orbit, lapping 5, 4, 3, 2, 1 times: back where it was a lap later; the sun has no trail
+    s = await open('orrery');
+    r0 = await runsAt(0);
+    const planets = r0.slice(1);
+    if (planets.length !== 5 || planets.some(r => !r.path) || planets.map(r => r.laps).join() !== '5,4,3,2,1' || r0[0].trail !== '') throw new Error('the orrery\'s planets: ' + JSON.stringify(r0.map(r => [r.path, r.laps, r.trail])));
+    r1 = await runsAt(0.2); // a whole lap for the first planet, not for the last
+    if (Math.hypot(r1[1].cx - r0[1].cx, r1[1].cy - r0[1].cy) > 1e-3 || !(Math.hypot(r1[5].cx - r0[5].cx, r1[5].cy - r0[5].cy) > 0.05)) throw new Error('the planets do not keep their laps');
+    const nOrrery = await ep.evaluate(() => window.__box.count());
+    await ep.waitForTimeout(1200);
+    await ep.reload(); await ep.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await ep.waitForTimeout(600);
+    const back = await ep.evaluate(() => window.__box.morph().runs);
+    if (back.slice(1).map(r => (r.path ? 'p' : '-') + r.laps).join() !== 'p5,p4,p3,p2,p1') throw new Error('a reload lost the planets\' own paths: ' + JSON.stringify(back));
+    await ep.click('#bMorphExit'); await ep.waitForTimeout(300);
+    if ((await ep.evaluate(() => window.__box.count())) !== nOrrery + 5) throw new Error('exit did not put the five orbits back');
+    // ripple: forty morphs on staggered clocks, their colour blending with their keys
+    s = await open('ripple');
+    r0 = await runsAt(0); r1 = await runsAt(0.25);
+    if (r0.length !== 40 || new Set(r0.map(r => r.phase.toFixed(3))).size < 5) throw new Error('the ripple\'s clocks are not staggered');
+    if (!r0.some((r, i) => r.fill !== r1[i].fill)) throw new Error('the ripple\'s colours did not change');
+    // garden: the bee's wings and body on one path of their own, together
+    s = await open('garden');
+    r0 = await runsAt(0.37);
+    const [wings, body] = r0.slice(-2);
+    if (!wings.path || !body.path || wings.rate !== 6 || Math.hypot(wings.cx - body.cx, wings.cy - body.cy) > 1e-6) throw new Error('the bee came apart: ' + JSON.stringify([wings, body]));
     // over a drawing of the user's: asked first, and "keep my drawing" keeps it
+    s = await open('shimmer');
     await ep.click('#bMorphKeep', { modifiers: ['Shift'] }); await ep.waitForTimeout(200);
     await ep.evaluate(() => { const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="10" y="10" width="40" height="40"/><rect x="60" y="60" width="30" height="30"/></svg>';
       return new Promise(res => { const dt = new DataTransfer(); dt.items.add(new File([svg], 'mine.svg', { type: 'image/svg+xml' })); const f = document.getElementById('fLoad'); f.files = dt.files; f.dispatchEvent(new Event('change')); setTimeout(res, 1200); }); });
