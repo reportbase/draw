@@ -820,8 +820,18 @@ current = 'examples';
       if (Math.hypot(r1[i].cx - r0[i].cx, r1[i].cy - r0[i].cy) > 1e-6) throw new Error('gear ' + i + ' moved off its axle');
       if (Math.abs(dturn(r0[i], r1[i]) - 2 * Math.PI * want[i] * 0.1) > 1e-3) throw new Error('gear ' + i + ' turned ' + dturn(r0[i], r1[i]));
     }
+    // THE ANIMATED SVG, AS THE EDITOR PLAYS IT: the gears written once each and turned (a small file), the
+    // orrery with as many frames as its fastest motion needs (the moon laps twelve times a loop) and its trails
+    const svgOf = () => ep.evaluate(() => { const svg = window.__box.morphSvg({}); const d = new DOMParser().parseFromString(svg, 'image/svg+xml');
+      return { bytes: svg.length, bad: !!d.querySelector('parsererror'), rotates: d.querySelectorAll('animateTransform[type="rotate"]').length,
+        most: Math.max(0, ...[...d.querySelectorAll('animateTransform[type="translate"]')].map(a => a.getAttribute('values').split(';').length)),
+        trails: d.querySelectorAll('#trails > *').length }; });
+    let sv = await svgOf();
+    if (sv.bad || sv.rotates < 4 || sv.bytes > 200000) throw new Error('the clockwork\'s svg: ' + JSON.stringify(sv));
     // orrery: each planet on its own orbit, lapping 5, 4, 3, 2, 1 times: back where it was a lap later; the sun has no trail
     s = await open('orrery');
+    sv = await svgOf();
+    if (sv.bad || sv.most < 97 || sv.trails < 7) throw new Error('the orrery\'s svg: ' + JSON.stringify(sv));
     r0 = await runsAt(0);
     const planets = r0.slice(1);
     const moon = r0[6];
@@ -857,6 +867,10 @@ current = 'examples';
     r0 = await runsAt(0.37);
     const [wings, body] = r0.slice(-2);
     if (wings.parent !== 11 || !body.path || wings.rate !== 6 || Math.hypot(wings.cx - body.cx, wings.cy - body.cy) > 1e-3) throw new Error('the bee came apart: ' + JSON.stringify([wings, body]));
+    // kite: a tail of six bows, each on a spring after the one above, and a cat facing the kite
+    s = await open('kite');
+    r0 = await runsAt(0.3);
+    if (r0.length !== 8 || r0.slice(1, 7).some((q, i) => q.parent !== i || q.follow !== 'spring') || r0[7].look !== 0) throw new Error('the kite: ' + JSON.stringify(r0.map(q => [q.parent, q.follow, q.look])));
     // over a drawing of the user's: asked first, and "keep my drawing" keeps it
     s = await open('shimmer');
     await ep.click('#bMorphKeep', { modifiers: ['Shift'] }); await ep.waitForTimeout(200);
@@ -1029,6 +1043,84 @@ current = 'smooth corners and key times';
     failures.push(`[key times] ${e.message.split('\n')[0]}`);
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} smooth corner-keeping morphs, keys at chosen times, and tiles that play`);
+}
+
+/* THE SCENE'S TIMELINE, FOLLOWING LOOSELY AND FACING (draw.html, 25 Oct 2026). The timeline panel shows a
+   row per live morph with its keys where they land on the shared clock (a morph at rate 2, phase ¼ shows its
+   keys twice, a quarter-lap early); dragging a key there retimes it, dragging along the ruler scrubs, a row's
+   number selects that morph. A follower on lag is where tight following would have put it a while ago; one on
+   a spring departs from tight following and its loop still closes; a morph facing another keeps the same angle
+   to it. The strip sets all three and a reload keeps them; the kite showpiece opens with its springs and its cat. */
+current = 'timeline and following';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const fp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  fp.on('pageerror', e => failures.push(`[timeline] ${e.message}`));
+  await fp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  const setT = t => fp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+  const runs = () => fp.evaluate(() => window.__box.morph().runs);
+  const ready = async () => {
+    await fp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await fp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box.morph(), null, { timeout: 15000 });
+    await fp.waitForTimeout(700);
+  };
+  try {
+    let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="20" y="20" width="80" height="80" fill="#4f8fd6"/><polygon points="160,20 200,100 120,100" fill="#e05a6a"/>'
+      + '<rect x="220" y="40" width="120" height="40" fill="#4fbf8a"/><circle cx="60" cy="200" r="30" fill="#f2c14e"/><rect x="140" y="170" width="60" height="60" fill="#b07de0"/></svg>';
+    await fp.goto(scene({ name: 'tl', svg, play: false, morphs: [{ keys: [0, 1, 2] }, { keys: [3, 4], rate: 2, phase: 0.25 }] }), { waitUntil: 'load' });
+    await ready();
+    await fp.click('#bMorphTimeline');
+    await fp.waitForTimeout(300);
+    const lefts = await fp.$$eval('.tl-key', l => l.map(e => e.dataset.r + ':' + e.dataset.k + ':' + e.dataset.m + '@' + parseFloat(e.style.left).toFixed(1)));
+    if (lefts.join() !== '0:0:0@16.7,0:1:0@50.0,0:2:0@83.3,1:0:0@37.5,1:0:1@87.5,1:1:0@37.5,1:1:1@87.5') throw new Error('the timeline\'s keys: ' + lefts.join());
+    const tr = await fp.locator('.tl-track[data-r="0"]').boundingBox(), kb = await fp.locator('.tl-key[data-r="0"][data-k="1"]').boundingBox();
+    await fp.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2); await fp.mouse.down();
+    await fp.mouse.move(tr.x + tr.width * 0.6, kb.y + kb.height / 2, { steps: 6 }); await fp.mouse.up();
+    let r = await runs();
+    if (Math.abs(r[0].times[1] - 0.6) > 0.01) throw new Error('a key dragged on the timeline went to ' + r[0].times[1]);
+    const rl = await fp.locator('#tlRuler').boundingBox();
+    await fp.mouse.click(rl.x + rl.width * 0.3, rl.y + rl.height / 2);
+    if (Math.abs((await fp.evaluate(() => window.__box.morph().t)) - 0.3) > 0.01) throw new Error('the ruler did not scrub');
+    await fp.click('.tl-lab[data-r="1"]'); await fp.waitForTimeout(250);
+    if ((await fp.evaluate(() => document.getElementById('mrWho').textContent)) !== 'morph 2') throw new Error('a row\'s number did not select its morph');
+    // following: tight, lag and spring, and facing
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><circle cx="300" cy="150" r="20" fill="#4f8fd6"/><rect x="330" y="140" width="20" height="20" fill="#e05a6a"/>'
+      + '<path d="M300 150 L 200 50 L 100 150 L 200 250 Z" fill="none" stroke="#888"/><polygon points="190,140 215,150 190,160" fill="#4fbf8a"/></svg>';
+    const follow = async f => {
+      await fp.goto(scene({ name: 'follow', svg, play: false, morphs: [{ keys: [0], path: 2, turn: false }, { keys: [1], parent: 0, follow: f }, { keys: [3], look: 0 }] }), { waitUntil: 'load' });
+      await ready();
+      const out = [];
+      for (const t of [0, 0.1, 0.3, 0.55, 0.8, 0.999]) { await setT(t); out.push(await runs()); }
+      return out;
+    };
+    const tight = await follow(undefined), lag = await follow({ kind: 'lag', amount: 0.4 }), spring = await follow({ kind: 'spring', amount: 0.5 });
+    // lag 0.4 is a tenth of a loop: at t the follower is where tight following put it at t − 0.1
+    if (Math.hypot(lag[2][1].cx - tight[1][1].cx, lag[2][1].cy - tight[1][1].cy) > 1e-6) throw new Error('lag is not tight following a tenth of a loop ago');
+    const off = spring.map((q, i) => Math.hypot(q[1].cx - tight[i][1].cx, q[1].cy - tight[i][1].cy));
+    if (!(Math.max(...off) > 1e-3)) throw new Error('the spring follows as tightly as tight');
+    if (Math.hypot(spring[5][1].cx - spring[0][1].cx, spring[5][1].cy - spring[0][1].cy) > 0.02) throw new Error('the spring\'s loop does not close');
+    const facing = tight.map(q => { const d = Math.atan2(q[0].cy - q[2].cy, q[0].cx - q[2].cx), a = q[2].turn - d; return Math.atan2(Math.sin(a), Math.cos(a)); });
+    if (facing.some(a => Math.abs(a - facing[0]) > 1e-6) || Math.abs(tight[0][2].turn - tight[2][2].turn) < 0.05) throw new Error('the triangle does not keep facing the circle: ' + facing);
+    // set from the strip, and kept through a reload
+    await fp.goto(scene({ name: 'strip', svg, play: false, morphs: [{ keys: [0], path: 2, turn: false }, { keys: [1], parent: 0 }, { keys: [3] }] }), { waitUntil: 'load' });
+    await ready();
+    await fp.evaluate(() => window.__box.select([1])); await fp.waitForTimeout(250);
+    await fp.selectOption('#mrFollow', 'spring');
+    await fp.evaluate(() => window.__box.select([2])); await fp.waitForTimeout(250);
+    await fp.selectOption('#mrLook', '0');
+    r = await runs();
+    if (r[1].follow !== 'spring' || r[2].look !== 0) throw new Error('the strip did not set following and facing: ' + JSON.stringify(r.map(q => [q.follow, q.look])));
+    await fp.waitForTimeout(1200);
+    await fp.reload(); await fp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await fp.waitForTimeout(700);
+    r = await runs();
+    if (r[1].follow !== 'spring' || r[2].look !== 0) throw new Error('a reload lost following and facing: ' + JSON.stringify(r.map(q => [q.follow, q.look])));
+    await fp.close();
+  } catch (e){
+    failures.push(`[timeline] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the scene's timeline, following loosely and facing`);
 }
 
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,

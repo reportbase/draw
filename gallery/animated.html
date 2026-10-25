@@ -1633,10 +1633,38 @@ const SHOWPIECES = [];
     scene: { loop: 40, morphs: Array.from({ length: N }, (_, i) => ({ keys: [1 + i], path: 1 + N + i, laps: 20 + i, mode: 'back', turn: false })) }
   });
 }
+// 9. KITE: a kite flies a figure-of-eight with a tail of bows, each bow following the one above it on a spring
+// (draw.html, FOLLOWING LOOSELY, AND FACING), so the tail trails, swings out on the turns and settles; a cat on
+// the hill keeps its face to the kite the whole way round.
+{
+  let sky = `<rect x="0" y="0" width="900" height="480" fill="#bfe3f5"/>`
+    + smooth([[-40, 430], [200, 360], [460, 400], [700, 350], [940, 410], [940, 520], [-40, 520]], '#7cbf6a');
+  const kite = polyOf([[450, 60], [482, 112], [450, 176], [418, 112]], '#e2563f');
+  const eight = smoothD(Array.from({ length: 40 }, (_, i) => {
+    const a = i * TAU / 40, d = 1 + Math.sin(a) ** 2;
+    return [450 + 300 * Math.cos(a) / d, 130 + 120 * Math.sin(a) * Math.cos(a) / d];
+  }));
+  const bowCols = ['#f2c14e', '#4f8fd6', '#f2c14e', '#4f8fd6', '#f2c14e', '#4f8fd6'];
+  // a bow tie every 34 below the kite's tail
+  const bows = bowCols.map((c, i) => { const y = 206 + i * 34; return polyOf([[434, y - 9], [450, y - 2], [466, y - 9], [466, y + 9], [450, y + 2], [434, y + 9]], c); }).join('');
+  // a cat's head, drawn looking up and to the left at where the kite starts
+  const cat = polyOf([[700, 330], [712, 300], [726, 318], [744, 314], [756, 288], [764, 324], [770, 350], [752, 372], [722, 374], [702, 356]], '#3a3340');
+  SHOWPIECES.push({
+    id: 'kite', name: 'kite', section: 'showpieces', tags: ['own path', 'spring', 'follows', 'faces'],
+    note: 'A kite flies a figure-of-eight. Its tail is six bows, each following the one above it on a spring, so the tail trails behind, swings out on the turns and settles again; nothing in the tail is told where to go but to follow. A cat on the hill keeps its face to the kite all the way round.',
+    svg: svg(900, 480, sky + kite + stroke(eight, '#000', 1) + bows + cat),
+    scene: {
+      loop: 8,
+      morphs: [{ keys: [2], path: 3, turn: false }].concat(
+        bowCols.map((_, i) => ({ keys: [4 + i], parent: i, follow: { kind: 'spring', amount: 0.4 } })),
+        [{ keys: [10], look: 0 }])
+    }
+  });
+}
 EXAMPLES.push(...SHOWPIECES);
 
 const SECTIONS = [
-  { id: 'showpieces', title: 'showpieces', ids: ['clockwork', 'orrery', 'murmuration', 'garden', 'lava', 'ripple', 'metamorphosis', 'pendulum-wave'],
+  { id: 'showpieces', title: 'showpieces', ids: ['clockwork', 'orrery', 'murmuration', 'garden', 'kite', 'lava', 'ripple', 'metamorphosis', 'pendulum-wave'],
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'corners', title: 'first steps: corners kept', ids: ['square-star', 'shape-loop', 'heartbeat'],
     note: 'Exact shapes morph as exact shapes: their corners, radii and curve edges blended, so a sharp corner stays sharp the whole way. A key with fewer corners is given more on its edges, which draws it the same.' },

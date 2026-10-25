@@ -93,8 +93,9 @@ publishes.
     base64url of the JSON deflated, or 'r' plain; `{v:1, name, svg, exact, morphs: [[shape indices]…], path, turn,
     mode, fx, trail, ease, hold, loop, onion, corners, lag, t, play}`, shapes named by their order in the SVG). A
     `morphs` entry is a list of shapes or an object `{keys, path, laps, at, turn, mode, rate, phase, spin, fx, trail,
-    lag, inPlace, parent, times, eases}` (`parent`: the index of another entry, whose every move and turn carries this one, measured
-    from where the parent was drawn: ONE MORPH RIDING ANOTHER; `times` a time per key on the morph's clock, `eases` an
+    lag, inPlace, parent, follow, look, times, eases}` (`parent`: the index of another entry, whose every move and turn carries this one, measured
+    from where the parent was drawn: ONE MORPH RIDING ANOTHER; `follow: {kind: 'lag' | 'spring', amount}` how loosely, and
+    `look` an entry it keeps turning to face, from the way it faces at the link's `t`: FOLLOWING LOOSELY, AND FACING; `times` a time per key on the morph's clock, `eases` an
     ease per stretch between keys, 'linear', 'inout', 'in', 'out' or null for the bar's: KEYS AT CHOSEN TIMES): what a morph has of its own (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL in `draw.html`, 25 Oct
     2026, Tom: "can you do some top quality animation examples, to really push the framework?"): its clock at a whole
     `rate` and a `phase`, its own path ridden `laps` times from `at`, `spin` turns a loop, its trail and effect; a
@@ -102,9 +103,16 @@ publishes.
     morph; the bar's controls still act on every morph, and the editor's strip (THE MORPH'S OWN SETTINGS, IN THE
     EDITOR, `#morphRunTool`, 25 Oct 2026, Tom: "1,3") sets them by hand for the live shapes selected: rate, phase and
     stagger, spin, ride a line (own path), laps, start and spread, trail, effect and follows (a parent picked there
-    carries the shape from where both stand, `run.parentAt`), with the live shapes numbered on the canvas while it is
+    carries the shape from where both stand, `run.parentAt`; tight, lag or spring and how loose, `run.follow`; faces,
+    `run.look` with `run.lookRef`), with the live shapes numbered on the canvas while it is
     up, and a track of the morph's keys on its clock (drag a key to its own time, click a stretch for its ease, "even" puts
-    them back; `run.times`, `run.eases`, carried onto the even kernel by `morphWarp`). Opening one replaces the drawing, asking first when the tab
+    them back; `run.times`, `run.eases`, carried onto the even kernel by `morphWarp`). The bar's **timeline** button opens
+    THE SCENE'S TIMELINE (`#morphTimeline`): every live morph a row, its keys where they land on the shared clock (a rate
+    shows them that many times), drag one to retime it, drag the ruler or a row to scrub, a row's number selects it.
+    The animated SVG export (EXPORTING A MORPH) takes as many frames as each morph's motion needs (doubling from the
+    panel's count to 240 until a straight blend between frames is within 0.2% of the scene), each morph its own count,
+    writes a morph that moves and turns as its outline plus a translate and rotate (a still: one outline), and writes
+    echoes and ribbons as the same animations begun earlier; `__box.morphSvg(o)` returns the text. Opening one replaces the drawing, asking first when the tab
     holds the user's; shapes the SVG gave no stroke get no editor outline. The editor's menu links it ("animations ↗").
     A tile's **play** button (or its picture) plays it in place, in the editor itself: `draw.html?embed=1#scene=…` (THE
     EMBED in `draw.html`) shows the canvas alone, draws none of the editor's own marks, and never reads or writes the
@@ -112,7 +120,7 @@ publishes.
     time. Exact morphs between keys whose corners differ (MORPHS THAT KEEP THEIR CORNERS) bake roundings into arc edges
     when any key has curve edges, try twice the corners when that matches much better (a square to a circle drawn from
     0°), and keep a corner smooth in every pose where any key has it smooth (SMOOTH WHERE ANY KEY IS SMOOTH).
-    The page's **showpieces** (clockwork, orrery, murmuration, garden, lava lamp, ripple, metamorphosis, pendulum wave)
+    The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
     come first, the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
