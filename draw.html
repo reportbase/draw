@@ -4498,13 +4498,14 @@
                 <button id="bTour" title="the tour — visit every shape in the drawing in turn, fitted to the screen, the camera arriving on a critically damped spring. Loops. Touch the camera or press Escape to stop.">tour the shapes</button>
             </div>
 
-            <!-- THE GALLERIES ARE THE COURSE BOOK. Twenty-six pages under gallery/, each making one claim
+            <!-- THE GALLERIES ARE THE COURSE BOOK. Twenty-seven pages under gallery/, each making one claim
                    about what a band-limited loop can and cannot be, every tile live and every tile one
                    click (its edit button) from this canvas. A new tab, so the scene here is untouched. -->
             <div class="group">
                 <div class="menu-title">learn</div>
-                <div class="menu-note sub">Twenty-six galleries of live shapes, in reading order, each with its spectrum drawn underneath. Any tile's edit button opens it here.</div>
+                <div class="menu-note sub">Twenty-seven galleries of live shapes, in reading order, each with its spectrum drawn underneath. Any tile's edit button opens it here.</div>
                 <button id="bGalleries" title="open the galleries in a new tab (gallery/)" onclick="window.open('gallery/', '_blank', 'noopener')">the galleries ↗</button>
+                <button id="bExamples" title="the animated gallery (gallery/animated.html): morphs, paths, trails and effects, each opening here live with one click" onclick="window.open('gallery/animated.html', '_blank', 'noopener')">animations ↗</button>
                 <button id="bLabsPage" title="every lab in the drawer as one page (labs.html): what each does, with a link that runs it" onclick="window.open('labs.html', '_blank', 'noopener')">all the labs ↗</button>
                 <button id="bPapers" title="the papers behind the editor (papers.html): the .tvf format and the Tangent Bridge theorem, readable in the page" onclick="window.open('papers.html', '_blank', 'noopener')">the papers ↗</button>
                 <button id="bInspect" title="open the selected shapes (or all of them) in the inspector, which reads their spectrum, symmetry, width and leaf count back off the leaves">inspect the selection ↗</button>
@@ -82410,6 +82411,172 @@
             }
             // After the saved scene has restored, as the bucket link waits, so the restore does not
             // land on top of the shape and replace it.
+            if (document.readyState === 'complete')
+                setTimeout(boot, 300);
+            else
+                window.addEventListener('load', () => setTimeout(boot, 300));
+            window.addEventListener('hashchange', () => boot());
+        })();
+
+        // ── THE SCENE LINK — draw.html#scene=… (25 Oct 2026, Tom: "could you create a gallery page
+        // that has examples that can be loaded into draw.html") ──────────────────────────────────
+        // The shape link carries leaves; an example needs more: shapes in their own colours, exact
+        // where they are exact, and what to do with them once they are here — which go live as a
+        // morph, which line is their path, the effect, the trail, the timing. So the payload is a
+        // drawing as SVG text (the loader already reads an SVG's fills, curves and holes) with the
+        // morph's settings beside it, as JSON:
+        //   { v: 1, name, svg, exact (default true: the shapes come in exact),
+        //     morphs: [[i, …], …]  the shapes (by their order in the SVG) of each live morph, one
+        //                          shape a still, two or more blended; each list its own morph,
+        //     path: i              a line or curve every live shape rides, or absent,
+        //     turn, mode ('along' | 'back'), fx: {kind, amount}, trail: {kind, len},
+        //     ease, hold, loop (seconds), onion, corners (default true), lag, t, play (default true) }
+        // 'z' + base64url of the JSON deflated, or 'r' + base64url of it plain, as the shape link.
+        // gallery/animated.html writes these links. Opening one replaces the drawing (it asks first when the
+        // page holds a drawing of yours), and exit puts the example's shapes back as shapes.
+        (function() {
+            function b64urlBytes(s) {
+                s = s.replace(/-/g, '+').replace(/_/g, '/');
+                while (s.length % 4)
+                    s += '=';
+                const bin = atob(s),
+                    out = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++)
+                    out[i] = bin.charCodeAt(i);
+                return out;
+            }
+            async function decodeScene(code) {
+                const kind = code.charAt(0);
+                let b = b64urlBytes(code.slice(1));
+                if (kind === 'z') {
+                    const ds = new DecompressionStream('deflate-raw');
+                    b = new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(ds)).arrayBuffer());
+                } else if (kind !== 'r')
+                    throw new Error('unknown encoding “' + kind + '”');
+                const d = JSON.parse(new TextDecoder().decode(b));
+                if (!d || d.v !== 1 || typeof d.svg !== 'string')
+                    throw new Error('not a scene');
+                return d;
+            }
+            const clamp = (v, a, b, dflt) => Number.isFinite(+v) ? Math.max(a, Math.min(b, +v)) : dflt;
+            async function openScene(d) {
+                if (state.editMode || drawMode) {
+                    flashStatus('example ignored — leave the edit or draw mode and open it again');
+                    return false;
+                }
+                const label = d.name || 'example',
+                    name = 'example · ' + label;
+                const mine = state.subpaths.length && state.svgName !== 'maple (hand-drawn)' && !String(state.svgName || '').startsWith('example · ');
+                if (mine) {
+                    const go = await askConfirm({
+                        title: 'Open the example?',
+                        body: '“' + label + '” replaces the drawing on this page, and the undo history with it. Save your drawing first if you want to keep it.',
+                        ok: 'open the example',
+                        cancel: 'keep my drawing'
+                    });
+                    if (!go)
+                        return false;
+                }
+                if (morphRunning())
+                    morphAbandon();
+                const keepExact = state.svgExact;
+                state.svgExact = d.exact !== false;
+                try {
+                    loadSvg(d.svg, name, false, true);
+                } finally {
+                    state.svgExact = keepExact;
+                }
+                const S = state.subpaths.slice();
+                // the look and the timing first: a morph takes its effect from these as it starts
+                const fx = d.fx || {},
+                    tr = d.trail || {};
+                state.morphFx = MORPH_FX.includes(fx.kind) ? fx.kind : '';
+                state.morphFxAmount = clamp(fx.amount, 0, 1, 0.5);
+                state.morphTrail = MORPH_TRAILS.includes(tr.kind) ? tr.kind : '';
+                state.morphTrailLen = clamp(tr.len, 0, 1, 0.5);
+                state.morphEase = MORPH_EASES.includes(d.ease) ? d.ease : '';
+                state.morphHold = clamp(d.hold, 0, 0.9, 0);
+                state.morphOnion = !!d.onion;
+                state.morphPathTurn = d.turn !== false;
+                state.morphPathMode = d.mode === 'back' ? 'back' : 'along';
+                const keepCorners = state.morphCorners;
+                state.morphCorners = d.corners !== false;
+                try {
+                    for (const list of Array.isArray(d.morphs) ? d.morphs : []) {
+                        const idx = (Array.isArray(list) ? list : [list]).map(i => state.subpaths.indexOf(S[i])).filter(i => i >= 0);
+                        if (!idx.length)
+                            continue;
+                        state.activeSet = new Set(idx);
+                        state.activeSp = idx.length === 1 ? idx[0] : -1;
+                        state.selected.clear();
+                        morphLiveStart({ inPlace: true, align: true, lag: clamp(d.lag, 0, MORPH_LAG_MAX, 0) });
+                    }
+                } finally {
+                    state.morphCorners = keepCorners;
+                }
+                if (morphRunning()) {
+                    if (+d.loop > 0)
+                        morphLive.speed = 1 / clamp(d.loop, 0.5, 60, 4);
+                    const P = d.path != null ? S[d.path] : null;
+                    if (P && state.subpaths.indexOf(P) >= 0)
+                        morphSetPath({ index: state.subpaths.indexOf(P) });
+                    morphLive.t = clamp(d.t, 0, 1, 0);
+                    morphWrite();
+                    if (d.play !== false) {
+                        morphLive.play = true;
+                        morphLive.last = 0;
+                        if (!morphLive.raf)
+                            morphLive.raf = requestAnimationFrame(morphTick);
+                    }
+                }
+                state.svgName = name;
+                applyShapeSelection(new Set());
+                morphBarSync();
+                drawAll();
+                scheduleSave();
+                flashStatus('example · ' + label + (morphRunning() ? ' — live: the morph bar at the bottom holds its controls, and exit leaves the shapes as shapes' : ''));
+                return true;
+            }
+            window.decodeScene = decodeScene; // for the smoke test
+            window.openScene = openScene;
+            function takeFromHash() {
+                let h = '';
+                try {
+                    h = location.hash || '';
+                } catch (_) {
+                    return null;
+                }
+                const m = h.match(/(?:^#|&)scene=([^&]*)/);
+                if (!m)
+                    return null;
+                const p = new URLSearchParams(h.replace(/^#/, ''));
+                p.delete('scene');
+                const rest = p.toString();
+                try {
+                    window.history.replaceState(null, '', location.pathname + location.search + (rest ? '#' + rest : ''));
+                } catch (_) {}
+                return m[1];
+            }
+            async function boot() {
+                const code = takeFromHash();
+                if (!code)
+                    return;
+                let d;
+                try {
+                    d = await decodeScene(code);
+                } catch (e) {
+                    flashStatus('example link did not decode — ' + (e.message || e));
+                    console.warn('[scene link] decode failed', e);
+                    return;
+                }
+                try {
+                    await openScene(d);
+                } catch (e) {
+                    flashStatus('example did not open — ' + (e.message || e));
+                    console.warn('[scene link] open failed', e);
+                }
+            }
+            // after the saved scene has restored, as the shape link waits
             if (document.readyState === 'complete')
                 setTimeout(boot, 300);
             else

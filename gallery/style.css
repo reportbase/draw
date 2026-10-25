@@ -488,3 +488,11 @@ a.paper:hover{background:rgba(124,92,255,.22);color:#d9cfff}
    circles and read wrong squashed: the levels tile at 460px, the shape tile at 620px */
 .page-levels .tile.wide canvas{height:460px}
 .page-levels .tile.tall.wide canvas{height:620px}
+
+/* ── ANIMATED ── (animated.html) animations for the leaf editor: tiles like the chart pages', the stage
+   holding the example's drawing as SVG, and an "open in draw" button where the others have edit */
+.page-animated .tile .stage svg{display:block;width:100%;height:236px;padding:20px}
+.page-animated .tile .tools .open{background:var(--curv);border-color:var(--curv);color:#fff}
+.page-animated .tile .tools .open:hover{background:#8d72ff}
+.page-animated .tile .tools .link.done{background:var(--ok);border-color:var(--ok);color:#0c0f16}
+.page-animated .tile code.src{cursor:default}
