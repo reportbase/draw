@@ -769,7 +769,7 @@ current = 'corners and timing';
   await mp.close();
 }
 
-/* THE EXAMPLES PAGE AND THE SCENE LINK (examples.html, draw.html#scene=). The page lists its examples, each
+/* THE ANIMATED GALLERY AND THE SCENE LINK (gallery/animated.html, draw.html#scene=). The page lists its examples, each
    with a link; three open live in the editor as they say (an exact morph of two keys, three shapes on one path,
    a leaf still with an effect); and a link opened over a drawing of the user's asks first, and keeps the
    drawing when told to. */
@@ -780,10 +780,10 @@ current = 'examples';
   await xp.route(/fonts\.g/, r => r.abort());
   const before = failures.length;
   try {
-    await xp.goto(new URL('examples.html', base).href, { waitUntil: 'load' });
-    await xp.waitForFunction(() => window.__examples && document.querySelectorAll('a.open').length === window.__examples.length, null, { timeout: 30000 });
-    const links = await xp.$$eval('a.open', as => Object.fromEntries(as.map(a => [a.closest('article').id, a.href])));
-    if (Object.keys(links).length < 8) throw new Error('the examples page lists ' + Object.keys(links).length + ' examples');
+    await xp.goto(new URL('gallery/animated.html', base).href, { waitUntil: 'load' });
+    await xp.waitForFunction(() => window.__animated && document.querySelectorAll('.tile[data-href]').length === window.__animated.length, null, { timeout: 30000 });
+    const links = await xp.$$eval('.tile[data-href]', ts => Object.fromEntries(ts.map(t => [t.id, t.dataset.href])));
+    if (Object.keys(links).length < 8) throw new Error('the animated gallery lists ' + Object.keys(links).length + ' examples');
     let ep = null;
     // each in a page of its own: the editor restores the last example first, then opens the link
     const open = async id => {
@@ -817,7 +817,7 @@ current = 'examples';
   } catch (e){
     failures.push(`[examples] ${e.message.split('\n')[0]}`);
   }
-  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the examples page and the scene link`);
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the animated gallery and the scene link`);
   await xp.close();
 }
 
@@ -1555,7 +1555,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;

@@ -19,14 +19,6 @@ publishes.
   `draw.html?lab=CODE` link that runs it. **Generated** by `npm run labs`
   (`tools/build-labs.mjs` reads the lab buttons off the live editor); after adding, renaming
   or re-describing a lab in `draw.html`, run it, or `npm test` fails.
-- `examples.html`: animated examples (25 Oct 2026, Tom: "could you creae a gallery page that has examples that can
-  be loaded into draw.html"), a card each: the drawing, what it shows, and a link that opens the editor with it live.
-  Each example is an SVG drawing (made in the page from a few lines) and the live morph's settings, written into
-  `draw.html#scene=<payload>` (THE SCENE LINK in `draw.html`: 'z' + base64url of the JSON deflated, or 'r' plain;
-  `{v:1, name, svg, exact, morphs: [[shape indices]…], path, turn, mode, fx, trail, ease, hold, loop, onion, corners,
-  lag, t, play}`, shapes named by their order in the SVG). Opening one replaces the drawing, asking first when the tab
-  holds the user's. Not part of the numbered galleries; styled by `gallery/style.css` (`page-examples`). The editor's
-  menu links it ("examples ↗"). A new example is an entry in its `EXAMPLES` list.
 - `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
   specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
   and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and
@@ -37,10 +29,10 @@ publishes.
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before
   anything else, typeset by KaTeX from cdnjs when that loads and shown as source when it does not.
-- `gallery/`: twenty-six teaching pages, in reading order: `gallery.html` (the catalogue),
+- `gallery/`: twenty-seven teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `epicycles`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`
-  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks). Also `playground.html` (sculpt
+  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`. Also `playground.html` (sculpt
   a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
   library as an ES module, *generated* from the copy the pages inline: regenerate it from
   a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
@@ -58,16 +50,16 @@ publishes.
   - **Styles live in `gallery/style.css`**, shared by every page in `gallery/` (and by
     `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
     a layout of their own have a section there scoped to their body class (`page-index`,
-    `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`).
-  - Each page bundles its JavaScript so it runs from one file. All twenty-six, and the playground, carry the **same**
+    `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`, `page-animated`).
+  - Each page bundles its JavaScript so it runs from one file. All twenty-seven, and the playground, carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
     mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
     names the page that differs.
-  - The other seventeen have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
+  - The other eighteen have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
     STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES, SITUATED, DEPTHPAGE, RECOVER, CORNER, LEVELS, STAND, BETWEEN, COMPILE), and no spectrum strip or predict mode. `spiral`,
-    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile` are *chart* pages (`body.page-chart`: a measurement and a
+    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated` are *chart* pages (`body.page-chart`: a measurement and a
     verdict line per tile); `motion`, `compose` and `epicycles` animate (`page-chart page-motion`; epicycles
     carries only tvf.js, FORMAT and EPICYCLES, and its dials may be selects);
     `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`).
@@ -93,8 +85,18 @@ publishes.
     universe (by logic, by a literal) read alike from inside. Each
     has a section in `style.css`. Edit buttons (the shared editor link) are on `spiral`,
     `curves`, `space`, `motion`, `compose` and `epicycles`; the rest hold no curve to hand on.
+  - `animated` (25 Oct 2026, Tom: "could you creae a gallery page that has examples that can be loaded into
+    draw.html", then "make this a gallary page like with the same formatting as the others") is the last page and a
+    chart page with no curve to edit: tiles of animations for the editor's live morph, each the example's drawing and an
+    **open in draw** button where the others have edit. Each example is an SVG drawing (made in the page from a few
+    lines) and the live morph's settings, written into `draw.html#scene=<payload>` (THE SCENE LINK in `draw.html`: 'z' +
+    base64url of the JSON deflated, or 'r' plain; `{v:1, name, svg, exact, morphs: [[shape indices]…], path, turn,
+    mode, fx, trail, ease, hold, loop, onion, corners, lag, t, play}`, shapes named by their order in the SVG). Opening
+    one replaces the drawing, asking first when the tab holds the user's. The editor's menu links it ("animations ↗").
+    A new example is an entry in its `EXAMPLES` list and an id in a section of `SECTIONS`. It carries tvf.js (every
+    gallery does) and reads no leaves itself.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 26" crumbs and "next" links in each page.
+    a page means updating it, and the "N of 27" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE
