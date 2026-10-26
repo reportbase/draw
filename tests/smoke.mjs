@@ -746,7 +746,7 @@ current = 'corners and timing';
     if ((await mp.evaluate(() => window.__box.count())) !== n0 + 1) throw new Error('keep did not drop a pose');
     const [dl] = await Promise.all([mp.waitForEvent('download', { timeout: 30000 }), mp.evaluate(() => document.getElementById('bMorphSvg').click())]);
     const anim = (await readFile(await dl.path())).toString();
-    const vals = (anim.match(/values="([^"]*)"/) || [, ''])[1].split(';');
+    const vals = (anim.match(/attributeName="d"[^>]*values="([^"]*)"/) || [, ''])[1].split(';'); // the outline's own frames
     const counts = new Set(vals.map(v => (v.match(/C/g) || []).length));
     if (vals.length < 4 || counts.size !== 1 || !counts.has(20)) throw new Error('the animated svg\'s frames are not twenty cubics each: ' + [...counts]);
     await mp.waitForTimeout(1200);
@@ -773,7 +773,7 @@ current = 'corners and timing';
    with a link; three open live in the editor as they say (an exact morph of two keys, three shapes on one path,
    a leaf still with an effect); the showpieces do what they say (gears spinning in the ratio of their teeth about
    fixed axles, planets on orbits of their own lapping 5 to 1 times and kept through a reload, a ripple of staggered
-   clocks and blending colours, a bee whose wings and body ride one path together); and a link opened over a
+   clocks and blending colours, a moon following the earth, a bee whose wings follow its body); and a link opened over a
    drawing of the user's asks first, and keeps the drawing when told to. */
 current = 'examples';
 {
@@ -820,20 +820,43 @@ current = 'examples';
       if (Math.hypot(r1[i].cx - r0[i].cx, r1[i].cy - r0[i].cy) > 1e-6) throw new Error('gear ' + i + ' moved off its axle');
       if (Math.abs(dturn(r0[i], r1[i]) - 2 * Math.PI * want[i] * 0.1) > 1e-3) throw new Error('gear ' + i + ' turned ' + dturn(r0[i], r1[i]));
     }
+    // THE ANIMATED SVG, AS THE EDITOR PLAYS IT: the gears written once each and turned (a small file), the
+    // orrery with as many frames as its fastest motion needs (the moon laps twelve times a loop) and its trails
+    const svgOf = () => ep.evaluate(() => { const svg = window.__box.morphSvg({}); const d = new DOMParser().parseFromString(svg, 'image/svg+xml');
+      return { bytes: svg.length, bad: !!d.querySelector('parsererror'), rotates: d.querySelectorAll('animateTransform[type="rotate"]').length,
+        most: Math.max(0, ...[...d.querySelectorAll('animateTransform[type="translate"]')].map(a => a.getAttribute('values').split(';').length)),
+        trails: d.querySelectorAll('#trails > *').length }; });
+    let sv = await svgOf();
+    if (sv.bad || sv.rotates < 4 || sv.bytes > 200000) throw new Error('the clockwork\'s svg: ' + JSON.stringify(sv));
     // orrery: each planet on its own orbit, lapping 5, 4, 3, 2, 1 times: back where it was a lap later; the sun has no trail
     s = await open('orrery');
+    sv = await svgOf();
+    if (sv.bad || sv.most < 97 || sv.trails < 7) throw new Error('the orrery\'s svg: ' + JSON.stringify(sv));
     r0 = await runsAt(0);
     const planets = r0.slice(1);
-    if (planets.length !== 5 || planets.some(r => !r.path) || planets.map(r => r.laps).join() !== '5,4,3,2,1' || r0[0].trail !== '') throw new Error('the orrery\'s planets: ' + JSON.stringify(r0.map(r => [r.path, r.laps, r.trail])));
+    const moon = r0[6];
+    planets.length = 5;
+    if (planets.some(r => !r.path) || planets.map(r => r.laps).join() !== '5,4,3,2,1' || r0[0].trail !== '') throw new Error('the orrery\'s planets: ' + JSON.stringify(r0.map(r => [r.path, r.laps, r.trail])));
+    // the moon follows the earth (morph 3): always its orbit's radius from it, as the earth goes round the sun
+    if (!moon || moon.parent !== 3) throw new Error('the moon does not follow the earth: ' + JSON.stringify(moon));
+    const dist = r => Math.hypot(r[6].cx - r[3].cx, r[6].cy - r[3].cy);
+    const rB = await runsAt(0.37), rC = await runsAt(0.81);
+    const dA = dist(r0), dB = dist(rB), dC = dist(rC);
+    if (Math.abs(dA - dB) > 1e-3 || Math.abs(dA - dC) > 1e-3) throw new Error('the moon wandered from the earth: ' + [dA, dB, dC]);
+    // and its orbit's guide goes round with the earth: as far from it at every time, and not left where it was drawn
+    const gd = r => Math.hypot(r[6].guide[0] - r[3].cx, r[6].guide[1] - r[3].cy);
+    if (!r0[6].guide || Math.abs(gd(r0) - gd(rB)) > 1e-3 || Math.abs(gd(r0) - gd(rC)) > 1e-3 || !(Math.hypot(rB[6].guide[0] - r0[6].guide[0], rB[6].guide[1] - r0[6].guide[1]) > 0.05))
+      throw new Error('the moon\'s orbit was not drawn round the earth: ' + JSON.stringify([r0[6].guide, rB[6].guide, gd(r0), gd(rB), gd(rC)]));
+    await runsAt(0);
     r1 = await runsAt(0.2); // a whole lap for the first planet, not for the last
     if (Math.hypot(r1[1].cx - r0[1].cx, r1[1].cy - r0[1].cy) > 1e-3 || !(Math.hypot(r1[5].cx - r0[5].cx, r1[5].cy - r0[5].cy) > 0.05)) throw new Error('the planets do not keep their laps');
     const nOrrery = await ep.evaluate(() => window.__box.count());
     await ep.waitForTimeout(1200);
     await ep.reload(); await ep.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await ep.waitForTimeout(600);
     const back = await ep.evaluate(() => window.__box.morph().runs);
-    if (back.slice(1).map(r => (r.path ? 'p' : '-') + r.laps).join() !== 'p5,p4,p3,p2,p1') throw new Error('a reload lost the planets\' own paths: ' + JSON.stringify(back));
+    if (back.slice(1, 6).map(r => (r.path ? 'p' : '-') + r.laps).join() !== 'p5,p4,p3,p2,p1' || back[6].parent !== 3) throw new Error('a reload lost the planets\' own paths or the moon\'s earth: ' + JSON.stringify(back));
     await ep.click('#bMorphExit'); await ep.waitForTimeout(300);
-    if ((await ep.evaluate(() => window.__box.count())) !== nOrrery + 5) throw new Error('exit did not put the five orbits back');
+    if ((await ep.evaluate(() => window.__box.count())) !== nOrrery + 6) throw new Error('exit did not put the six orbits back');
     // ripple: forty morphs on staggered clocks, their colour blending with their keys
     s = await open('ripple');
     r0 = await runsAt(0); r1 = await runsAt(0.25);
@@ -843,7 +866,11 @@ current = 'examples';
     s = await open('garden');
     r0 = await runsAt(0.37);
     const [wings, body] = r0.slice(-2);
-    if (!wings.path || !body.path || wings.rate !== 6 || Math.hypot(wings.cx - body.cx, wings.cy - body.cy) > 1e-6) throw new Error('the bee came apart: ' + JSON.stringify([wings, body]));
+    if (wings.parent !== 11 || !body.path || wings.rate !== 6 || Math.hypot(wings.cx - body.cx, wings.cy - body.cy) > 1e-3) throw new Error('the bee came apart: ' + JSON.stringify([wings, body]));
+    // kite: a tail of six bows, each on a spring after the one above, and a cat facing the kite
+    s = await open('kite');
+    r0 = await runsAt(0.3);
+    if (r0.length !== 8 || r0.slice(1, 7).some((q, i) => q.parent !== i || q.follow !== 'spring') || r0[7].look !== 0) throw new Error('the kite: ' + JSON.stringify(r0.map(q => [q.parent, q.follow, q.look])));
     // over a drawing of the user's: asked first, and "keep my drawing" keeps it
     s = await open('shimmer');
     await ep.click('#bMorphKeep', { modifiers: ['Shift'] }); await ep.waitForTimeout(200);
@@ -860,6 +887,275 @@ current = 'examples';
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the animated gallery and the scene link`);
   await xp.close();
+}
+
+/* THE MORPH'S OWN SETTINGS IN THE EDITOR, AND ONE MORPH RIDING ANOTHER (draw.html). Four live shapes and a line,
+   opened from a scene link: selecting a live shape puts up the strip, with numbers on the shapes; rate and spin
+   set there take; stagger spreads two morphs' phases; "ride the line" makes the selected line a path of their own
+   and spread spaces them along it; a morph picked to follow another does not jump, and keeps its distance from
+   it after; all of it comes back from a reload. */
+current = 'morph settings';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[morph settings] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><circle cx="60" cy="60" r="20" fill="#e05a6a"/>'
+      + '<rect x="140" y="40" width="40" height="40" fill="#4f8fd6"/><polygon points="260,40 290,90 230,90" fill="#4fbf8a"/>'
+      + '<circle cx="340" cy="60" r="14" fill="#f2c14e"/><path d="M40 220 C 140 140 260 300 360 220" fill="none" stroke="#888"/></svg>';
+    await mp.goto(scene({ name: 'settings', svg, play: false, morphs: [[0], [1], [2], [3]] }), { waitUntil: 'load' });
+    await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await mp.waitForFunction(() => !/scene=/.test(location.hash), null, { timeout: 15000 });
+    await mp.waitForTimeout(1200);
+    const runs = () => mp.evaluate(() => window.__box.morph().runs);
+    // the live shapes are the first four in the drawing, the line the fifth
+    await mp.evaluate(() => window.__box.select([0]));
+    await mp.waitForTimeout(250);
+    if (!(await mp.evaluate(() => document.getElementById('morphRunTool').classList.contains('open')))) throw new Error('selecting a live shape did not put up its strip');
+    await mp.fill('#mrRate', '3'); await mp.dispatchEvent('#mrRate', 'change');
+    await mp.fill('#mrSpin', '0.5'); await mp.dispatchEvent('#mrSpin', 'change');
+    let r = await runs();
+    if (r[0].rate !== 3 || r[0].spin !== 0.5 || r[1].rate !== 1) throw new Error('rate and spin did not take on the selected morph alone: ' + JSON.stringify(r.map(q => [q.rate, q.spin])));
+    await mp.evaluate(() => window.__box.select([1, 2]));
+    await mp.waitForTimeout(250);
+    await mp.click('#mrStagger');
+    r = await runs();
+    if (Math.abs(r[1].phase - 0) > 1e-9 || Math.abs(r[2].phase - 0.5) > 1e-9) throw new Error('stagger gave phases ' + [r[1].phase, r[2].phase]);
+    await mp.evaluate(() => window.__box.select([1, 2, 4]));
+    await mp.waitForTimeout(250);
+    await mp.click('#mrPath');
+    await mp.click('#mrSpread');
+    r = await runs();
+    if (!r[1].path || !r[2].path || Math.abs((r[2].at || 0) - 0.5) > 1e-9 || (await mp.evaluate(() => window.__box.count())) !== 4) throw new Error('ride the line and spread: ' + JSON.stringify(r.map(q => [q.path, q.at])));
+    // morph 4 follows morph 2 (on its path): no jump when picked, its distance kept after
+    await mp.evaluate(() => window.__box.select([3]));
+    await mp.waitForTimeout(250);
+    const pre = (await runs())[3];
+    await mp.selectOption('#mrParent', '1');
+    const post = (await runs())[3];
+    if (post.parent !== 1 || Math.hypot(post.cx - pre.cx, post.cy - pre.cy) > 1e-9) throw new Error('following made the shape jump: ' + JSON.stringify([pre, post]));
+    const d = q => Math.hypot(q[3].cx - q[1].cx, q[3].cy - q[1].cy);
+    const setT = t => mp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+    await setT(0.3); const d1 = d(await runs()); await setT(0.7); const d2 = d(await runs());
+    if (Math.abs(d1 - d2) > 1e-6) throw new Error('the follower did not keep its distance: ' + [d1, d2]);
+    await mp.waitForTimeout(1200);
+    await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(600);
+    r = await runs();
+    if (r[0].rate !== 3 || r[0].spin !== 0.5 || !r[1].path || r[3].parent !== 1 || Math.abs(r[2].phase - 0.5) > 1e-9) throw new Error('the settings did not come back from a reload: ' + JSON.stringify(r.map(q => [q.rate, q.spin, q.path, q.parent, q.phase])));
+    await setT(0.3); const d3 = d(await runs());
+    if (Math.abs(d3 - d1) > 1e-6) throw new Error('after a reload the follower is elsewhere: ' + [d1, d3]);
+  } catch (e){
+    failures.push(`[morph settings] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the morph's own settings, and one morph riding another`);
+  await mp.close();
+}
+
+/* SMOOTH CORNERS AND KEYS AT CHOSEN TIMES (draw.html, 25 Oct 2026). A square going to a circle drawn
+   from 0° morphs with no kink at any corner once it leaves the square, matched corner to corner at
+   45° (twice the corners); a rounded square going to a circle keeps its rounding. A morph's keys put
+   at times of their own (from a scene link) are exact at those times, the bar's ticks are there, a
+   key dragged on the strip's track moves, a stretch clicked takes the next ease, and all of it comes
+   back from a reload and survives an added key. Then the animated gallery plays a tile in place, in
+   the editor's embed, which leaves the drawing saved in the editor alone; one tile at a time. */
+current = 'smooth corners and key times';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const kp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  kp.on('pageerror', e => failures.push(`[key times] ${e.message}`));
+  await kp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  const setT = t => kp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+  const ready = async () => {
+    await kp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await kp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box.morph(), null, { timeout: 15000 });
+    await kp.waitForTimeout(600);
+  };
+  try {
+    const c4 = (cx, cy, r) => { const k = 0.5523 * r; return `M${cx + r} ${cy} C${cx + r} ${cy + k} ${cx + k} ${cy + r} ${cx} ${cy + r} C${cx - k} ${cy + r} ${cx - r} ${cy + k} ${cx - r} ${cy} C${cx - r} ${cy - k} ${cx - k} ${cy - r} ${cx} ${cy - r} C${cx + k} ${cy - r} ${cx + r} ${cy - k} ${cx + r} ${cy}Z`; };
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"><rect x="20" y="20" width="80" height="80" fill="#4f8fd6"/><path d="${c4(160, 60, 40)}" fill="#e05a6a"/>`
+      + `<rect x="220" y="20" width="80" height="80" rx="16" fill="#4fbf8a"/><path d="${c4(340, 60, 40)}" fill="#f2c14e"/></svg>`;
+    await kp.goto(scene({ name: 'corners', svg, play: false, morphs: [[0, 1], [2, 3]] }), { waitUntil: 'load' });
+    await ready();
+    for (const t of [0.1, 0.5, 0.9]) {
+      await setT(t);
+      const k = await kp.evaluate(() => window.__box.kinks());
+      if (k.length !== 2 || k.some(q => q.max > 0.01)) throw new Error('a kink at t = ' + t + ': ' + JSON.stringify(k));
+    }
+    await setT(0);
+    const sq = (await kp.evaluate(() => window.__box.kinks()))[0];
+    if (sq.n !== 8 || sq.bent !== 4) throw new Error('the square was not matched to the circle at 45° (8 corners, its own 4 sharp): ' + JSON.stringify(sq));
+    // keys at chosen times
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"><rect x="20" y="20" width="80" height="80" fill="#4f8fd6"/>'
+      + '<polygon points="160,20 200,100 120,100" fill="#e05a6a"/><rect x="220" y="40" width="120" height="40" fill="#4fbf8a"/></svg>';
+    await kp.goto(scene({ name: 'times', svg, play: false, morphs: [{ keys: [0, 1, 2], times: [0.1, 0.2, 0.7], eases: [null, 'inout', 'linear'] }] }), { waitUntil: 'load' });
+    await ready();
+    let m = await kp.evaluate(() => window.__box.morph());
+    if (m.ticks.join() !== '100,200,700' || m.runs[0].times.join() !== '0.1,0.2,0.7') throw new Error('the keys\' times did not take: ' + JSON.stringify([m.ticks, m.runs[0].times]));
+    for (const [t, k] of [[0.1, 0], [0.2, 1], [0.7, 2]]) {
+      await setT(t);
+      const L = (await kp.evaluate(() => window.__box.morph())).leaves, K = await kp.evaluate(k => window.__box.morphKey(k).x, k);
+      if (L.length !== K.length || L.some((v, j) => Math.abs(v - K[j]) > 1e-9)) throw new Error('key ' + (k + 1) + ' is not itself at its time ' + t);
+    }
+    await kp.evaluate(() => window.__box.select([0]));
+    await kp.waitForTimeout(300);
+    const kb = await kp.locator('#mrKeys .mr-key[data-k="1"]').boundingBox(), tb = await kp.locator('#mrKeys').boundingBox();
+    await kp.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2); await kp.mouse.down();
+    await kp.mouse.move(tb.x + tb.width * 0.45, kb.y + kb.height / 2, { steps: 5 }); await kp.mouse.up();
+    await kp.click('#mrKeys .mr-step[data-s="0"]');
+    m = await kp.evaluate(() => window.__box.morph());
+    if (Math.abs(m.runs[0].times[1] - 0.45) > 0.01 || m.runs[0].eases.join() !== 'linear,inout,linear') throw new Error('the strip\'s track: ' + JSON.stringify([m.runs[0].times, m.runs[0].eases]));
+    await kp.waitForTimeout(1200);
+    await kp.reload(); await kp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await kp.waitForTimeout(700);
+    m = await kp.evaluate(() => window.__box.morph());
+    if (Math.abs(m.runs[0].times[1] - 0.45) > 0.01 || m.runs[0].eases.join() !== 'linear,inout,linear') throw new Error('the times did not come back from a reload: ' + JSON.stringify(m.runs[0]));
+    await setT(0.5); await kp.click('#bMorphAddKey');
+    m = await kp.evaluate(() => window.__box.morph());
+    if (m.K !== 4 || Math.abs(m.runs[0].times[2] - 0.5) > 1e-9 || m.runs[0].eases.length !== 4) throw new Error('a key added between timed keys: ' + JSON.stringify([m.K, m.runs[0].times, m.runs[0].eases]));
+    await kp.close();
+    // the gallery plays a tile in place, and the drawing saved in the editor is left as it was
+    const gp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    gp.on('pageerror', e => failures.push(`[key times] ${e.message}`));
+    await gp.route(/fonts\.g/, r => r.abort());
+    await gp.goto(new URL('gallery/animated.html', base).href, { waitUntil: 'load' });
+    const saved = await gp.evaluate(() => localStorage.getItem('tangent.scene.v1'));
+    await gp.evaluate(() => localStorage.setItem('tangent.scene.v1', 'the drawing in the editor'));
+    await gp.waitForSelector('#orrery .play', { timeout: 15000 });
+    await gp.click('#orrery .play');
+    await gp.waitForSelector('#orrery iframe.player.on', { timeout: 30000 });
+    const fr = gp.frames().find(f => /embed=1/.test(f.url()));
+    const pm = fr && await fr.evaluate(() => { const m = window.__box.morph(); return m && { play: m.play, runs: m.runs.length }; });
+    if (!pm || !pm.play || pm.runs !== 7) throw new Error('the orrery did not play in its tile: ' + JSON.stringify(pm));
+    if (await fr.evaluate(() => getComputedStyle(document.querySelector('.topbar') || document.body).display) !== 'none') throw new Error('the embed shows the editor\'s bar');
+    await gp.click('#garden .play');
+    await gp.waitForSelector('#garden iframe.player.on', { timeout: 30000 });
+    if ((await gp.$$eval('iframe.player', l => l.length)) !== 1 || (await gp.$eval('#orrery .play', e => e.textContent)) !== 'play') throw new Error('two tiles played at once');
+    await gp.waitForTimeout(1500);
+    const after = await gp.evaluate(() => localStorage.getItem('tangent.scene.v1'));
+    await gp.evaluate(v => v == null ? localStorage.removeItem('tangent.scene.v1') : localStorage.setItem('tangent.scene.v1', v), saved);
+    if (after !== 'the drawing in the editor') throw new Error('a playing tile wrote over the drawing saved in the editor');
+    await gp.close();
+  } catch (e){
+    failures.push(`[key times] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} smooth corner-keeping morphs, keys at chosen times, and tiles that play`);
+}
+
+/* THE SCENE'S TIMELINE, FOLLOWING LOOSELY AND FACING (draw.html, 25 Oct 2026). The timeline panel shows a
+   row per live morph with its keys where they land on the shared clock (a morph at rate 2, phase ¼ shows its
+   keys twice, a quarter-lap early); dragging a key there retimes it, dragging along the ruler scrubs, a row's
+   number selects that morph. A follower on lag is where tight following would have put it a while ago; one on
+   a spring departs from tight following and its loop still closes; a morph facing another keeps the same angle
+   to it. The strip sets all three and a reload keeps them; the kite showpiece opens with its springs and its cat. */
+current = 'timeline and following';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const fp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  fp.on('pageerror', e => failures.push(`[timeline] ${e.message}`));
+  await fp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  const setT = t => fp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+  const runs = () => fp.evaluate(() => window.__box.morph().runs);
+  const ready = async () => {
+    await fp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await fp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box.morph(), null, { timeout: 15000 });
+    await fp.waitForTimeout(700);
+  };
+  try {
+    let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="20" y="20" width="80" height="80" fill="#4f8fd6"/><polygon points="160,20 200,100 120,100" fill="#e05a6a"/>'
+      + '<rect x="220" y="40" width="120" height="40" fill="#4fbf8a"/><circle cx="60" cy="200" r="30" fill="#f2c14e"/><rect x="140" y="170" width="60" height="60" fill="#b07de0"/></svg>';
+    await fp.goto(scene({ name: 'tl', svg, play: false, morphs: [{ keys: [0, 1, 2] }, { keys: [3, 4], rate: 2, phase: 0.25 }] }), { waitUntil: 'load' });
+    await ready();
+    await fp.click('#bMorphTimeline');
+    await fp.waitForTimeout(300);
+    const lefts = await fp.$$eval('.tl-key', l => l.map(e => e.dataset.r + ':' + e.dataset.k + ':' + e.dataset.m + '@' + parseFloat(e.style.left).toFixed(1)));
+    if (lefts.join() !== '0:0:0@16.7,0:1:0@50.0,0:2:0@83.3,1:0:0@37.5,1:0:1@87.5,1:1:0@37.5,1:1:1@87.5') throw new Error('the timeline\'s keys: ' + lefts.join());
+    const tr = await fp.locator('.tl-track[data-r="0"]').boundingBox(), kb = await fp.locator('.tl-key[data-r="0"][data-k="1"]').boundingBox();
+    await fp.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2); await fp.mouse.down();
+    await fp.mouse.move(tr.x + tr.width * 0.6, kb.y + kb.height / 2, { steps: 6 }); await fp.mouse.up();
+    let r = await runs();
+    if (Math.abs(r[0].times[1] - 0.6) > 0.01) throw new Error('a key dragged on the timeline went to ' + r[0].times[1]);
+    const rl = await fp.locator('#tlRuler').boundingBox();
+    await fp.mouse.click(rl.x + rl.width * 0.3, rl.y + rl.height / 2);
+    if (Math.abs((await fp.evaluate(() => window.__box.morph().t)) - 0.3) > 0.01) throw new Error('the ruler did not scrub');
+    await fp.click('.tl-lab[data-r="1"]'); await fp.waitForTimeout(250);
+    if ((await fp.evaluate(() => document.getElementById('mrWho').textContent)) !== 'morph 2') throw new Error('a row\'s number did not select its morph');
+    // following: tight, lag and spring, and facing
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><circle cx="300" cy="150" r="20" fill="#4f8fd6"/><rect x="330" y="140" width="20" height="20" fill="#e05a6a"/>'
+      + '<path d="M300 150 L 200 50 L 100 150 L 200 250 Z" fill="none" stroke="#888"/><polygon points="190,140 215,150 190,160" fill="#4fbf8a"/></svg>';
+    const follow = async f => {
+      await fp.goto(scene({ name: 'follow', svg, play: false, morphs: [{ keys: [0], path: 2, turn: false }, { keys: [1], parent: 0, follow: f }, { keys: [3], look: 0 }] }), { waitUntil: 'load' });
+      await ready();
+      const out = [];
+      for (const t of [0, 0.1, 0.3, 0.55, 0.8, 0.999]) { await setT(t); out.push(await runs()); }
+      return out;
+    };
+    const tight = await follow(undefined), lag = await follow({ kind: 'lag', amount: 0.4 }), spring = await follow({ kind: 'spring', amount: 0.5 });
+    // lag 0.4 is a tenth of a loop: at t the follower is where tight following put it at t − 0.1
+    if (Math.hypot(lag[1][1].cx - tight[0][1].cx, lag[1][1].cy - tight[0][1].cy) > 1e-6) throw new Error('lag is not tight following a tenth of a loop ago');
+    const off = spring.map((q, i) => Math.hypot(q[1].cx - tight[i][1].cx, q[1].cy - tight[i][1].cy));
+    if (!(Math.max(...off) > 1e-3)) throw new Error('the spring follows as tightly as tight');
+    if (Math.hypot(spring[5][1].cx - spring[0][1].cx, spring[5][1].cy - spring[0][1].cy) > 0.02) throw new Error('the spring\'s loop does not close');
+    const facing = tight.map(q => { const d = Math.atan2(q[0].cy - q[2].cy, q[0].cx - q[2].cx), a = q[2].turn - d; return Math.atan2(Math.sin(a), Math.cos(a)); });
+    if (facing.some(a => Math.abs(a - facing[0]) > 1e-6) || Math.abs(tight[0][2].turn - tight[2][2].turn) < 0.05) throw new Error('the triangle does not keep facing the circle: ' + facing);
+    // set from the strip, and kept through a reload
+    await fp.goto(scene({ name: 'strip', svg, play: false, morphs: [{ keys: [0], path: 2, turn: false }, { keys: [1], parent: 0 }, { keys: [3] }] }), { waitUntil: 'load' });
+    await ready();
+    await fp.evaluate(() => window.__box.select([1])); await fp.waitForTimeout(250);
+    await fp.selectOption('#mrFollow', 'spring');
+    await fp.evaluate(() => window.__box.select([2])); await fp.waitForTimeout(250);
+    await fp.selectOption('#mrLook', '0');
+    r = await runs();
+    if (r[1].follow !== 'spring' || r[2].look !== 0) throw new Error('the strip did not set following and facing: ' + JSON.stringify(r.map(q => [q.follow, q.look])));
+    await fp.waitForTimeout(1200);
+    await fp.reload(); await fp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await fp.waitForTimeout(700);
+    r = await runs();
+    if (r[1].follow !== 'spring' || r[2].look !== 0) throw new Error('a reload lost following and facing: ' + JSON.stringify(r.map(q => [q.follow, q.look])));
+    await fp.close();
+  } catch (e){
+    failures.push(`[timeline] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the scene's timeline, following loosely and facing`);
+}
+
+/* THE EMBEDDED GALLERY (gallery/embedded.html). Its examples are animated.html's, copied unchanged between
+   markers, and the two copies agree. The tiles in view play, each the editor in an embed, no more than the
+   page's limit at once, and the first tile's editor is running its example; a tile's embed code is an
+   <iframe> of draw.html?embed=1 carrying the scene; scrolled away, a tile stops. */
+current = 'embedded gallery';
+{
+  const before = failures.length;
+  const eg = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  eg.on('pageerror', e => failures.push(`[embedded] ${e.message}`));
+  await eg.route(/fonts\.g/, r => r.abort());
+  try {
+    const A = await readFile(join(ROOT, 'gallery/animated.html'), 'utf8'), E = await readFile(join(ROOT, 'gallery/embedded.html'), 'utf8');
+    const a0 = A.indexOf('// ── THE EXAMPLES (25 Oct 2026'), a1 = A.indexOf('// the settings as one line, the way the other pages show');
+    const m = E.match(/\/\/ >>> copied from animated\.html, unchanged: EXAMPLES\n([\s\S]*?)\/\/ <<< end of EXAMPLES/);
+    if (a0 < 0 || a1 < 0 || !m || m[1] !== A.slice(a0, a1)) throw new Error('the examples on embedded.html differ from animated.html\'s: copy them across');
+    await eg.goto(new URL('gallery/embedded.html', base).href, { waitUntil: 'load' });
+    await eg.waitForFunction(() => window.__embedded && window.__embedded.live().length > 0, null, { timeout: 15000 });
+    const info = await eg.evaluate(() => ({ max: window.__embedded.max, live: window.__embedded.live(), first: window.__embedded.ids[0], tag: window.__embedded.tag(window.__embedded.ids[0]) }));
+    if (info.live.length > info.max || !info.live.includes(info.first)) throw new Error('the tiles in view: ' + JSON.stringify(info));
+    if (!/^<iframe src="[^"]*\/draw\.html\?embed=1#scene=[rz][\w-]+"/.test(info.tag)) throw new Error('the embed code: ' + info.tag.slice(0, 120));
+    await eg.waitForSelector(`#${info.first} iframe.player.on`, { timeout: 30000 });
+    const fr = eg.frames().find(f => /embed=1/.test(f.url()));
+    const pm = fr && await fr.evaluate(() => { const m = window.__box.morph(); return m && m.play; });
+    if (!pm) throw new Error('the first tile\'s editor is not playing');
+    await eg.evaluate(() => document.querySelector('footer').scrollIntoView());
+    await eg.waitForTimeout(800);
+    const after = await eg.evaluate(() => window.__embedded.live());
+    if (after.includes(info.first) || after.length > info.max) throw new Error('scrolled away, the first tile still plays: ' + after.join());
+  } catch (e){
+    failures.push(`[embedded] ${e.message.split('\n')[0]}`);
+  }
+  await eg.close();
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the embedded gallery`);
 }
 
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,
@@ -1596,7 +1892,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
