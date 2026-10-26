@@ -80838,7 +80838,9 @@
                 lz: sp._lazy ? (sp._lazy.exact ? (sp._lazy.open ? 3 : 2) : 1) : 0, // 2 exact, 3 exact line
                 ls: sp._lazy ? sp._lazy.scale : 0,
                 rr: sp._lazy && sp._lazy.exact && hasRound(sp._lazy.round) ? Array.from(lzRoundBaked(sp._lazy), r => +r.toPrecision(7)) : null, // corner radii, in x's units
-                sm: sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth) : null, // smooth corners (1)
+                // smooth corners (1). Its own key: until 26 Oct 2026 it shared `sm` with the smoothing below,
+                // which, written later in this record, replaced it, so a reload lost every smooth corner
+                smc: sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth) : null,
                 ho: sp._lazy && sp._lazy.holes ? lzHolesBaked(sp._lazy).map(h => ({ // HOLES, in rx's units as rx is
                     x: _f32b64(h.x),
                     y: _f32b64(h.y),
@@ -80953,7 +80955,7 @@
                 exact: sp.lz >= 2,
                 open: sp.lz === 3,
                 round: Array.isArray(sp.rr) ? sp.rr : null,
-                smooth: Array.isArray(sp.sm) ? sp.sm : null,
+                smooth: Array.isArray(sp.smc) ? sp.smc : null,
                 holes: Array.isArray(sp.ho) ? sp.ho.map(h => ({
                     x: _b64f32(h.x),
                     y: _b64f32(h.y),
@@ -80981,7 +80983,7 @@
                 strokeOpacity: sp.so != null ? sp.so : null,
                 lineStyle: sp.lst || null,
                 lineWidth: sp.lw != null ? sp.lw : null,
-                smoothing: sp.sm != null ? sp.sm : null,
+                smoothing: typeof sp.sm === 'number' ? sp.sm : null,
                 textRun: sp.tr != null ? sp.tr : null,
                 textMeta: sp.tm || null,
                 gid: sp.gid != null ? sp.gid : null,
@@ -83726,6 +83728,8 @@
             canvasUrl: () => { (drawAll.now || drawAll)(); return cv.toDataURL(); }, // drawAll alone waits for the next frame
             morphKey: k => morphRuns.length ? { x: Array.from(morphRuns[0].keys[k].x) } : null,
             // a world point on the page, for a test's mouse (EDITING A KEY ON THE CANVAS)
+            // the smooth corners each held exact shape has (the autosave's round trip is checked on them)
+            smoothCorners: () => state.subpaths.map(sp => sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth).filter(Boolean).length : 0),
             morphDiag: () => morphRuns.map(r => ({ exact: !!r.exact, lazy: !!(r.sp && r.sp._lazy), inDrawing: state.subpaths.indexOf(r.sp), K: r.keys.length })),
             toPx: (x, y) => { const r = cv.getBoundingClientRect(), q = worldToPx(x, y, r.width, r.height); return { x: r.left + q.x, y: r.top + q.y }; },
             morphSvg: o => { const r = exportMorphSvg(Object.assign({}, o, { noDownload: true })); return r ? r.svg : null; },

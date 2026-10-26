@@ -1385,6 +1385,34 @@ current = 'animate with ai';
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} animate it with ai: a reply lands as morphs, one undo step, and change it keeps the rest`);
 }
 
+/* THE AUTOSAVE KEEPS SMOOTH CORNERS (draw.html). An exact shape's smooth corners and a shape's smoothing were
+   both saved as `sm`, and the second replaced the first, so a reload lost every smooth corner. A circle has four. */
+current = 'autosave smooth';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => failures.push(`[autosave smooth] ${e.message}`));
+  await sp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect x="10" y="10" width="40" height="40" fill="#e05a6a"/><circle cx="150" cy="50" r="30" fill="#48f"/></svg>';
+    await sp.goto(scene({ name: 'smooth', svg, morphs: [] }), { waitUntil: 'load' });
+    await sp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box, null, { timeout: 60000 });
+    await sp.waitForTimeout(2500);
+    const a = await sp.evaluate(() => window.__box.smoothCorners());
+    await sp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await sp.waitForFunction(() => window.__box, null, { timeout: 60000 });
+    await sp.waitForTimeout(2500);
+    const b = await sp.evaluate(() => window.__box.smoothCorners());
+    if (JSON.stringify(a) !== '[0,4]' || JSON.stringify(b) !== JSON.stringify(a)) throw new Error('smooth corners before and after a reload: ' + JSON.stringify([a, b]));
+    await sp.close();
+  } catch (e){
+    failures.push(`[autosave smooth] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the autosave keeps an exact shape's smooth corners`);
+}
+
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,
    edges straight, never leaves until asked. A triangle closed on its start point and a line of
    two points finished by a double-click; both held exact through a click and a drag of a
