@@ -1150,7 +1150,7 @@ current = 'embedded gallery';
     if (!/^<iframe src="[^"]*\/draw\.html\?embed=1#scene=[rz][\w-]+"/.test(info.tag)) throw new Error('the embed code: ' + info.tag.slice(0, 120));
     await eg.click('#orrery .live');
     await eg.waitForSelector('#orrery iframe.player.on', { timeout: 30000 });
-    const fr = eg.frames().find(f => /embed=1#scene/.test(f.url()));
+    const fr = eg.frames().find(f => /embed=1/.test(f.url())); // the converter is gone; this is the live one
     if (!fr || !(await fr.evaluate(() => window.__box.morph().play))) throw new Error('"live" did not play the orrery in the editor');
     await eg.evaluate(() => document.querySelector('footer').scrollIntoView());
     await eg.waitForTimeout(600);

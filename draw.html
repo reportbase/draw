@@ -51112,9 +51112,42 @@
                     }
                 });
             }
-            if (at >= 0)
+            if (at >= 0) {
+                // On a key: the edit's change, carried back, added to that key, so the key keeps exactly
+                // what it was plus what was done to it (the track's step can leave the pose a hair off the
+                // key's own time, and a pose a hair into the blend is not quite the key).
+                const old = run.keys[at];
+                if (run.exact) {
+                    const W = run.pose; // what was written: corners and handles
+                    if (W && W.x.length === old.x.length) {
+                        const nk = exactKeyCopy(old);
+                        for (let j = 0; j < nk.x.length; j++) {
+                            const [wx, wy] = back(W.x[j], W.y[j]);
+                            nk.x[j] += key.x[j] - wx;
+                            nk.y[j] += key.y[j] - wy;
+                            nk.r[j] = key.r[j];
+                            const e = key.c[j],
+                                we = W.c[j];
+                            if (e && we && nk.c[j]) {
+                                const [a0, a1] = back(we[0], we[1]),
+                                    [b0, b1] = back(we[2], we[3]);
+                                nk.c[j] = [nk.c[j][0] + e[0] - a0, nk.c[j][1] + e[1] - a1, nk.c[j][2] + e[2] - b0, nk.c[j][3] + e[3] - b1];
+                            } else
+                                nk.c[j] = e;
+                        }
+                        key = nk;
+                    }
+                } else if (run._wx && run._wx.length === old.x.length) {
+                    const nk = { x: Float64Array.from(old.x), y: Float64Array.from(old.y) };
+                    for (let i = 0; i < nk.x.length; i++) {
+                        const [wx, wy] = back(run._wx[i], run._wy[i]);
+                        nk.x[i] += key.x[i] - wx;
+                        nk.y[i] += key.y[i] - wy;
+                    }
+                    key = nk;
+                }
                 run.keys[at] = key;
-            else {
+            } else {
                 // a new key where you stand; every other key keeps its time
                 const T = morphKeyTimes(run).slice();
                 let pos = T.filter(v => v < u).length;
@@ -52235,10 +52268,12 @@
             return P;
         }
         function morphWriteExact(run, sp, P) {
-            makeLazy(sp, P.x, P.y, 0, null, {
+            // the shape gets copies: run.pose is what was written, and an edit made in place on the shape
+            // must not change it too (EDITING A KEY ON THE CANVAS measures the edit against it)
+            makeLazy(sp, Float64Array.from(P.x), Float64Array.from(P.y), 0, null, {
                 exact: true,
                 round: hasRound(P.r) ? P.r : null,
-                ctrl: hasCtrl(P.c) ? P.c : null
+                ctrl: hasCtrl(P.c) ? P.c.map(e => e ? e.slice() : null) : null
             });
             run.pose = P;
         }
