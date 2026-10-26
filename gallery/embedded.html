@@ -1747,6 +1747,95 @@ async function sceneCode(ex) {
   }
   return 'r' + b64url(json);
 }
+// ── A SCENE AS A PICTURE (26 Oct 2026, Tom: "1,3", to "use the light player in both galleries, and keep what is
+// made") ──────────────────────────────────────────────────────────────────────────────────────────────────────
+// The light player is the editor's own animated SVG: one hidden editor (draw.html?embed=1, THE EMBED AS A
+// CONVERTER) turns a scene into a picture that then plays on its own, SMIL and no script. Made once, a picture is
+// kept in the browser (IndexedDB: a picture can be a megabyte, more than localStorage holds), under the scene and
+// SVG_VERSION, so a gallery opened again plays at once and the editor is not loaded at all; bump SVG_VERSION when
+// the editor's export changes, so pictures made by the old one are made again. Scenes go to the editor one at a
+// time (it opens each in its own drawing), and the editor goes away once it has been idle a while.
+const SVG_VERSION = 1;
+let svgHost = null, svgHostReady = null, svgHostIdle = 0, svgNextId = 1, svgChain = Promise.resolve();
+const svgWaiting = new Map();
+function svgHostUp() {
+  clearTimeout(svgHostIdle);
+  if (svgHostReady) return svgHostReady;
+  svgHost = document.createElement('iframe');
+  svgHost.className = 'host';
+  svgHost.title = 'the leaf editor, turning scenes into pictures';
+  svgHost.setAttribute('aria-hidden', 'true');
+  svgHost.style.cssText = 'position:absolute;left:-9999px;top:0;width:480px;height:320px;border:0;visibility:hidden';
+  svgHost.src = new URL('../draw.html?embed=1', location.href).href;
+  svgHostReady = new Promise(res => svgHost.addEventListener('load', () => setTimeout(res, 400), { once: true }));
+  document.body.appendChild(svgHost);
+  return svgHostReady;
+}
+function svgHostDown() {
+  clearTimeout(svgHostIdle);
+  if (svgHost) svgHost.remove();
+  svgHost = null;
+  svgHostReady = null;
+}
+window.addEventListener('message', e => {
+  const m = e.data;
+  if (e.origin !== location.origin || !m || m.type !== 'tvf-scene-svg' || !svgWaiting.has(m.id)) return;
+  const res = svgWaiting.get(m.id);
+  svgWaiting.delete(m.id);
+  res(m.svg);
+});
+let svgDbP = null;
+function svgDb() {
+  return svgDbP || (svgDbP = new Promise(res => {
+    try {
+      const r = indexedDB.open('tvf-scene-svg', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('svg');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => res(null);
+    } catch (_) { res(null); } // storage off (a private window): pictures are made each visit
+  }));
+}
+async function svgCacheGet(key) {
+  const db = await svgDb();
+  if (!db) return null;
+  return new Promise(res => {
+    try { const q = db.transaction('svg').objectStore('svg').get(key); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); } catch (_) { res(null); }
+  });
+}
+async function svgCachePut(key, text) {
+  const db = await svgDb();
+  if (!db) return;
+  try { db.transaction('svg', 'readwrite').objectStore('svg').put(text, key); } catch (_) {}
+}
+// a scene's picture: kept, or made now; { svg (null if it could not be made), kept }
+async function sceneSvg(code) {
+  const key = SVG_VERSION + ':' + code;
+  const kept = await svgCacheGet(key);
+  if (kept) return { svg: kept, kept: true };
+  const job = svgChain.then(async () => {
+    await svgHostUp();
+    const id = svgNextId++;
+    return new Promise(res => { svgWaiting.set(id, res); svgHost.contentWindow.postMessage({ type: 'tvf-scene-svg', id, code }, location.origin); });
+  });
+  svgChain = job.catch(() => null);
+  const svg = await job;
+  clearTimeout(svgHostIdle);
+  svgHostIdle = setTimeout(svgHostDown, 20000);
+  if (svg) svgCachePut(key, svg);
+  return { svg, kept: false };
+}
+// the picture as an element filling a tile's stage
+function fitSvg(text) {
+  const box = document.createElement('div');
+  box.innerHTML = text;
+  const el = box.querySelector('svg');
+  if (!el) return null;
+  el.removeAttribute('width');
+  el.removeAttribute('height');
+  el.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  el.classList.add('anim');
+  return el;
+}
 // <<< end of EXAMPLES
 
 // ── THE EMBEDDED GALLERY (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with
@@ -1754,7 +1843,8 @@ async function sceneCode(ex) {
 // The examples above are animated.html's, copied unchanged (npm test fails if the two copies part). Each scene
 // is shown two ways:
 //   as its animated SVG, the light way: one hidden editor (draw.html?embed=1, THE EMBED, which never touches the
-//     saved scene) turns every scene into its SVG in turn (THE EMBED AS A CONVERTER), and each tile then plays
+//     saved scene) turns every scene into its SVG in turn (THE EMBED AS A CONVERTER; sceneSvg, copied with the
+//     examples, keeps each made SVG in this browser, so a second visit makes none), and each tile then plays
 //     with no editor behind it, all at once, SMIL and nothing else; a tile scrolled out of view is paused.
 //     "copy svg" gives that file, the lightest embed there is: no script, no address, a picture that moves.
 //   live, the exact way: "live" swaps the tile for the editor itself in an <iframe> (one tile at a time), and
@@ -1769,44 +1859,6 @@ const kb = n => (n / 1024).toFixed(1) + ' kB';
 const flash = (b, text, back) => { b.classList.add('done'); b.textContent = text; setTimeout(() => { b.classList.remove('done'); b.textContent = back; }, 1400); };
 
 const tiles = [];
-// the one hidden editor that turns scenes into SVG, and the queue it works through
-let host = null, hostReady = null, nextId = 1;
-const waiting = new Map();
-function ensureHost() {
-  if (hostReady) return hostReady;
-  host = document.createElement('iframe');
-  host.className = 'host';
-  host.title = 'the leaf editor, turning scenes into pictures';
-  host.setAttribute('aria-hidden', 'true');
-  host.src = new URL('../draw.html?embed=1', location.href).href;
-  hostReady = new Promise(res => host.addEventListener('load', () => setTimeout(res, 400), { once: true }));
-  document.body.appendChild(host);
-  return hostReady;
-}
-window.addEventListener('message', e => {
-  const m = e.data;
-  if (e.origin !== location.origin || !m || m.type !== 'tvf-scene-svg' || !waiting.has(m.id)) return;
-  const res = waiting.get(m.id);
-  waiting.delete(m.id);
-  res(m.svg);
-});
-async function toSvg(code) {
-  await ensureHost();
-  const id = nextId++;
-  return new Promise(res => { waiting.set(id, res); host.contentWindow.postMessage({ type: 'tvf-scene-svg', id, code }, location.origin); });
-}
-// the SVG export is drawn on a 1000-unit square; in a tile it fills the stage
-function fitSvg(text) {
-  const box = document.createElement('div');
-  box.innerHTML = text;
-  const el = box.querySelector('svg');
-  if (!el) return null;
-  el.removeAttribute('width');
-  el.removeAttribute('height');
-  el.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-  el.classList.add('anim');
-  return el;
-}
 // pause what is out of view: twenty SMIL pictures playing at once off screen would cost for nothing
 const io = new IntersectionObserver(entries => {
   for (const e of entries) {
@@ -1901,7 +1953,7 @@ function setLive(tile) {
   const order = tiles.filter(t => t.classList.contains('seen')).concat(tiles.filter(t => !t.classList.contains('seen')));
   let made = 0;
   for (const tile of order) {
-    const text = await toSvg(tile.dataset.code);
+    const text = (await sceneSvg(tile.dataset.code)).svg;
     const el = text && fitSvg(text);
     const size = tile.querySelector('.svgsize');
     if (!el) { size.textContent = 'could not be made'; continue; }
@@ -1912,7 +1964,7 @@ function setLive(tile) {
     tile.querySelector('.svgcopy').disabled = false;
     document.getElementById('made').textContent = ++made + ' of ' + tiles.length + ' made';
   }
-  if (host) { host.remove(); host = null; hostReady = null; } // its work done, the editor goes
+  svgHostDown(); // its work done, the editor goes
 })();
 </script>
 </body>

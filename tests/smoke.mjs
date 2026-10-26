@@ -1034,15 +1034,26 @@ current = 'smooth corners and key times';
     const saved = await gp.evaluate(() => localStorage.getItem('tangent.scene.v1'));
     await gp.evaluate(() => localStorage.setItem('tangent.scene.v1', 'the drawing in the editor'));
     await gp.waitForSelector('#orrery .play', { timeout: 15000 });
+    // play: the animated SVG the editor makes, kept in the browser so a second visit makes none
     await gp.click('#orrery .play');
+    await gp.waitForSelector('#orrery svg.anim', { timeout: 30000 });
+    if ((await gp.$eval('#orrery .play', e => e.textContent)) !== 'stop' || !(await gp.$eval('#orrery svg.anim', e => e.querySelector('animate, animateTransform, animateMotion') != null))) throw new Error('play gave no moving SVG');
+    await gp.reload({ waitUntil: 'load' });
+    await gp.waitForSelector('#orrery .play', { timeout: 15000 });
+    await gp.click('#orrery .play');
+    await gp.waitForSelector('#orrery svg.anim', { timeout: 4000 });
+    if ((await gp.$$eval('iframe', l => l.length)) !== 0) throw new Error('a kept SVG was made again by the editor');
+    // live: the editor itself, one tile at a time
+    await gp.click('#orrery .live');
     await gp.waitForSelector('#orrery iframe.player.on', { timeout: 30000 });
+    if (await gp.$('#orrery svg.anim')) throw new Error('live left the SVG playing beside it');
     const fr = gp.frames().find(f => /embed=1/.test(f.url()));
     const pm = fr && await fr.evaluate(() => { const m = window.__box.morph(); return m && { play: m.play, runs: m.runs.length }; });
     if (!pm || !pm.play || pm.runs !== 7) throw new Error('the orrery did not play in its tile: ' + JSON.stringify(pm));
     if (await fr.evaluate(() => getComputedStyle(document.querySelector('.topbar') || document.body).display) !== 'none') throw new Error('the embed shows the editor\'s bar');
-    await gp.click('#garden .play');
+    await gp.click('#garden .live');
     await gp.waitForSelector('#garden iframe.player.on', { timeout: 30000 });
-    if ((await gp.$$eval('iframe.player', l => l.length)) !== 1 || (await gp.$eval('#orrery .play', e => e.textContent)) !== 'play') throw new Error('two tiles played at once');
+    if ((await gp.$$eval('iframe.player', l => l.length)) !== 1 || (await gp.$eval('#orrery .live', e => e.textContent)) !== 'live') throw new Error('two tiles played at once');
     await gp.waitForTimeout(1500);
     const after = await gp.evaluate(() => localStorage.getItem('tangent.scene.v1'));
     await gp.evaluate(v => v == null ? localStorage.removeItem('tangent.scene.v1') : localStorage.setItem('tangent.scene.v1', v), saved);

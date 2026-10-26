@@ -1750,6 +1750,95 @@ async function sceneCode(ex) {
   }
   return 'r' + b64url(json);
 }
+// ── A SCENE AS A PICTURE (26 Oct 2026, Tom: "1,3", to "use the light player in both galleries, and keep what is
+// made") ──────────────────────────────────────────────────────────────────────────────────────────────────────
+// The light player is the editor's own animated SVG: one hidden editor (draw.html?embed=1, THE EMBED AS A
+// CONVERTER) turns a scene into a picture that then plays on its own, SMIL and no script. Made once, a picture is
+// kept in the browser (IndexedDB: a picture can be a megabyte, more than localStorage holds), under the scene and
+// SVG_VERSION, so a gallery opened again plays at once and the editor is not loaded at all; bump SVG_VERSION when
+// the editor's export changes, so pictures made by the old one are made again. Scenes go to the editor one at a
+// time (it opens each in its own drawing), and the editor goes away once it has been idle a while.
+const SVG_VERSION = 1;
+let svgHost = null, svgHostReady = null, svgHostIdle = 0, svgNextId = 1, svgChain = Promise.resolve();
+const svgWaiting = new Map();
+function svgHostUp() {
+  clearTimeout(svgHostIdle);
+  if (svgHostReady) return svgHostReady;
+  svgHost = document.createElement('iframe');
+  svgHost.className = 'host';
+  svgHost.title = 'the leaf editor, turning scenes into pictures';
+  svgHost.setAttribute('aria-hidden', 'true');
+  svgHost.style.cssText = 'position:absolute;left:-9999px;top:0;width:480px;height:320px;border:0;visibility:hidden';
+  svgHost.src = new URL('../draw.html?embed=1', location.href).href;
+  svgHostReady = new Promise(res => svgHost.addEventListener('load', () => setTimeout(res, 400), { once: true }));
+  document.body.appendChild(svgHost);
+  return svgHostReady;
+}
+function svgHostDown() {
+  clearTimeout(svgHostIdle);
+  if (svgHost) svgHost.remove();
+  svgHost = null;
+  svgHostReady = null;
+}
+window.addEventListener('message', e => {
+  const m = e.data;
+  if (e.origin !== location.origin || !m || m.type !== 'tvf-scene-svg' || !svgWaiting.has(m.id)) return;
+  const res = svgWaiting.get(m.id);
+  svgWaiting.delete(m.id);
+  res(m.svg);
+});
+let svgDbP = null;
+function svgDb() {
+  return svgDbP || (svgDbP = new Promise(res => {
+    try {
+      const r = indexedDB.open('tvf-scene-svg', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('svg');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => res(null);
+    } catch (_) { res(null); } // storage off (a private window): pictures are made each visit
+  }));
+}
+async function svgCacheGet(key) {
+  const db = await svgDb();
+  if (!db) return null;
+  return new Promise(res => {
+    try { const q = db.transaction('svg').objectStore('svg').get(key); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); } catch (_) { res(null); }
+  });
+}
+async function svgCachePut(key, text) {
+  const db = await svgDb();
+  if (!db) return;
+  try { db.transaction('svg', 'readwrite').objectStore('svg').put(text, key); } catch (_) {}
+}
+// a scene's picture: kept, or made now; { svg (null if it could not be made), kept }
+async function sceneSvg(code) {
+  const key = SVG_VERSION + ':' + code;
+  const kept = await svgCacheGet(key);
+  if (kept) return { svg: kept, kept: true };
+  const job = svgChain.then(async () => {
+    await svgHostUp();
+    const id = svgNextId++;
+    return new Promise(res => { svgWaiting.set(id, res); svgHost.contentWindow.postMessage({ type: 'tvf-scene-svg', id, code }, location.origin); });
+  });
+  svgChain = job.catch(() => null);
+  const svg = await job;
+  clearTimeout(svgHostIdle);
+  svgHostIdle = setTimeout(svgHostDown, 20000);
+  if (svg) svgCachePut(key, svg);
+  return { svg, kept: false };
+}
+// the picture as an element filling a tile's stage
+function fitSvg(text) {
+  const box = document.createElement('div');
+  box.innerHTML = text;
+  const el = box.querySelector('svg');
+  if (!el) return null;
+  el.removeAttribute('width');
+  el.removeAttribute('height');
+  el.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  el.classList.add('anim');
+  return el;
+}
 // the settings as one line, the way the other pages show a tile's source: the keys of a single morph, or how
 // many morphs and what they have of their own
 function sceneLine(s) {
@@ -1783,28 +1872,49 @@ async function copyText(text) {
 }
 
 // ── playing a tile ───────────────────────────────────────────────────────
-// A tile plays in the leaf editor itself: draw.html?embed=1 (THE EMBED in draw.html) is the editor as
-// a player, the canvas alone, which never reads or writes the drawing saved in your editor. So what
-// plays here is exactly what "open in draw" opens, trails, effects and all, from the same link. The
-// editor is a big page, so one tile plays at a time: playing another stops the one before.
-let playing = null;
+// Two ways to play, one tile at a time (playing another stops the one before).
+//  play: the example as an animated SVG, made by the leaf editor itself (sceneSvg above: a hidden
+//        draw.html?embed=1 converts the scene link, the editor's own animated SVG export) and kept in
+//        this browser, so only the first visit waits for it. Once made it plays on its own, no script.
+//  live: the leaf editor as a player (THE EMBED in draw.html, the canvas alone, which never reads or
+//        writes the drawing saved in your editor), exactly what "open in draw" opens, from the same link.
+//        A big page, so the exact option, not the everyday one.
+let playing = null, playMode = '', playTurn = 0;
 function stop() {
   if (!playing) return;
+  playTurn++;
   const f = playing.querySelector('iframe.player');
   if (f) f.remove();
-  const b = playing.querySelector('.play');
-  b.textContent = 'play'; b.classList.remove('on');
-  playing.classList.remove('playing');
-  playing = null;
+  const a = playing.querySelector('svg.anim');
+  if (a) a.remove();
+  for (const k of ['play', 'live']) {
+    const b = playing.querySelector('.' + k);
+    b.textContent = k; b.classList.remove('on');
+  }
+  playing.classList.remove('playing', 'svg');
+  playing = null; playMode = '';
 }
-function play(tile) {
-  const was = playing;
+async function play(tile, mode = 'svg') {
+  const was = playing, wasMode = playMode;
   stop();
-  if (was === tile) return;
-  playing = tile;
+  if (was === tile && wasMode === mode) return;
+  playing = tile; playMode = mode;
+  const turn = playTurn;
   tile.classList.add('playing');
-  const b = tile.querySelector('.play');
-  b.textContent = 'stop'; b.classList.add('on');
+  const b = tile.querySelector(mode === 'svg' ? '.play' : '.live');
+  b.classList.add('on');
+  if (mode === 'svg') {
+    b.textContent = 'making…';
+    const r = await sceneSvg(tile.dataset.code);
+    if (turn !== playTurn) return;
+    const el = r.svg && fitSvg(r.svg);
+    if (!el) { stop(); b.textContent = 'failed'; setTimeout(() => { if (b.textContent === 'failed') b.textContent = 'play'; }, 1600); return; }
+    b.textContent = 'stop';
+    tile.classList.add('svg');
+    tile.querySelector('.stage').appendChild(el);
+    return;
+  }
+  b.textContent = 'stop';
   const u = new URL(tile.dataset.href);
   u.search = '?embed=1';
   const f = document.createElement('iframe');
@@ -1839,20 +1949,24 @@ function play(tile) {
     const grid = el.querySelector('.grid');
     for (const id of sec.ids) {
       const ex = byId[id];
-      const href = new URL('../draw.html#scene=' + await sceneCode(ex), location.href).href;
+      const code = await sceneCode(ex);
+      const href = new URL('../draw.html#scene=' + code, location.href).href;
       const tile = document.createElement('div');
       tile.className = 'tile';
       tile.id = ex.id;
       tile.dataset.href = href;
+      tile.dataset.code = code;
       tile.innerHTML =
         `<div class="stage" title="play it here">${ex.svg}</div>` +
-        `<div class="tools"><button class="play" title="play it here, in the leaf editor itself (one tile plays at a time)">play</button>` +
+        `<div class="tools"><button class="play" title="play it here, as an animated SVG the leaf editor makes (kept in this browser after the first time)">play</button>` +
+        `<button class="live" title="play it here in the leaf editor itself, exactly as it opens (one tile plays at a time)">live</button>` +
         `<button class="open" title="open this example in the leaf editor, playing — it rides in the link">open in draw ↗</button>` +
         `<button class="link" title="copy this example's link">link</button></div>` +
         `<div class="body"><h3>${esc(ex.name)}</h3><p class="note">${esc(ex.note)}</p>` +
         `<code class="src">${esc(sceneLine(ex.scene))}</code></div>`;
       tile.querySelector('.open').addEventListener('click', () => window.open(href, '_blank', 'noopener'));
-      tile.querySelector('.play').addEventListener('click', () => play(tile));
+      tile.querySelector('.play').addEventListener('click', () => play(tile, 'svg'));
+      tile.querySelector('.live').addEventListener('click', () => play(tile, 'live'));
       tile.querySelector('.stage').addEventListener('click', () => { if (playing !== tile) play(tile); });
       const lb = tile.querySelector('.link');
       lb.addEventListener('click', async () => {
@@ -1864,7 +1978,7 @@ function play(tile) {
   }
   document.getElementById('count').textContent = EXAMPLES.length + ' animations';
   window.__animated = EXAMPLES.map(e => ({ id: e.id, name: e.name })); // for the smoke test
-  window.__animatedPlay = id => { const t = document.getElementById(id); if (t) play(t); return !!playing; };
+  window.__animatedPlay = (id, mode) => { const t = document.getElementById(id); if (t) play(t, mode || 'svg'); return !!playing; };
 })();
 </script>
 </body>

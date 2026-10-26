@@ -130,10 +130,13 @@ publishes.
     echoes and ribbons as the same animations begun earlier, in a frame of the drawing's own proportions (1000 on its
     longer side); `__box.morphSvg(o)` returns the text. Opening one replaces the drawing, asking first when the tab
     holds the user's; shapes the SVG gave no stroke get no editor outline. The editor's menu links it ("animations ↗").
-    A tile's **play** button (or its picture) plays it in place, in the editor itself: `draw.html?embed=1#scene=…` (THE
-    EMBED in `draw.html`) shows the canvas alone, draws none of the editor's own marks, and never reads or writes the
-    saved scene (it shares it with every editor tab: a tile must never replace someone's drawing). One tile plays at a
-    time. Exact morphs between keys whose corners differ (MORPHS THAT KEEP THEIR CORNERS) bake roundings into arc edges
+    A tile's **play** button (or its picture) plays it in place as its animated SVG (26 Oct 2026, Tom: "1,3"),
+    made by a hidden editor (`sceneSvg`, THE EMBED AS A CONVERTER, below) and kept in the browser's IndexedDB
+    (`tvf-scene-svg`, keyed by `SVG_VERSION` and the scene code), so only the first visit waits; raise `SVG_VERSION`
+    when the SVG export changes what it writes, or visitors keep old pictures. **live** plays it in the editor
+    itself: `draw.html?embed=1#scene=…` (THE EMBED in `draw.html`) shows the canvas alone, draws none of the editor's
+    own marks, and never reads or writes the saved scene (it shares it with every editor tab: a tile must never
+    replace someone's drawing). One tile plays at a time. Exact morphs between keys whose corners differ (MORPHS THAT KEEP THEIR CORNERS) bake roundings into arc edges
     when any key has curve edges, try twice the corners when that matches much better (a square to a circle drawn from
     0°), and keep a corner smooth in every pose where any key has it smooth (SMOOTH WHERE ANY KEY IS SMOOTH).
     The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
@@ -145,7 +148,8 @@ publishes.
     recommendations": a light player) is the last page, a chart page: the same examples, each tile its **animated
     SVG**, made by one hidden editor (THE EMBED AS A CONVERTER in `draw.html`: an embed of the same origin answers
     `{type: 'tvf-scene-svg', id, code}` with `{type, id, svg}`) and then playing on its own (SMIL, no script, the editor
-    gone once all are made; out of view, paused); **copy svg** gives that file. **live** plays one tile in the editor
+    gone once all are made; out of view, paused; the same `sceneSvg` and cache as animated.html, copied with the
+    examples); **copy svg** gives that file. **live** plays one tile in the editor
     itself (an `<iframe>` of `draw.html?embed=1#scene=…`, THE EMBED) and **copy embed code** gives that `<iframe>`. In
     an embed the editor frames the scene to fill its frame (`embedFit`, again on a resize). Its
     examples are animated.html's, **copied unchanged** between `// >>> copied from animated.html, unchanged: EXAMPLES`
