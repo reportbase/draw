@@ -1337,6 +1337,54 @@ current = 'undo morphs';
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} undo through the morphs, and clips that come and go`);
 }
 
+/* ANIMATE IT WITH AI (draw.html). The gateway is not reached from here, so a reply is landed by hand (the
+   same path the answer takes): the drawing goes out numbered in the 1000 box; a copy moved up becomes a key
+   with its original, exact, and a circle in the reply's svg becomes the path a still rides; the whole reply
+   is one undo step; "change it" changes a live morph's rate and phase and keeps its keys, and ends another;
+   undo walks back through both. The panel's "change it" waits until something moves. */
+current = 'animate with ai';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const ap = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  ap.on('pageerror', e => failures.push(`[animate with ai] ${e.message}`));
+  await ap.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="60" cy="140" r="20" fill="#f5c542"/><rect x="120" y="120" width="30" height="30" fill="#4287f5"/><polygon points="20,190 180,190 100,170" fill="#3a3"/></svg>';
+    await ap.goto(scene({ name: 'animate', svg, morphs: [] }), { waitUntil: 'load' });
+    await ap.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 });
+    await ap.waitForTimeout(500);
+    const S = () => ap.evaluate(() => window.__animSketch());
+    const s0 = await S();
+    if (s0.n !== 3 || !/id="s0"[^>]*fill="#f5c542"/.test(s0.svg) || !/viewBox="0 0 1000 1000"/.test(s0.svg)) throw new Error('the drawing as sent: ' + s0.svg.slice(0, 160));
+    await ap.click('#bAi'); await ap.waitForTimeout(150);
+    if (!(await ap.$eval('#aiAnimChange', b => b.disabled))) throw new Error('change it is offered with nothing moving');
+    await ap.keyboard.press('Escape');
+    const r = await ap.evaluate(() => window.__animApply({
+      copies: [{ of: 0, dy: -300 }],
+      svg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><circle cx='640' cy='640' r='120' fill='none' stroke='#888'/></svg>",
+      morphs: [{ keys: [0, 3] }, { keys: [1], path: 4 }], loop: 3 }));
+    const s1 = await S();
+    if (r.made !== 2 || r.added !== 2 || s1.n !== 3 || s1.held !== 3 || !s1.play || Math.abs(s1.loop - 3) > 1e-9 || s1.morphs.length !== 2 || s1.morphs[0].keys !== 2 || !s1.morphs[1].path)
+      throw new Error('the reply landed as ' + JSON.stringify({ r, n: s1.n, held: s1.held, play: s1.play, loop: s1.loop, morphs: s1.morphs }));
+    const exact = await ap.evaluate(() => window.__box.morphDiag().map(q => q.exact));
+    if (!exact.every(Boolean)) throw new Error('the morphs are not exact: ' + exact);
+    const r2 = await ap.evaluate(() => window.__animApply({ change: [{ morph: 0, rate: 2, phase: 0.25 }, { morph: 1, end: true }] }));
+    const s2 = await S();
+    if (r2.changed !== 1 || r2.ended !== 1 || s2.morphs.length !== 1 || s2.morphs[0].rate !== 2 || s2.morphs[0].phase !== 0.25 || s2.morphs[0].keys !== 2)
+      throw new Error('the change gave ' + JSON.stringify({ r2, morphs: s2.morphs }));
+    const undo = async () => { await ap.evaluate(() => document.getElementById('bUndo').click()); await ap.waitForTimeout(250); return S(); };
+    const u1 = await undo(), u2 = await undo();
+    if (JSON.stringify(u1.morphs) !== JSON.stringify(s1.morphs) || u2.morphs.length !== 0 || u2.n !== 3 || u2.held !== 3)
+      throw new Error('undo gave ' + JSON.stringify([u1.morphs, u2.morphs, u2.n, u2.held]));
+    await ap.close();
+  } catch (e){
+    failures.push(`[animate with ai] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} animate it with ai: a reply lands as morphs, one undo step, and change it keeps the rest`);
+}
+
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,
    edges straight, never leaves until asked. A triangle closed on its start point and a line of
    two points finished by a double-click; both held exact through a click and a drag of a

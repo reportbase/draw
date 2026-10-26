@@ -123,7 +123,14 @@ publishes.
     SVG export (an opacity animation) following. Undo snapshots carry the live morphs (UNDO STEPS THROUGH THE MORPHS:
     `snapshotState().morph` is `morphStateSave`, the autosave's own record, restored from a copy at the end of
     `applySnapshot`, the clock left where it is); a setting from a slider or a field is one step once it rests
-    (`morphHistorySoon`).
+    (`morphHistorySoon`). The AI panel's **animate it** and **change it** (ANIMATE IT WITH AI, 26 Oct 2026, Tom:
+    "the human could gently tweak the generated AI result", then "1,2") ask Claude for the scene link's vocabulary,
+    not frames: the drawing goes out as a picture and as its shapes numbered in a 1000 box (`animSketch`, read without
+    turning held shapes into leaves), with the live morphs' settings (`animMorphsNow`); the reply's `copies` (a shape
+    moved, turned, sized, kept exact: `animCopy`), `svg` (new outlines and motion paths, landed exact where the box
+    puts them) and `morphs` go through the scene link's own `applySceneMorphs` (partial: what it leaves out stays),
+    its `change` items through `sceneChangeRuns` (by morph: only what is named changes; `end` gives the keys back),
+    and the whole reply is one undo step. `SYS_ANIM` is the prompt: a field added to the scene link belongs in it.
     The animated SVG export (EXPORTING A MORPH) takes as many frames as each morph's motion needs (doubling from the
     panel's count to 240 until a straight blend between frames is within 0.2% of the scene), each morph its own count,
     writes a morph that moves and turns as its outline plus a translate and rotate (a still: one outline), and writes
