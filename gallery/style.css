@@ -506,9 +506,13 @@ a.paper:hover{background:rgba(124,92,255,.22);color:#d9cfff}
 /* ── EMBEDDED ── (embedded.html) every tile the leaf editor itself, playing in an iframe over its drawing */
 .page-embedded .tile .stage{position:relative}
 .page-embedded .tile .stage svg{display:block;width:100%;height:236px;padding:20px}
+.page-embedded .tile .stage svg.anim{padding:6px}
+.page-embedded iframe.host{position:absolute;left:-9999px;top:0;width:480px;height:320px;border:0;visibility:hidden}
+.page-embedded .tile .tools .live.on{background:var(--ok);border-color:var(--ok);color:#0c0f16}
+.page-embedded .tile .tools .svgcopy{background:var(--curv);border-color:var(--curv);color:#fff}
+.page-embedded .tile .tools .svgcopy.done{background:var(--ok);border-color:var(--ok);color:#0c0f16}
+.page-embedded .tile .tools .svgcopy:disabled{opacity:.45}
 .page-embedded .tile .stage iframe.player{position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .3s;pointer-events:none}
 .page-embedded .tile .stage iframe.player.on{opacity:1}
-.page-embedded .tile .tools .copy{background:var(--curv);border-color:var(--curv);color:#fff}
-.page-embedded .tile .tools .copy:hover{background:#8d72ff}
 .page-embedded .tile .tools .copy.done{background:var(--ok);border-color:var(--ok);color:#0c0f16}
 .page-embedded .tile code.src{cursor:default;word-break:break-all}

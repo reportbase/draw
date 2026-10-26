@@ -15,22 +15,23 @@
   <nav class="crumbs"><a href="index.html">← all galleries</a> · 28 of 28</nav>
   <h1>tvf <em>embedded</em> <span class="pill">draw.html?embed=1</span></h1>
   <p class="lede">
-    The animations again, but every tile here is <b>the leaf editor itself, running</b>, the way it would sit on
-    any web page: <code>draw.html?embed=1</code> is the editor as a player, the canvas alone with none of its
-    controls, playing the scene its link carries. Nothing is recorded or rendered ahead: each frame is the
-    editor blending the keys, riding the paths and swinging the springs as you watch.
+    The animations again, made to leave the editor. Every tile plays as <b>one SVG file</b>: the scene turned into
+    its picture by the leaf editor, once, and then playing on its own, all of them at once, with no script and no
+    editor behind it. <b>copy svg</b> gives that file, the lightest way to put one on a page: paste it in and it
+    moves.
   </p>
   <p class="sub">
-    <b>copy embed code</b> gives a tile's <code>&lt;iframe&gt;</code>, ready to paste into a page of your own; the
-    whole animation rides in its address, so nothing else needs hosting. An embed never reads or writes the
-    drawing saved in your editor. The editor is a large page, so only the tiles in view play, a few at a time,
-    and a tile scrolled away stops.
+    <b>live</b> plays a tile in the editor itself, the exact way (<code>draw.html?embed=1</code>, the canvas
+    alone), and <b>copy embed code</b> gives that as an <code>&lt;iframe&gt;</code> whose address carries the whole
+    scene. The SVG is the editor's own export: each motion with as many frames as it needs, a shape that only
+    moves and turns written once and moved, trails as the motion begun earlier. Neither way reads or writes the
+    drawing saved in your editor.
   </p>
 </header>
 
 <div class="bar"><div class="bar-in">
   <span class="count" id="count"></span>
-  <span class="count" id="live"></span>
+  <span class="count" id="made"></span>
   <div class="spacer"></div>
   <a class="jump" href="#showpieces">showpieces</a>
   <a class="jump" href="#corners">corners kept</a>
@@ -41,9 +42,10 @@
 <main id="main"></main>
 
 <footer>
-  An embed is an <code>&lt;iframe&gt;</code> of <code>draw.html?embed=1#scene=…</code>: the drawing as SVG and the
-  live morph's settings as JSON, deflated into the address. Make your own in the leaf editor, or start from
-  any tile on the <a href="animated.html">animated</a> page and change the scene there.
+  A tile's SVG is what the editor's <b>svg</b> button on the morph bar writes; its embed code is an
+  <code>&lt;iframe&gt;</code> of <code>draw.html?embed=1#scene=…</code>, the drawing and the live morph's settings
+  deflated into the address. Make your own in the leaf editor, or start from any tile on the
+  <a href="animated.html">animated</a> page and change the scene there.
   <div class="next">That is the last of them. <a href="index.html">Back to all galleries</a>, or open the <a href="../draw.html">leaf editor</a>.</div>
 </footer>
 
@@ -1632,7 +1634,7 @@ const SHOWPIECES = [];
 // (draw.html, FOLLOWING LOOSELY, AND FACING), so the tail trails, swings out on the turns and settles; a cat on
 // the hill keeps its face to the kite the whole way round.
 {
-  let sky = `<rect x="0" y="0" width="900" height="480" fill="#bfe3f5"/>`
+  let sky = `<rect x="-30" y="0" width="960" height="480" fill="#bfe3f5"/>`
     + smooth([[6, 432], [200, 362], [460, 400], [700, 352], [894, 412], [880, 474], [20, 474]], '#7cbf6a');
   const kite = polyOf([[450, 60], [482, 112], [450, 176], [418, 112]], '#e2563f');
   const eight = smoothD(Array.from({ length: 40 }, (_, i) => {
@@ -1689,28 +1691,92 @@ async function sceneCode(ex) {
 }
 // <<< end of EXAMPLES
 
-// ── THE EMBEDDED GALLERY (26 Oct 2026, Tom: "could you do a gallery for embedded examples?") ─────────────────
-// The examples above are animated.html's, copied unchanged (npm test fails if the two copies part). Here each
-// tile is an <iframe> of draw.html?embed=1 (THE EMBED in draw.html): the editor as a player, which never
-// touches the saved scene. The editor is several megabytes of script and a live canvas, so the tiles in view
-// play, the first few in reading order (MAX_LIVE: six, two on a narrow screen), and a tile scrolled out of view
-// gives its editor back; the drawing stands in until its editor is running.
-const MAX_LIVE = matchMedia('(max-width: 720px)').matches ? 2 : 6;
+// ── THE EMBEDDED GALLERY (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with
+// your recommendations": a light player) ────────────────────────────────────────────────────────────────────
+// The examples above are animated.html's, copied unchanged (npm test fails if the two copies part). Each scene
+// is shown two ways:
+//   as its animated SVG, the light way: one hidden editor (draw.html?embed=1, THE EMBED, which never touches the
+//     saved scene) turns every scene into its SVG in turn (THE EMBED AS A CONVERTER), and each tile then plays
+//     with no editor behind it, all at once, SMIL and nothing else; a tile scrolled out of view is paused.
+//     "copy svg" gives that file, the lightest embed there is: no script, no address, a picture that moves.
+//   live, the exact way: "live" swaps the tile for the editor itself in an <iframe> (one tile at a time), and
+//     "copy embed code" gives that <iframe>, for a page that wants the editor's own drawing of it.
 const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch (_) { return false; }
 }
-// the address a page of yours would embed, and the tag to paste
 const embedUrl = code => new URL('../draw.html?embed=1#scene=' + code, location.href).href;
 const embedTag = (url, name) => `<iframe src="${url}" width="480" height="320" style="border:0;border-radius:8px" title="${esc(name)}, an animation made in the tvf leaf editor" loading="lazy"></iframe>`;
 const kb = n => (n / 1024).toFixed(1) + ' kB';
+const flash = (b, text, back) => { b.classList.add('done'); b.textContent = text; setTimeout(() => { b.classList.remove('done'); b.textContent = back; }, 1400); };
 
-const tiles = [], seen = new Set();
-function goLive(tile) {
-  if (tile.querySelector('iframe.player')) return;
+const tiles = [];
+// the one hidden editor that turns scenes into SVG, and the queue it works through
+let host = null, hostReady = null, nextId = 1;
+const waiting = new Map();
+function ensureHost() {
+  if (hostReady) return hostReady;
+  host = document.createElement('iframe');
+  host.className = 'host';
+  host.title = 'the leaf editor, turning scenes into pictures';
+  host.setAttribute('aria-hidden', 'true');
+  host.src = new URL('../draw.html?embed=1', location.href).href;
+  hostReady = new Promise(res => host.addEventListener('load', () => setTimeout(res, 400), { once: true }));
+  document.body.appendChild(host);
+  return hostReady;
+}
+window.addEventListener('message', e => {
+  const m = e.data;
+  if (e.origin !== location.origin || !m || m.type !== 'tvf-scene-svg' || !waiting.has(m.id)) return;
+  const res = waiting.get(m.id);
+  waiting.delete(m.id);
+  res(m.svg);
+});
+async function toSvg(code) {
+  await ensureHost();
+  const id = nextId++;
+  return new Promise(res => { waiting.set(id, res); host.contentWindow.postMessage({ type: 'tvf-scene-svg', id, code }, location.origin); });
+}
+// the SVG export is drawn on a 1000-unit square; in a tile it fills the stage
+function fitSvg(text) {
+  const box = document.createElement('div');
+  box.innerHTML = text;
+  const el = box.querySelector('svg');
+  if (!el) return null;
+  el.removeAttribute('width');
+  el.removeAttribute('height');
+  el.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  el.classList.add('anim');
+  return el;
+}
+// pause what is out of view: twenty SMIL pictures playing at once off screen would cost for nothing
+const io = new IntersectionObserver(entries => {
+  for (const e of entries) {
+    const a = e.target.querySelector('svg.anim');
+    if (a) e.isIntersecting ? a.unpauseAnimations() : a.pauseAnimations();
+    e.target.classList.toggle('seen', e.isIntersecting);
+  }
+}, { threshold: 0.05 });
+
+let liveTile = null;
+function setLive(tile) {
+  const was = liveTile;
+  if (liveTile) {
+    const f = liveTile.querySelector('iframe.player');
+    if (f) f.remove();
+    liveTile.classList.remove('live');
+    const b = liveTile.querySelector('.live');
+    b.textContent = 'live'; b.classList.remove('on');
+    liveTile = null;
+  }
+  if (!tile || was === tile) return;
+  liveTile = tile;
+  tile.classList.add('live');
+  const b = tile.querySelector('.live');
+  b.textContent = 'svg'; b.classList.add('on');
   const f = document.createElement('iframe');
   f.className = 'player';
-  f.title = tile.dataset.name + ', playing';
+  f.title = tile.dataset.name + ', playing in the editor';
   f.src = tile.dataset.embed;
   f.addEventListener('load', () => {
     const t0 = Date.now();
@@ -1718,27 +1784,12 @@ function goLive(tile) {
       if (!f.isConnected) return;
       let up = false;
       try { const m = f.contentWindow.__box && f.contentWindow.__box.morph(); up = !!(m && m.play); } catch (_) { up = Date.now() - t0 > 1500; }
-      if (up || Date.now() - t0 > 4000) { f.classList.add('on'); tile.classList.add('live'); }
-      else setTimeout(ready, 80);
+      if (up || Date.now() - t0 > 4000) f.classList.add('on'); else setTimeout(ready, 80);
     };
     ready();
   });
   tile.querySelector('.stage').appendChild(f);
 }
-function goStill(tile) {
-  const f = tile.querySelector('iframe.player');
-  if (f) f.remove();
-  tile.classList.remove('live');
-}
-function schedule() {
-  const want = new Set(tiles.filter(t => seen.has(t)).slice(0, MAX_LIVE));
-  for (const t of tiles) (want.has(t) ? goLive : goStill)(t);
-  document.getElementById('live').textContent = want.size + ' playing';
-}
-const io = new IntersectionObserver(entries => {
-  for (const e of entries) e.isIntersecting ? seen.add(e.target) : seen.delete(e.target);
-  schedule();
-}, { threshold: 0.2 });
 
 (async () => {
   const main = document.getElementById('main');
@@ -1758,25 +1809,52 @@ const io = new IntersectionObserver(entries => {
       tile.dataset.name = ex.name;
       tile.dataset.embed = url;
       tile.dataset.tag = tag;
+      tile.dataset.code = code;
       tile.innerHTML =
-        `<div class="stage">${ex.svg}</div>` +
-        `<div class="tools"><button class="copy" title="copy this animation's <iframe> tag, to paste into a page of your own">copy embed code</button>` +
+        `<div class="stage"><div class="still">${ex.svg}</div></div>` +
+        `<div class="tools"><button class="svgcopy" disabled title="copy this animation as one SVG file: it plays on its own, in any page or browser, with no script">copy svg</button>` +
+        `<button class="copy" title="copy an <iframe> of the leaf editor playing it, to paste into a page of your own">copy embed code</button>` +
+        `<button class="live" title="play it here in the leaf editor itself, the exact way (one tile at a time)">live</button>` +
         `<button class="open" title="open it in the leaf editor, to change it">open in draw ↗</button></div>` +
         `<div class="body"><h3>${esc(ex.name)}</h3><p class="note">${esc(ex.note)}</p>` +
-        `<code class="src">${esc(`<iframe src="…/draw.html?embed=1#scene=${code.slice(0, 10)}…" width="480" height="320">`)} · ${kb(tag.length)}</code></div>`;
+        `<code class="src">svg: <span class="svgsize">being made…</span> · embed: ${kb(tag.length)}</code></div>`;
       tile.querySelector('.open').addEventListener('click', () => window.open(new URL('../draw.html#scene=' + code, location.href).href, '_blank', 'noopener'));
+      tile.querySelector('.live').addEventListener('click', () => setLive(tile));
       const cb = tile.querySelector('.copy');
-      cb.addEventListener('click', async () => {
-        if (await copyText(tag)) { cb.classList.add('done'); cb.textContent = 'copied'; setTimeout(() => { cb.classList.remove('done'); cb.textContent = 'copy embed code'; }, 1400); }
-      });
+      cb.addEventListener('click', async () => { if (await copyText(tag)) flash(cb, 'copied', 'copy embed code'); });
+      const sb = tile.querySelector('.svgcopy');
+      sb.addEventListener('click', async () => { if (tile._svg && await copyText(tile._svg)) flash(sb, 'copied', 'copy svg'); });
       grid.appendChild(tile);
       tiles.push(tile);
       io.observe(tile);
     }
     main.appendChild(el);
   }
-  document.getElementById('count').textContent = EXAMPLES.length + ' embeds';
-  window.__embedded = { max: MAX_LIVE, ids: tiles.map(t => t.id), live: () => tiles.filter(t => t.querySelector('iframe.player')).map(t => t.id), tag: id => (document.getElementById(id) || {}).dataset.tag }; // for the smoke test
+  document.getElementById('count').textContent = EXAMPLES.length + ' animations';
+  window.__embedded = {
+    ids: tiles.map(t => t.id),
+    svgs: () => tiles.filter(t => t._svg).map(t => t.id),
+    playing: () => tiles.filter(t => { const a = t.querySelector('svg.anim'); return a && !a.animationsPaused(); }).map(t => t.id),
+    live: () => liveTile ? liveTile.id : null,
+    tag: id => (document.getElementById(id) || {}).dataset.tag,
+    svg: id => (document.getElementById(id) || {})._svg || null,
+  }; // for the smoke test
+  // each scene in turn through the one hidden editor, the tiles in view first
+  const order = tiles.filter(t => t.classList.contains('seen')).concat(tiles.filter(t => !t.classList.contains('seen')));
+  let made = 0;
+  for (const tile of order) {
+    const text = await toSvg(tile.dataset.code);
+    const el = text && fitSvg(text);
+    const size = tile.querySelector('.svgsize');
+    if (!el) { size.textContent = 'could not be made'; continue; }
+    tile._svg = text;
+    tile.querySelector('.still').replaceWith(el);
+    if (!tile.classList.contains('seen')) el.pauseAnimations();
+    size.textContent = kb(text.length);
+    tile.querySelector('.svgcopy').disabled = false;
+    document.getElementById('made').textContent = ++made + ' of ' + tiles.length + ' made';
+  }
+  if (host) { host.remove(); host = null; hostReady = null; } // its work done, the editor goes
 })();
 </script>
 </body>

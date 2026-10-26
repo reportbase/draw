@@ -109,10 +109,20 @@ publishes.
     them back; `run.times`, `run.eases`, carried onto the even kernel by `morphWarp`). The bar's **timeline** button opens
     THE SCENE'S TIMELINE (`#morphTimeline`): every live morph a row, its keys where they land on the shared clock (a rate
     shows them that many times), drag one to retime it, drag the ruler or a row to scrub, a row's number selects it.
+    A live shape edited on the canvas while paused (EDITING A KEY ON THE CANVAS) lands in its keys when the edit lands
+    in the undo history: at a key's time (within a thousandth) that key, between keys a new key there, the others
+    keeping their times, carried back through path, spin, parent and facing (`morphTakeEdit`; not with an effect, nor
+    an exact edit that changes the corner count). The strip's **draw path** (DRAWING A PATH WHILE IT PLAYS) plays the
+    morph while a stroke on the canvas becomes the selected morphs' own path, taken before the editor sees it.
+    **corners ◀ ▶** (CORNERS PAIRED BY HAND) turns the corners of the key you stand on (or the next) a place, faint
+    lines showing the pairing; scene link `pair: [places per key]`. A morph can play once (A MORPH THAT PLAYS ONCE,
+    `run.clip = {start, len}`, scene link `clip`): first key to last over its window, holding either side; the
+    timeline shows it as a bar to move and stretch, a row's ↻/1× toggles it, **in turn** makes a sequence.
     The animated SVG export (EXPORTING A MORPH) takes as many frames as each morph's motion needs (doubling from the
     panel's count to 240 until a straight blend between frames is within 0.2% of the scene), each morph its own count,
     writes a morph that moves and turns as its outline plus a translate and rotate (a still: one outline), and writes
-    echoes and ribbons as the same animations begun earlier; `__box.morphSvg(o)` returns the text. Opening one replaces the drawing, asking first when the tab
+    echoes and ribbons as the same animations begun earlier, in a frame of the drawing's own proportions (1000 on its
+    longer side); `__box.morphSvg(o)` returns the text. Opening one replaces the drawing, asking first when the tab
     holds the user's; shapes the SVG gave no stroke get no editor outline. The editor's menu links it ("animations ↗").
     A tile's **play** button (or its picture) plays it in place, in the editor itself: `draw.html?embed=1#scene=…` (THE
     EMBED in `draw.html`) shows the canvas alone, draws none of the editor's own marks, and never reads or writes the
@@ -124,11 +134,13 @@ publishes.
     come first, the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
-  - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?") is the last page, a chart page:
-    the same examples with every tile the editor itself playing in an `<iframe>` of `draw.html?embed=1#scene=…` (THE
-    EMBED), and each tile's **copy embed code** giving that `<iframe>` to paste into a page of one's own. The tiles in
-    view play, the first `MAX_LIVE` in reading order (six, two on a narrow screen), and a tile scrolled away gives its
-    editor back. In an embed the editor frames the scene to fill its frame (`embedFit`, again on a resize). Its
+  - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your
+    recommendations": a light player) is the last page, a chart page: the same examples, each tile its **animated
+    SVG**, made by one hidden editor (THE EMBED AS A CONVERTER in `draw.html`: an embed of the same origin answers
+    `{type: 'tvf-scene-svg', id, code}` with `{type, id, svg}`) and then playing on its own (SMIL, no script, the editor
+    gone once all are made; out of view, paused); **copy svg** gives that file. **live** plays one tile in the editor
+    itself (an `<iframe>` of `draw.html?embed=1#scene=…`, THE EMBED) and **copy embed code** gives that `<iframe>`. In
+    an embed the editor frames the scene to fill its frame (`embedFit`, again on a resize). Its
     examples are animated.html's, **copied unchanged** between `// >>> copied from animated.html, unchanged: EXAMPLES`
     and `// <<< end of EXAMPLES` (from `// ── THE EXAMPLES` up to `// the settings as one line`): change them in
     animated.html and copy them across, or `npm test` fails. Hook `window.__embedded`.
