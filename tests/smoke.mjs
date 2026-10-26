@@ -1153,8 +1153,9 @@ current = 'embedded gallery';
     const fr = eg.frames().find(f => /embed=1/.test(f.url())); // the converter is gone; this is the live one
     if (!fr || !(await fr.evaluate(() => window.__box.morph().play))) throw new Error('"live" did not play the orrery in the editor');
     await eg.evaluate(() => document.querySelector('footer').scrollIntoView());
-    await eg.waitForTimeout(600);
-    if ((await eg.evaluate(() => window.__embedded.playing())).includes(info.ids[0])) throw new Error('scrolled away, the first tile\'s svg still plays');
+    // the page scrolls smoothly, so wait for the first tile to leave the view rather than a fixed while
+    const paused = await eg.waitForFunction(id => !window.__embedded.playing().includes(id), info.ids[0], { timeout: 10000 }).then(() => true, () => false);
+    if (!paused) throw new Error('scrolled away, the first tile\'s svg still plays');
   } catch (e){
     failures.push(`[embedded] ${e.message.split('\n')[0]}`);
   }
