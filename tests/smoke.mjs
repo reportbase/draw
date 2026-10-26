@@ -1385,6 +1385,52 @@ current = 'animate with ai';
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} animate it with ai: a reply lands as morphs, one undo step, and change it keeps the rest`);
 }
 
+/* ANIMATE IT, END TO END, STREAMED (draw.html). The gateway is answered here with a reply streamed as the
+   API streams it (server-sent events, the text in pieces), the way a real one arrives since a silent minute
+   and a half closed the request with HTTP 524: the prompt typed, "animate it" pressed, and the morph lands.
+   What was sent is checked too: streamed, the drawing as a picture and as its numbered shapes. */
+current = 'animate streamed';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => failures.push(`[animate streamed] ${e.message}`));
+  await sp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  let sent = null;
+  await sp.route('https://login.tangent.workers.dev/auth/me', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { email: 'test@example.com' }, quota: { remaining: 9, limit: 10 } }) }));
+  await sp.route('https://login.tangent.workers.dev/v1/messages', r => {
+    sent = JSON.parse(r.request().postData() || '{}');
+    const reply = JSON.stringify({ note: 'the sun rises', copies: [{ of: 0, dy: -300 }], morphs: [{ keys: [0, 3] }], loop: 3 });
+    const pieces = reply.match(/.{1,40}/g);
+    const ev = (t, d) => 'event: ' + t + '\ndata: ' + JSON.stringify(d) + '\n\n';
+    const body = ev('message_start', { type: 'message_start', message: {} })
+      + pieces.map(p => ev('content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: p } })).join('')
+      + ev('message_delta', { type: 'message_delta', delta: { stop_reason: 'end_turn' } }) + ev('message_stop', { type: 'message_stop' });
+    r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream', 'access-control-allow-origin': '*', 'x-gateway-quota-remaining': '8', 'x-gateway-quota-limit': '10' }, body });
+  });
+  try {
+    await sp.addInitScript(() => { try { localStorage.setItem('tangent.login.v1', 'test-session'); } catch (_) {} });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="60" cy="140" r="20" fill="#f5c542"/><rect x="120" y="120" width="30" height="30" fill="#4287f5"/><polygon points="20,190 180,190 100,170" fill="#3a3"/></svg>';
+    await sp.goto(scene({ name: 'streamed', svg, morphs: [] }), { waitUntil: 'load' });
+    await sp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 });
+    await sp.click('#bAi'); await sp.waitForTimeout(200);
+    await sp.fill('#aiPrompt', 'the sun rises');
+    await sp.click('#aiAnimate');
+    await sp.waitForFunction(() => { const s = window.__animSketch(); return s && s.morphs.length === 1; }, null, { timeout: 15000 });
+    const s = await sp.evaluate(() => window.__animSketch());
+    const status = await sp.$eval('#aiStatus', e => e.textContent);
+    if (!sent || sent.stream !== true || sent.system.indexOf('MORPHS') < 0 || !sent.messages[0].content.some(b => b.type === 'image') || !sent.messages[0].content.some(b => b.type === 'text' && b.text.indexOf('id="s0"') >= 0))
+      throw new Error('the request: ' + JSON.stringify(sent).slice(0, 200));
+    if (s.morphs[0].keys !== 2 || s.held !== s.n || !/the sun rises/.test(status) || !(await sp.$eval('#aiAnimChange', b => !b.disabled)))
+      throw new Error('the reply landed as ' + JSON.stringify({ morphs: s.morphs, held: s.held, n: s.n, status }));
+    await sp.close();
+  } catch (e){
+    failures.push(`[animate streamed] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} animate it, end to end, with the reply streamed`);
+}
+
 /* THE SCENE LINK, WRITTEN BY THE EDITOR (draw.html). A scene with a still riding a path round a parent that
    morphs, keys at their own times and eases, a clip that fades and a trail is written back out as a link; opened,
    every morph comes back with the same settings and the same shapes; the embed code is the editor as a player. And

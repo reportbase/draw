@@ -75739,6 +75739,12 @@
             // One door to the API for all three features (generate, critique, refine),
             // so the headers, error mapping and key handling can't drift apart.
             async function apiCall(payload) {
+                // STREAMED (26 Oct 2026, Tom: '"animate it" request failed — HTTP 524'). A request that sends
+                // nothing back for about 100 seconds is closed on the way by Cloudflare (HTTP 524), and an
+                // answer to a picture plus a long brief can take longer than that to write. Streamed, the
+                // reply arrives as it is written, so the line is never silent; the pieces are put back
+                // together here into the same shape a plain reply has, and the callers read it as before.
+                // (The 3d studio's describe-it streams through the same gateway for the same reason.)
                 const res = await fetch(GATEWAY + '/v1/messages', {
                     method: 'POST',
                     headers: {
@@ -75747,7 +75753,7 @@
                         authorization: 'Bearer ' + session,
                     },
                     // who you are; the key stays in the Worker
-                    body: JSON.stringify(payload),
+                    body: JSON.stringify(Object.assign({}, payload, { stream: true })),
                 });
                 // The gateway reports the allowance on every reply, so the button can show
                 // what is left without a second round trip.
@@ -75763,8 +75769,8 @@
                     };
                     syncAccount();
                 }
-                const data = await res.json().catch(() => null);
                 if (!res.ok) {
+                    const data = await res.json().catch(() => null);
                     const apiMsg = data && data.error && data.error.message;
                     const type = data && data.error && data.error.type;
                     if (res.status === 401) {
@@ -75778,9 +75784,55 @@
                         throw new Error(apiMsg || 'this gateway will not serve this page');
                     if (res.status === 429)
                         throw new Error('too many requests — wait a moment and try again');
+                    if (res.status === 524 || res.status === 504)
+                        throw new Error('the request timed out on the way (HTTP ' + res.status + ') — try again, or ask for something a little smaller');
+                    if (res.status === 529 || res.status === 503)
+                        throw new Error('Claude is busy right now (HTTP ' + res.status + ') — try again in a minute');
                     throw new Error(apiMsg || ('request failed — HTTP ' + res.status));
                 }
-                return data;
+                if (!/event-stream/.test(res.headers.get('content-type') || ''))
+                    return await res.json(); // a gateway that answered plainly after all
+                const rd = res.body.getReader(),
+                    dec = new TextDecoder();
+                let buf = '',
+                    text = '',
+                    stop = null,
+                    errMsg = null,
+                    last = 0;
+                for (;;) {
+                    const { done, value } = await rd.read();
+                    if (done)
+                        break;
+                    buf += dec.decode(value, { stream: true });
+                    let i;
+                    while ((i = buf.indexOf('\n\n')) >= 0) {
+                        const ev = buf.slice(0, i);
+                        buf = buf.slice(i + 2);
+                        const line = ev.split('\n').find(l => l.startsWith('data:'));
+                        if (!line)
+                            continue;
+                        let d;
+                        try {
+                            d = JSON.parse(line.slice(5));
+                        } catch (_) {
+                            continue;
+                        }
+                        if (d.type === 'content_block_delta' && d.delta && d.delta.type === 'text_delta')
+                            text += d.delta.text;
+                        else if (d.type === 'message_delta' && d.delta && d.delta.stop_reason)
+                            stop = d.delta.stop_reason;
+                        else if (d.type === 'error')
+                            errMsg = (d.error && d.error.message) || 'the reply broke off';
+                    }
+                    const now = performance.now();
+                    if (text && now - last > 400) {
+                        last = now;
+                        setStatus('writing… ' + (text.length / 1024).toFixed(1) + ' kB so far', 'busy');
+                    }
+                }
+                if (errMsg)
+                    throw new Error(/overload/i.test(errMsg) ? 'Claude is busy right now — try again in a minute' : errMsg);
+                return { content: [{ type: 'text', text }], stop_reason: stop };
             }
             const textOf = data => (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
             function svgOf(text) {
