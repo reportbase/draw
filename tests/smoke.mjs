@@ -1385,6 +1385,61 @@ current = 'animate with ai';
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} animate it with ai: a reply lands as morphs, one undo step, and change it keeps the rest`);
 }
 
+/* THE SCENE LINK, WRITTEN BY THE EDITOR (draw.html). A scene with a still riding a path round a parent that
+   morphs, keys at their own times and eases, a clip that fades and a trail is written back out as a link; opened,
+   every morph comes back with the same settings and the same shapes; the embed code is the editor as a player. And
+   a morph made in the editor (the AI's copies) round-trips the same way. */
+current = 'scene link out';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const before = failures.length;
+  const open = async url => {
+    const p = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    p.on('pageerror', e => failures.push(`[scene link out] ${e.message}`));
+    await p.route(/fonts\.g/, r => r.abort());
+    await p.goto(url, { waitUntil: 'load' });
+    await p.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+    await p.waitForTimeout(400);
+    return p;
+  };
+  const look = p => p.evaluate(() => { const s = window.__animSketch(); return { n: s.n, held: s.held, morphs: s.morphs.map(o => { const q = Object.assign({}, o); delete q.shape; return q; }) }; });
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><circle cx="200" cy="150" r="40" fill="#f2c14e"/><circle cx="200" cy="150" r="55" fill="#f29e4e"/>'
+      + '<circle cx="300" cy="150" r="12" fill="#4f8fd6"/><circle cx="200" cy="150" r="100" fill="none" stroke="#888"/><rect x="20" y="20" width="40" height="40" fill="#b07de0"/><rect x="20" y="20" width="60" height="20" fill="#e05a6a"/></svg>';
+    const a = await open(scene({ name: 'out', svg, loop: 5, ease: 'inout', morphs: [
+      { keys: [0, 1], times: [0, 0.3], eases: ['out', 'in'], trail: { kind: 'echoes', len: 0.4 } },
+      { keys: [2], path: 3, turn: false, rate: 2, phase: 0.25, parent: 0, laps: 2 },
+      { keys: [4, 5], clip: { start: 0.2, len: 0.5, show: 'fade' }, fx: { kind: 'grow', amount: 0.3 } }] }));
+    const A = await look(a);
+    const s = await a.evaluate(async () => { const s = await window.__sceneShare(); return { link: s.link, embed: s.embed }; });
+    if (!/\?embed=1#scene=z/.test(s.embed) || !/^<iframe /.test(s.embed) || !/#scene=z/.test(s.link) || /embed=1/.test(s.link)) throw new Error('the link and embed: ' + s.link.slice(0, 80) + ' / ' + s.embed.slice(0, 120));
+    if (!(await a.$('#bMorphLink')) || !(await a.$('#bMorphEmbed'))) throw new Error('no link or embed button in the morph bar');
+    const b = await open(s.link);
+    const B = await look(b);
+    if (JSON.stringify(A) !== JSON.stringify(B) || A.morphs.length !== 3 || A.morphs[1].parent !== 0 || !A.morphs[1].path || !A.morphs[2].clip)
+      throw new Error('the scene came back as ' + JSON.stringify(B) + ', not ' + JSON.stringify(A));
+    // morphs the editor made, not a link (the AI's copy and path, a rate set after), then out and back
+    const e = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    e.on('pageerror', x => failures.push(`[scene link out] ${x.message}`));
+    await e.route(/fonts\.g/, r => r.abort());
+    await e.goto(scene({ name: 'made', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="60" cy="140" r="20" fill="#f5c542"/><rect x="120" y="120" width="30" height="30" fill="#4287f5"/><polygon points="20,190 180,190 100,170" fill="#3a3"/></svg>', morphs: [] }), { waitUntil: 'load' });
+    await e.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 });
+    await e.evaluate(() => window.__animApply({ copies: [{ of: 0, dy: -300, turn: 30 }], svg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><circle cx='640' cy='640' r='120' fill='none' stroke='#888'/></svg>",
+      morphs: [{ keys: [0, 3] }, { keys: [1], path: 4, spin: 1 }], loop: 3 }));
+    await e.evaluate(() => window.__animApply({ change: [{ morph: 0, rate: 3 }] }));
+    const C = await look(e);
+    const s2 = await e.evaluate(async () => (await window.__sceneShare()).link);
+    const c = await open(s2);
+    const D = await look(c);
+    if (JSON.stringify(C) !== JSON.stringify(D) || C.morphs.length !== 2 || C.morphs[0].rate !== 3) throw new Error('an editor-made scene came back as ' + JSON.stringify(D) + ', not ' + JSON.stringify(C));
+    await a.close(); await b.close(); await c.close(); await e.close();
+  } catch (e){
+    failures.push(`[scene link out] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the editor writes its scene as a link and embed code, and it opens as it played`);
+}
+
 /* THE AUTOSAVE KEEPS SMOOTH CORNERS (draw.html). An exact shape's smooth corners and a shape's smoothing were
    both saved as `sm`, and the second replaced the first, so a reload lost every smooth corner. A circle has four. */
 current = 'autosave smooth';

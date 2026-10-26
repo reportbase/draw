@@ -14,7 +14,7 @@
 <body class="page-labs">
 <header>
   <nav class="crumbs"><a href="draw.html">← the editor</a> · <a href="gallery/index.html">the galleries</a></nav>
-  <h1>tvf <em>labs</em> <span class="pill">90 labs</span></h1>
+  <h1>tvf <em>labs</em> <span class="pill">92 labs</span></h1>
   <p class="lede">
     The leaf editor's lab drawer holds the <b>experiments</b>: instruments that measure the format rather than
     make shapes with it, test suites that print their own numbers, and figures laid out for a paper. Each
@@ -29,7 +29,7 @@
 </header>
 <div class="bar"><div class="bar-in">
   <input id="q" type="search" placeholder="filter: a code, a word, a heading" aria-label="filter the labs" autocomplete="off">
-  <span class="count" id="count">90 labs</span>
+  <span class="count" id="count">92 labs</span>
   <div class="spacer"></div>
   <a class="jump" href="draw.html?lab=list" title="open the editor with the lab drawer listed">open the drawer</a>
 </div></div>
@@ -681,7 +681,7 @@
     </ul>
   </section>
   <section class="group" id="g56">
-    <div class="sec-head"><h2>the live morph</h2><div class="rule"></div><span class="n">11 labs</span></div>
+    <div class="sec-head"><h2>the live morph</h2><div class="rule"></div><span class="n">13 labs</span></div>
     <div class="sec-note">The controls of a running morph, which sit in the bar under the canvas rather than in the drawer. <details><summary>more</summary>They act on the morph that is live, so they do nothing until one is: select two or more shapes, press morph in the toolbar, then live.</details></div>
     <ul class="labs">
       <li class="lab" data-q="mpl run run every live morph as a loop. one clock drives all of them, so several morphs started separately stay in register with each other and a still frame is a frame of the same moment. the blend is recomputed from the keys every frame — there is nothing baked, so the shapes you are watching are real shapes at every instant and you can stop anywhere and keep them. the live morph">
@@ -724,6 +724,14 @@
         <a class="run" href="draw.html?lab=mgf" title="open the editor and run gif"><span class="code">mgf</span>gif</a>
         <p>record one loop as an animated .gif (20 frames a second, at most 480 pixels wide), looping forever</p>
       </li>
+      <li class="lab" data-q="msl link copy a link to this scene: the drawing and every live morph, as it plays now (keys, paths, timing, clips, trails, effects, what follows what). opened, the editor plays it the same way. the gallery's examples are links like this one. the live morph">
+        <a class="run" href="draw.html?lab=msl" title="open the editor and run link"><span class="code">msl</span>link</a>
+        <p>copy a link to this scene: the drawing and every live morph, as it plays now (keys, paths, timing, clips, trails, effects, what follows what). Opened, the editor plays it the same way. The gallery's examples are links like this one.</p>
+      </li>
+      <li class="lab" data-q="mse embed copy embed code for this scene: an &lt;iframe&gt; of the editor as a player (the canvas alone, which never touches anyone's saved drawing), playing it as it plays here the live morph">
+        <a class="run" href="draw.html?lab=mse" title="open the editor and run embed"><span class="code">mse</span>embed</a>
+        <p>copy embed code for this scene: an &lt;iframe&gt; of the editor as a player (the canvas alone, which never touches anyone's saved drawing), playing it as it plays here</p>
+      </li>
       <li class="lab" data-q="mex exit end every live morph and put all their keys back exactly where they were. poses you dropped with `keep` are ordinary shapes and stay. the live morph">
         <a class="run" href="draw.html?lab=mex" title="open the editor and run exit"><span class="code">mex</span>exit</a>
         <p>end every live morph and put all their keys back exactly where they were. Poses you dropped with `keep` are ordinary shapes and stay.</p>
@@ -752,7 +760,7 @@ q.addEventListener('input', () => {
     }
     sec.hidden = !any;
   }
-  count.textContent = words.length ? shown + ' of 90' : '90 labs';
+  count.textContent = words.length ? shown + ' of 92' : '92 labs';
   none.hidden = shown > 0;
 });
 </script>

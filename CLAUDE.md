@@ -131,6 +131,12 @@ publishes.
     puts them) and `morphs` go through the scene link's own `applySceneMorphs` (partial: what it leaves out stays),
     its `change` items through `sceneChangeRuns` (by morph: only what is named changes; `end` gives the keys back),
     and the whole reply is one undo step. `SYS_ANIM` is the prompt: a field added to the scene link belongs in it.
+    The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
+    what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
+    in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted
+    with cubics, each key's own colour), then the paths ridden, and every run's own settings as its entry; all 22
+    gallery examples round-trip with identical settings. Not carried: corners paired by hand, and `parentAt`. A field
+    added to the scene link belongs in `sceneOfEditor` as well as in `applySceneMorphs` and `SYS_ANIM`.
     The animated SVG export (EXPORTING A MORPH) takes as many frames as each morph's motion needs (doubling from the
     panel's count to 240 until a straight blend between frames is within 0.2% of the scene), each morph its own count,
     writes a morph that moves and turns as its outline plus a translate and rotate (a still: one outline), and writes
