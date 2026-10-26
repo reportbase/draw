@@ -1124,9 +1124,10 @@ current = 'timeline and following';
 }
 
 /* THE EMBEDDED GALLERY (gallery/embedded.html). Its examples are animated.html's, copied unchanged between
-   markers, and the two copies agree. The tiles in view play, each the editor in an embed, no more than the
-   page's limit at once, and the first tile's editor is running its example; a tile's embed code is an
-   <iframe> of draw.html?embed=1 carrying the scene; scrolled away, a tile stops. */
+   markers, and the two copies agree. One hidden editor turns every scene into its animated SVG; then every tile
+   plays as SVG alone (SMIL, no script), those in view unpaused, no editor left on the page; a tile's svg is an
+   <svg> with animations and its embed code an <iframe> of draw.html?embed=1 carrying the scene; "live" plays one
+   tile in the editor itself, and scrolled away a tile's SVG pauses. */
 current = 'embedded gallery';
 {
   const before = failures.length;
@@ -1139,23 +1140,109 @@ current = 'embedded gallery';
     const m = E.match(/\/\/ >>> copied from animated\.html, unchanged: EXAMPLES\n([\s\S]*?)\/\/ <<< end of EXAMPLES/);
     if (a0 < 0 || a1 < 0 || !m || m[1] !== A.slice(a0, a1)) throw new Error('the examples on embedded.html differ from animated.html\'s: copy them across');
     await eg.goto(new URL('gallery/embedded.html', base).href, { waitUntil: 'load' });
-    await eg.waitForFunction(() => window.__embedded && window.__embedded.live().length > 0, null, { timeout: 15000 });
-    const info = await eg.evaluate(() => ({ max: window.__embedded.max, live: window.__embedded.live(), first: window.__embedded.ids[0], tag: window.__embedded.tag(window.__embedded.ids[0]) }));
-    if (info.live.length > info.max || !info.live.includes(info.first)) throw new Error('the tiles in view: ' + JSON.stringify(info));
+    await eg.waitForFunction(() => window.__embedded && window.__embedded.svgs().length === window.__embedded.ids.length, null, { timeout: 120000 });
+    const info = await eg.evaluate(() => ({ ids: window.__embedded.ids, playing: window.__embedded.playing(), frames: document.querySelectorAll('iframe').length,
+      tag: window.__embedded.tag('orrery'), svg: window.__embedded.svg('orrery') }));
+    if (info.frames !== 0) throw new Error('an editor is still on the page after the svgs were made');
+    if (!info.playing.length || info.playing.length === info.ids.length || !info.playing.includes(info.ids[0])) throw new Error('the svgs playing: ' + info.playing.join());
+    const svgOk = await eg.evaluate(t => { const d = new DOMParser().parseFromString(t, 'image/svg+xml'); return !d.querySelector('parsererror') && d.querySelectorAll('animate, animateTransform').length > 5; }, info.svg);
+    if (!svgOk) throw new Error('the orrery\'s svg is not an animated svg');
     if (!/^<iframe src="[^"]*\/draw\.html\?embed=1#scene=[rz][\w-]+"/.test(info.tag)) throw new Error('the embed code: ' + info.tag.slice(0, 120));
-    await eg.waitForSelector(`#${info.first} iframe.player.on`, { timeout: 30000 });
-    const fr = eg.frames().find(f => /embed=1/.test(f.url()));
-    const pm = fr && await fr.evaluate(() => { const m = window.__box.morph(); return m && m.play; });
-    if (!pm) throw new Error('the first tile\'s editor is not playing');
+    await eg.click('#orrery .live');
+    await eg.waitForSelector('#orrery iframe.player.on', { timeout: 30000 });
+    const fr = eg.frames().find(f => /embed=1#scene/.test(f.url()));
+    if (!fr || !(await fr.evaluate(() => window.__box.morph().play))) throw new Error('"live" did not play the orrery in the editor');
     await eg.evaluate(() => document.querySelector('footer').scrollIntoView());
-    await eg.waitForTimeout(800);
-    const after = await eg.evaluate(() => window.__embedded.live());
-    if (after.includes(info.first) || after.length > info.max) throw new Error('scrolled away, the first tile still plays: ' + after.join());
+    await eg.waitForTimeout(600);
+    if ((await eg.evaluate(() => window.__embedded.playing())).includes(info.ids[0])) throw new Error('scrolled away, the first tile\'s svg still plays');
   } catch (e){
     failures.push(`[embedded] ${e.message.split('\n')[0]}`);
   }
   await eg.close();
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the embedded gallery`);
+}
+
+/* EDITING ON THE CANVAS, DRAWING A PATH, PAIRING CORNERS, PLAYING ONCE (draw.html, 26 Oct 2026). A live shape
+   dragged at a key's time moves that key and adds none; dragged between keys it adds a key there and the others
+   keep their times. "draw path" plays the morph while a stroke on the canvas becomes its own (closed) path, and
+   no shape is drawn. "corners ▶" turns the key's corners a place. "in turn" plays three morphs once each, one after
+   another: each holds its first key before its window and its last after; a clip's bar drags; a reload keeps it. */
+current = 'canvas keys';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const cp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  cp.on('pageerror', e => failures.push(`[canvas keys] ${e.message}`));
+  await cp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  const setT = t => cp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+  const ready = async () => {
+    await cp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await cp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box.morph(), null, { timeout: 15000 });
+    await cp.waitForTimeout(700);
+  };
+  const drag = async (from, dx, dy) => { await cp.mouse.move(from.x, from.y); await cp.mouse.down(); await cp.mouse.move(from.x + dx, from.y + dy, { steps: 6 }); await cp.mouse.up(); await cp.waitForTimeout(250); };
+  const centrePx = () => cp.evaluate(() => { const r = window.__box.morph().runs[0]; return window.__box.toPx(r.cx, r.cy); });
+  try {
+    let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="20" y="20" width="80" height="80" fill="#4f8fd6"/><polygon points="160,20 200,100 120,100" fill="#e05a6a"/><rect x="220" y="40" width="120" height="40" fill="#4fbf8a"/></svg>';
+    await cp.goto(scene({ name: 'edit', svg, play: false, morphs: [[0, 1, 2]] }), { waitUntil: 'load' });
+    await ready();
+    await setT(1 / 6);
+    const k0 = await cp.evaluate(() => window.__box.morphKey(0).x);
+    await cp.evaluate(() => window.__box.select([0])); await cp.waitForTimeout(200);
+    await drag(await centrePx(), 60, 0);
+    let m = await cp.evaluate(() => window.__box.morph());
+    const k0b = await cp.evaluate(() => window.__box.morphKey(0).x);
+    const dxs = k0b.map((v, i) => v - k0[i]);
+    if (m.K !== 3 || !(dxs[0] > 0.05) || dxs.some(d => Math.abs(d - dxs[0]) > 1e-6)) throw new Error('an edit at key 1 did not move key 1: ' + JSON.stringify([m.K, dxs]));
+    await setT(0.3);
+    await drag(await centrePx(), 0, 50);
+    m = await cp.evaluate(() => window.__box.morph());
+    if (m.K !== 4 || Math.abs(m.runs[0].times[1] - 0.3) > 1e-3 || Math.abs(m.runs[0].times[0] - 1 / 6) > 1e-9 || Math.abs(m.runs[0].times[2] - 0.5) > 1e-9) throw new Error('an edit between keys: ' + JSON.stringify([m.K, m.runs[0].times]));
+    // corners paired by hand
+    await setT(0.5);
+    const kk = await cp.evaluate(() => window.__box.morphKey(2).x);
+    await cp.click('#mrPairNext');
+    const kk2 = await cp.evaluate(() => window.__box.morphKey(2).x);
+    if (Math.abs(kk2[0] - kk[1]) > 1e-9 || Math.abs(kk2[kk.length - 1] - kk[0]) > 1e-9) throw new Error('corners ▶ did not turn the key\'s corners a place');
+    // a path drawn while it plays
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="20" y="20" width="40" height="40" fill="#4f8fd6"/><rect x="320" y="220" width="40" height="40" fill="#e05a6a"/></svg>';
+    await cp.goto(scene({ name: 'draw', svg, play: false, morphs: [[0], [1]] }), { waitUntil: 'load' });
+    await ready();
+    const n0 = await cp.evaluate(() => window.__box.count());
+    await cp.evaluate(() => window.__box.select([0])); await cp.waitForTimeout(250);
+    await cp.click('#mrDraw');
+    await cp.mouse.move(790, 400); await cp.mouse.down();
+    for (let i = 1; i <= 40; i++) { const a = i / 40 * 2 * Math.PI; await cp.mouse.move(640 + 150 * Math.cos(a), 400 + 150 * Math.sin(a)); }
+    await cp.mouse.up(); await cp.waitForTimeout(300);
+    m = await cp.evaluate(() => window.__box.morph());
+    if (!m.play || !m.runs[0].path || m.runs[1].path || (await cp.evaluate(() => window.__box.count())) !== n0) throw new Error('draw path: ' + JSON.stringify([m.play, m.runs.map(r => r.path), n0]));
+    // a sequence: three morphs in turn
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="20" y="20" width="60" height="60" fill="#4f8fd6"/><circle cx="50" cy="200" r="30" fill="#4f8fd6"/>'
+      + '<rect x="160" y="20" width="60" height="60" fill="#e05a6a"/><circle cx="190" cy="200" r="30" fill="#e05a6a"/><rect x="300" y="20" width="60" height="60" fill="#4fbf8a"/><circle cx="330" cy="200" r="30" fill="#4fbf8a"/></svg>';
+    await cp.goto(scene({ name: 'seq', svg, play: false, morphs: [[0, 1], [2, 3], [4, 5]] }), { waitUntil: 'load' });
+    await ready();
+    await cp.click('#bMorphTimeline'); await cp.waitForTimeout(200);
+    await cp.click('#tlTurn');
+    const cys = async t => { await setT(t); return (await cp.evaluate(() => window.__box.morph().runs)).map(r => r.cy); };
+    const a0 = await cys(0), a1 = await cys(0.2), a2 = await cys(0.5), a3 = await cys(0.95);
+    const same = (p, q) => Math.abs(p - q) < 1e-6;
+    if (!(same(a1[1], a0[1]) && same(a1[2], a0[2]) && !same(a1[0], a0[0]))) throw new Error('at 0.2 only the first should have moved: ' + JSON.stringify([a0, a1]));
+    if (!(same(a2[0], a3[0]) && !same(a2[1], a0[1]) && same(a2[2], a0[2]))) throw new Error('at 0.5 the first done, the second moving, the third waiting: ' + JSON.stringify([a0, a2, a3]));
+    if (same(a3[2], a0[2])) throw new Error('the third never moved');
+    const bar = await cp.locator('.tl-clip[data-r="1"]').boundingBox(), tr = await cp.locator('.tl-track[data-r="1"]').boundingBox();
+    await drag({ x: bar.x + bar.width / 2, y: bar.y + bar.height / 2 }, tr.width * 0.1, 0);
+    m = await cp.evaluate(() => window.__box.morph());
+    if (Math.abs(m.runs[1].clip.start - (1 / 3 + 0.1)) > 0.01 || Math.abs(m.runs[1].clip.len - 1 / 3) > 1e-6) throw new Error('the clip bar did not drag: ' + JSON.stringify(m.runs[1].clip));
+    await cp.waitForTimeout(1200);
+    await cp.reload(); await cp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await cp.waitForTimeout(700);
+    m = await cp.evaluate(() => window.__box.morph());
+    if (!m.runs.every(r => r.clip) || Math.abs(m.runs[1].clip.start - (1 / 3 + 0.1)) > 0.01) throw new Error('a reload lost the clips: ' + JSON.stringify(m.runs.map(r => r.clip)));
+    await cp.close();
+  } catch (e){
+    failures.push(`[canvas keys] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} keys edited on the canvas, a path drawn, corners paired, a sequence`);
 }
 
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,

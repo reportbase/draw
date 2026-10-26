@@ -69996,17 +69996,22 @@
                 return null;
             }
 
-            const VB = 1000,
-                half = VB / 2;
+            // The frame takes the drawing's own shape (26 Oct 2026): 1000 units along its longer side and
+            // in proportion along the other, so a wide scene is not a strip in a square of empty margin.
+            const VB = 1000;
             const bw = Math.max(maxx - minx, 1e-9),
                 bh = Math.max(maxy - miny, 1e-9);
-            const scale = (VB * 0.90) / Math.max(bw, bh);
+            const scale = (VB * 0.94) / Math.max(bw, bh),
+                VW = Math.round(bw * scale + VB * 0.06),
+                VH = Math.round(bh * scale + VB * 0.06),
+                hx = VW / 2,
+                hy = VH / 2;
             const ox = (minx + maxx) / 2,
                 oy = (miny + maxy) / 2;
             // y flips: the editor's world is y-up and SVG's is y-down.
             const mapRing = ring => ring.map(p => ({
-                x: half + (p.x - ox) * scale,
-                y: half - (p.y - oy) * scale
+                x: hx + (p.x - ox) * scale,
+                y: hy - (p.y - oy) * scale
             }));
             // One decimal in a 1000-unit box is a ten-thousandth of the drawing — a tenth of a pixel
             // at 1000px, and finer than the Catmull-Rom fit it is describing. The second decimal was
@@ -70030,7 +70035,7 @@
 
             const body = [];
             if (staticRings.length) {
-                const mapPt = p => ({ x: half + (p.x - ox) * scale, y: half - (p.y - oy) * scale });
+                const mapPt = p => ({ x: hx + (p.x - ox) * scale, y: hy - (p.y - oy) * scale });
                 const bits = statics.map((sp, i) => {
                     const d = sp._lazy ? exactPathD(sp._lazy, mapPt, DP) : ringToPathD(mapRing(staticRings[i]), DP);
                     if (!d)
@@ -70135,7 +70140,7 @@
                             trails.push('    ' + m);
                     }
                 } else {
-                    const C = centres[ri].map(c => ({ x: half + (c.x - ox) * scale, y: half - (c.y - oy) * scale })),
+                    const C = centres[ri].map(c => ({ x: hx + (c.x - ox) * scale, y: hy - (c.y - oy) * scale })),
                         R0 = mapRing(seq[ri][0]);
                     let cx = 0,
                         cy = 0,
@@ -70188,7 +70193,7 @@
             + `     Every frame is the same number of cubics in the same order, so the values list\n`
             + `     interpolates component by component the way SMIL requires. Generated from a\n`
             + `     tangent-vector morph: the poses are point-matched by construction. -->`;
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VB} ${VB}" width="${VB}" height="${VB}">\n`
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" width="${VW}" height="${VH}">\n`
             + note + '\n' + body.join('\n') + '\n</svg>\n';
             if (o.noDownload) // the gallery's own playing tiles are written this way (tools/build-animated.mjs)
                 return { paths: body.length, frames: ts.length, bounce, bytes: svg.length, svg, trails: trails.length };
@@ -84890,6 +84895,32 @@
             }
             if (EMBED)
                 window.addEventListener('resize', () => setTimeout(embedFit, 50));
+            // THE EMBED AS A CONVERTER (26 Oct 2026, Tom: "proceed with your recommendations": a light
+            // player). A page of the same origin can hand an embed a scene and have its animated SVG
+            // back: { type: 'tvf-scene-svg', id, code } in, { type: 'tvf-scene-svg', id, svg } out (svg null
+            // when it could not). The SVG is the export (EXPORTING A MORPH): every motion as SMIL, no
+            // script, so one hidden editor can turn a whole gallery of scenes into pictures that play on
+            // their own, and a scene can leave the editor as a single file. Asked one at a time.
+            if (EMBED)
+                window.addEventListener('message', async e => {
+                    const m = e.data;
+                    if (e.origin !== location.origin || !m || m.type !== 'tvf-scene-svg' || typeof m.code !== 'string')
+                        return;
+                    let svg = null;
+                    try {
+                        const d = await decodeScene(m.code);
+                        d.play = false;
+                        if (await openScene(d)) {
+                            morphLive.play = false;
+                            morphLive.t = clamp(d.t, 0, 1, 0);
+                            morphWrite();
+                            svg = window.__box.morphSvg({});
+                        }
+                    } catch (err) {
+                        console.warn('[embed] scene to svg failed', err);
+                    }
+                    (e.source || window.parent).postMessage({ type: 'tvf-scene-svg', id: m.id, svg }, location.origin);
+                });
             // after the saved scene has restored, as the shape link waits
             if (document.readyState === 'complete')
                 setTimeout(boot, 300);

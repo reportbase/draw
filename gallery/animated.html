@@ -1637,7 +1637,7 @@ const SHOWPIECES = [];
 // (draw.html, FOLLOWING LOOSELY, AND FACING), so the tail trails, swings out on the turns and settles; a cat on
 // the hill keeps its face to the kite the whole way round.
 {
-  let sky = `<rect x="0" y="0" width="900" height="480" fill="#bfe3f5"/>`
+  let sky = `<rect x="-30" y="0" width="960" height="480" fill="#bfe3f5"/>`
     + smooth([[6, 432], [200, 362], [460, 400], [700, 352], [894, 412], [880, 474], [20, 474]], '#7cbf6a');
   const kite = polyOf([[450, 60], [482, 112], [450, 176], [418, 112]], '#e2563f');
   const eight = smoothD(Array.from({ length: 40 }, (_, i) => {
