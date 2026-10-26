@@ -3202,6 +3202,11 @@
         #morphTimeline .tl-key.copy { opacity: 0.55; }
         #morphTimeline .tl-line { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(212,160,82,0.7); pointer-events: none; }
         #morphTimeline .tl-note { color: var(--fg-muted); font-size: 10px; text-align: right; }
+        #morphTimeline .tl-tools { display: flex; gap: 6px; align-items: center; margin: 4px 0 2px 70px; }
+        #morphTimeline .tl-hint { color: var(--fg-muted); font-size: 10px; }
+        #morphTimeline .tl-once { padding: 0 4px; font-size: 10px; height: 16px; }
+        #morphTimeline .tl-once.on { background: var(--gold); color: #14141a; border-color: var(--gold); }
+        #morphTimeline .tl-clip { position: absolute; top: 1px; bottom: 1px; background: rgba(212,160,82,0.22); border: 1px solid rgba(212,160,82,0.75); border-radius: 4px; cursor: grab; touch-action: none; }
         /* THE EMBED: the canvas alone, nothing to press */
         html.embed body > *:not(#main), html.embed #main > *:not(#cv) { display: none !important; }
         html.embed #cv { pointer-events: none; }
@@ -4317,6 +4322,9 @@
         <span class="lab">keys</span>
         <div class="mr-keys" id="mrKeys" title="KEYS AT CHOSEN TIMES: the morph's keys on its own clock, one loop end to end. Drag a key to put it at a time of its own; click the stretch between two keys to give it an ease of its own (none follows the bar's, then linear, in and out, in, out)"><span class="mr-head" id="mrHead"></span></div>
         <button type="button" id="mrEven" title="the keys evenly spaced again, every stretch on the bar's ease">even</button>
+        <span class="lab" id="mrPairLab">corners</span>
+        <button type="button" id="mrPairPrev" title="CORNERS PAIRED BY HAND: the key you stand on (or the next one) takes its corners round one place backward, so each goes to a different corner of the keys either side of it">◀</button>
+        <button type="button" id="mrPairNext" title="the key you stand on (or the next one) takes its corners round one place forward">▶</button>
         <span class="lab">rate</span>
         <input type="number" id="mrRate" min="1" max="64" step="1" title="how many times round its keys (and its effect) this morph goes each loop: a whole number, so the loop still closes">
         <span class="lab">phase</span>
@@ -4325,6 +4333,7 @@
         <button type="button" id="mrStagger" title="spread the selected morphs' phases evenly round the loop, in their order">stagger</button>
         <span class="lab">spin</span>
         <input type="number" id="mrSpin" step="0.25" title="turns a loop about its own centre; negative turns the other way. A fraction closes the loop only where the shape's symmetry does">
+        <button type="button" id="mrDraw" title="DRAW ITS PATH: press, and the morph plays while you draw a line on the canvas; let go and the line is the path it rides (closed if you end near where you began). Press again, or Escape, to stop without one">draw path</button>
         <button type="button" id="mrPath" title="select the morph and one line or curve, and press: the morph rides it as a path of its own, which leaves the drawing. Pressed again with no line selected, it comes off its path">ride a line</button>
         <span class="lab">laps</span>
         <input type="number" id="mrLaps" min="1" max="64" step="1" title="how many times round its own path each loop">
@@ -4346,6 +4355,7 @@
     <!-- THE SCENE'S TIMELINE: every live morph a row of its keys on the shared clock -->
     <div id="morphTimeline" role="region" aria-label="every live morph's keys on the shared clock">
         <div class="tl-grid tl-top"><span class="tl-title">timeline</span><div class="tl-ruler" id="tlRuler" title="drag to scrub"><span class="tl-play" id="tlPlay"></span></div><button type="button" id="tlClose" title="put the timeline away">×</button></div>
+        <div class="tl-tools"><button type="button" id="tlTurn" title="A SEQUENCE: the selected morphs (or every one, with none selected) each play once, one after another, in their order, sharing the loop">in turn</button><button type="button" id="tlLoops" title="the selected morphs (or every one) loop again">all loop</button><span class="tl-hint">a row's ↻ / 1× plays it looping or once; drag a once-bar to move it, its ends to stretch it</span></div>
         <div class="tl-rows" id="tlRows"></div>
     </div>
     <!-- A PICKED CORNER'S NUMBERS (EXACT SHAPES): shown beside a picked corner. World units,
@@ -30245,6 +30255,8 @@
         // Record the resulting state as a new history entry. Call this AFTER a
         // committed change (and once at load). Truncates any redo branch.
         function pushHistory() {
+            if (typeof morphAbsorbEdits === 'function' && _morphReady)
+                morphAbsorbEdits(); // EDITING A KEY ON THE CANVAS: an edit to a live shape lands in its keys first
             if (history.index < history.stack.length - 1) {
                 history.stack.length = history.index + 1; // drop redo branch
             }
@@ -40121,6 +40133,10 @@
                 drawMorphOnion(w, h); // THE TIMELINE: the neighbouring keys
             if (CHROME && _morphReady && morphRunning() && (morphLive.path || morphRuns.some(r => r.path)))
                 drawMorphPath(w, h); // MOTION ALONG A PATH: the guide
+            if (CHROME && _morphReady && _morphPathRec)
+                drawMorphPathRec(w, h); // DRAWING A PATH WHILE IT PLAYS: the line so far
+            if (CHROME && _morphReady && morphRunning())
+                drawMorphPairing(w, h); // CORNERS PAIRED BY HAND
             if (CHROME && _morphReady) {
                 morphRunToolSync(); // THE MORPH'S OWN SETTINGS: shown while a live shape is selected
                 morphTimelinePanelSync(); // THE SCENE'S TIMELINE
@@ -50923,11 +50939,13 @@
                 morphWriteExact(run, sp, morphPoseExact(run, morphLive.t));
                 if (run.cols)
                     sp.fill = morphColourAt(run, morphLive.t); // COLOUR THAT MORPHS
+                morphNoteWritten(run, sp);
                 return;
             }
             const X = sp.leafX,
                 Y = sp.leafY;
             morphPoseInto(run, morphLive.t, X, Y);
+            morphNoteWritten(run, sp);
             if (run.cols)
                 sp.fill = morphColourAt(run, morphLive.t); // COLOUR THAT MORPHS
             // The reference follows the leaves. A morph is not a resample of some earlier curve —
@@ -50937,6 +50955,193 @@
             sp.refY.set(Y);
             sp._contourCache = null;
             sp.dirty = false;
+        }
+        // ── EDITING A KEY ON THE CANVAS (26 Oct 2026, Tom: "proceed with your recommendations": direct
+        // manipulation) ──────────────────────────────────────────────────────────────────────────
+        // The live shape is rewritten from the keys at every frame, so an edit made to it (a move, a
+        // turn, a corner or a leaf dragged) used to be thrown away by the next write. Now, with the morph
+        // paused, an edit is taken into the morph when it ends (when it lands in the undo history):
+        //   on a key's own time, it becomes that key;
+        //   between keys, it becomes a new key at that time, the others keeping theirs;
+        //   a still's one key simply takes it.
+        // What is edited is the pose as drawn, which is the keys' blend carried by the morph's path or
+        // spin, its parent and its facing; each of those is a turn and a move, so the edit is carried
+        // back through them, and a key is always the shape as drawn before any of them. On a path a
+        // shape's place is the path's, so a move there is undone by the ride, while a turn or a
+        // reshaping stays. An effect on the detail cannot be carried back, so a morph with one is left
+        // as it is (and says so), and so is an edit that changes an exact shape's corner count.
+        function morphNoteWritten(run, sp) {
+            const X = run.exact ? sp._lazy && sp._lazy.x : sp.leafX,
+                Y = run.exact ? sp._lazy && sp._lazy.y : sp.leafY;
+            if (!X)
+                return;
+            if (!run._wx || run._wx.length !== X.length) {
+                run._wx = new Float64Array(X.length);
+                run._wy = new Float64Array(X.length);
+            }
+            run._wx.set(X);
+            run._wy.set(Y);
+        }
+        let _morphAbsorbing = false;
+        function morphAbsorbEdits() {
+            if (_morphAbsorbing || !morphRuns.length || morphLive.play)
+                return 0;
+            _morphAbsorbing = true;
+            let n = 0;
+            try {
+                for (const run of morphRuns) {
+                    const sp = morphTargetOf(run);
+                    if (!sp || !run._wx)
+                        continue;
+                    const X = run.exact ? sp._lazy && sp._lazy.x : sp.leafX,
+                        Y = run.exact ? sp._lazy && sp._lazy.y : sp.leafY;
+                    if (!X)
+                        continue;
+                    let moved = X.length !== run._wx.length;
+                    for (let i = 0; !moved && i < X.length; i++)
+                        if (Math.abs(X[i] - run._wx[i]) > 1e-9 || Math.abs(Y[i] - run._wy[i]) > 1e-9)
+                            moved = true;
+                    if (!moved)
+                        continue;
+                    const msg = morphTakeEdit(run, sp);
+                    if (msg) {
+                        n++;
+                        flashStatus(msg);
+                    }
+                }
+                if (n) {
+                    morphWrite();
+                    morphBarSync();
+                    _mrSig = '';
+                    _tlSig = '';
+                    drawAll();
+                    scheduleSave();
+                }
+            } finally {
+                _morphAbsorbing = false;
+            }
+            return n;
+        }
+        // the rigid motion a pose is carried by at t, undone: a function from the drawing back to the keys'
+        function morphUndoCarry(run, t) {
+            const steps = [];
+            const lk = morphLookTurn(run, t);
+            if (lk) {
+                const c = morphCentreAt(run, t),
+                    cs = Math.cos(-lk),
+                    sn = Math.sin(-lk);
+                steps.push((x, y) => [c.x + cs * (x - c.x) - sn * (y - c.y), c.y + sn * (x - c.x) + cs * (y - c.y)]);
+            }
+            const PX = morphParentXform(run, t);
+            if (PX) {
+                const [ax, ay] = PX.at(0, 0),
+                    [bx, by] = PX.at(1, 0),
+                    th = Math.atan2(by - ay, bx - ax),
+                    cs = Math.cos(-th),
+                    sn = Math.sin(-th);
+                steps.push((x, y) => [cs * (x - ax) - sn * (y - ay), sn * (x - ax) + cs * (y - ay)]);
+            }
+            if (morphPathOf(run) || run.spin) {
+                let ctr;
+                if (run.exact)
+                    ctr = exactCentre(morphPoseExact(run, t, true));
+                else {
+                    const N = run.keys[0].x.length,
+                        bx = new Float64Array(N),
+                        by = new Float64Array(N);
+                    morphPoseInto(run, t, bx, by, true);
+                    let cx = 0,
+                        cy = 0;
+                    for (let i = 0; i < N; i++) {
+                        cx += bx[i];
+                        cy += by[i];
+                    }
+                    ctr = { x: cx / N, y: cy / N };
+                }
+                const q = morphPlace(run, t, ctr),
+                    cs = Math.cos(-q.turn),
+                    sn = Math.sin(-q.turn);
+                steps.push((x, y) => [ctr.x + cs * (x - q.x) - sn * (y - q.y), ctr.y + sn * (x - q.x) + cs * (y - q.y)]);
+            }
+            return (x, y) => {
+                let p = [x, y];
+                for (const f of steps)
+                    p = f(p[0], p[1]);
+                return p;
+            };
+        }
+        // the edited live shape taken in as a key; a line for the status bar, or '' when it was not
+        function morphTakeEdit(run, sp) {
+            if (run.fx && run.fx.kind)
+                return 'your edit to morph ' + (morphRuns.indexOf(run) + 1) + ' was not kept: an effect on its detail cannot be carried back to its keys';
+            const t = morphLive.t,
+                back = morphUndoCarry(run, t),
+                K = run.keys.length;
+            let key;
+            if (run.exact) {
+                if (!sp._lazy || sp._lazy.x.length !== run.keys[0].x.length || sp._lazy.open || sp._lazy.holes)
+                    return 'your edit to morph ' + (morphRuns.indexOf(run) + 1) + ' was not kept: it changed the shape\'s corners, and every key needs as many';
+                key = exactKeyOf(sp);
+                for (let j = 0; j < key.x.length; j++) {
+                    [key.x[j], key.y[j]] = back(key.x[j], key.y[j]);
+                    const e = key.c[j];
+                    if (e) {
+                        [e[0], e[1]] = back(e[0], e[1]);
+                        [e[2], e[3]] = back(e[2], e[3]);
+                    }
+                }
+            } else {
+                if (!sp.leafX || sp.leafX.length !== run.keys[0].x.length)
+                    return '';
+                key = { x: new Float64Array(sp.leafX.length), y: new Float64Array(sp.leafX.length) };
+                for (let i = 0; i < sp.leafX.length; i++)
+                    [key.x[i], key.y[i]] = back(sp.leafX[i], sp.leafY[i]);
+            }
+            const u = morphRunT(run, t);
+            // on a key: within a step of the bar's track (a thousandth of a loop) of its time, round the loop
+            let at = K === 1 ? 0 : -1,
+                made = false;
+            if (K > 1) {
+                const T = morphKeyTimes(run);
+                let best = 0.0015;
+                T.forEach((v, k) => {
+                    const d = K === 2 ? Math.abs(v - u) : Math.min(Math.abs(v - u), 1 - Math.abs(v - u));
+                    if (d <= best) {
+                        best = d;
+                        at = k;
+                    }
+                });
+            }
+            if (at >= 0)
+                run.keys[at] = key;
+            else {
+                // a new key where you stand; every other key keeps its time
+                const T = morphKeyTimes(run).slice();
+                let pos = T.filter(v => v < u).length;
+                const C = run.cols ? morphColOf(morphColourAt(run, t)) : null;
+                if (K === 2) { // a ramp becomes a loop of three, its end just before the loop comes round
+                    T[1] = Math.min(T[1], 0.999);
+                    pos = 1;
+                }
+                T.splice(pos, 0, Math.max(0, Math.min(0.998, u)));
+                run.keys.splice(pos, 0, key);
+                if (run.cols)
+                    run.cols.splice(pos, 0, C);
+                if (run.eases)
+                    run.eases = K === 2 ? new Array(3).fill(run.eases[0]) : (run.eases.splice(pos, 0, run.eases[(pos - 1 + K) % K]), run.eases);
+                run.times = morphTimesOk(T, K + 1) ? T : null;
+                at = pos;
+                made = true;
+            }
+            if (run.exact)
+                run.curved = morphExactCurved(run.keys);
+            run._centres = null;
+            run.spec = null;
+            run.freq = null;
+            run._smooth = null;
+            run._keyEpoch = (run._keyEpoch || 0) + 1;
+            return made ? 'your edit is a new key ' + (at + 1) + ' of ' + run.keys.length + ', where you stand; the other keys keep their times'
+                : (K === 1 ? 'your edit is the still\'s shape now' : 'your edit is key ' + (at + 1) + ' now');
         }
         // Every run at the same t. One pass, then ONE draw by the caller — N runs must not mean
         // N redraws of the same frame.
@@ -52264,14 +52469,39 @@
         // where the pose's centre goes and which way it faces at t: on its path (if any) and turned
         // by its spin, `spin` whole turns a loop about its own centre (EACH MORPH ITS OWN TIME)
         function morphPlace(run, t, ctr) {
+            if (run.clip)
+                t = morphClipP(run, t); // A MORPH THAT PLAYS ONCE: its ride and spin over its window alone
             const q = morphPathOf(run) ? morphPathPlace(run, t) : { x: ctr.x, y: ctr.y, turn: 0 };
             if (run.spin)
                 q.turn += TAU * run.spin * t;
             return q;
         }
+        // ── A MORPH THAT PLAYS ONCE (26 Oct 2026, Tom: "proceed with your recommendations": sequencing) ──
+        // Everything so far loops: a morph goes round its keys (and its path, and its spin) once or a
+        // whole number of times a loop. A clip (run.clip = {start, len}, shares of the loop) plays once
+        // instead, in its window: before it the morph holds its first key where its ride begins, through
+        // it the morph goes from its first key to its last (its path ridden once, its spin turned), and
+        // after it holds its last key where its ride ends. Clips placed one after another on the
+        // timeline are a sequence, this, then that, then the other, and the loop plays the whole
+        // sequence and comes round to its start. A clip takes the place of rate and phase.
+        function morphClipP(run, t) {
+            const c = run.clip;
+            return Math.max(0, Math.min(1, (t - c.start) / Math.max(1e-6, c.len)));
+        }
+        function morphClipOk(c) {
+            return !!c && Number.isFinite(+c.start) && Number.isFinite(+c.len) && c.start >= 0 && c.len > 0 && c.start + c.len <= 1 + 1e-9;
+        }
         // the morph's own clock: `rate` times round a loop, `phase` ahead (0 to 1); the shared clock
         // when it has neither. A whole rate keeps the loop seamless.
         function morphRunT(run, t) {
+            if (run.clip) { // A MORPH THAT PLAYS ONCE: from its first key to its last over its window
+                const p = morphClipP(run, t),
+                    K = run.keys.length;
+                if (K < 2)
+                    return p;
+                const T = morphKeyTimes(run);
+                return T[0] + p * (T[K - 1] - T[0]);
+            }
             const r = run.rate || 1,
                 p = run.phase || 0;
             if (r === 1 && !p)
@@ -52404,7 +52634,7 @@
             for (let r = run, n = 0; r && n < 10; r = r.parent, n++)
                 bits.push([morphRuns.indexOf(r), r.keys.length, r.rate || 1, +r.phase || 0, +r.spin || 0, r.laps || 1, r.at, r.parentAt,
                     r.times && r.times.join(','), r.eases && r.eases.join(','), r.path ? r.path.x.length + ':' + r.path.x[0] : '',
-                    r.follow && r.follow.kind + (r.follow.amount || 0)].join(';'));
+                    r.follow && r.follow.kind + (r.follow.amount || 0), r._keyEpoch || 0, r.clip ? r.clip.start + ':' + r.clip.len : ''].join(';'));
             return bits.join('|') + '|' + (morphLive.path ? morphLive.path.x.length : 0) + state.morphEase + (+state.morphHold || 0);
         }
         function morphSpringXform(run, t, depth) {
@@ -52713,6 +52943,8 @@
             return 0.04 + 0.36 * Math.max(0, Math.min(1, L));
         }
         function morphLoops(run) {
+            if (run.clip) // A MORPH THAT PLAYS ONCE does not come round
+                return false;
             const P = morphPathOf(run);
             if (P)
                 return P.closed || P.mode === 'back';
@@ -52964,6 +53196,9 @@
             mrKeysBuild(r);
             mrKeysLayout(r);
             $('mrEven').disabled = !runs.some(q => q.times || q.eases);
+            const pairable = runs.some(q => q.exact && q.keys.length > 1); // CORNERS PAIRED BY HAND
+            for (const id of ['mrPairPrev', 'mrPairNext'])
+                $(id).disabled = !pairable;
         }
         // KEYS AT CHOSEN TIMES: the track's keys (diamonds) and the stretches between them (the wrap
         // round the loop drawn as its two ends), built when the count or the eases change, placed every frame
@@ -53036,6 +53271,246 @@
             drawAll();
             scheduleSave();
         }
+        // ── CORNERS PAIRED BY HAND (26 Oct 2026, Tom: "proceed with your recommendations") ──────────────
+        // An exact morph pairs each key's corners with the next key's by the turn that moves them least
+        // (and twice the corners where that matches much better). For two shapes that do not resemble
+        // each other the least movement can still twist the blend. So the pairing can be set by hand:
+        // the key you stand on (or else the next one) takes its corners round a place, either way, and
+        // every corner of it goes to another corner of its neighbours. (Not reversed: every key is wound
+        // the same way, and a key wound the other way turns the blend inside out on its way.) Its outline is
+        // unchanged (the same corners, numbered from another one); only the blend on either side
+        // changes. While the strip is up on a paused exact morph, faint lines join each corner of the key
+        // before you to the corner it becomes in the key after, so the pairing can be seen.
+        function morphPairKey(run) {
+            const K = run.keys.length,
+                u = morphRunT(run, morphLive.t),
+                T = morphKeyTimes(run);
+            let at = -1,
+                best = 0.0015;
+            T.forEach((v, k) => {
+                const d = K === 2 ? Math.abs(v - u) : Math.min(Math.abs(v - u), 1 - Math.abs(v - u));
+                if (d <= best) {
+                    best = d;
+                    at = k;
+                }
+            });
+            if (at >= 0)
+                return at;
+            const s = morphStretchOf(run, u);
+            return K === 2 ? 1 : (s.k + 1) % K;
+        }
+        function morphPairTurn(run, how) {
+            if (!run.exact || run.keys.length < 2)
+                return -1;
+            const k = morphPairKey(run),
+                Q = run.keys[k],
+                n = Q.x.length;
+            exactRoll(Q, how < 0 ? n - 1 : 1);
+            delete Q._ghost;
+            run.curved = morphExactCurved(run.keys);
+            run._smooth = null;
+            run._centres = null;
+            run._keyEpoch = (run._keyEpoch || 0) + 1;
+            return k;
+        }
+        // the pairing between the key before where you stand and the key after, as faint lines
+        function drawMorphPairing(w, h) {
+            const strip = $('morphRunTool');
+            if (!strip || !strip.classList.contains('open') || morphLive.play)
+                return;
+            ctx.save();
+            ctx.lineWidth = 1;
+            for (const run of morphRunToolRuns()) {
+                if (!run.exact || run.keys.length < 2 || run.path || run.parent)
+                    continue;
+                const K = run.keys.length,
+                    s = morphStretchOf(run, morphRunT(run, morphLive.t)),
+                    A = run.keys[s.k],
+                    B = run.keys[K === 2 ? 1 : (s.k + 1) % K];
+                if (!A || !B || A.x.length !== B.x.length)
+                    continue;
+                for (let j = 0; j < A.x.length; j++) {
+                    const a = worldToPx(A.x[j], A.y[j], w, h),
+                        b = worldToPx(B.x[j], B.y[j], w, h);
+                    ctx.strokeStyle = j ? 'rgba(200,200,215,0.35)' : 'rgba(212,160,82,0.9)'; // the first corner in gold
+                    ctx.setLineDash(j ? [2, 4] : []);
+                    ctx.beginPath();
+                    ctx.moveTo(a.x, a.y);
+                    ctx.lineTo(b.x, b.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = ctx.strokeStyle;
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, j ? 2 : 3.5, 0, TAU);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+        }
+        (function() {
+            const go = how => {
+                const runs = morphRunToolRuns().filter(r => r.exact && r.keys.length > 1);
+                if (!runs.length)
+                    return;
+                let k = -1;
+                for (const r of runs)
+                    k = morphPairTurn(r, how);
+                morphRunToolApply(() => {});
+                pushHistory();
+                flashStatus('key ' + (k + 1) + '\'s corners turned a place ' + (how < 0 ? 'back' : 'on') + ' · the morph either side of it pairs them anew');
+            };
+            const b1 = $('mrPairPrev'),
+                b2 = $('mrPairNext');
+            if (b1)
+                b1.addEventListener('click', () => go(-1));
+            if (b2)
+                b2.addEventListener('click', () => go(1));
+        })();
+        // ── DRAWING A PATH WHILE IT PLAYS (26 Oct 2026, Tom: "proceed with your recommendations") ──────────
+        // A path had to be drawn first, as a line in the drawing, and then ridden. Now the strip's "draw
+        // path" sets the morph going and the next stroke on the canvas is its path: the line is drawn
+        // while the shape keeps moving, so its rhythm can be judged against the motion as the line is
+        // made. Let go and the stroke becomes the selected morphs' own path (closed when it ends near its
+        // start), ridden once a loop at an even speed from where the stroke began. The stroke is taken
+        // before the editor sees it (a capturing listener), so drawing a path never draws a shape.
+        let _morphPathRec = null; // { runs, pts: [[x, y]…], id } while armed
+        function morphPathRecArm(on) {
+            const runs = morphRunToolRuns();
+            if (on && runs.length) {
+                _morphPathRec = { runs, pts: [], id: null };
+                if (!morphLive.play) {
+                    morphLive.play = true;
+                    morphLive.last = 0;
+                    if (!morphLive.raf)
+                        morphLive.raf = requestAnimationFrame(morphTick);
+                }
+                flashStatus('draw the path on the canvas: the morph plays while you draw · Escape to stop');
+            } else
+                _morphPathRec = null;
+            const b = $('mrDraw');
+            if (b)
+                b.classList.toggle('on', !!_morphPathRec);
+            morphBarSync();
+            drawAll();
+        }
+        function drawMorphPathRec(w, h) {
+            const P = _morphPathRec.pts;
+            if (P.length < 2)
+                return;
+            ctx.save();
+            ctx.lineWidth = 2;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = 'rgba(212,160,82,0.9)';
+            ctx.beginPath();
+            P.forEach(([x, y], i) => {
+                const q = worldToPx(x, y, w, h);
+                if (i)
+                    ctx.lineTo(q.x, q.y);
+                else
+                    ctx.moveTo(q.x, q.y);
+            });
+            ctx.stroke();
+            ctx.restore();
+        }
+        function morphPathRecFinish() {
+            const R = _morphPathRec;
+            _morphPathRec = null;
+            const b = $('mrDraw');
+            if (b)
+                b.classList.remove('on');
+            const runs = R ? R.runs.filter(r => morphRuns.indexOf(r) >= 0) : [];
+            const P = R ? R.pts : [];
+            let len = 0,
+                x0 = Infinity,
+                x1 = -Infinity,
+                y0 = Infinity,
+                y1 = -Infinity;
+            for (let i = 0; i < P.length; i++) {
+                if (i)
+                    len += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+                x0 = Math.min(x0, P[i][0]);
+                x1 = Math.max(x1, P[i][0]);
+                y0 = Math.min(y0, P[i][1]);
+                y1 = Math.max(y1, P[i][1]);
+            }
+            const diag = Math.hypot(x1 - x0, y1 - y0);
+            if (!runs.length || P.length < 3 || !(diag > 1e-6)) {
+                drawAll();
+                return false;
+            }
+            const closed = Math.hypot(P[0][0] - P[P.length - 1][0], P[0][1] - P[P.length - 1][1]) < 0.08 * diag;
+            const xs = Float64Array.from(P.map(q => q[0])),
+                ys = Float64Array.from(P.map(q => q[1]));
+            morphRunPathsRelease(runs.filter(r => r.path));
+            for (const r of runs) {
+                const path = morphPathBuild(xs, ys, closed);
+                if (!path)
+                    continue;
+                path.turn = state.morphPathTurn !== false;
+                path.mode = closed ? 'along' : (state.morphPathMode === 'back' ? 'back' : 'along');
+                path.member = null; // drawn for it, not taken from the drawing: nothing to put back
+                r.path = path;
+                r.laps = 1;
+                r.at = null;
+                r._centres = null;
+            }
+            rebuildSignalSelect();
+            rebuildScroller();
+            _mrSig = '';
+            morphWrite();
+            morphBarSync();
+            pushHistory();
+            scheduleSave();
+            drawAll();
+            flashStatus((closed ? 'a closed path' : 'a path') + ' drawn · ' + runs.length + ' morph' + (runs.length > 1 ? 's ride' : ' rides') + ' it once a loop');
+            return true;
+        }
+        (function() {
+            const take = e => _morphPathRec && morphRunning();
+            const at = e => {
+                const r = cv.getBoundingClientRect(),
+                    q = pxToWorld(e.clientX - r.left, e.clientY - r.top, r.width, r.height);
+                return [q.x, q.y];
+            };
+            cv.addEventListener('pointerdown', e => {
+                if (!take(e))
+                    return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                _morphPathRec.id = e.pointerId;
+                _morphPathRec.pts = [at(e)];
+                try {
+                    cv.setPointerCapture(e.pointerId);
+                } catch (_) {}
+            }, true);
+            cv.addEventListener('pointermove', e => {
+                if (!take(e) || _morphPathRec.id !== e.pointerId)
+                    return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                const p = at(e),
+                    last = _morphPathRec.pts[_morphPathRec.pts.length - 1];
+                if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) > 1e-4)
+                    _morphPathRec.pts.push(p);
+            }, true);
+            const up = e => {
+                if (!take(e) || _morphPathRec.id !== e.pointerId)
+                    return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                morphPathRecFinish();
+            };
+            cv.addEventListener('pointerup', up, true);
+            cv.addEventListener('pointercancel', up, true);
+            window.addEventListener('keydown', e => {
+                if (e.key === 'Escape' && _morphPathRec)
+                    morphPathRecArm(false);
+            }, true);
+            const b = $('mrDraw');
+            if (b)
+                b.addEventListener('click', () => morphPathRecArm(!_morphPathRec));
+        })();
         // ── THE SCENE'S TIMELINE (25 Oct 2026, Tom: "proceed", to "a real timeline panel") ────────────
         // The strip's key track shows one morph. This shows them all, one row each on the shared clock,
         // which is the clock the bar's t, the loop and the recordings run on: a morph at rate 3 shows
@@ -53049,7 +53524,12 @@
         // where key k of a run lands on the shared clock, once per lap of its own clock
         function morphKeyShared(run, k) {
             const K = run.keys.length,
-                T = morphKeyTimes(run),
+                T = morphKeyTimes(run);
+            if (run.clip) { // A MORPH THAT PLAYS ONCE: its keys across its window, first to last
+                const span = K > 1 ? T[K - 1] - T[0] : 1;
+                return [run.clip.start + run.clip.len * (K > 1 ? (T[k] - T[0]) / (span || 1) : 0)];
+            }
+            const
                 rate = run.rate || 1,
                 ph = run.phase || 0;
             let u = T[k] - ph;
@@ -53058,6 +53538,17 @@
             for (let m = 0; m < rate; m++)
                 out.push((u + m) / rate);
             return out;
+        }
+        function morphTimelineChanged() {
+            for (const r of morphRuns)
+                r._centres = null;
+            _tlSig = '';
+            _mrSig = '';
+            morphWrite();
+            morphBarSync();
+            drawAll();
+            pushHistory();
+            scheduleSave();
         }
         function morphTimelinePanelSync() {
             const P = $('morphTimeline');
@@ -53075,7 +53566,7 @@
             P.style.bottom = Math.max(8, innerHeight - top + 8) + 'px';
             const sel = new Set(morphRunToolRuns());
             // (not the fill: a morph whose colour blends changes it every frame, and the dot keeps the first)
-            const sig = morphRuns.map(r => [r.keys.length, r.rate || 1, sel.has(r) ? 1 : 0].join(':')).join('|');
+            const sig = morphRuns.map(r => [r.keys.length, r.clip ? 'c' : r.rate || 1, sel.has(r) ? 1 : 0].join(':')).join('|');
             const rows = $('tlRows');
             if (sig !== _tlSig) {
                 _tlSig = sig;
@@ -53083,11 +53574,11 @@
                     const col = (r.sp && r.sp.fill && r.sp.fill.color) || r.sp.stroke || '#d4a052';
                     let keys = '';
                     for (let k = 0; k < (r.keys.length > 1 ? r.keys.length : 0); k++) // a still has no keys to move
-                        for (let m = 0; m < (r.rate || 1); m++)
+                        for (let m = 0; m < (r.clip ? 1 : r.rate || 1); m++)
                             keys += `<span class="tl-key${m ? ' copy' : ''}" data-r="${i}" data-k="${k}" data-m="${m}" title="morph ${i + 1}, key ${k + 1}: drag to retime"></span>`;
                     return `<div class="tl-row"><button type="button" class="tl-lab${sel.has(r) ? ' sel' : ''}" data-r="${i}" title="select morph ${i + 1}"><span class="tl-dot" style="background:${col}"></span>${i + 1}</button>`
-                    + `<div class="tl-track" data-r="${i}"><span class="tl-line"></span>${keys}</div>`
-                    + `<span class="tl-note">${r.keys.length < 2 ? 'still' : (r.rate || 1) > 1 ? '×' + r.rate : ''}</span></div>`;
+                    + `<div class="tl-track" data-r="${i}">${r.clip ? `<span class="tl-clip" data-r="${i}" title="morph ${i + 1} plays once here: drag to move it, drag an end to stretch it"></span>` : ''}<span class="tl-line"></span>${keys}</div>`
+                    + `<button type="button" class="tl-once${r.clip ? ' on' : ''}" data-r="${i}" title="${r.clip ? 'plays once, in its bar; press to loop again' : 'loops; press to play it once'}">${r.clip ? '1×' : (r.rate || 1) > 1 ? '↻' + r.rate : '↻'}</button></div>`;
                 }).join('');
             }
             const pct = v => (100 * Math.max(0, Math.min(1, v))).toFixed(3) + '%',
@@ -53101,6 +53592,13 @@
             }
             for (const el of rows.querySelectorAll('.tl-line'))
                 el.style.left = pct(t);
+            for (const el of rows.querySelectorAll('.tl-clip')) {
+                const r = morphRuns[+el.dataset.r];
+                if (r && r.clip) {
+                    el.style.left = pct(r.clip.start);
+                    el.style.width = pct(r.clip.len);
+                }
+            }
             const pl = $('tlPlay');
             if (pl)
                 pl.style.left = pct(t);
@@ -53116,6 +53614,24 @@
                     _tlSig = '';
                     drawAll();
                 });
+            // A SEQUENCE: each in turn, sharing the loop in equal windows; or all looping again
+            const pick = () => {
+                const sel = morphRunToolRuns();
+                return sel.length ? sel : morphRuns.slice();
+            };
+            $('tlTurn').addEventListener('click', () => {
+                const runs = pick();
+                runs.forEach((r, i) => {
+                    r.clip = { start: i / runs.length, len: 1 / runs.length };
+                });
+                morphTimelineChanged();
+                flashStatus(runs.length + ' morphs in turn, each once, a ' + (runs.length > 1 ? (1 / runs.length * 100).toFixed(0) + '%' : 'whole') + ' share of the loop');
+            });
+            $('tlLoops').addEventListener('click', () => {
+                for (const r of pick())
+                    r.clip = null;
+                morphTimelineChanged();
+            });
             $('tlClose').addEventListener('click', () => {
                 state.morphTimelineOpen = false;
                 drawAll();
@@ -53127,10 +53643,22 @@
             };
             P.addEventListener('pointerdown', e => {
                 const key = e.target.closest('.tl-key'),
+                    clip = !key && e.target.closest('.tl-clip'),
                     track = e.target.closest('.tl-track') || e.target.closest('.tl-ruler');
                 if (!key && !track)
                     return;
                 e.preventDefault();
+                if (clip) { // A MORPH THAT PLAYS ONCE: its bar moved, or an end of it stretched
+                    const run = morphRuns[+clip.dataset.r],
+                        rc = clip.getBoundingClientRect(),
+                        x = e.clientX;
+                    if (!run || !run.clip)
+                        return;
+                    const kind = x - rc.left < 6 ? 'start' : rc.right - x < 6 ? 'end' : 'move';
+                    drag = { kind: 'clip', part: kind, r: +clip.dataset.r, id: e.pointerId, t0: tAt(e, clip.parentElement), c0: { start: run.clip.start, len: run.clip.len }, moved: false };
+                    clip.setPointerCapture(e.pointerId);
+                    return;
+                }
                 if (key) {
                     drag = { kind: 'key', r: +key.dataset.r, k: +key.dataset.k, m: +key.dataset.m, id: e.pointerId, moved: false };
                     key.setPointerCapture(e.pointerId);
@@ -53155,10 +53683,43 @@
                 const run = morphRuns[drag.r];
                 if (!run)
                     return;
+                if (drag.kind === 'clip' || (run.clip && (drag.k === 0 || drag.k === run.keys.length - 1))) {
+                    // a clip's bar, or its first or last key, which are its ends
+                    const c0 = drag.c0 || { start: run.clip.start, len: run.clip.len },
+                        part = drag.kind === 'clip' ? drag.part : drag.k === 0 ? 'start' : 'end',
+                        end0 = c0.start + c0.len,
+                        MIN = 0.02;
+                    let st = c0.start,
+                        en = end0;
+                    if (part === 'move') {
+                        const d = Math.max(-c0.start, Math.min(1 - end0, t - drag.t0));
+                        st += d;
+                        en += d;
+                    } else if (part === 'start')
+                        st = Math.max(0, Math.min(end0 - MIN, t));
+                    else
+                        en = Math.min(1, Math.max(c0.start + MIN, t));
+                    run.clip = { start: st, len: en - st };
+                    drag.c0 = c0;
+                    drag.moved = true;
+                    run._centres = null;
+                    morphWrite();
+                    morphBarSync();
+                    drawAll();
+                    return;
+                }
                 // the shared time back onto the morph's own clock, on the lap the key was picked up on
                 // (a ramp of two keys is not a loop: its times are held in [0, 1] as they come)
-                let u = t * (run.rate || 1) + (run.phase || 0) - drag.m;
-                u = run.keys.length === 2 ? Math.max(0, Math.min(1, u)) : u - Math.floor(u);
+                let u;
+                if (run.clip) { // a middle key of a clip: its share of the way from the first key to the last
+                    const T = morphKeyTimes(run),
+                        K = run.keys.length,
+                        pp = Math.max(0, Math.min(1, (t - run.clip.start) / run.clip.len));
+                    u = T[0] + pp * (T[K - 1] - T[0]);
+                } else {
+                    u = t * (run.rate || 1) + (run.phase || 0) - drag.m;
+                    u = run.keys.length === 2 ? Math.max(0, Math.min(1, u)) : u - Math.floor(u);
+                }
                 const v = morphSetKeyTime([run], drag.k, u);
                 if (v == null)
                     return;
@@ -53168,7 +53729,7 @@
             const end = e => {
                 if (!drag || e.pointerId !== drag.id)
                     return;
-                const moved = drag.kind === 'key' && drag.moved;
+                const moved = (drag.kind === 'key' || drag.kind === 'clip') && drag.moved;
                 drag = null;
                 if (moved) {
                     _mrSig = '';
@@ -53180,6 +53741,15 @@
             P.addEventListener('pointerup', end);
             P.addEventListener('pointercancel', end);
             P.addEventListener('click', e => {
+                const once = e.target.closest('.tl-once');
+                if (once) { // looping or once
+                    const run = morphRuns[+once.dataset.r];
+                    if (run) {
+                        run.clip = run.clip ? null : { start: 0, len: 1 };
+                        morphTimelineChanged();
+                    }
+                    return;
+                }
                 const lab = e.target.closest('.tl-lab');
                 if (!lab)
                     return;
@@ -53428,6 +53998,7 @@
                 fs.value = String([24, 30, 60].includes(+state.morphFps) ? +state.morphFps : 30);
         }
         function morphSetT(t) {
+            morphAbsorbEdits(); // EDITING A KEY ON THE CANVAS: taken in where it was made, before the clock moves
             morphClockStop();
             morphLive.t = Math.max(0, Math.min(1, t));
             morphWrite();
@@ -65929,6 +66500,8 @@
                 // the undo restored rather than to sit silently doing nothing.
                 const orphaned = () => {
                     morphCheckStale();
+                    if (morphRunning())
+                        morphAbsorbEdits(); // EDITING A KEY ON THE CANVAS: before the clock or the morph moves on
                     return !morphRunning();
                 };
                 if (rng)
@@ -69215,7 +69788,7 @@
                 return null;
             }
             const mode = o.loop || state.morphLoop || 'auto';
-            const allPairs = morphRuns.every(r => r.keys.length === 2);
+            const allPairs = morphRuns.every(r => r.keys.length === 2 && !r.clip); // a sequence plays forward, never back
             const bounce = mode === 'bounce' || (mode === 'auto' && allPairs);
             const speed = morphLive.speed || 0.25;
             const dur = ((bounce ? 2 : 1) / speed);
@@ -79889,6 +80462,7 @@
                 laps: r.laps || 1,
                 start: r.at != null ? +r.at : null,
                 times: r.times ? r.times.map(Number) : null, // KEYS AT CHOSEN TIMES
+                clip: r.clip ? { start: +r.clip.start, len: +r.clip.len } : null, // A MORPH THAT PLAYS ONCE
                 eases: r.eases ? r.eases.slice() : null,
                 trail: r.trail ? { kind: r.trail.kind || '', len: r.trail.len != null ? +r.trail.len : 0.5 } : null,
                 cols: r.cols ? r.cols.map(c => ({ r: +c.r.toPrecision(7), g: +c.g.toPrecision(7), b: +c.b.toPrecision(7), a: +c.a.toPrecision(7) })) : null,
@@ -79914,6 +80488,7 @@
             run.at = o.start != null ? +o.start : null;
             run.follow = o.follow && MORPH_FOLLOW.includes(o.follow.kind) ? { kind: o.follow.kind, amount: Math.max(0, Math.min(1, +o.follow.amount || 0)) } : null;
             run.times = morphTimesOk(o.times, run.keys.length) ? o.times.map(Number) : null; // KEYS AT CHOSEN TIMES
+            run.clip = morphClipOk(o.clip) ? { start: +o.clip.start, len: +o.clip.len } : null; // A MORPH THAT PLAYS ONCE
             run.eases = morphEasesOk(o.eases, run.keys.length) ? o.eases.slice() : null;
             run.trail = o.trail ? { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: +o.trail.len } : null;
             run.cols = Array.isArray(o.cols) && o.cols.length === run.keys.length ? o.cols.map(c => ({ r: +c.r, g: +c.g, b: +c.b, a: +c.a })) : null;
@@ -82583,7 +83158,7 @@
                 runs: morphRuns.map(r => ({ K: r.keys.length, exact: !!r.exact, phase: +r.phase || 0, rate: r.rate || 1, spin: +r.spin || 0,
                     parent: r.parent ? morphRuns.indexOf(r.parent) : -1, at: r.at, follow: r.follow ? r.follow.kind : null, look: r.look ? morphRuns.indexOf(r.look) : -1,
                     turn: r.exact ? (r.pose ? Math.atan2(r.pose.y[0] - exactCentre(r.pose).y, r.pose.x[0] - exactCentre(r.pose).x) : null) : null, fx: r.fx ? r.fx.kind : null,
-                    laps: r.laps || 1, path: !!r.path, times: morphKeyTimes(r).slice(), eases: r.eases ? r.eases.slice() : null, trail: r.trail ? r.trail.kind : null, fill: r.sp && r.sp.fill ? r.sp.fill.color : null,
+                    laps: r.laps || 1, path: !!r.path, times: morphKeyTimes(r).slice(), clip: r.clip ? { start: r.clip.start, len: r.clip.len } : null, eases: r.eases ? r.eases.slice() : null, trail: r.trail ? r.trail.kind : null, fill: r.sp && r.sp.fill ? r.sp.fill.color : null,
                     cx: r.exact ? (r.pose ? exactCentre(r.pose).x : null) : (r.sp.leafX ? r.sp.leafX.reduce((a, b) => a + b) / r.sp.leafX.length : null),
                     cy: r.exact ? (r.pose ? exactCentre(r.pose).y : null) : (r.sp.leafY ? r.sp.leafY.reduce((a, b) => a + b) / r.sp.leafY.length : null),
                     x0: r.exact ? (r.pose ? r.pose.x[0] : null) : r.sp.leafX[0], y0: r.exact ? (r.pose ? r.pose.y[0] : null) : r.sp.leafY[0],
@@ -82596,6 +83171,8 @@
             pathAt: t => morphRuns.length && morphLive.path ? morphPathPlace(morphRuns[0], t) : null,
             canvasUrl: () => { (drawAll.now || drawAll)(); return cv.toDataURL(); }, // drawAll alone waits for the next frame
             morphKey: k => morphRuns.length ? { x: Array.from(morphRuns[0].keys[k].x) } : null,
+            // a world point on the page, for a test's mouse (EDITING A KEY ON THE CANVAS)
+            toPx: (x, y) => { const r = cv.getBoundingClientRect(), q = worldToPx(x, y, r.width, r.height); return { x: r.left + q.x, y: r.top + q.y }; },
             morphSvg: o => { const r = exportMorphSvg(Object.assign({}, o, { noDownload: true })); return r ? r.svg : null; },
             recordGif: () => morphRecordGif().then(b => b ? b.size : 0),
             recordVideo: () => morphRecordVideo().then(b => b ? { size: b.size, type: b.type } : null),
@@ -84038,7 +84615,8 @@
         //                          or an object with what that morph has of its own: { keys,
         //                          path, laps, at, turn, mode, rate, phase, spin, fx, trail, lag,
         //                          inPlace, parent, follow: {kind: 'lag' | 'spring', amount}, look,
-        //                          times, eases } (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL; ONE
+        //                          times, eases, pair: [per key, places to turn its corners],
+        //                          clip: {start, len} (A MORPH THAT PLAYS ONCE) } (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL; ONE
         //                          MORPH RIDING ANOTHER; FOLLOWING LOOSELY, AND FACING; KEYS AT
         //                          CHOSEN TIMES),
         //     path: i              a line or curve every live shape rides, or absent,
@@ -84175,9 +84753,20 @@
                         run.spin = Number.isFinite(+o.spin) ? +o.spin : 0;
                         run.laps = Math.max(1, Math.round(+o.laps || 1));
                         run.at = o.at != null ? clamp(o.at, 0, 1, 0) : null;
+                        // CORNERS PAIRED BY HAND: `pair` per key, a whole number of places to turn its corners
+                        // round (negative back), after the pairing the morph found
+                        if (run.exact && Array.isArray(o.pair)) {
+                            o.pair.forEach((st, k) => {
+                                const Q = run.keys[k];
+                                if (Q && Number.isInteger(st) && st)
+                                    exactRoll(Q, ((st % Q.x.length) + Q.x.length) % Q.x.length);
+                            });
+                            run.curved = morphExactCurved(run.keys);
+                        }
                         // KEYS AT CHOSEN TIMES: `times` a time per key, `eases` an ease per stretch
                         run.times = morphTimesOk(o.times, run.keys.length) ? o.times.map(Number) : null;
                         run.eases = morphEasesOk(o.eases, run.keys.length) ? o.eases.slice() : null;
+                        run.clip = morphClipOk(o.clip) ? { start: +o.clip.start, len: +o.clip.len } : null; // A MORPH THAT PLAYS ONCE
                         if (o.trail)
                             run.trail = { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: clamp(o.trail.len, 0, 1, 0.5) };
                         if (o.path != null && S[o.path])
