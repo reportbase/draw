@@ -1433,6 +1433,15 @@ current = 'scene link out';
     const c = await open(s2);
     const D = await look(c);
     if (JSON.stringify(C) !== JSON.stringify(D) || C.morphs.length !== 2 || C.morphs[0].rate !== 3) throw new Error('an editor-made scene came back as ' + JSON.stringify(D) + ', not ' + JSON.stringify(C));
+    // the startup maple, drawn here with no outline colour of its own, has the editor's gold outline, and the link says so
+    const m = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    m.on('pageerror', x => failures.push(`[scene link out] ${x.message}`));
+    await m.route(/fonts\.g/, r => r.abort());
+    await m.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await m.waitForFunction(() => window.__animSketch && window.__animSketch(), null, { timeout: 60000 });
+    const gold = await m.evaluate(async () => { window.__animApply({ copies: [{ of: 0, dx: 300 }], morphs: [{ keys: [0, 1] }] }); return /stroke="#d4a052"/.test((await window.__sceneShare()).d.svg); });
+    if (!gold) throw new Error('the link dropped the outline the editor draws');
+    await m.close();
     await a.close(); await b.close(); await c.close(); await e.close();
   } catch (e){
     failures.push(`[scene link out] ${e.message.split('\n')[0]}`);
