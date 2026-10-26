@@ -85549,12 +85549,14 @@
                     return d;
                 };
                 const hex = c => '#' + [c.r, c.g, c.b].map(v => _srgb(Math.max(0, Math.min(1, v))).toString(16).padStart(2, '0')).join('');
+                // the shape as the editor draws it: its fill while fills are shown, and its outline whenever its
+                // width is above 0, in its own colour or the editor's gold (a shape drawn here with no colour of its
+                // own has the gold outline; written without it, a black maple opened as a black blob on the dark page)
                 const styleOf = (sp, fill, open) => {
-                    const F = !open && fill && fill.color ? 'fill="' + fill.color + '"' + (fill.opacity != null && fill.opacity < 1 ? ' fill-opacity="' + (+fill.opacity).toFixed(3) + '"' : '') : 'fill="none"';
+                    const F = !open && state.showFills !== false && fill && fill.color ? 'fill="' + fill.color + '"' + (fill.opacity != null && fill.opacity < 1 ? ' fill-opacity="' + (+fill.opacity).toFixed(3) + '"' : '') : 'fill="none"';
                     const sw = sp ? lineWidthOf(sp) : 0,
                         so = sp ? strokeOpacityOf(sp) : 1;
-                    // a shape the drawing gives no stroke is written with none, so the opened scene draws it by its fill alone
-                    const S = sp && sw > 0 && (sp.stroke || open) ? ' stroke="' + (sp.stroke || '#d4a052') + '" stroke-width="' + sw + '"' + (so < 1 ? ' stroke-opacity="' + so + '"' : '') : '';
+                    const S = sp && sw > 0 ? ' stroke="' + (sp.stroke || STROKE_DEFAULT) + '" stroke-width="' + sw + '"' + (so < 1 ? ' stroke-opacity="' + so + '"' : '') : '';
                     return F + S;
                 };
                 const els = items.map((it, i) => {
@@ -85776,6 +85778,12 @@
                 for (const P of [morphLive.path, ...morphRuns.map(r => r.path)])
                     if (P)
                         take(P.x, P.y);
+                // every key of every morph, not only the pose it opens on: a morph between keys in different
+                // places (a maple that turns into a star across the page) stays in the frame the whole loop
+                for (const r of morphRuns)
+                    if (!r.clip || !r.clip.show)
+                        for (const K of r.keys)
+                            take(K.x, K.y);
                 if (!isFinite(x0))
                     return;
                 const hR = state.hRun || 1,
