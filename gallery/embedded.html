@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tvf — embedded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="page-chart page-embedded">
+
+<header>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 28 of 28</nav>
+  <h1>tvf <em>embedded</em> <span class="pill">draw.html?embed=1</span></h1>
+  <p class="lede">
+    The animations again, but every tile here is <b>the leaf editor itself, running</b>, the way it would sit on
+    any web page: <code>draw.html?embed=1</code> is the editor as a player, the canvas alone with none of its
+    controls, playing the scene its link carries. Nothing is recorded or rendered ahead: each frame is the
+    editor blending the keys, riding the paths and swinging the springs as you watch.
+  </p>
+  <p class="sub">
+    <b>copy embed code</b> gives a tile's <code>&lt;iframe&gt;</code>, ready to paste into a page of your own; the
+    whole animation rides in its address, so nothing else needs hosting. An embed never reads or writes the
+    drawing saved in your editor. The editor is a large page, so only the tiles in view play, a few at a time,
+    and a tile scrolled away stops.
+  </p>
+</header>
+
+<div class="bar"><div class="bar-in">
+  <span class="count" id="count"></span>
+  <span class="count" id="live"></span>
+  <div class="spacer"></div>
+  <a class="jump" href="#showpieces">showpieces</a>
+  <a class="jump" href="#corners">corners kept</a>
+  <a class="jump" href="#paths">paths and trails</a>
+  <a class="jump" href="#effects">detail effects</a>
+</div></div>
+
+<main id="main"></main>
+
+<footer>
+  An embed is an <code>&lt;iframe&gt;</code> of <code>draw.html?embed=1#scene=…</code>: the drawing as SVG and the
+  live morph's settings as JSON, deflated into the address. Make your own in the leaf editor, or start from
+  any tile on the <a href="animated.html">animated</a> page and change the scene there.
+  <div class="next">That is the last of them. <a href="index.html">Back to all galleries</a>, or open the <a href="../draw.html">leaf editor</a>.</div>
+</footer>
+
+<script>
+const TVF = (function () {
+// tvf.js — closed-curve sculpting on band-limited leaves
+// ============================================================================
+//
+// A shape is N samples of a closed curve, taken at the midpoints of N equal
+// arcs of the parameter circle:
+//
+//     theta_k = (k + 0.5) * 2*PI / N,   k = 0 .. N-1
+//
+// and stored as two flat Float64Arrays, x[] and y[]. That is the whole data
+// model. The curve between the samples is not stored — it is *recovered*, by
+// summing the samples against the periodic cardinal kernel
+//
+//     K_N(phi) = sin(N*phi/2) / (N * tan(phi/2))    N even
+//     K_N(phi) = sin(N*phi/2) / (N * sin(phi/2))    N odd
+//     K_N(0)   = 1                                  either way
+//
+// which is 1 at its own node and exactly 0 at every other node. So:
+//
+//   - Every leaf lies ON the curve. There are no off-curve control handles and
+//     no tangents to keep matched; moving a leaf moves the curve through it.
+//   - You cannot make a kink. The reconstruction is band-limited by
+//     construction, so the worst a single leaf can do is a smooth bump.
+//   - The curve is closed because the domain is a circle. There is no seam.
+//   - Resolution is a scalar: N up is finer, N down is smoother, same shape.
+//   - Every interesting operation is arithmetic on two arrays. Morph is a lerp.
+//     Smooth is a low-pass. Symmetry is an index map. Affine transforms are
+//     exact, because the kernel is a partition of unity.
+//
+// What it is bad at: true corners. A sharp vertex has infinite bandwidth, so
+// you approximate it by spending leaves, and leaves are uniform in parameter —
+// there is no local refinement. Great for organic, blobby, and typographic
+// curve work; awkward for a rounded rectangle. `reparameterize()` mitigates by
+// spending leaves proportional to arc length, but that is parameterization,
+// not adaptivity. Know which one you need.
+//
+// Two charts, one kernel. The angle chart (sin/tan) is what the code above runs
+// and what the Tangent Bridge paper proves in; the slope chart further down is
+// the same object as an algebraic function of the held slope, with no
+// trigonometry at all — the paper is emphatic that this is the observer's
+// actual operation and the trig form is only the display.
+//
+// The math core (kernel, node layout, reconstruction, arc-length resampling)
+// is ported from the tangent leaf editor; this module is the same numerics
+// with a sculpting API on top and no DOM.
+//
+// ----------------------------------------------------------------------------
+// Quick start
+//
+//     import { circle, Shape } from './tvf.js';
+//
+//     const s = circle(64, { r: 100 });
+//     s.push(12, { dx: 30, dy: 0 });   // thumb press at leaf 12
+//     s.smooth(0.3);                   // relax it
+//     s.blend(circle(64, { r: 60 }), 0.25);
+//     ctx.stroke(new Path2D(s.toPath()));
+//
+// ============================================================================
+
+const TAU = Math.PI * 2;
+const PI = Math.PI;
+
+// ────────────────────────────────────────────────────────────────────────────
+// KERNEL AND NODE LAYOUT
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Parameter angles of the N leaves: midpoints of N equal arcs. */
+function leafPositions(N) {
+  const out = new Float64Array(N);
+  for (let k = 0; k < N; k++) out[k] = (k + 0.5) * TAU / N;
+  return out;
+}
+
+/**
+ * The periodic cardinal kernel. K(0) = 1, K(2*PI*m/N) = 0 for integer m != 0,
+ * and sum_k K(phi - theta_k) = 1 for every phi (partition of unity).
+ *
+ * PARITY MATTERS, and getting it wrong is a quiet bug rather than a loud one.
+ * With an even number of nodes the Nyquist harmonic cos(N*phi/2) is real and
+ * shared between +N/2 and -N/2, and folding it in symmetrically turns the
+ * sin(phi/2) denominator into tan(phi/2):
+ *
+ *     N even:  sin(N*phi/2) / (N * tan(phi/2))
+ *     N odd:   sin(N*phi/2) / (N * sin(phi/2))
+ *
+ * Both are 1 at their own node and 0 at every other node, so the *interpolation*
+ * property holds either way — which is exactly why using the even form for odd N
+ * looks fine at the leaves and is wrong everywhere between them. The tell is that
+ * the weights stop summing to 1: a 33-leaf circle built with the even kernel
+ * misses its own radius by ~0.15 px between leaves, and a constant is no longer
+ * reproduced. The leaf editor this was ported from uses the tan form for every N;
+ * if it ever offers an odd N, that is a live bug there.
+ */
+function kernel(phi, N) {
+  while (phi > PI) phi -= TAU;
+  while (phi < -PI) phi += TAU;
+  if (Math.abs(phi) < 1e-12) return 1;
+  const half = phi / 2;
+  const denom = N * ((N & 1) ? Math.sin(half) : Math.tan(half));
+  if (Math.abs(denom) < 1e-12) return 1;
+  return Math.sin(N * half) / denom;
+}
+
+// Weight-matrix cache. out[i] = sum_k c[k] * K(phi_i - theta_k, N) has weights
+// that depend only on (i, k, N, M) and never on the data, yet the naive form
+// pays two transcendentals per inner step for every channel of every shape.
+// Build the M x N matrix once per (N, M) and the inner loop becomes a trig-free
+// multiply-accumulate. Output is bit-identical to the direct sum.
+const _matCache = new Map();
+let _matBytes = 0;
+const MAT_BUDGET = 64 * 1024 * 1024;   // 64 MB of cached weights, total
+
+function kernelMatrix(N, M) {
+  const key = N + 'x' + M;
+  const hit = _matCache.get(key);
+  if (hit) return hit;
+  const bytes = N * M * 8;
+  if (bytes > MAT_BUDGET) return null;          // too big to be worth caching
+  while (_matBytes + bytes > MAT_BUDGET && _matCache.size) {
+    const oldest = _matCache.keys().next().value;
+    const [on, om] = oldest.split('x').map(Number);
+    _matCache.delete(oldest);
+    _matBytes -= on * om * 8;
+  }
+  const leaves = leafPositions(N);
+  const W = new Float64Array(N * M);
+  for (let i = 0; i < M; i++) {
+    const phi = (i / M) * TAU;
+    const base = i * N;
+    for (let k = 0; k < N; k++) W[base + k] = kernel(phi - leaves[k], N);
+  }
+  _matCache.set(key, W);
+  _matBytes += bytes;
+  return W;
+}
+
+/** Drop all cached kernel weights. Only useful if you are cycling many N. */
+function clearCache() { _matCache.clear(); _matBytes = 0; }
+
+/**
+ * Reconstruct one channel: N leaf values -> M points uniformly spaced in the
+ * parameter, starting at phi = 0.
+ *
+ * `opts.matrix` lets a host supply its own weight-matrix cache — a function
+ * (N, M) => Float64Array | null, laid out row-major as W[i*N + k]. This exists
+ * so an application that already caches these weights (with its own memory
+ * budget, and its own decisions keyed off when the cache declines) can delegate
+ * the sum here without ending up with two caches holding the same numbers.
+ * Both branches produce identical output, so which one runs is a performance
+ * question only.
+ */
+function reconstruct(channel, M, opts) {
+  const N = channel.length;
+  const out = new Float64Array(M);
+  const W = (opts && opts.matrix ? opts.matrix : kernelMatrix)(N, M);
+  if (W) {
+    for (let i = 0; i < M; i++) {
+      const base = i * N;
+      let sum = 0;
+      for (let k = 0; k < N; k++) sum += channel[k] * W[base + k];
+      out[i] = sum;
+    }
+    return out;
+  }
+  const leaves = leafPositions(N);
+  for (let i = 0; i < M; i++) {
+    const phi = (i / M) * TAU;
+    let sum = 0;
+    for (let k = 0; k < N; k++) sum += channel[k] * kernel(phi - leaves[k], N);
+    out[i] = sum;
+  }
+  return out;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// THE SLOPE CHART — the same kernel, without trigonometry
+// ────────────────────────────────────────────────────────────────────────────
+// The Tangent Bridge paper (§11) makes an operational claim the angle-chart code
+// above does not honour: the kernel is only *displayed* in sin/tan, and the
+// observer that runs it holds slopes, where the same object is algebraic —
+//
+//     K_N = Im[(1+is)^N] / (N · s · (1+s²)^(N/2)),      s = tan(φ/2)
+//
+// — "rational in s with the single square root sqrt(1+s²) as its only
+// non-rational step... the count of sin/tan/arctan calls held at zero."
+//
+// It reduces, and the reduction is the point. |1+is|^N = (1+s²)^(N/2) and
+// arg(1+is) = arctan(s) = t, so Im[(1+is)^N] = (1+s²)^(N/2)·sin(Nt) and the
+// whole expression collapses to sin(Nt)/(N·s) — which is sin(Nφ/2)/(N·tan(φ/2)),
+// the EVEN-N kernel exactly.
+//
+// So the published slope form carries the same parity assumption the angle form
+// does, and for the same reason: in the paper N = 2^(d+1) is always even, so the
+// question never arises. Where it does arise, the correction is one character.
+// The odd kernel is sin(Nt)/(N·sin t) rather than sin(Nt)/(N·tan t), and
+// sin t = s/sqrt(1+s²), so the odd form is the same numerator over one lower
+// power of the Cauchy denominator. Both parities at once:
+//
+//     K_N = Im[(1+is)^N] / (N · s · (1+s²)^floor(N/2))
+//
+// The parity that cost a `tan` in §4.1 costs a floor here. Measured against the
+// angle form: as published, 2.6e-2 error at N=33; with the floor, 8.9e-16.
+//
+// Computed by binary powering of the unit-modulus z = (1+is)/sqrt(1+s²), which
+// is O(log N) multiplies rather than the O(N) of expanding the binomial — and
+// which keeps the paper's accounting honest, since sqrt is the one non-rational
+// step it allows and there is no other.
+
+/**
+ * The bridge kernel evaluated from a held slope. Zero trigonometric calls.
+ *
+ * @param {number} s   the slope tan(phi/2) — the quantity the observer holds
+ * @param {number} N   leaf count, either parity
+ */
+function kernelSlope(s, N) {
+  if (s === 0) return 1;
+  if (!isFinite(s)) {
+    // The antipode, phi = ±pi. Even N: the cos(phi/2) of the product form kills
+    // it. Odd N: sin(N·pi/2)/N, which alternates ±1/N.
+    if ((N & 1) === 0) return 0;
+    return ((N - 1) / 2 & 1 ? -1 : 1) / N;
+  }
+  const q = 1 / Math.sqrt(1 + s * s);      // = cos t. THE one non-rational step.
+  // z = e^{it} as a pair, never as an angle.
+  let zr = q, zi = s * q;
+  let wr = 1, wi = 0;                       // w = z^N by squaring
+  let n = N;
+  while (n > 0) {
+    if (n & 1) { const t = wr * zr - wi * zi; wi = wr * zi + wi * zr; wr = t; }
+    const t2 = zr * zr - zi * zi; zi = 2 * zr * zi; zr = t2;
+    n >>= 1;
+  }
+  const sinNt = wi;
+  return (N & 1) ? sinNt / (N * s * q) : sinNt / (N * s);
+}
+
+/**
+ * Tangent subtraction — the Möbius composition law, tan(t - t_k) from the two
+ * held slopes. This is how a slope-posed query reaches the kernel without ever
+ * becoming an angle.
+ */
+function slopeDiff(s, sk) {
+  // The horizon is a POINT here, not an edge — but it is a point the arithmetic
+  // has to be told about. (inf - sk)/(1 + inf*sk) is inf/inf = NaN, which then
+  // falls into kernelSlope's own antipode branch and returns silently wrong.
+  // §4.1 notes the antipodal argument does occur on this grid (j - k = ±N for
+  // odd j, k), so this is reachable, not hypothetical.
+  if (!isFinite(s)) return !isFinite(sk) ? 0 : (sk === 0 ? Infinity : 1 / sk);
+  if (!isFinite(sk)) return s === 0 ? Infinity : -1 / s;
+  const den = 1 + s * sk;
+  if (den === 0) return Infinity;
+  return (s - sk) / den;
+}
+
+// Seeds for the cascade below, keyed by the odd part of 2N: [tan(pi/M), log2 of
+// the M each seed is stated at]. Every one is a constructible ratio — 1 is the
+// gate where the run equals the rise, and the other two are the Fermat-prime
+// arcs that Gauss's condition admits alongside it.
+const _SEEDS = new Map([
+  [1, [1, 2]],                                  // tan(pi/4)  = 1
+  [3, [1 / Math.sqrt(3), 1]],                   // tan(pi/6)  = 1/sqrt(3)
+  [5, [Math.sqrt(1 - 2 / Math.sqrt(5)), 1]],    // tan(pi/10)
+]);
+
+/**
+ * The leaf lattice GENERATED rather than looked up: no trigonometry, no pi.
+ *
+ * The lattice is the dyadic cascade's orbit structure (§2.4, §5.3), so it can be
+ * built from a ratio. Start at the gate where the run equals the rise — s = 1,
+ * a statement about two lengths that needs no total to be meaningful — halve the
+ * arc algebraically, then step around by tangent addition:
+ *
+ *     halve:  tan(x/2) = t / (1 + sqrt(1 + t^2))      the one square root
+ *     step:   the unit-modulus pair, multiplied           pure rational
+ *
+ * The halving is written in the rationalized form on purpose. The textbook twin
+ * (sqrt(1+t^2) - 1)/t is the same number and subtracts near-equals: it drifts to
+ * 1.6e-9 by N = 2048 where this holds 1e-13. Identical on paper, four orders
+ * apart in the register — the algebraic chart has its own craft.
+ *
+ * Available exactly when pi/(2N) is constructible (Gauss: a power of two times
+ * distinct Fermat primes). The paper's N = 2^(d+1) sits inside that by
+ * construction, which is not luck — the radix forced in §2.4 is also the radix
+ * that keeps every leaf reachable by square roots. Returns null otherwise.
+ */
+function leafSlopesCascade(N) {
+  let odd = N * 2, j = 0;
+  while ((odd & 1) === 0) { odd >>= 1; j++; }
+  const seed = _SEEDS.get(odd);
+  if (!seed) return null;
+  const halvings = j - seed[1];
+  if (halvings < 0) return null;
+  let t = seed[0];
+  for (let i = 0; i < halvings; i++) t = t / (1 + Math.sqrt(1 + t * t));
+  // The base arc as a unit-modulus pair. The bare ratio would cancel badly as
+  // the running sum approaches the horizon; the pair never does.
+  const q = 1 / Math.sqrt(1 + t * t);
+  let cr = q, ci = t * q;
+  const sr = cr * cr - ci * ci, si = 2 * cr * ci;   // two base arcs
+  const out = new Float64Array(N);
+  for (let k = 0; k < N; k++) {
+    out[k] = cr === 0 ? Infinity : ci / cr;
+    const nr = cr * sr - ci * si; ci = cr * si + ci * sr; cr = nr;
+  }
+  return out;
+}
+
+/**
+ * Slopes of the N leaf positions, s_k = tan(theta_k / 2).
+ *
+ * Generated by the cascade where the leaf count allows it, which is every N the
+ * paper actually uses and most of the ones anyone picks by hand. Where it does
+ * not, this falls back to the boundary conversion the paper permits — "a lone
+ * tangent enters only to convert a query supplied as an angle" — which is now
+ * the exception rather than the setup path.
+ */
+function leafSlopes(N) {
+  const built = leafSlopesCascade(N);
+  if (built) return built;
+  const out = new Float64Array(N);
+  for (let k = 0; k < N; k++) out[k] = Math.tan((k + 0.5) * PI / N);
+  return out;
+}
+
+/**
+ * Reconstruct from held slopes, with no trigonometry in the per-leaf loop.
+ *
+ * Produces the same numbers as `reconstruct` (verified to ~1e-13 through
+ * N = 1024 in verify-slope.mjs, both parities) by a different route: Möbius-
+ * composed slopes into a rational kernel over a Cauchy denominator.
+ *
+ * With `leafSlopes` generated by the cascade, this path now runs with the
+ * trigonometric call count measured at zero — not argued at zero — for every N
+ * the cascade reaches. `verify-slope.mjs` replaces every trig entry point on
+ * Math with a counter before anything runs: 128 leaves, 512 queries, lattice
+ * built from scratch, 0 calls.
+ *
+ * It is still slower than `reconstruct`, but the comparison is not the one it
+ * looks like: the angle form gets a cached weight matrix and this does not. The
+ * weights depend only on (i, k, N) in either chart, so a slope-side matrix cache
+ * would close the gap entirely — after the matrix exists, neither chart runs.
+ *
+ * @param {ArrayLike<number>} channel  N leaf values
+ * @param {ArrayLike<number>} sQuery   slopes to evaluate at, tan(phi/2) each
+ */
+function reconstructSlope(channel, sQuery) {
+  const N = channel.length;
+  const sk = leafSlopes(N);                 // generated, not converted — see above
+  const out = new Float64Array(sQuery.length);
+  for (let i = 0; i < sQuery.length; i++) {
+    const s = sQuery[i];
+    let sum = 0;
+    for (let k = 0; k < N; k++) sum += channel[k] * kernelSlope(slopeDiff(s, sk[k]), N);
+    out[i] = sum;
+  }
+  return out;
+}
+
+/** Evaluate one channel at a single parameter angle. */
+function evalAt(channel, phi) {
+  const N = channel.length;
+  let sum = 0;
+  for (let k = 0; k < N; k++) sum += channel[k] * kernel(phi - (k + 0.5) * TAU / N, N);
+  return sum;
+}
+
+/**
+ * Resample a closed polyline to N points spaced equally in ARC LENGTH.
+ * Returns { x, y, srcCoV } where srcCoV is the coefficient of variation of the
+ * input's own gap lengths — a measure of how uneven the source sampling was.
+ */
+function arcLengthResample(polyX, polyY, N) {
+  const M = polyX.length;
+  const cum = new Float64Array(M + 1);
+  for (let i = 1; i <= M; i++) {
+    const j = i % M;
+    cum[i] = cum[i - 1] + Math.hypot(polyX[j] - polyX[i - 1], polyY[j] - polyY[i - 1]);
+  }
+  const total = cum[M];
+  let srcCoV = 0;
+  {
+    let n = 0, mean = 0;
+    for (let i = 1; i <= M; i++) { const g = cum[i] - cum[i - 1]; if (g > 1e-12) { n++; mean += g; } }
+    if (n > 1) {
+      mean /= n;
+      let v = 0;
+      for (let i = 1; i <= M; i++) { const g = cum[i] - cum[i - 1]; if (g > 1e-12) v += (g - mean) * (g - mean); }
+      srcCoV = Math.sqrt(v / n) / mean;
+    }
+  }
+  const outX = new Float64Array(N), outY = new Float64Array(N);
+  let seg = 0;
+  for (let k = 0; k < N; k++) {
+    const t = ((k + 0.5) / N) * total;
+    while (seg < M && cum[seg + 1] < t) seg++;
+    const sLen = cum[seg + 1] - cum[seg];
+    const u = sLen > 1e-12 ? (t - cum[seg]) / sLen : 0;
+    const j = (seg + 1) % M;
+    outX[k] = polyX[seg] * (1 - u) + polyX[j] * u;
+    outY[k] = polyY[seg] * (1 - u) + polyY[j] * u;
+  }
+  return { x: outX, y: outY, srcCoV };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SPECTRUM
+// ────────────────────────────────────────────────────────────────────────────
+// Leaves sit on a uniform grid, so their DFT *is* the curve's harmonic content.
+// Naive O(N^2) transforms: N here is a leaf count (tens to low thousands), not
+// an audio buffer, and keeping it dependency-free is worth more than the
+// asymptotics. Swap in an FFT if you ever push N past a few thousand.
+
+function dft(re, im) {
+  const N = re.length;
+  const outRe = new Float64Array(N), outIm = new Float64Array(N);
+  for (let m = 0; m < N; m++) {
+    let sr = 0, si = 0;
+    for (let k = 0; k < N; k++) {
+      const a = -TAU * m * k / N;
+      const c = Math.cos(a), s = Math.sin(a);
+      sr += re[k] * c - im[k] * s;
+      si += re[k] * s + im[k] * c;
+    }
+    outRe[m] = sr / N; outIm[m] = si / N;
+  }
+  return { re: outRe, im: outIm };
+}
+
+function idft(re, im) {
+  const N = re.length;
+  const outRe = new Float64Array(N), outIm = new Float64Array(N);
+  for (let k = 0; k < N; k++) {
+    let sr = 0, si = 0;
+    for (let m = 0; m < N; m++) {
+      const a = TAU * m * k / N;
+      const c = Math.cos(a), s = Math.sin(a);
+      sr += re[m] * c - im[m] * s;
+      si += re[m] * s + im[m] * c;
+    }
+    outRe[k] = sr; outIm[k] = si;
+  }
+  return { re: outRe, im: outIm };
+}
+
+// Deterministic PRNG, so a seeded noise() is reproducible across runs.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Circular index distance, in leaves. */
+function wrapDist(a, b, N) {
+  let d = a - b;
+  d -= N * Math.round(d / N);
+  return d;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SHAPE
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A closed curve as N leaves. Mutating methods change the shape in place and
+ * return `this`, so they chain. Use `clone()` first if you need the original.
+ */
+class Shape {
+  /**
+   * @param {ArrayLike<number>} x leaf x values
+   * @param {ArrayLike<number>} y leaf y values
+   */
+  constructor(x, y) {
+    if (!x || !y || x.length !== y.length) throw new Error('tvf: x and y must be the same length');
+    if (x.length < 3) throw new Error('tvf: a shape needs at least 3 leaves');
+    this.x = Float64Array.from(x);
+    this.y = Float64Array.from(y);
+    /** Free-form user data, carried through clone/resample. */
+    this.meta = {};
+  }
+
+  get N() { return this.x.length; }
+
+  clone() {
+    const s = new Shape(this.x, this.y);
+    s.meta = Object.assign({}, this.meta);
+    return s;
+  }
+
+  /** Build from a closed polyline, spending leaves equally along arc length. */
+  static fromPoints(points, N, opts = {}) {
+    const px = new Float64Array(points.length), py = new Float64Array(points.length);
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      px[i] = Array.isArray(p) ? p[0] : p.x;
+      py[i] = Array.isArray(p) ? p[1] : p.y;
+    }
+    const n = N || Math.min(256, Math.max(8, points.length));
+    if (opts.arcLength === false) {
+      const ox = new Float64Array(n), oy = new Float64Array(n);
+      for (let k = 0; k < n; k++) {
+        const t = (k + 0.5) / n * px.length;
+        const i0 = Math.floor(t) % px.length, i1 = (i0 + 1) % px.length, u = t - Math.floor(t);
+        ox[k] = px[i0] * (1 - u) + px[i1] * u;
+        oy[k] = py[i0] * (1 - u) + py[i1] * u;
+      }
+      return new Shape(ox, oy);
+    }
+    const r = arcLengthResample(px, py, n);
+    const s = new Shape(r.x, r.y);
+    s.meta.srcCoV = r.srcCoV;
+    return s;
+  }
+
+  /** Build from a parametric function f(t) with t in [0, 1). */
+  static fromFunction(f, N) {
+    const x = new Float64Array(N), y = new Float64Array(N);
+    for (let k = 0; k < N; k++) {
+      const p = f((k + 0.5) / N);
+      x[k] = Array.isArray(p) ? p[0] : p.x;
+      y[k] = Array.isArray(p) ? p[1] : p.y;
+    }
+    return new Shape(x, y);
+  }
+
+  // ── SAMPLING ──────────────────────────────────────────────────────────────
+
+  /** Dense polyline of the reconstructed curve: M points, uniform in parameter. */
+  sample(M) {
+    const m = M || Math.max(256, this.N * 8);
+    return { x: reconstruct(this.x, m), y: reconstruct(this.y, m) };
+  }
+
+  /** Point on the curve at parameter t in [0, 1). Exact, not interpolated. */
+  at(t) {
+    const phi = t * TAU;
+    return { x: evalAt(this.x, phi), y: evalAt(this.y, phi) };
+  }
+
+  /** Unit tangent at parameter t, by central difference on the reconstruction. */
+  tangentAt(t) {
+    const h = 1 / (this.N * 64);
+    const a = this.at(t - h), b = this.at(t + h);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1e-12;
+    return { x: dx / len, y: dy / len };
+  }
+
+  /**
+   * LEFT unit normal at t: the tangent rotated +90 degrees. Whether that points
+   * out of the shape or into it depends on the winding direction, which is why
+   * anything that means "outward" should ask `normals()` instead of guessing.
+   */
+  normalAt(t) {
+    const tg = this.tangentAt(t);
+    return { x: -tg.y, y: tg.x };
+  }
+
+  /** Parameter t in [0, 1) of leaf k. */
+  tOf(k) { return (k + 0.5) / this.N; }
+
+  /** Index of the leaf nearest to (x, y), with its distance. */
+  nearestLeaf(x, y) {
+    let best = -1, bestD = Infinity;
+    for (let k = 0; k < this.N; k++) {
+      const d = Math.hypot(this.x[k] - x, this.y[k] - y);
+      if (d < bestD) { bestD = d; best = k; }
+    }
+    return { index: best, distance: bestD };
+  }
+
+  // ── RESOLUTION ────────────────────────────────────────────────────────────
+
+  /**
+   * Change the leaf count. The curve is reconstructed and re-sampled uniformly
+   * in the parameter, which preserves the existing parameterization — so N down
+   * then N up is a smoothing pass, not a scramble.
+   *
+   * Evaluated with `evalAt` at each new leaf position, which is exact. It used
+   * to reconstruct onto an internal grid of M = max(2048, 16·max(N, N0)) points
+   * and interpolate linearly between them, and that had a failure mode worth
+   * recording because nothing about the call site hinted at it: the query
+   * positions are (k + 1/2)·M/N, so they land ON grid indices exactly when
+   * M/(2N) is an integer, and fall between them otherwise. Upsampling 96 → 128
+   * was exact to 2e-12; 96 → 127 was off by 1.5e-2, seven orders of magnitude
+   * worse from one leaf's difference — and because M is clamped at 2048, COARSER
+   * targets were the unreliable ones, which is backwards from every intuition
+   * anyone brings to a resampling call. Exactness should not depend on an
+   * arithmetic coincidence between the argument and a constant buried in the
+   * method, so it no longer does.
+   */
+  resample(N) {
+    if (N === this.N) return this;
+    if (N < 3) throw new Error('tvf: N must be at least 3');
+    const nx = new Float64Array(N), ny = new Float64Array(N);
+    for (let k = 0; k < N; k++) {
+      const phi = (k + 0.5) * TAU / N;
+      nx[k] = evalAt(this.x, phi);
+      ny[k] = evalAt(this.y, phi);
+    }
+    this.x = nx; this.y = ny;
+    return this;
+  }
+
+  /**
+   * Redistribute the same number of leaves so they are equally spaced in ARC
+   * LENGTH rather than in parameter. Same curve, better-spent leaves — worth
+   * running after a transform that stretched one region.
+   */
+  reparameterize() {
+    const d = this.sample(Math.max(2048, this.N * 16));
+    const r = arcLengthResample(d.x, d.y, this.N);
+    this.x = r.x; this.y = r.y;
+    return this;
+  }
+
+  // ── SCULPT ────────────────────────────────────────────────────────────────
+
+  /**
+   * Press the curve near leaf `k`. This is the thumb.
+   *
+   * A raised-cosine bump of half-width `radius` leaves is added to the leaf
+   * positions, so the deformation is smooth and local and the peak lands
+   * exactly on the leaf you grabbed.
+   *
+   * If `radius` is omitted it is derived from how far you pushed, relative to
+   * the typical leaf spacing: a raised-cosine bump of half-width R has peak
+   * inter-leaf slope PI/(2R) of its height, so holding that slope under a fixed
+   * threshold gives R proportional to |delta| / spacing. Small nudges stay
+   * tight, big shoves spread out, and the result does not depend on N.
+   *
+   * @param {number} k leaf index (fractional is fine)
+   * @param {{dx?: number, dy?: number, radius?: number, falloff?: string}} opts
+   */
+  push(k, opts = {}) {
+    const N = this.N;
+    const dx = opts.dx || 0, dy = opts.dy || 0;
+    const dist = Math.hypot(dx, dy);
+    if (dist === 0) return this;
+
+    let R = opts.radius;
+    if (R == null) {
+      let total = 0;
+      for (let i = 0; i < N; i++) {
+        const j = (i + 1) % N;
+        total += Math.hypot(this.x[j] - this.x[i], this.y[j] - this.y[i]);
+      }
+      const spacing = total / N || 1e-9;
+      R = (PI * PI / 2) * dist / spacing;
+    }
+    R = Math.max(1, Math.min(R, N / 2));
+
+    const falloff = opts.falloff || 'cosine';
+    for (let i = 0; i < N; i++) {
+      const d = Math.abs(wrapDist(i, k, N));
+      if (d > R) continue;
+      let w;
+      if (falloff === 'cosine') w = 0.5 * (1 + Math.cos(PI * d / R));
+      else if (falloff === 'linear') w = 1 - d / R;
+      else if (falloff === 'gauss') w = Math.exp(-4.5 * (d / R) * (d / R));
+      else w = 0.5 * (1 + Math.cos(PI * d / R));
+      this.x[i] += dx * w;
+      this.y[i] += dy * w;
+    }
+    return this;
+  }
+
+  /** Press at parameter t in [0, 1) instead of at a leaf index. */
+  pushAt(t, opts = {}) { return this.push(t * this.N - 0.5, opts); }
+
+  /** Push along the local normal — inflate or dent without choosing a direction. */
+  pushNormal(k, amount, opts = {}) {
+    const n = this.normalAt(this.tOf(k));
+    return this.push(k, Object.assign({}, opts, { dx: n.x * amount, dy: n.y * amount }));
+  }
+
+  /**
+   * Relax the curve. `amount` in [0, 1] mixes toward a circular [1,2,1]/4 blur
+   * of the leaves; `passes` repeats it for a wider, gentler result.
+   */
+  smooth(amount = 0.5, passes = 1) {
+    const N = this.N;
+    for (let p = 0; p < passes; p++) {
+      const bx = new Float64Array(N), by = new Float64Array(N);
+      for (let i = 0; i < N; i++) {
+        const a = (i - 1 + N) % N, b = (i + 1) % N;
+        bx[i] = 0.25 * this.x[a] + 0.5 * this.x[i] + 0.25 * this.x[b];
+        by[i] = 0.25 * this.y[a] + 0.5 * this.y[i] + 0.25 * this.y[b];
+      }
+      for (let i = 0; i < N; i++) {
+        this.x[i] += (bx[i] - this.x[i]) * amount;
+        this.y[i] += (by[i] - this.y[i]) * amount;
+      }
+    }
+    return this;
+  }
+
+  /**
+   * Keep only the lowest `keep` fraction of harmonics. This is the honest
+   * band-limit: keep = 1 is a no-op, keep = 0.1 leaves a soft blob, and unlike
+   * `smooth()` it removes detail exactly rather than attenuating it.
+   */
+  lowpass(keep = 0.5) {
+    const N = this.N;
+    const cut = Math.max(1, Math.floor(Math.max(0, Math.min(1, keep)) * N / 2));
+    const zero = new Float64Array(N);
+    const fx = dft(this.x, zero), fy = dft(this.y, new Float64Array(N));
+    for (let m = 0; m < N; m++) {
+      const h = Math.min(m, N - m);          // signed harmonic order
+      if (h > cut) {
+        fx.re[m] = fx.im[m] = 0;
+        fy.re[m] = fy.im[m] = 0;
+      }
+    }
+    const rx = idft(fx.re, fx.im), ry = idft(fy.re, fy.im);
+    this.x = rx.re; this.y = ry.re;
+    return this;
+  }
+
+  /** Drop the lowest harmonics instead — leaves the wobble, kills the body. */
+  highpass(cutFraction = 0.1) {
+    const N = this.N;
+    const cut = Math.floor(Math.max(0, Math.min(1, cutFraction)) * N / 2);
+    const fx = dft(this.x, new Float64Array(N)), fy = dft(this.y, new Float64Array(N));
+    for (let m = 0; m < N; m++) {
+      const h = Math.min(m, N - m);
+      if (h <= cut) { fx.re[m] = fx.im[m] = 0; fy.re[m] = fy.im[m] = 0; }
+    }
+    const rx = idft(fx.re, fx.im), ry = idft(fy.re, fy.im);
+    this.x = rx.re; this.y = ry.re;
+    return this;
+  }
+
+  /**
+   * Morph toward another shape. This is why the format is pleasant: a morph is
+   * a lerp of two arrays, with no correspondence problem to solve, because both
+   * shapes are sampled on the same parameter grid.
+   *
+   * If the leaf counts differ, the other shape is resampled to match. Set
+   * `align: true` to first rotate the other shape's leaf order to the offset
+   * that minimizes total travel — usually what you want when the two shapes
+   * were authored independently.
+   */
+  blend(other, t = 0.5, opts = {}) {
+    let o = other;
+    if (o.N !== this.N) o = o.clone().resample(this.N);
+    if (opts.align) o = alignTo(this, o);
+    const N = this.N;
+    for (let i = 0; i < N; i++) {
+      this.x[i] += (o.x[i] - this.x[i]) * t;
+      this.y[i] += (o.y[i] - this.y[i]) * t;
+    }
+    return this;
+  }
+
+  /**
+   * Fold the shape onto its own mirror image about a line through the centroid
+   * at `angle` radians, then average. The index correspondence is found by
+   * searching all N leaf offsets for the one that minimizes total travel, so
+   * this works on an arbitrary shape rather than only on a near-symmetric one.
+   *
+   * `strength` in [0, 1] controls how far to go: 1 is fully symmetric.
+   */
+  symmetrize(angle = 0, strength = 1) {
+    const N = this.N;
+    const c = this.centroid();
+    const ca = Math.cos(2 * angle), sa = Math.sin(2 * angle);
+    // Reflected leaves, in reversed order (reflection flips orientation).
+    const rx = new Float64Array(N), ry = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+      const j = (N - 1 - i) % N;
+      const px = this.x[j] - c.x, py = this.y[j] - c.y;
+      rx[i] = c.x + px * ca + py * sa;
+      ry[i] = c.y + px * sa - py * ca;
+    }
+    // Best circular offset between the original order and the reflected order.
+    let bestOff = 0, bestCost = Infinity;
+    for (let off = 0; off < N; off++) {
+      let cost = 0;
+      for (let i = 0; i < N; i++) {
+        const j = (i + off) % N;
+        const ddx = this.x[i] - rx[j], ddy = this.y[i] - ry[j];
+        cost += ddx * ddx + ddy * ddy;
+        if (cost >= bestCost) break;
+      }
+      if (cost < bestCost) { bestCost = cost; bestOff = off; }
+    }
+    for (let i = 0; i < N; i++) {
+      const j = (i + bestOff) % N;
+      this.x[i] += (0.5 * (this.x[i] + rx[j]) - this.x[i]) * strength;
+      this.y[i] += (0.5 * (this.y[i] + ry[j]) - this.y[i]) * strength;
+    }
+    return this;
+  }
+
+  /** Force n-fold rotational symmetry about the centroid, the same way. */
+  radialize(fold = 5, strength = 1) {
+    const N = this.N;
+    const c = this.centroid();
+    const acc = this.clone();
+    for (let f = 1; f < fold; f++) {
+      const rot = this.clone().rotate(TAU * f / fold, c);
+      const aligned = alignTo(this, rot);
+      for (let i = 0; i < N; i++) { acc.x[i] += aligned.x[i]; acc.y[i] += aligned.y[i]; }
+    }
+    for (let i = 0; i < N; i++) {
+      this.x[i] += (acc.x[i] / fold - this.x[i]) * strength;
+      this.y[i] += (acc.y[i] / fold - this.y[i]) * strength;
+    }
+    return this;
+  }
+
+  /**
+   * Band-limited displacement along the normal. Built from harmonics directly
+   * rather than from per-leaf white noise, so `detail` means something: it is
+   * the highest harmonic used, as a fraction of the Nyquist limit. Low detail
+   * gives lobes, high detail gives crinkle. Seeded, so it is reproducible.
+   */
+  noise(amp = 5, opts = {}) {
+    const N = this.N;
+    const detail = opts.detail == null ? 0.25 : opts.detail;
+    const rand = mulberry32(opts.seed == null ? 1 : opts.seed);
+    const maxH = Math.max(1, Math.floor(detail * N / 2));
+    const minH = Math.max(1, opts.minHarmonic || 2);
+    const disp = new Float64Array(N);
+    for (let h = minH; h <= maxH; h++) {
+      const phase = rand() * TAU;
+      const a = (rand() * 2 - 1) / h;            // 1/f falloff reads as organic
+      for (let i = 0; i < N; i++) disp[i] += a * Math.cos(h * (i + 0.5) * TAU / N + phase);
+    }
+    let peak = 0;
+    for (let i = 0; i < N; i++) peak = Math.max(peak, Math.abs(disp[i]));
+    const scale = peak > 0 ? amp / peak : 0;
+    // ALL the normals first, THEN move. Reading a normal off a curve you are
+    // halfway through displacing feeds each leaf's motion into the next one's
+    // direction, and the error compounds around the loop until the curve
+    // crosses itself — a 26 px wobble on a 132 px circle was producing ten
+    // self-intersections before this was two passes instead of one.
+    const { nx, ny } = this.normals();
+    for (let i = 0; i < N; i++) {
+      this.x[i] += nx[i] * disp[i] * scale;
+      this.y[i] += ny[i] * disp[i] * scale;
+    }
+    return this;
+  }
+
+  /**
+   * Unit normals at every leaf, sampled off the CURRENT curve and flipped so
+   * they all point OUT of the shape regardless of winding direction. Orientation
+   * is read once from the signed area, so a clockwise shape and its reversed
+   * twin inflate the same way — which is the only behaviour a caller can use.
+   */
+  normals() {
+    const N = this.N;
+    const nx = new Float64Array(N), ny = new Float64Array(N);
+    // Left normal points INTO a positively-wound curve, so flip there.
+    const sign = this.area() > 0 ? -1 : 1;
+    for (let i = 0; i < N; i++) {
+      const n = this.normalAt(this.tOf(i));
+      nx[i] = n.x * sign; ny[i] = n.y * sign;
+    }
+    return { nx, ny };
+  }
+
+  /** Move every leaf along its normal. Positive inflates (for CCW curves). */
+  inflate(amount) {
+    const N = this.N;
+    const { nx, ny } = this.normals();
+    for (let i = 0; i < N; i++) { this.x[i] += nx[i] * amount; this.y[i] += ny[i] * amount; }
+    return this;
+  }
+
+  /**
+   * Rotate the leaf ORDER without moving the curve. Same shape, different
+   * starting leaf — occasionally what you need before a blend.
+   */
+  roll(offset) {
+    const N = this.N;
+    const nx = new Float64Array(N), ny = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+      const j = ((i + offset) % N + N) % N;
+      nx[i] = this.x[j]; ny[i] = this.y[j];
+    }
+    this.x = nx; this.y = ny;
+    return this;
+  }
+
+  /** Reverse orientation (CW <-> CCW). */
+  reverse() {
+    this.x.reverse(); this.y.reverse();
+    return this;
+  }
+
+  // ── AFFINE ────────────────────────────────────────────────────────────────
+  // These are exact on the reconstructed curve, not just on the leaves: the
+  // kernel is linear and sums to 1, so an affine map of the leaves is the
+  // affine map of the whole curve.
+
+  translate(dx, dy) {
+    for (let i = 0; i < this.N; i++) { this.x[i] += dx; this.y[i] += dy; }
+    return this;
+  }
+
+  scale(sx, sy = sx, about) {
+    const c = about || this.centroid();
+    for (let i = 0; i < this.N; i++) {
+      this.x[i] = c.x + (this.x[i] - c.x) * sx;
+      this.y[i] = c.y + (this.y[i] - c.y) * sy;
+    }
+    return this;
+  }
+
+  rotate(angle, about) {
+    const c = about || this.centroid();
+    const ca = Math.cos(angle), sa = Math.sin(angle);
+    for (let i = 0; i < this.N; i++) {
+      const px = this.x[i] - c.x, py = this.y[i] - c.y;
+      this.x[i] = c.x + px * ca - py * sa;
+      this.y[i] = c.y + px * sa + py * ca;
+    }
+    return this;
+  }
+
+  /** Fit the shape into a box, preserving aspect ratio. */
+  fit(x, y, w, h) {
+    const b = this.bbox();
+    const s = Math.min(w / (b.w || 1e-9), h / (b.h || 1e-9));
+    this.translate(-b.x - b.w / 2, -b.y - b.h / 2);
+    this.scale(s, s, { x: 0, y: 0 });
+    this.translate(x + w / 2, y + h / 2);
+    return this;
+  }
+
+  // ── MEASURE ───────────────────────────────────────────────────────────────
+  // Measured on the reconstructed curve, not on the leaf polygon, since the
+  // curve is the shape.
+
+  centroid() {
+    let sx = 0, sy = 0;
+    for (let i = 0; i < this.N; i++) { sx += this.x[i]; sy += this.y[i]; }
+    return { x: sx / this.N, y: sy / this.N };
+  }
+
+  bbox(M) {
+    const d = this.sample(M);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < d.x.length; i++) {
+      if (d.x[i] < x0) x0 = d.x[i];
+      if (d.x[i] > x1) x1 = d.x[i];
+      if (d.y[i] < y0) y0 = d.y[i];
+      if (d.y[i] > y1) y1 = d.y[i];
+    }
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  /** Perimeter of the reconstructed curve. */
+  length(M) {
+    const d = this.sample(M);
+    let L = 0;
+    for (let i = 0; i < d.x.length; i++) {
+      const j = (i + 1) % d.x.length;
+      L += Math.hypot(d.x[j] - d.x[i], d.y[j] - d.y[i]);
+    }
+    return L;
+  }
+
+  /** Signed area (shoelace). Negative means clockwise in screen coordinates. */
+  area(M) {
+    const d = this.sample(M);
+    let a = 0;
+    for (let i = 0; i < d.x.length; i++) {
+      const j = (i + 1) % d.x.length;
+      a += d.x[i] * d.y[j] - d.x[j] * d.y[i];
+    }
+    return a / 2;
+  }
+
+  contains(px, py, M) {
+    const d = this.sample(M);
+    let inside = false;
+    for (let i = 0, j = d.x.length - 1; i < d.x.length; j = i++) {
+      const yi = d.y[i], yj = d.y[j];
+      if ((yi > py) !== (yj > py)) {
+        const xAt = (d.x[j] - d.x[i]) * (py - yi) / (yj - yi) + d.x[i];
+        if (px < xAt) inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  // ── OUTPUT ────────────────────────────────────────────────────────────────
+
+  /** Dense polyline as [[x, y], ...]. */
+  toPolygon(M) {
+    const d = this.sample(M);
+    const out = new Array(d.x.length);
+    for (let i = 0; i < d.x.length; i++) out[i] = [d.x[i], d.y[i]];
+    return out;
+  }
+
+  /**
+   * SVG path data. A polyline at M samples — honest rather than clever: the
+   * curve is band-limited, so enough samples IS the curve, and there is no
+   * cubic that reproduces it exactly anyway.
+   */
+  toPath(M, precision = 2) {
+    const d = this.sample(M);
+    const n = d.x.length;
+    const f = v => {
+      const s = v.toFixed(precision);
+      return s.replace(/\.?0+$/, '') || '0';
+    };
+    let out = `M${f(d.x[0])} ${f(d.y[0])}`;
+    for (let i = 1; i < n; i++) out += `L${f(d.x[i])} ${f(d.y[i])}`;
+    return out + 'Z';
+  }
+
+  /** Trace onto a canvas 2D context or Path2D. Does not stroke or fill. */
+  trace(ctx, M) {
+    const d = this.sample(M);
+    ctx.moveTo(d.x[0], d.y[0]);
+    for (let i = 1; i < d.x.length; i++) ctx.lineTo(d.x[i], d.y[i]);
+    ctx.closePath();
+    return ctx;
+  }
+
+  /** Plain object, for JSON. */
+  toJSON() {
+    return { N: this.N, x: Array.from(this.x), y: Array.from(this.y), meta: this.meta };
+  }
+
+  static fromJSON(o) {
+    const s = new Shape(o.x, o.y);
+    if (o.meta) s.meta = Object.assign({}, o.meta);
+    return s;
+  }
+}
+
+/**
+ * Return a copy of `b` whose leaf order is rolled to the offset that minimizes
+ * total travel from `a`. Both must share N.
+ */
+function alignTo(a, b) {
+  const N = a.N;
+  if (b.N !== N) b = b.clone().resample(N);
+  let bestOff = 0, bestCost = Infinity;
+  for (let off = 0; off < N; off++) {
+    let cost = 0;
+    for (let i = 0; i < N; i++) {
+      const j = (i + off) % N;
+      const dx = a.x[i] - b.x[j], dy = a.y[i] - b.y[j];
+      cost += dx * dx + dy * dy;
+      if (cost >= bestCost) break;
+    }
+    if (cost < bestCost) { bestCost = cost; bestOff = off; }
+  }
+  return b.clone().roll(bestOff);
+}
+
+/** Non-mutating morph: a new shape t of the way from a to b. */
+function mix(a, b, t, opts) {
+  return a.clone().blend(b, t, opts);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// PRIMITIVES
+// ────────────────────────────────────────────────────────────────────────────
+// Starting clay. Every one of these is exact at its own leaves; the ones with
+// corners (rect, polygon, star) are exact AT the leaves and rounded between
+// them, which is the band limit being honest rather than a bug. Raise N if you
+// want the corners crisper — or accept the rounding, which usually looks good.
+
+/** @param {{r?: number, cx?: number, cy?: number}} o */
+function circle(N = 64, o = {}) {
+  const r = o.r == null ? 100 : o.r, cx = o.cx || 0, cy = o.cy || 0;
+  return Shape.fromFunction(t => [cx + r * Math.cos(t * TAU), cy + r * Math.sin(t * TAU)], N);
+}
+
+function ellipse(N = 64, o = {}) {
+  const rx = o.rx == null ? 120 : o.rx, ry = o.ry == null ? 70 : o.ry;
+  const cx = o.cx || 0, cy = o.cy || 0, rot = o.rotation || 0;
+  const s = Shape.fromFunction(t => [cx + rx * Math.cos(t * TAU), cy + ry * Math.sin(t * TAU)], N);
+  return rot ? s.rotate(rot, { x: cx, y: cy }) : s;
+}
+
+/**
+ * Superellipse: |x/a|^n + |y/b|^n = 1. n = 2 is an ellipse, n = 4 is a squircle,
+ * large n approaches a rectangle. The most useful primitive in the set, because
+ * it gives you rectangle-ish without asking the band limit for corners.
+ */
+function superellipse(N = 96, o = {}) {
+  const a = o.rx == null ? 110 : o.rx, b = o.ry == null ? 110 : o.ry;
+  const n = o.n == null ? 4 : o.n, cx = o.cx || 0, cy = o.cy || 0;
+  return Shape.fromFunction(t => {
+    const th = t * TAU;
+    const c = Math.cos(th), s = Math.sin(th);
+    const p = 2 / n;
+    return [
+      cx + a * Math.sign(c) * Math.pow(Math.abs(c), p),
+      cy + b * Math.sign(s) * Math.pow(Math.abs(s), p),
+    ];
+  }, N);
+}
+
+/** Rectangle, sampled along its perimeter by arc length. Corners round off. */
+function rect(N = 96, o = {}) {
+  const w = o.w == null ? 200 : o.w, h = o.h == null ? 140 : o.h;
+  const cx = o.cx || 0, cy = o.cy || 0;
+  const pts = [];
+  const per = 2 * (w + h), steps = Math.max(256, N * 8);
+  for (let i = 0; i < steps; i++) {
+    let d = (i / steps) * per;
+    let x, y;
+    if (d < w) { x = -w / 2 + d; y = -h / 2; }
+    else if ((d -= w) < h) { x = w / 2; y = -h / 2 + d; }
+    else if ((d -= h) < w) { x = w / 2 - d; y = h / 2; }
+    else { d -= w; x = -w / 2; y = h / 2 - d; }
+    pts.push([cx + x, cy + y]);
+  }
+  return Shape.fromPoints(pts, N);
+}
+
+function polygon(N = 96, o = {}) {
+  const sides = o.sides == null ? 6 : o.sides;
+  const r = o.r == null ? 100 : o.r, cx = o.cx || 0, cy = o.cy || 0;
+  const rot = o.rotation == null ? -PI / 2 : o.rotation;
+  const verts = [];
+  for (let i = 0; i < sides; i++) {
+    const a = rot + i * TAU / sides;
+    verts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  const pts = [];
+  const per = Math.max(256, N * 8), each = Math.ceil(per / sides);
+  for (let i = 0; i < sides; i++) {
+    const [ax, ay] = verts[i], [bx, by] = verts[(i + 1) % sides];
+    for (let s = 0; s < each; s++) {
+      const u = s / each;
+      pts.push([ax + (bx - ax) * u, ay + (by - ay) * u]);
+    }
+  }
+  return Shape.fromPoints(pts, N);
+}
+
+function star(N = 128, o = {}) {
+  const points = o.points == null ? 5 : o.points;
+  const r1 = o.r == null ? 110 : o.r;
+  const r2 = o.innerR == null ? r1 * 0.45 : o.innerR;
+  const cx = o.cx || 0, cy = o.cy || 0;
+  const rot = o.rotation == null ? -PI / 2 : o.rotation;
+  const verts = [];
+  for (let i = 0; i < points * 2; i++) {
+    const a = rot + i * PI / points;
+    const r = i % 2 === 0 ? r1 : r2;
+    verts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  const pts = [];
+  const each = Math.ceil(Math.max(512, N * 8) / verts.length);
+  for (let i = 0; i < verts.length; i++) {
+    const [ax, ay] = verts[i], [bx, by] = verts[(i + 1) % verts.length];
+    for (let s = 0; s < each; s++) {
+      const u = s / each;
+      pts.push([ax + (bx - ax) * u, ay + (by - ay) * u]);
+    }
+  }
+  return Shape.fromPoints(pts, N);
+}
+
+/** A circle with seeded band-limited wobble. The default lump of clay. */
+function blob(N = 64, o = {}) {
+  const s = circle(N, { r: o.r == null ? 100 : o.r, cx: o.cx || 0, cy: o.cy || 0 });
+  return s.noise(o.amp == null ? 22 : o.amp, {
+    seed: o.seed == null ? 7 : o.seed,
+    detail: o.detail == null ? 0.12 : o.detail,
+    minHarmonic: o.minHarmonic || 2,
+  });
+}
+
+/** Rose curve r = r0 * (1 + k*cos(petals * theta)). Cheap organic variety. */
+function rose(N = 128, o = {}) {
+  const r0 = o.r == null ? 100 : o.r, petals = o.petals == null ? 5 : o.petals;
+  const k = o.depth == null ? 0.35 : o.depth;
+  const cx = o.cx || 0, cy = o.cy || 0;
+  return Shape.fromFunction(t => {
+    const th = t * TAU;
+    const r = r0 * (1 + k * Math.cos(petals * th));
+    return [cx + r * Math.cos(th), cy + r * Math.sin(th)];
+  }, N);
+}
+
+const primitives = { circle, ellipse, superellipse, rect, polygon, star, blob, rose };
+
+return { Shape, mix, alignTo, primitives, kernelMatrix, kernelSlope, slopeDiff, leafSlopes, leafSlopesCascade, reconstructSlope, circle, ellipse, superellipse, rect, polygon, star, blob, rose, kernel, leafPositions, reconstruct, evalAt, arcLengthResample, clearCache, TAU };
+
+})();
+
+// >>> copied from animated.html, unchanged: EXAMPLES
+// ── THE EXAMPLES (25 Oct 2026, Tom: "could you creae a gallery page that has examples that can be loaded into
+// draw.html", then "could you make this a gallary page like with the same formatting as the others") ──────────
+// Each example is an SVG drawing and the settings of the live morph made from it, written into a link the editor
+// reads (draw.html#scene=…, THE SCENE LINK in draw.html). Shapes are named by their order in the SVG. The drawings
+// are made here from a few lines each, so the page holds no data files. tvf.js above is the shared copy every
+// gallery carries; this page reads no leaves itself, it hands drawings to the editor.
+const f = v => +v.toFixed(2);
+// a closed polygon at (cx, cy), n corners at radius r(i, angle)
+function ring(cx, cy, n, r, turn = -Math.PI / 2) {
+  return Array.from({ length: n }, (_, i) => {
+    const a = turn + i * 2 * Math.PI / n, R = r(i, a);
+    return f(cx + R * Math.cos(a)) + ',' + f(cy + R * Math.sin(a));
+  }).join(' ');
+}
+const poly = (pts, fill) => `<polygon points="${pts}" fill="${fill}"/>`;
+const star = (cx, cy, n, R, r0, fill) => poly(ring(cx, cy, 2 * n, i => i % 2 ? r0 : R), fill);
+const line = d => `<path d="${d}" fill="none" stroke="#8b95ab" stroke-width="2"/>`;
+const svg = (w, h, body) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${body}</svg>`;
+// a heart of two curves either side, at (cx, cy), s across
+const heart = (cx, cy, s, fill) => {
+  const k = s / 100, P = (x, y) => f(cx + x * k) + ' ' + f(cy + y * k);
+  return `<path d="M${P(0, 35)} C${P(-10, 20)} ${P(-50, 5)} ${P(-50, -20)} C${P(-50, -45)} ${P(-15, -50)} ${P(0, -25)} `
+    + `C${P(15, -50)} ${P(50, -45)} ${P(50, -20)} C${P(50, 5)} ${P(10, 20)} ${P(0, 35)} Z" fill="${fill}"/>`;
+};
+
+const EXAMPLES = [
+  {
+    id: 'square-star', name: 'square to star', tags: ['corners kept', 'ease', 'hold'],
+    note: 'Two exact shapes blended corner by corner, so the square\'s corners stay sharp all the way to the star\'s points. The square is given six more corners on its edges to match the star\'s ten. It rests on each shape and eases between them.',
+    svg: svg(300, 120, `<rect x="20" y="20" width="80" height="80" fill="#4f8fd6"/>` + star(220, 60, 5, 46, 20, '#e0a33a')),
+    scene: { morphs: [[0, 1]], ease: 'inout', hold: 0.3, loop: 3 }
+  },
+  {
+    id: 'shape-loop', name: 'four shapes round a loop', tags: ['corners kept', '4 keys', 'onion'],
+    note: 'A circle, a triangle, a square and a hexagon, four keys round a loop. In place, the pose travels between where each shape was drawn as it changes from one to the next. Onion skins show the key before and after.',
+    svg: svg(420, 120, `<circle cx="60" cy="60" r="40" fill="#e05a6a"/>` + poly(ring(160, 64, 3, () => 46), '#e0a33a')
+      + `<rect x="225" y="25" width="70" height="70" fill="#4fbf8a"/>` + poly(ring(360, 60, 6, () => 42, 0), '#4f8fd6')),
+    scene: { morphs: [[0, 1, 2, 3]], ease: 'inout', hold: 0.2, loop: 6, onion: true }
+  },
+  {
+    id: 'heartbeat', name: 'heartbeat', tags: ['corners kept', 'curves', '3 keys'],
+    note: 'Three hearts of curve edges, the middle one larger: a loop of rest, beat, rest. Each curve edge\'s handles are blended, so the heart stays a heart.',
+    svg: svg(360, 120, heart(60, 62, 90, '#e0475a') + heart(180, 62, 120, '#e0475a') + heart(300, 62, 90, '#e0475a')),
+    scene: { morphs: [[0, 1, 2]], ease: 'inout', hold: 0.15, loop: 1.4 }
+  },
+  {
+    id: 'orbit', name: 'orbit', tags: ['path', 'turn', 'ribbon'],
+    note: 'A star rides a circle once a loop, turning with it, and leaves a ribbon behind. The circle is the path: it leaves the drawing while it is one and shows as a dashed guide.',
+    svg: svg(240, 240, star(120, 30, 5, 22, 10, '#f2c14e') + `<circle cx="120" cy="120" r="90" fill="none" stroke="#8b95ab" stroke-width="2"/>`),
+    scene: { morphs: [[0]], path: 1, turn: true, trail: { kind: 'ribbon', len: 0.4 }, loop: 4 }
+  },
+  {
+    id: 'pendulum', name: 'pendulum', tags: ['path', 'there & back', 'echoes'],
+    note: 'A drop swings along an arc, out and back once a loop and slowing at each end, with echoes of where it has been. It turns with the arc as it goes.',
+    svg: svg(300, 200, poly(ring(40, 120, 24, (i, a) => 18 * (1 + 0.6 * Math.max(0, -Math.sin(a)) ** 3), Math.PI / 2), '#7c5cff')
+      + line('M40 120 C 80 190 220 190 260 120')),
+    scene: { morphs: [[0]], path: 1, mode: 'back', turn: true, trail: { kind: 'echoes', len: 0.35 }, loop: 2.4 }
+  },
+  {
+    id: 'fish', name: 'fish on a wave', tags: ['path', 'along', 'echoes'],
+    note: 'A fish swims along a wave from one end to the other, turning with it, and starts again. Its echoes trail behind and never streak back across the jump.',
+    svg: svg(360, 160, poly('100,90 70,72 44,76 28,66 28,114 44,104 70,108', '#4fbf8a')
+      + line('M30 90 C 80 90 110 30 170 30 C 230 30 260 120 330 90')),
+    scene: { morphs: [[0]], path: 1, turn: true, trail: { kind: 'echoes', len: 0.25 }, loop: 4 }
+  },
+  {
+    id: 'procession', name: 'procession', tags: ['path', '3 morphs', 'echoes'],
+    note: 'Three shapes, each live on its own, share one path, spread evenly along it, and go round together.',
+    svg: svg(320, 220, poly(ring(70, 50, 3, () => 22), '#e0a33a') + `<rect x="145" y="32" width="34" height="34" fill="#4f8fd6"/>`
+      + `<circle cx="250" cy="50" r="18" fill="#e05a6a"/>` + `<rect x="40" y="50" width="240" height="140" rx="60" fill="none" stroke="#8b95ab" stroke-width="2"/>`),
+    scene: { morphs: [[0], [1], [2]], path: 3, turn: true, trail: { kind: 'echoes', len: 0.2 }, loop: 6 }
+  },
+  {
+    id: 'shimmer', name: 'shimmering leaf', tags: ['leaves', 'shimmer'],
+    note: 'One shape gone live as a still, with shimmer on its detail: the fine harmonics turn to and fro, so the edge ripples while the leaf stays put. Effects work on leaves, so this one comes in as leaves.',
+    svg: svg(200, 200, poly(ring(100, 104, 40, (i, a) => 70 * (0.62 + 0.38 * Math.abs(Math.cos(2.5 * (a + Math.PI / 2)))) * (i % 2 ? 0.86 : 1)), '#4fbf8a')),
+    scene: { exact: false, morphs: [[0]], fx: { kind: 'shimmer', amount: 0.7 }, loop: 3 }
+  },
+  {
+    id: 'grow', name: 'growing snowflake', tags: ['leaves', 'grow'],
+    note: 'The detail comes in octave by octave, from a plain round shape to the whole snowflake, and goes again, once a loop.',
+    svg: svg(200, 200, poly(ring(100, 100, 48, (i, a) => 78 * (i % 4 === 0 ? 1 : i % 4 === 2 ? 0.62 : 0.45 + 0.1 * Math.cos(6 * a))), '#9fd0ff')),
+    scene: { exact: false, morphs: [[0]], fx: { kind: 'grow', amount: 1 }, loop: 4 }
+  },
+  {
+    id: 'boil', name: 'boiling flower', tags: ['leaves', 'boil'],
+    note: 'A calm flower whose fine harmonics swell and turn by uneven amounts: the outline seethes and the flower stays a flower.',
+    svg: svg(200, 200, poly(ring(100, 100, 72, (i, a) => 70 * (1 + 0.22 * Math.cos(7 * a) + 0.06 * Math.cos(21 * a))), '#e07ab8')),
+    scene: { exact: false, morphs: [[0]], fx: { kind: 'boil', amount: 0.5 }, loop: 4 }
+  },
+  {
+    id: 'lag', name: 'detail arriving late', tags: ['leaves', 'detail lag', '3 keys'],
+    note: 'A star, a flower and a circle, blended as leaves with a detail lag: the silhouette moves first and the fine detail follows it an octave at a time.',
+    svg: svg(420, 140, star(70, 70, 6, 56, 24, '#e0a33a') + poly(ring(210, 70, 72, (i, a) => 54 * (1 + 0.2 * Math.cos(5 * a))), '#e07ab8')
+      + `<circle cx="350" cy="70" r="50" fill="#4f8fd6"/>`),
+    scene: { exact: false, morphs: [[0, 1, 2]], lag: 0.6, ease: 'inout', loop: 5 }
+  },
+];
+
+// ── THE SHOWPIECES (25 Oct 2026, Tom: "these are simple hello world animations. can you do some top quality
+// animation examples, to really push the framework?") ────────────────────────────────────────────────────────
+// Each uses what a morph has of its own (draw.html, EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL): a clock
+// running at its own rate and phase, a spin, a path of its own with laps and a start, a trail, an effect, keys
+// that repeat, and the keys' fills blended. The drawings are made here; every number below is a choice made
+// for the picture.
+const TAU = 2 * Math.PI;
+// points round (cx, cy): n of them at radius r(angle, i), starting at angle `turn`
+const around = (cx, cy, n, r, turn = 0) => Array.from({ length: n }, (_, i) => {
+  const a = turn + i * TAU / n, R = r(a, i);
+  return [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+});
+const pts = P => P.map(([x, y]) => f(x) + ',' + f(y)).join(' ');
+const polyOf = (P, fill, extra = '') => `<polygon points="${pts(P)}" fill="${fill}"${extra}/>`;
+// a closed smooth curve through the points (Catmull-Rom as cubics): an exact shape whose every edge is a curve
+function smoothD(P) {
+  const n = P.length, q = i => P[(i + n) % n];
+  let d = `M${f(P[0][0])} ${f(P[0][1])}`;
+  for (let i = 0; i < n; i++) {
+    const [a, b, c, e] = [q(i - 1), q(i), q(i + 1), q(i + 2)];
+    d += `C${f(b[0] + (c[0] - a[0]) / 6)} ${f(b[1] + (c[1] - a[1]) / 6)} ${f(c[0] - (e[0] - b[0]) / 6)} ${f(c[1] - (e[1] - b[1]) / 6)} ${f(c[0])} ${f(c[1])}`;
+  }
+  return d + 'Z';
+}
+const smooth = (P, fill, extra = '') => `<path d="${smoothD(P)}" fill="${fill}"${extra}/>`;
+// an open smooth curve through the points, as a line (a path to ride, or a stem)
+function smoothOpenD(P) {
+  const n = P.length, q = i => P[Math.max(0, Math.min(n - 1, i))];
+  let d = `M${f(P[0][0])} ${f(P[0][1])}`;
+  for (let i = 0; i < n - 1; i++) {
+    const [a, b, c, e] = [q(i - 1), q(i), q(i + 1), q(i + 2)];
+    d += `C${f(b[0] + (c[0] - a[0]) / 6)} ${f(b[1] + (c[1] - a[1]) / 6)} ${f(c[0] - (e[0] - b[0]) / 6)} ${f(c[1] - (e[1] - b[1]) / 6)} ${f(c[0])} ${f(c[1])}`;
+  }
+  return d;
+}
+const stroke = (d, col, w) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}"/>`;
+// a circle as four quarter arcs whose ends sit on the diagonals, so it morphs with a square corner for corner
+function circ4(cx, cy, r, fill, extra = '') {
+  const k = 0.5523 * r, s = Math.SQRT1_2;
+  const P = [45, 135, 225, 315].map(d => [cx + r * Math.cos(d * Math.PI / 180), cy + r * Math.sin(d * Math.PI / 180)]);
+  let d = `M${f(P[0][0])} ${f(P[0][1])}`;
+  for (let i = 0; i < 4; i++) {
+    const a = (45 + 90 * i) * Math.PI / 180, b = a + Math.PI / 2, [x0, y0] = P[i], [x1, y1] = P[(i + 1) % 4];
+    d += `C${f(x0 - k * Math.sin(a))} ${f(y0 + k * Math.cos(a))} ${f(x1 + k * Math.sin(b))} ${f(y1 - k * Math.cos(b))} ${f(x1)} ${f(y1)}`;
+  }
+  return `<path d="${d}Z" fill="${fill}"${extra}/>`;
+}
+// a gear of n teeth of module m (pitch radius m·n/2), a tooth centred at angle `a0`
+function gear(cx, cy, n, m, a0, fill) {
+  const r = m * n / 2, rt = r + m, rr = r - 1.25 * m, p = TAU / n, P = [];
+  for (let k = 0; k < n; k++) {
+    const a = a0 + k * p;
+    for (const [da, R] of [[-0.31, rr], [-0.17, rt], [0.17, rt], [0.31, rr]])
+      P.push([cx + R * Math.cos(a + da * p), cy + R * Math.sin(a + da * p)]);
+  }
+  return polyOf(P, fill);
+}
+// a small seeded random, so a drawing comes out the same every time
+// hsl (degrees, 0–1, 0–1) as #rrggbb, which every svg reader takes
+const hsl = (h, sat, l) => {
+  const a = sat * Math.min(l, 1 - l), k = n => (n + h / 30) % 12, c = n => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+  return '#' + [0, 8, 4].map(n => Math.round(255 * c(n)).toString(16).padStart(2, '0')).join('');
+};
+const rnd = (seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647)(20261025);
+
+const SHOWPIECES = [];
+
+// 1. CLOCKWORK: four meshing gears, each a still with its own spin, in the ratio of their teeth, so every gear
+// advances six teeth a loop and the loop closes; hubs turn with them.
+{
+  const m = 8, A = [260, 250], nA = 24, nB = 12, nC = 16, nD = 10;
+  const rA = m * nA / 2, rB = m * nB / 2, rC = m * nC / 2, rD = m * nD / 2;
+  const B = [A[0] + rA + rB, A[1]], C = [B[0] + rB + rC, B[1]], D = [A[0], A[1] - rA - rD];
+  const pB = TAU / nB, pC = TAU / nC, pD = TAU / nD;
+  const s = 0.25;
+  const hub = (c, r, fill) => polyOf(around(c[0], c[1], 6, () => r, 0), fill);
+  const bolt = (x, y) => `<circle cx="${x}" cy="${y}" r="6" fill="#3a4152"/>`;
+  SHOWPIECES.push({
+    id: 'clockwork', name: 'clockwork', section: 'showpieces', tags: ['spin', 'ratios', '8 morphs'],
+    note: 'Four gears, each spinning at its own rate in the ratio of their teeth (24, 12, 16 and 10), so each one advances exactly six teeth a loop and the loop closes without a seam. Each hub turns with its gear.',
+    svg: svg(640, 420, `<rect x="40" y="30" width="560" height="360" rx="28" fill="#1a1f2b"/>` + bolt(70, 60) + bolt(570, 60) + bolt(70, 360) + bolt(570, 360)
+      + gear(A[0], A[1], nA, m, 0, '#d4a84f') + gear(B[0], B[1], nB, m, Math.PI + pB / 2, '#9fb0c4')
+      + gear(C[0], C[1], nC, m, Math.PI, '#c8743f') + gear(D[0], D[1], nD, m, Math.PI / 2 + pD / 2, '#e6c56a')
+      + hub(A, 30, '#2a2f3a') + hub(B, 16, '#2a2f3a') + hub(C, 22, '#2a2f3a') + hub(D, 13, '#2a2f3a')),
+    // shapes: 0 plate, 1–4 bolts, 5–8 gears A B C D, 9–12 hubs
+    scene: {
+      morphs: [{ keys: [5], spin: s }, { keys: [6], spin: -s * nA / nB }, { keys: [7], spin: s * nA / nC }, { keys: [8], spin: -s * nA / nD },
+               { keys: [9], spin: s }, { keys: [10], spin: -s * nA / nB }, { keys: [11], spin: s * nA / nC }, { keys: [12], spin: -s * nA / nD }],
+      loop: 6
+    }
+  });
+}
+
+// 2. ORRERY: five planets each on an orbit of its own, the inner ones lapping faster (5, 4, 3, 2 and 1 laps a
+// loop), each with a ribbon; a sun that seethes; faint orbit rings and stars standing still.
+{
+  const C = [400, 260], orbits = [[70, 46], [112, 74], [160, 104], [214, 138], [300, 190]];
+  const cols = ['#b8b2a8', '#e6b26a', '#4f9be0', '#e0634a', '#d9b48a'], sizes = [7, 11, 12, 9, 22];
+  const ell = (rx, ry) => smoothD(around(C[0], C[1], 48, a => rx * ry / Math.hypot(ry * Math.cos(a), rx * Math.sin(a))));
+  let stars = '';
+  for (let i = 0; i < 26; i++) stars += `<circle cx="${f(30 + rnd() * 740)}" cy="${f(20 + rnd() * 480)}" r="${f(1.2 + rnd() * 1.8)}" fill="#cfd6ff" fill-opacity="${f(0.35 + rnd() * 0.5)}"/>`;
+  const rings = orbits.map(([rx, ry]) => stroke(ell(rx, ry), '#2a3248', 1.5)).join('');
+  const sun = smooth(around(C[0], C[1], 36, (a, i) => i % 2 ? 30 : 38), '#ffb53a');
+  const planets = orbits.map(([rx], i) => circ4(C[0] + rx, C[1], sizes[i], cols[i])).join('');
+  const paths = orbits.map(([rx, ry]) => stroke(ell(rx, ry), '#556', 1)).join('');
+  // the moon: drawn beside the earth as drawn, on a little orbit round it, and following the earth
+  const E = [C[0] + orbits[2][0], C[1]];
+  const moon = circ4(E[0] + 26, E[1], 4, '#d8dbe6');
+  const moonOrbit = stroke(smoothD(around(E[0], E[1], 24, () => 26)), '#556', 1);
+  // shapes: 0–25 stars, 26–30 rings, 31 sun, 32–36 planets, 37–41 their paths, 42 the moon, 43 its orbit
+  SHOWPIECES.push({
+    id: 'orrery', name: 'orrery', section: 'showpieces', tags: ['own paths', 'laps', 'follows', 'ribbons', 'boil'],
+    note: 'Five planets, each on an orbit of its own, the inner ones lapping faster: five, four, three, two and one laps a loop, so all of them come back together and the loop closes. The earth has a moon on a little orbit of its own that follows the earth round the sun. Each leaves a ribbon; the sun seethes. Leaves, for the sun\'s effect.',
+    svg: svg(800, 520, stars + rings + sun + planets + paths + moon + moonOrbit),
+    scene: {
+      exact: false, loop: 20,
+      morphs: [{ keys: [31], fx: { kind: 'boil', amount: 0.45 }, trail: { kind: '' } }].concat(
+        orbits.map((_, i) => ({ keys: [32 + i], path: 37 + i, laps: 5 - i, at: [0.1, 0.55, 0.3, 0.8, 0.62][i], turn: false, trail: { kind: 'ribbon', len: [0.06, 0.09, 0.13, 0.2, 0.32][i] } })),
+        [{ keys: [42], path: 43, laps: 12, turn: false, parent: 3, trail: { kind: '' } }])
+    }
+  });
+}
+
+// 3. MURMURATION: twelve birds on one figure-of-eight at dusk, spread along it, each flapping on its own clock
+// (eight times as fast as the loop, its own phase), in front of a sun going down in bands of colour.
+{
+  const bands = ['#2b1d3a', '#432544', '#69304d', '#9c3f4f', '#cf6248', '#ef9a4a'];
+  let sky = bands.map((c, i) => `<rect x="0" y="${i * 70}" width="900" height="72" fill="${c}"/>`).join('');
+  sky += `<circle cx="450" cy="390" r="80" fill="#ffd27a"/>` + `<rect x="0" y="400" width="900" height="80" fill="#1c1426"/>`;
+  const up = s => [[-16, -9], [-8, -3], [0, -1], [8, -3], [16, -9], [8, 0], [1, 3], [-1, 3], [-8, 0]].map(([x, y]) => [x * s, y * s]);
+  const dn = s => [[-16, 6], [-8, -2], [0, -1], [8, -2], [16, 6], [8, 1], [1, 3], [-1, 3], [-8, 1]].map(([x, y]) => [x * s, y * s]);
+  const at = (P, x, y) => P.map(([a, b]) => [a + x, b + y]);
+  let birds = '';
+  const N = 12, scales = [];
+  for (let i = 0; i < N; i++) {
+    const s = 0.9 + 0.7 * rnd(); scales.push(s);
+    birds += polyOf(at(up(s), 80 + i * 60, 40), '#120e18') + polyOf(at(dn(s), 80 + i * 60, 80), '#120e18');
+  }
+  const eight = smoothD(around(450, 200, 40, () => 1).map((_, i) => {
+    const a = i * TAU / 40, d = 1 + Math.sin(a) ** 2;
+    return [450 + 330 * Math.cos(a) / d, 200 + 260 * Math.sin(a) * Math.cos(a) / d];
+  }));
+  // shapes: 0–5 bands, 6 sun, 7 ground, 8.. birds (up, down) pairs, then the path
+  const first = 8, path = first + 2 * N;
+  SHOWPIECES.push({
+    id: 'murmuration', name: 'murmuration', section: 'showpieces', tags: ['shared path', 'rate', 'phase', '12 morphs'],
+    note: 'Twelve birds of different sizes spread along one figure-of-eight, each flapping on its own clock, eight wingbeats a loop at its own phase, so the flock never beats in step. Wings up and wings down are the keys, each used twice round the loop.',
+    svg: svg(900, 480, sky + birds + stroke(eight, '#000', 1)),
+    scene: {
+      loop: 10, path, turn: false,
+      morphs: Array.from({ length: N }, (_, i) => ({ keys: [first + 2 * i, first + 2 * i + 1, first + 2 * i, first + 2 * i + 1], rate: 4, phase: rnd() }))
+    }
+  });
+}
+
+// 4. GARDEN: five flowers bloom in a wave and close again (bud, bloom, bloom, bud, each flower a quarter beat
+// behind the last, its petals green to its colour and its heart coming in), while a bee loops between them on
+// a path of its own, wings beating, leaving echoes.
+{
+  const ground = `<rect x="0" y="330" width="900" height="110" fill="#1f3a26"/>` + `<rect x="0" y="330" width="900" height="8" fill="#2f5a36"/>`;
+  const X = [130, 290, 450, 610, 770], H = [210, 170, 200, 160, 215], petals = ['#ff6f91', '#ffb547', '#a77bff', '#ff8a5c', '#5ec8ff'];
+  let stems = '', leaves = '', heads = '', hearts = '';
+  const NP = 40;
+  X.forEach((x, i) => {
+    const y = H[i];
+    stems += stroke(`M${x} 334 C ${x - 18} 290 ${x + 16} ${y + 70} ${x} ${y + 26}`, '#3f8a4a', 5);
+    leaves += smooth(around(x + 22, 290, 16, a => 18 * 9 / Math.hypot(9 * Math.cos(a), 18 * Math.sin(a)), -0.6), '#4f9d55');
+    const bloom = around(x, y, NP, a => 46 * (0.5 + 0.5 * Math.abs(Math.cos(2.5 * (a + Math.PI / 2))) ** 0.7), -Math.PI / 2);
+    const bud = around(x, y + 10, NP, a => 15 * (1 + 0.55 * Math.max(0, -Math.sin(a)) ** 2), -Math.PI / 2);
+    heads += smooth(bud, '#5a9e4b') + smooth(bloom, petals[i]);
+    hearts += smooth(around(x, y + 10, 16, () => 3), '#5a9e4b') + smooth(around(x, y, 16, () => 13), '#ffd84d');
+  });
+  const beePath = smoothD([[120, 120], [230, 80], [330, 150], [450, 90], [560, 150], [690, 80], [800, 130], [700, 230], [520, 200], [380, 240], [220, 210]]);
+  const wingsOpen = smooth(around(120, 120, 24, a => 16 * (0.18 + 0.82 * Math.abs(Math.sin(a)) ** 0.8)), '#e8f4ff', ' fill-opacity="0.75"');
+  const wingsShut = smooth(around(120, 120, 24, a => 7 * (0.3 + 0.7 * Math.abs(Math.sin(a)) ** 0.8)), '#e8f4ff', ' fill-opacity="0.75"');
+  const body = smooth(around(120, 120, 16, a => 10 * 6 / Math.hypot(6 * Math.cos(a), 10 * Math.sin(a))), '#ffcf3f');
+  // shapes: 0–1 ground, 2–6 stems, 7–11 leaves, 12.. heads (bud, bloom) pairs, then hearts (bud, open) pairs,
+  // then wings open, wings shut, body, the bee's path
+  const h0 = 12, c0 = h0 + 10, w0 = c0 + 10;
+  SHOWPIECES.push({
+    id: 'garden', name: 'garden', section: 'showpieces', tags: ['colour', 'phase', 'own path', 'follows', '12 morphs'],
+    note: 'Five flowers bloom in a wave: bud, bloom, bloom, bud as keys, each flower a little behind the last, its petals going from green to its own colour and its heart coming in yellow. A bee loops between them on a path of its own, leaving echoes; its wings follow its body, turning as it turns, and beat twelve times a loop.',
+    svg: svg(900, 440, ground + stems + leaves + heads + hearts + wingsOpen + wingsShut + body + stroke(beePath, '#000', 1)),
+    scene: {
+      loop: 8, ease: 'inout', hold: 0.15,
+      morphs: X.flatMap((_, i) => [
+        { keys: [h0 + 2 * i, h0 + 2 * i + 1, h0 + 2 * i + 1, h0 + 2 * i], phase: 0.84 - 0.09 * i },
+        { keys: [c0 + 2 * i, c0 + 2 * i + 1, c0 + 2 * i + 1, c0 + 2 * i], phase: 0.84 - 0.09 * i }
+      ]).concat([
+        { keys: [w0, w0 + 1, w0, w0 + 1], rate: 6, parent: 11, trail: { kind: '' } },
+        { keys: [w0 + 2], path: w0 + 3, turn: true, at: 0, trail: { kind: 'echoes', len: 0.12 } }
+      ])
+    }
+  });
+}
+
+// 5. LAVA LAMP: wax rising and falling, each blob on a tall loop of its own at its own start, seething, and
+// warming from deep red to orange twice a loop; the lamp itself stands still.
+{
+  const lamp = smooth([[300, 70], [340, 70], [372, 300], [396, 470], [204, 470], [228, 300], [260, 70]].map(p => p), '#2a1438')
+    + `<path d="M196 470 L404 470 L430 560 L170 560 Z" fill="#3b3f4c"/>` + `<path d="M262 40 L338 40 L346 72 L254 72 Z" fill="#3b3f4c"/>`
+    + smooth([[312, 90], [322, 90], [344, 300], [360, 440], [350, 440], [334, 300]], '#ffffff', ' fill-opacity="0.07"');
+  const blobs = [[300, 380, 30], [282, 300, 22], [318, 200, 18], [296, 140, 14], [308, 430, 26]];
+  const loops = [[300, 270, 24, 170], [286, 280, 30, 160], [314, 260, 22, 150], [298, 250, 18, 140], [306, 300, 28, 140]];
+  let body = '', paths = '';
+  blobs.forEach(([x, y, r]) => {
+    body += smooth(around(x, y, 24, a => r * (1 + 0.08 * Math.cos(3 * a))), '#9c1f2a') + smooth(around(x, y, 24, a => r * 1.05 * (1 + 0.1 * Math.cos(2 * a))), '#ff8a3c');
+  });
+  loops.forEach(([x, y, rx, ry]) => { paths += stroke(smoothD(around(x, y, 32, a => rx * ry / Math.hypot(ry * Math.cos(a), rx * Math.sin(a)))), '#000', 1); });
+  // shapes: 0 glass, 1 base, 2 cap, 3 highlight, 4.. blobs (deep, warm) pairs, then the loops
+  const b0 = 4, p0 = b0 + 10;
+  SHOWPIECES.push({
+    id: 'lava', name: 'lava lamp', section: 'showpieces', tags: ['own paths', 'boil', 'colour', 'leaves'],
+    note: 'Five blobs of wax, each rising and falling on a tall loop of its own from its own start, seething all the while, and warming from deep red to orange and back twice a loop. Leaves, for the seethe.',
+    svg: svg(600, 600, lamp + body + paths),
+    scene: {
+      exact: false, loop: 14,
+      morphs: blobs.map((_, i) => ({ keys: [b0 + 2 * i, b0 + 2 * i + 1, b0 + 2 * i, b0 + 2 * i + 1], path: p0 + i, at: [0.1, 0.45, 0.7, 0.25, 0.9][i], turn: false, phase: 0.2 * i, fx: { kind: 'boil', amount: 0.35 } }))
+    }
+  });
+}
+
+// 6. RIPPLE: a field of forty squares that become circles and back in a wave spreading from the middle, each
+// half turning as it goes and shifting from its cool square colour to its warm circle colour.
+{
+  const cols = 8, rows = 5, g = 70, s = 46, x0 = 60, y0 = 60;
+  let sq = '', ci = '';
+  const cx = x0 + (cols - 1) * g / 2, cy = y0 + (rows - 1) * g / 2, dmax = Math.hypot(cx - x0, cy - y0);
+  const ph = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const x = x0 + c * g, y = y0 + r * g;
+    sq += `<rect x="${x - s / 2}" y="${y - s / 2}" width="${s}" height="${s}" fill="${hsl(200 + c * 9, 0.7, 0.55)}"/>`;
+    ci += circ4(x, y, s * 0.56, hsl(330 + c * 6, 0.85, 0.62));
+    ph.push(-0.5 * Math.hypot(x - cx, y - cy) / dmax);
+  }
+  const n = cols * rows;
+  SHOWPIECES.push({
+    id: 'ripple', name: 'ripple', section: 'showpieces', tags: ['phase', 'spin', 'colour', '40 morphs'],
+    note: 'Forty squares become circles and back in a wave that spreads from the middle: each cell\'s clock runs behind by its distance from the centre. Each half turns as it goes and shifts from its cool square colour to its warm circle colour, corner for corner.',
+    svg: svg(620, 400, sq + ci),
+    scene: {
+      loop: 6, ease: 'inout',
+      morphs: Array.from({ length: n }, (_, i) => ({ keys: [i, n + i, i, n + i], phase: ((ph[i] % 1) + 1) % 1, spin: 0.5 }))
+    }
+  });
+}
+
+// 7. METAMORPHOSIS: one shape through six icons, circle, heart, star, bolt, drop and moon, each in its own
+// colour, resting on each and leaving a faint smear behind it; solo, so it has the page to itself.
+{
+  const R = 60, Y = 90;
+  const star5 = (cx) => polyOf(around(cx, Y, 10, (a, i) => i % 2 ? R * 0.42 : R, -Math.PI / 2), '#f2c14e');
+  const bolt = cx => `<polygon points="${pts([[12, -60], [-30, 8], [-4, 8], [-14, 60], [30, -10], [4, -10]].map(([x, y]) => [cx + x, Y + y]))}" fill="#b388ff"/>`;
+  const drop = cx => `<path d="M${cx} ${Y - 62} C ${cx + 10} ${Y - 30} ${cx + 46} ${Y - 4} ${cx + 46} ${Y + 22} C ${cx + 46} ${Y + 48} ${cx + 24} ${Y + 64} ${cx} ${Y + 64} C ${cx - 24} ${Y + 64} ${cx - 46} ${Y + 48} ${cx - 46} ${Y + 22} C ${cx - 46} ${Y - 4} ${cx - 10} ${Y - 30} ${cx} ${Y - 62} Z" fill="#3ec7e0"/>`;
+  const moon = cx => `<path d="M${cx + 10} ${Y - 60} C ${cx - 40} ${Y - 56} ${cx - 62} ${Y - 10} ${cx - 50} ${Y + 26} C ${cx - 38} ${Y + 60} ${cx + 4} ${Y + 72} ${cx + 38} ${Y + 50} C ${cx + 6} ${Y + 50} ${cx - 22} ${Y + 24} ${cx - 22} ${Y - 6} C ${cx - 22} ${Y - 34} ${cx - 6} ${Y - 52} ${cx + 10} ${Y - 60} Z" fill="#e8ecf5"/>`;
+  const W = 150;
+  SHOWPIECES.push({
+    id: 'metamorphosis', name: 'metamorphosis', section: 'showpieces', tags: ['corners kept', 'colour', '6 keys', 'solo'],
+    note: 'One shape through six icons, each in its own colour: a circle, a heart, a star, a lightning bolt, a drop and a crescent moon, corners where they have them and curves where they have those. It rests on each and leaves a faint smear as it changes. Solo, so the shape has the page to itself.',
+    svg: svg(6 * W, 180, circ4(W / 2, Y, R, '#4f8fd6') + heart(1.5 * W, Y + 4, 130, '#e0475a') + star5(2.5 * W) + bolt(3.5 * W) + drop(4.5 * W) + moon(5.5 * W)),
+    scene: { loop: 9, ease: 'inout', hold: 0.3, morphs: [{ keys: [0, 1, 2, 3, 4, 5], inPlace: false, trail: { kind: 'echoes', len: 0.1 } }] }
+  });
+}
+
+// 8. PENDULUM WAVE: fifteen bobs, each swinging on an arc of its own, the longest twenty times a loop and each
+// shorter one once more, so they fall out of step into snakes and waves and all come back together at the end.
+{
+  const N = 15, P0 = [450, 30];
+  let bar = `<rect x="80" y="18" width="740" height="12" rx="6" fill="#3b3f4c"/>`, bobs = '', arcs = '';
+  for (let i = 0; i < N; i++) {
+    const L = 380 - i * 16, amp = 0.42, x = 120 + i * (660 / (N - 1));
+    const arc = Array.from({ length: 9 }, (_, j) => { const a = -amp + j * (2 * amp / 8); return [x + L * Math.sin(a), P0[1] + L * Math.cos(a)]; });
+    arcs += stroke(smoothOpenD(arc), '#000', 1);
+    bobs += circ4(x - L * Math.sin(amp), P0[1] + L * Math.cos(amp), 15, hsl(200 + i * 10, 0.8, 0.62));
+  }
+  SHOWPIECES.push({
+    id: 'pendulum-wave', name: 'pendulum wave', section: 'showpieces', tags: ['own paths', 'laps', 'there & back', '15 morphs'],
+    note: 'Fifteen bobs, each swinging on an arc of its own: the first twenty times a loop and each next one once more, so they fall out of step into snakes and waves and all come back together as the loop closes. There and back slows each at the ends of its swing, as a pendulum does.',
+    svg: svg(900, 440, bar + bobs + arcs),
+    scene: { loop: 40, morphs: Array.from({ length: N }, (_, i) => ({ keys: [1 + i], path: 1 + N + i, laps: 20 + i, mode: 'back', turn: false })) }
+  });
+}
+// 9. KITE: a kite flies a figure-of-eight with a tail of bows, each bow following the one above it on a spring
+// (draw.html, FOLLOWING LOOSELY, AND FACING), so the tail trails, swings out on the turns and settles; a cat on
+// the hill keeps its face to the kite the whole way round.
+{
+  let sky = `<rect x="0" y="0" width="900" height="480" fill="#bfe3f5"/>`
+    + smooth([[6, 432], [200, 362], [460, 400], [700, 352], [894, 412], [880, 474], [20, 474]], '#7cbf6a');
+  const kite = polyOf([[450, 60], [482, 112], [450, 176], [418, 112]], '#e2563f');
+  const eight = smoothD(Array.from({ length: 40 }, (_, i) => {
+    const a = i * TAU / 40, d = 1 + Math.sin(a) ** 2;
+    return [450 + 300 * Math.cos(a) / d, 130 + 120 * Math.sin(a) * Math.cos(a) / d];
+  }));
+  const bowCols = ['#f2c14e', '#4f8fd6', '#f2c14e', '#4f8fd6', '#f2c14e', '#4f8fd6'];
+  // a bow tie every 34 below the kite's tail
+  const bows = bowCols.map((c, i) => { const y = 206 + i * 34; return polyOf([[434, y - 9], [450, y - 2], [466, y - 9], [466, y + 9], [450, y + 2], [434, y + 9]], c); }).join('');
+  // a cat's head, drawn looking up and to the left at where the kite starts
+  const cat = polyOf([[700, 330], [712, 300], [726, 318], [744, 314], [756, 288], [764, 324], [770, 350], [752, 372], [722, 374], [702, 356]], '#3a3340');
+  SHOWPIECES.push({
+    id: 'kite', name: 'kite', section: 'showpieces', tags: ['own path', 'spring', 'follows', 'faces'],
+    note: 'A kite flies a figure-of-eight. Its tail is six bows, each following the one above it on a spring, so the tail trails behind, swings out on the turns and settles again; nothing in the tail is told where to go but to follow. A cat on the hill keeps its face to the kite all the way round.',
+    svg: svg(900, 480, sky + kite + stroke(eight, '#000', 1) + bows + cat),
+    scene: {
+      loop: 8,
+      morphs: [{ keys: [2], path: 3, turn: false }].concat(
+        bowCols.map((_, i) => ({ keys: [4 + i], parent: i, follow: { kind: 'spring', amount: 0.4 } })),
+        [{ keys: [10], look: 0 }])
+    }
+  });
+}
+EXAMPLES.push(...SHOWPIECES);
+
+const SECTIONS = [
+  { id: 'showpieces', title: 'showpieces', ids: ['clockwork', 'orrery', 'murmuration', 'garden', 'kite', 'lava', 'ripple', 'metamorphosis', 'pendulum-wave'],
+    note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
+  { id: 'corners', title: 'first steps: corners kept', ids: ['square-star', 'shape-loop', 'heartbeat'],
+    note: 'Exact shapes morph as exact shapes: their corners, radii and curve edges blended, so a sharp corner stays sharp the whole way. A key with fewer corners is given more on its edges, which draws it the same.' },
+  { id: 'paths', title: 'first steps: paths and trails', ids: ['orbit', 'pendulum', 'fish', 'procession'],
+    note: 'A line or a curve in the drawing becomes a path: every live shape rides it once a loop at an even speed, turning with it if asked, and leaves echoes or a ribbon behind. The path itself leaves the drawing while it is one.' },
+  { id: 'effects', title: 'first steps: detail effects', ids: ['shimmer', 'grow', 'boil', 'lag'],
+    note: 'A shape\'s outline is its harmonics, so an effect can move the detail and leave the silhouette alone, and a lag can make the detail arrive after the silhouette. These examples come in as leaves.' },
+];
+
+// the link: the example as JSON, deflated where the browser can, base64url, after 'z' (or 'r' plain)
+function b64url(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000)
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function sceneCode(ex) {
+  const json = new TextEncoder().encode(JSON.stringify(Object.assign({ v: 1, name: ex.name, svg: ex.svg }, ex.scene)));
+  if (typeof CompressionStream === 'function') {
+    try {
+      const cs = new CompressionStream('deflate-raw');
+      const buf = await new Response(new Blob([json]).stream().pipeThrough(cs)).arrayBuffer();
+      return 'z' + b64url(new Uint8Array(buf));
+    } catch (_) {}
+  }
+  return 'r' + b64url(json);
+}
+// <<< end of EXAMPLES
+
+// ── THE EMBEDDED GALLERY (26 Oct 2026, Tom: "could you do a gallery for embedded examples?") ─────────────────
+// The examples above are animated.html's, copied unchanged (npm test fails if the two copies part). Here each
+// tile is an <iframe> of draw.html?embed=1 (THE EMBED in draw.html): the editor as a player, which never
+// touches the saved scene. The editor is several megabytes of script and a live canvas, so the tiles in view
+// play, the first few in reading order (MAX_LIVE: six, two on a narrow screen), and a tile scrolled out of view
+// gives its editor back; the drawing stands in until its editor is running.
+const MAX_LIVE = matchMedia('(max-width: 720px)').matches ? 2 : 6;
+const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (_) { return false; }
+}
+// the address a page of yours would embed, and the tag to paste
+const embedUrl = code => new URL('../draw.html?embed=1#scene=' + code, location.href).href;
+const embedTag = (url, name) => `<iframe src="${url}" width="480" height="320" style="border:0;border-radius:8px" title="${esc(name)}, an animation made in the tvf leaf editor" loading="lazy"></iframe>`;
+const kb = n => (n / 1024).toFixed(1) + ' kB';
+
+const tiles = [], seen = new Set();
+function goLive(tile) {
+  if (tile.querySelector('iframe.player')) return;
+  const f = document.createElement('iframe');
+  f.className = 'player';
+  f.title = tile.dataset.name + ', playing';
+  f.src = tile.dataset.embed;
+  f.addEventListener('load', () => {
+    const t0 = Date.now();
+    const ready = () => {
+      if (!f.isConnected) return;
+      let up = false;
+      try { const m = f.contentWindow.__box && f.contentWindow.__box.morph(); up = !!(m && m.play); } catch (_) { up = Date.now() - t0 > 1500; }
+      if (up || Date.now() - t0 > 4000) { f.classList.add('on'); tile.classList.add('live'); }
+      else setTimeout(ready, 80);
+    };
+    ready();
+  });
+  tile.querySelector('.stage').appendChild(f);
+}
+function goStill(tile) {
+  const f = tile.querySelector('iframe.player');
+  if (f) f.remove();
+  tile.classList.remove('live');
+}
+function schedule() {
+  const want = new Set(tiles.filter(t => seen.has(t)).slice(0, MAX_LIVE));
+  for (const t of tiles) (want.has(t) ? goLive : goStill)(t);
+  document.getElementById('live').textContent = want.size + ' playing';
+}
+const io = new IntersectionObserver(entries => {
+  for (const e of entries) e.isIntersecting ? seen.add(e.target) : seen.delete(e.target);
+  schedule();
+}, { threshold: 0.2 });
+
+(async () => {
+  const main = document.getElementById('main');
+  const byId = Object.fromEntries(EXAMPLES.map(e => [e.id, e]));
+  for (const sec of SECTIONS) {
+    const el = document.createElement('section');
+    el.id = sec.id;
+    el.innerHTML = `<div class="sec-head"><h2>${sec.title}</h2><div class="rule"></div><span class="n">${sec.ids.length}</span></div>`
+                 + `<p class="sec-note">${sec.note}</p><div class="grid"></div>`;
+    const grid = el.querySelector('.grid');
+    for (const id of sec.ids) {
+      const ex = byId[id];
+      const code = await sceneCode(ex), url = embedUrl(code), tag = embedTag(url, ex.name);
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.id = ex.id;
+      tile.dataset.name = ex.name;
+      tile.dataset.embed = url;
+      tile.dataset.tag = tag;
+      tile.innerHTML =
+        `<div class="stage">${ex.svg}</div>` +
+        `<div class="tools"><button class="copy" title="copy this animation's <iframe> tag, to paste into a page of your own">copy embed code</button>` +
+        `<button class="open" title="open it in the leaf editor, to change it">open in draw ↗</button></div>` +
+        `<div class="body"><h3>${esc(ex.name)}</h3><p class="note">${esc(ex.note)}</p>` +
+        `<code class="src">${esc(`<iframe src="…/draw.html?embed=1#scene=${code.slice(0, 10)}…" width="480" height="320">`)} · ${kb(tag.length)}</code></div>`;
+      tile.querySelector('.open').addEventListener('click', () => window.open(new URL('../draw.html#scene=' + code, location.href).href, '_blank', 'noopener'));
+      const cb = tile.querySelector('.copy');
+      cb.addEventListener('click', async () => {
+        if (await copyText(tag)) { cb.classList.add('done'); cb.textContent = 'copied'; setTimeout(() => { cb.classList.remove('done'); cb.textContent = 'copy embed code'; }, 1400); }
+      });
+      grid.appendChild(tile);
+      tiles.push(tile);
+      io.observe(tile);
+    }
+    main.appendChild(el);
+  }
+  document.getElementById('count').textContent = EXAMPLES.length + ' embeds';
+  window.__embedded = { max: MAX_LIVE, ids: tiles.map(t => t.id), live: () => tiles.filter(t => t.querySelector('iframe.player')).map(t => t.id), tag: id => (document.getElementById(id) || {}).dataset.tag }; // for the smoke test
+})();
+</script>
+</body>
+</html>

@@ -29,10 +29,10 @@ publishes.
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before
   anything else, typeset by KaTeX from cdnjs when that loads and shown as source when it does not.
-- `gallery/`: twenty-seven teaching pages, in reading order: `gallery.html` (the catalogue),
+- `gallery/`: twenty-eight teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `epicycles`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`
-  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`. Also `playground.html` (sculpt
+  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`, `embedded`. Also `playground.html` (sculpt
   a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
   library as an ES module, *generated* from the copy the pages inline: regenerate it from
   a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
@@ -51,15 +51,15 @@ publishes.
     `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
     a layout of their own have a section there scoped to their body class (`page-index`,
     `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`, `page-animated`).
-  - Each page bundles its JavaScript so it runs from one file. All twenty-seven, and the playground, carry the **same**
+  - Each page bundles its JavaScript so it runs from one file. All twenty-eight, and the playground, carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
     mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
     names the page that differs.
-  - The other eighteen have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
+  - The other nineteen have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
     STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES, SITUATED, DEPTHPAGE, RECOVER, CORNER, LEVELS, STAND, BETWEEN, COMPILE), and no spectrum strip or predict mode. `spiral`,
-    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated` are *chart* pages (`body.page-chart`: a measurement and a
+    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated`, `embedded` are *chart* pages (`body.page-chart`: a measurement and a
     verdict line per tile); `motion`, `compose` and `epicycles` animate (`page-chart page-motion`; epicycles
     carries only tvf.js, FORMAT and EPICYCLES, and its dials may be selects);
     `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`).
@@ -124,8 +124,16 @@ publishes.
     come first, the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
+  - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?") is the last page, a chart page:
+    the same examples with every tile the editor itself playing in an `<iframe>` of `draw.html?embed=1#scene=…` (THE
+    EMBED), and each tile's **copy embed code** giving that `<iframe>` to paste into a page of one's own. The tiles in
+    view play, the first `MAX_LIVE` in reading order (six, two on a narrow screen), and a tile scrolled away gives its
+    editor back. In an embed the editor frames the scene to fill its frame (`embedFit`, again on a resize). Its
+    examples are animated.html's, **copied unchanged** between `// >>> copied from animated.html, unchanged: EXAMPLES`
+    and `// <<< end of EXAMPLES` (from `// ── THE EXAMPLES` up to `// the settings as one line`): change them in
+    animated.html and copy them across, or `npm test` fails. Hook `window.__embedded`.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 27" crumbs and "next" links in each page.
+    a page means updating it, and the "N of 28" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE

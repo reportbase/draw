@@ -12,7 +12,7 @@
 <body class="page-chart page-animated">
 
 <header>
-  <nav class="crumbs"><a href="index.html">← all galleries</a> · 27 of 27</nav>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 27 of 28</nav>
   <h1>tvf <em>animated</em> <span class="pill">draw.html#scene</span></h1>
   <p class="lede">
     The loop showed that <b>time is one more circle</b>: keys at even places round it, blended by the kernel
@@ -50,7 +50,7 @@
   Every example is an SVG made on this page from a few lines and the live morph's settings, carried whole in
   the link (<code>draw.html#scene=…</code>: the two as JSON, deflated), so a tile's <b>link</b> can be shared
   as it is and opens the same animation anywhere.
-  <div class="next">That is the last of them. <a href="index.html">Back to all galleries</a>, or open the <a href="../draw.html">leaf editor</a>.</div>
+  <div class="next">Next: <a href="embedded.html">embedded</a>, the same animations with the editor itself playing in every tile, and the code to put one on a page of your own.</div>
 </footer>
 
 <script>
@@ -1638,7 +1638,7 @@ const SHOWPIECES = [];
 // the hill keeps its face to the kite the whole way round.
 {
   let sky = `<rect x="0" y="0" width="900" height="480" fill="#bfe3f5"/>`
-    + smooth([[-40, 430], [200, 360], [460, 400], [700, 350], [940, 410], [940, 520], [-40, 520]], '#7cbf6a');
+    + smooth([[6, 432], [200, 362], [460, 400], [700, 352], [894, 412], [880, 474], [20, 474]], '#7cbf6a');
   const kite = polyOf([[450, 60], [482, 112], [450, 176], [418, 112]], '#e2563f');
   const eight = smoothD(Array.from({ length: 40 }, (_, i) => {
     const a = i * TAU / 40, d = 1 + Math.sin(a) ** 2;

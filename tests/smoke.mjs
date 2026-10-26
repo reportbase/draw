@@ -1123,6 +1123,41 @@ current = 'timeline and following';
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the scene's timeline, following loosely and facing`);
 }
 
+/* THE EMBEDDED GALLERY (gallery/embedded.html). Its examples are animated.html's, copied unchanged between
+   markers, and the two copies agree. The tiles in view play, each the editor in an embed, no more than the
+   page's limit at once, and the first tile's editor is running its example; a tile's embed code is an
+   <iframe> of draw.html?embed=1 carrying the scene; scrolled away, a tile stops. */
+current = 'embedded gallery';
+{
+  const before = failures.length;
+  const eg = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  eg.on('pageerror', e => failures.push(`[embedded] ${e.message}`));
+  await eg.route(/fonts\.g/, r => r.abort());
+  try {
+    const A = await readFile(join(ROOT, 'gallery/animated.html'), 'utf8'), E = await readFile(join(ROOT, 'gallery/embedded.html'), 'utf8');
+    const a0 = A.indexOf('// ── THE EXAMPLES (25 Oct 2026'), a1 = A.indexOf('// the settings as one line, the way the other pages show');
+    const m = E.match(/\/\/ >>> copied from animated\.html, unchanged: EXAMPLES\n([\s\S]*?)\/\/ <<< end of EXAMPLES/);
+    if (a0 < 0 || a1 < 0 || !m || m[1] !== A.slice(a0, a1)) throw new Error('the examples on embedded.html differ from animated.html\'s: copy them across');
+    await eg.goto(new URL('gallery/embedded.html', base).href, { waitUntil: 'load' });
+    await eg.waitForFunction(() => window.__embedded && window.__embedded.live().length > 0, null, { timeout: 15000 });
+    const info = await eg.evaluate(() => ({ max: window.__embedded.max, live: window.__embedded.live(), first: window.__embedded.ids[0], tag: window.__embedded.tag(window.__embedded.ids[0]) }));
+    if (info.live.length > info.max || !info.live.includes(info.first)) throw new Error('the tiles in view: ' + JSON.stringify(info));
+    if (!/^<iframe src="[^"]*\/draw\.html\?embed=1#scene=[rz][\w-]+"/.test(info.tag)) throw new Error('the embed code: ' + info.tag.slice(0, 120));
+    await eg.waitForSelector(`#${info.first} iframe.player.on`, { timeout: 30000 });
+    const fr = eg.frames().find(f => /embed=1/.test(f.url()));
+    const pm = fr && await fr.evaluate(() => { const m = window.__box.morph(); return m && m.play; });
+    if (!pm) throw new Error('the first tile\'s editor is not playing');
+    await eg.evaluate(() => document.querySelector('footer').scrollIntoView());
+    await eg.waitForTimeout(800);
+    const after = await eg.evaluate(() => window.__embedded.live());
+    if (after.includes(info.first) || after.length > info.max) throw new Error('scrolled away, the first tile still plays: ' + after.join());
+  } catch (e){
+    failures.push(`[embedded] ${e.message.split('\n')[0]}`);
+  }
+  await eg.close();
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the embedded gallery`);
+}
+
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,
    edges straight, never leaves until asked. A triangle closed on its start point and a line of
    two points finished by a double-click; both held exact through a click and a drag of a
@@ -1857,7 +1892,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
