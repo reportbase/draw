@@ -1288,7 +1288,7 @@ current = 'undo morphs';
     const s1 = await st();
     await up.fill('#mrRate', '2'); await up.dispatchEvent('#mrRate', 'change'); await up.waitForTimeout(800);
     const s2 = await st();
-    await setT(0.3);
+    await setT(0.2); // 0.4 on the morph's own clock (rate 2): between its keys, so the edit adds one
     const c = await up.evaluate(() => { const r = window.__box.morph().runs[0]; return window.__box.toPx(r.cx, r.cy); });
     await up.mouse.move(c.x, c.y); await up.mouse.down(); await up.mouse.move(c.x + 50, c.y, { steps: 5 }); await up.mouse.up(); await up.waitForTimeout(300);
     const s3 = await st();
