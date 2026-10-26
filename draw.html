@@ -6717,6 +6717,8 @@
             <button id="bMorphSvg" data-code="msv" class="res-btn" title="Write the whole scene out as ONE animated .svg — every live morph on the shared clock, the static shapes around them as a backdrop. It plays in any browser with no library and no runtime, because SMIL's <animate attributeName=&quot;d&quot;> interpolates between path strings and this format guarantees the one thing SMIL requires and cannot check: every frame is the same cubics in the same order. Frame count and loop mode are in the morph panel.">svg</button>
             <button id="bMorphVideo" data-code="mvd" class="res-btn" title="record one loop as a .webm video (30 frames a second), the drawing alone with no editor marks, the size of the view">video</button>
             <button id="bMorphGif" data-code="mgf" class="res-btn" title="record one loop as an animated .gif (20 frames a second, at most 480 pixels wide), looping forever">gif</button>
+            <button id="bMorphLink" data-code="msl" class="res-btn" title="copy a link to this scene: the drawing and every live morph, as it plays now (keys, paths, timing, clips, trails, effects, what follows what). Opened, the editor plays it the same way. The gallery's examples are links like this one.">link</button>
+            <button id="bMorphEmbed" data-code="mse" class="res-btn" title="copy embed code for this scene: an &lt;iframe&gt; of the editor as a player (the canvas alone, which never touches anyone's saved drawing), playing it as it plays here">embed</button>
             <button id="bMorphExit" data-code="mex" class="res-btn" title="end every live morph and put all their keys back exactly where they were. Poses you dropped with `keep` are ordinary shapes and stay.">exit</button>
         </div>
         <!-- The line-weight slider used to live here. It is a per-SHAPE value, so it moved
@@ -85444,6 +85446,263 @@
                     morphExit(ends);
                 return ends.length;
             }
+            // ── THE SCENE LINK, WRITTEN BY THE EDITOR (26 Oct 2026, Tom: "1,2", after "share a scene from
+            // the editor": "the AI makes it, you tweak it, you share or embed it") ──────────────────────
+            // The other way round from openScene: what is on the page, live morphs and all, as a scene
+            // link. The drawing goes out as SVG, every shape in its order, a live morph's place taken by
+            // its keys as they are now (edited poses, added keys, each key's own colour), then the paths
+            // the morphs ride; the morphs as entries naming those shapes, with everything they have of
+            // their own (rate, phase, spin, laps, times, eases, clip, trail, effect, lag, what they ride,
+            // follow and face); the bar's settings and the clock's place beside them. Opened, it plays as
+            // it played here. Not carried: corners turned by hand (the opened morph pairs its keys
+            // itself), and where a parent was picked up from (it is measured from where it is drawn).
+            function sceneOutlineOf(sp) {
+                const lz = sp && sp._lazy;
+                if (lz) {
+                    if (lz.exact)
+                        return exactDense(lz.x, lz.y, lzRoundBaked(lz), lz.open, lz.smooth, lzCtrlBaked(lz));
+                    return { x: lz.x, y: lz.y };
+                }
+                return sp && sp.leafX && sp.leafX.length >= 2 ? { x: reconstruct1D(sp.leafX, 256), y: reconstruct1D(sp.leafY, 256) } : null;
+            }
+            function sceneOfEditor() {
+                const runs = morphRuns.slice(),
+                    items = [], // { sp } | { K, exact, run, k } | { P }
+                    keysOf = new Map();
+                const putKeys = run => {
+                    const ids = run.keys.map((K, k) => {
+                        items.push({ K, exact: !!run.exact, run, k });
+                        return items.length - 1;
+                    });
+                    keysOf.set(run, ids);
+                };
+                for (const sp of state.subpaths) {
+                    const run = runs.find(r => r.sp === sp);
+                    if (run)
+                        putKeys(run);
+                    else if (sp && (sp._lazy || (sp.leafX && sp.leafX.length >= 2)))
+                        items.push({ sp });
+                }
+                for (const run of runs)
+                    if (!keysOf.has(run))
+                        putKeys(run);
+                const pathOf = new Map();
+                for (const run of runs)
+                    if (run.path) {
+                        pathOf.set(run, items.length);
+                        items.push({ P: run.path });
+                    }
+                const shared = morphLive.path ? items.push({ P: morphLive.path }) - 1 : null;
+                if (!items.length)
+                    return null;
+                // each item's outline, in the page's units, for the box and for anything not exact
+                const outline = it => {
+                    if (it.sp)
+                        return sceneOutlineOf(it.sp);
+                    if (it.K)
+                        return it.exact ? exactDenseOf(it.K) : { x: reconstruct1D(it.K.x, 256), y: reconstruct1D(it.K.y, 256) };
+                    const S = it.P.member ? sceneOutlineOf(it.P.member) : null;
+                    return S || it.P.src || { x: it.P.x, y: it.P.y };
+                };
+                let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+                const outs = items.map(outline);
+                for (const O of outs)
+                    if (O)
+                        for (let i = 0; i < O.x.length; i++) {
+                            x0 = Math.min(x0, O.x[i]);
+                            x1 = Math.max(x1, O.x[i]);
+                            y0 = Math.min(y0, O.y[i]);
+                            y1 = Math.max(y1, O.y[i]);
+                        }
+                const cx = (x0 + x1) / 2,
+                    cy = (y0 + y1) / 2,
+                    sc = 900 / Math.max(1e-9, x1 - x0, y1 - y0);
+                const M = [sc, 0, 0, -sc, 500 - cx * sc, 500 + cy * sc],
+                    BX = X => Float64Array.from(X, x => M[0] * x + M[4]),
+                    BY = Y => Float64Array.from(Y, y => M[3] * y + M[5]),
+                    f2 = v => (+v).toFixed(2);
+                // a leaf outline as cubics fitted within a third of a unit of the 1000 box, as the svg export
+                // writes one (a tenth of the polygon's size); the polygon when the fit fails
+                const fitD = O => {
+                    const pts = [];
+                    for (let i = 0; i < O.x.length; i++)
+                        pts.push({ x: M[0] * O.x[i] + M[4], y: M[3] * O.y[i] + M[5] });
+                    pts.push({ x: pts[0].x, y: pts[0].y });
+                    try {
+                        const segs = _fitCubics(pts, 0.3);
+                        if (segs && segs.length)
+                            return _cubicsToPathD(segs, 2);
+                    } catch (_) {}
+                    return polyD(O, false);
+                };
+                const polyD = (O, open) => {
+                    let d = '';
+                    for (let i = 0; i < O.x.length; i++)
+                        d += (i ? 'L' : 'M') + f2(M[0] * O.x[i] + M[4]) + ' ' + f2(M[3] * O.y[i] + M[5]);
+                    return d + (open ? '' : 'Z');
+                };
+                const exactD = lz => {
+                    const R = lzRoundBaked(lz);
+                    let d = exactSvgD(BX(lz.x), BY(lz.y), R ? R.map(r => r * sc) : null, lz.open, lz.smooth, ctrlMapped(lzCtrlBaked(lz), M));
+                    for (const h of lzHolesBaked(lz) || [])
+                        d += ' ' + exactSvgD(BX(h.x), BY(h.y), null, false, h.smooth, ctrlMapped(h.ctrl, M));
+                    return d;
+                };
+                const hex = c => '#' + [c.r, c.g, c.b].map(v => _srgb(Math.max(0, Math.min(1, v))).toString(16).padStart(2, '0')).join('');
+                const styleOf = (sp, fill, open) => {
+                    const F = !open && fill && fill.color ? 'fill="' + fill.color + '"' + (fill.opacity != null && fill.opacity < 1 ? ' fill-opacity="' + (+fill.opacity).toFixed(3) + '"' : '') : 'fill="none"';
+                    const sw = sp ? lineWidthOf(sp) : 0,
+                        so = sp ? strokeOpacityOf(sp) : 1;
+                    // a shape the drawing gives no stroke is written with none, so the opened scene draws it by its fill alone
+                    const S = sp && sw > 0 && (sp.stroke || open) ? ' stroke="' + (sp.stroke || '#d4a052') + '" stroke-width="' + sw + '"' + (so < 1 ? ' stroke-opacity="' + so + '"' : '') : '';
+                    return F + S;
+                };
+                const els = items.map((it, i) => {
+                    if (it.sp) {
+                        const lz = it.sp._lazy,
+                            open = !!(lz && lz.open);
+                        const d = lz && lz.exact ? exactD(lz) : open ? polyD(outs[i], true) : fitD(outs[i]);
+                        return '<path d="' + d + '" ' + styleOf(it.sp, it.sp.fill, open) + ' fill-rule="evenodd"/>';
+                    }
+                    if (it.K) {
+                        const run = it.run,
+                            K = it.K,
+                            d = it.exact ? exactSvgD(BX(K.x), BY(K.y), hasRound(K.r) ? Array.from(K.r, r => r * sc) : null, false, null, ctrlMapped(hasCtrl(K.c) ? K.c : null, M)) : fitD(outs[i]);
+                        const C = run.cols && run.cols[it.k],
+                            fill = C ? { color: hex(C), opacity: C.a } : run.sp && run.sp.fill;
+                        return '<path d="' + d + '" ' + styleOf(run.sp, fill, false) + ' fill-rule="evenodd"/>';
+                    }
+                    // a path the morphs ride: a line, so it is written open whatever it came from
+                    const O = outs[i];
+                    return '<path d="' + polyD(O, !it.P.closed) + '" fill="none" stroke="#888888" stroke-width="1"/>';
+                });
+                const r4 = v => +(+v).toFixed(4);
+                const entryOf = new Map(runs.map((r, i) => [r, i]));
+                const morphs = runs.map(run => {
+                    const o = { keys: keysOf.get(run) };
+                    if (run.inPlace === false)
+                        o.inPlace = false;
+                    if ((run.rate || 1) !== 1)
+                        o.rate = run.rate;
+                    if (run.phase)
+                        o.phase = r4(run.phase);
+                    if (run.spin)
+                        o.spin = run.spin;
+                    if (run.path) {
+                        o.path = pathOf.get(run);
+                        o.turn = run.path.turn !== false;
+                        o.mode = run.path.mode === 'back' ? 'back' : 'along';
+                        if ((run.laps || 1) !== 1)
+                            o.laps = run.laps;
+                        if (run.at != null)
+                            o.at = r4(run.at);
+                    }
+                    if (run.times)
+                        o.times = run.times.map(r4);
+                    if (run.eases)
+                        o.eases = run.eases.slice();
+                    if (run.clip)
+                        o.clip = { start: r4(run.clip.start), len: r4(run.clip.len), show: run.clip.show || '' };
+                    if (run.trail)
+                        o.trail = { kind: run.trail.kind || '', len: r4(run.trail.len) };
+                    o.fx = run.fx && run.fx.kind ? { kind: run.fx.kind, amount: r4(run.fx.amount) } : { kind: '', amount: 0.5 };
+                    if (run.lag)
+                        o.lag = r4(run.lag);
+                    if (run.parent && entryOf.has(run.parent))
+                        o.parent = entryOf.get(run.parent);
+                    if (run.follow)
+                        o.follow = { kind: run.follow.kind, amount: r4(run.follow.amount) };
+                    if (run.look && entryOf.has(run.look))
+                        o.look = entryOf.get(run.look);
+                    return o;
+                });
+                const name = String(state.svgName || 'drawing').replace(/^example · /, '');
+                const d = {
+                    v: 1,
+                    name,
+                    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">' + els.join('') + '</svg>',
+                    exact: runs.every(r => r.exact),
+                    corners: state.morphCorners !== false,
+                    morphs,
+                    loop: r4(1 / morphLive.speed),
+                    t: r4(morphLive.t),
+                    play: runs.length > 0,
+                    lag: 0,
+                };
+                if (shared != null) {
+                    d.path = shared;
+                    d.turn = state.morphPathTurn !== false;
+                    d.mode = state.morphPathMode === 'back' ? 'back' : 'along';
+                }
+                if (state.morphEase)
+                    d.ease = state.morphEase;
+                if (state.morphHold)
+                    d.hold = r4(state.morphHold);
+                if (state.morphOnion)
+                    d.onion = true;
+                if (state.morphTrail)
+                    d.trail = { kind: state.morphTrail, len: r4(state.morphTrailLen) };
+                if (state.morphFx)
+                    d.fx = { kind: state.morphFx, amount: r4(state.morphFxAmount) };
+                return d;
+            }
+            async function encodeScene(d) {
+                const bytes = new TextEncoder().encode(JSON.stringify(d));
+                let kind = 'r',
+                    out = bytes;
+                try {
+                    const cs = new CompressionStream('deflate-raw');
+                    out = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(cs)).arrayBuffer());
+                    kind = 'z';
+                } catch (_) {}
+                let bin = '';
+                for (let i = 0; i < out.length; i += 0x8000)
+                    bin += String.fromCharCode.apply(null, out.subarray(i, i + 0x8000));
+                return kind + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            }
+            // the link and the embed code for what is on the page
+            async function sceneShare() {
+                const d = sceneOfEditor();
+                if (!d)
+                    return null;
+                const code = await encodeScene(d),
+                    page = new URL('draw.html', location.href);
+                const link = page.href + '#scene=' + code;
+                page.search = '?embed=1';
+                const xmlEsc = t => String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                const embed = '<iframe src="' + page.href + '#scene=' + code + '" width="480" height="320" style="border:0;border-radius:8px" title="' + xmlEsc(d.name) + ', an animation made in the tvf leaf editor" loading="lazy"></iframe>';
+                return { d, code, link, embed };
+            }
+            window.__sceneShare = sceneShare; // for the smoke test
+            async function shareCopy(which) {
+                let s = null;
+                try {
+                    s = await sceneShare();
+                } catch (e) {
+                    flashStatus('could not write the scene: ' + e.message);
+                    return;
+                }
+                if (!s) {
+                    flashStatus('nothing on the page to share');
+                    return;
+                }
+                const text = which === 'embed' ? s.embed : s.link;
+                let ok = false;
+                try {
+                    await navigator.clipboard.writeText(text);
+                    ok = true;
+                } catch (_) {}
+                const kb = (text.length / 1024).toFixed(1) + ' kB';
+                flashStatus(ok
+                    ? (which === 'embed' ? 'embed code copied (' + kb + ') — paste it into a page: the editor plays the scene in an <iframe>, the canvas alone' : 'scene link copied (' + kb + ') — it opens this drawing in the editor, playing as it plays here')
+                    : 'the browser would not let the page copy — try again after clicking the page');
+            }
+            const bLink = $('bMorphLink'),
+                bEmbed = $('bMorphEmbed');
+            if (bLink)
+                bLink.addEventListener('click', () => shareCopy('link'));
+            if (bEmbed)
+                bEmbed.addEventListener('click', () => shareCopy('embed'));
             window.decodeScene = decodeScene; // for the smoke test
             window.openScene = openScene;
             window.applySceneMorphs = applySceneMorphs; // ANIMATE IT WITH AI
