@@ -34,6 +34,7 @@
   <span class="count" id="made"></span>
   <div class="spacer"></div>
   <a class="jump" href="#showpieces">showpieces</a>
+  <a class="jump" href="#sequences">sequences</a>
   <a class="jump" href="#corners">corners kept</a>
   <a class="jump" href="#paths">paths and trails</a>
   <a class="jump" href="#effects">detail effects</a>
@@ -1658,11 +1659,68 @@ const SHOWPIECES = [];
     }
   });
 }
+// ── SEQUENCES (26 Oct 2026, Tom: "1,2,5") ──────────────────────────────────────────────────────────────────
+// Morphs that play once, one after another (draw.html, A MORPH THAT PLAYS ONCE), each seen only from when it plays
+// (A CLIP SEEN ONLY WHEN IT PLAYS). Each piece is two shapes, where it comes from and where it lands, and its
+// clip says when, on the loop, it travels.
+const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], fill);
+// 10. A HOUSE BUILDS ITSELF: walls up from below, the chimney and the roof down from above, the door and windows
+// opening out of nothing, the sun coming up behind, and smoke from the chimney, each in its turn.
+{
+  const bg = rectP(0, 0, 900, 480, '#cfe8f7') + rectP(0, 420, 900, 480, '#7fbf6a');
+  // [from, to] pairs, in drawing order (the chimney before the roof, so the roof lies over it)
+  // every piece starts inside the picture (unseen until it plays), so the scene keeps its frame
+  const sun = [circ4(760, 360, 46, '#ffcf4a'), circ4(760, 110, 46, '#ffcf4a')];
+  const walls = [rectP(330, 418, 570, 422, '#e9d6b8'), rectP(330, 262, 570, 422, '#e9d6b8')];
+  const chimney = [rectP(505, 40, 535, 100, '#a0574a'), rectP(505, 160, 535, 220, '#a0574a')];
+  const roof = [polyOf([[310, 122], [450, 12], [590, 122]], '#b5523b'), polyOf([[310, 262], [450, 152], [590, 262]], '#b5523b')];
+  const door = [rectP(449, 420, 451, 421, '#6b4a33'), rectP(422, 336, 478, 422, '#6b4a33')];
+  const win1 = [circ4(380, 316, 1, '#8fd0f0'), circ4(380, 316, 22, '#8fd0f0')];
+  const win2 = [circ4(520, 316, 1, '#8fd0f0'), circ4(520, 316, 22, '#8fd0f0')];
+  const puffs = [0, 1, 2].map(i => [circ4(520, 150, 4, '#ffffff'), circ4(520 + 40 + 25 * i, 70 - 20 * i, 18 + 6 * i, '#ffffff')]);
+  const pieces = [sun, walls, chimney, roof, door, win1, win2, ...puffs];
+  const when = [[0.55, 0.3, 'in'], [0, 0.18, 'in'], [0.14, 0.12, 'in'], [0.2, 0.16, 'in'], [0.34, 0.1, 'in'], [0.42, 0.1, 'in'], [0.47, 0.1, 'in'],
+    [0.66, 0.2, 'fade'], [0.72, 0.2, 'fade'], [0.78, 0.2, 'fade']];
+  SHOWPIECES.push({
+    id: 'house', name: 'a house builds itself', section: 'sequences', tags: ['plays once', 'in turn', 'fades', '10 clips'],
+    note: 'Ten morphs, each playing once, in its turn: the walls rise out of the ground, the chimney and the roof come down from above, the door and the windows open out of nothing, the sun comes up behind and smoke puffs from the chimney. Each piece is seen only from when it plays, so the house builds from an empty field every loop.',
+    svg: svg(900, 480, bg + pieces.map(([a, b]) => a + b).join('')),
+    scene: {
+      loop: 8, ease: 'inout',
+      morphs: pieces.map((_, i) => ({ keys: [2 + 2 * i, 3 + 2 * i], clip: { start: when[i][0], len: when[i][1], show: when[i][2] } }))
+    }
+  });
+}
+// 11. A SEED: it falls and sinks into the ground, a shoot comes up, two leaves open, and a bud swells and opens
+// into a flower, its colour going from green to pink as it does; then the loop comes round to the bare ground.
+{
+  const bg = rectP(0, 0, 900, 480, '#f6efe1') + rectP(0, 400, 900, 480, '#8a6a4a');
+  const seed = [circ4(450, 30, 12, '#6b4a33'), circ4(450, 402, 12, '#6b4a33')];
+  const stem = [rectP(446, 398, 454, 402, '#5a9a4a'), rectP(446, 230, 454, 402, '#5a9a4a')];
+  const leafL = [circ4(446, 330, 2, '#6fb85a'), smooth([[446, 330], [400, 300], [360, 316], [400, 336]], '#6fb85a')];
+  const leafR = [circ4(454, 300, 2, '#6fb85a'), smooth([[454, 300], [500, 270], [540, 286], [500, 306]], '#6fb85a')];
+  const petals = around(450, 205, 16, (a, i) => i % 2 ? 26 : 58, -Math.PI / 2);
+  const flower = [circ4(450, 225, 14, '#6fb85a'), smooth(petals, '#ef6fa0')];
+  const heart = [circ4(450, 205, 1, '#ffd34a'), circ4(450, 205, 18, '#ffd34a')];
+  const pieces = [seed, stem, leafL, leafR, flower, heart];
+  const when = [[0, 0.3, 'out'], [0.22, 0.2, 'in'], [0.38, 0.16, 'in'], [0.44, 0.16, 'in'], [0.56, 0.26, 'in'], [0.76, 0.12, 'in']];
+  SHOWPIECES.push({
+    id: 'seed', name: 'a seed', section: 'sequences', tags: ['plays once', 'in turn', 'fades', 'colour'],
+    note: 'A seed falls and sinks into the ground, a shoot comes up, two leaves open, and a green bud swells and opens into a pink flower with a yellow heart. Six morphs, each playing once in its turn; the seed fades out as it lands, and everything after it appears when it begins.',
+    svg: svg(900, 480, bg + pieces.map(([a, b]) => a + b).join('')),
+    scene: {
+      loop: 7, ease: 'inout',
+      morphs: pieces.map((_, i) => ({ keys: [2 + 2 * i, 3 + 2 * i], clip: { start: when[i][0], len: when[i][1], show: when[i][2] } }))
+    }
+  });
+}
 EXAMPLES.push(...SHOWPIECES);
 
 const SECTIONS = [
   { id: 'showpieces', title: 'showpieces', ids: ['clockwork', 'orrery', 'murmuration', 'garden', 'kite', 'lava', 'ripple', 'metamorphosis', 'pendulum-wave'],
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
+  { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
+    note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
   { id: 'corners', title: 'first steps: corners kept', ids: ['square-star', 'shape-loop', 'heartbeat'],
     note: 'Exact shapes morph as exact shapes: their corners, radii and curve edges blended, so a sharp corner stays sharp the whole way. A key with fewer corners is given more on its edges, which draws it the same.' },
   { id: 'paths', title: 'first steps: paths and trails', ids: ['orbit', 'pendulum', 'fish', 'procession'],
@@ -1689,6 +1747,95 @@ async function sceneCode(ex) {
   }
   return 'r' + b64url(json);
 }
+// ── A SCENE AS A PICTURE (26 Oct 2026, Tom: "1,3", to "use the light player in both galleries, and keep what is
+// made") ──────────────────────────────────────────────────────────────────────────────────────────────────────
+// The light player is the editor's own animated SVG: one hidden editor (draw.html?embed=1, THE EMBED AS A
+// CONVERTER) turns a scene into a picture that then plays on its own, SMIL and no script. Made once, a picture is
+// kept in the browser (IndexedDB: a picture can be a megabyte, more than localStorage holds), under the scene and
+// SVG_VERSION, so a gallery opened again plays at once and the editor is not loaded at all; bump SVG_VERSION when
+// the editor's export changes, so pictures made by the old one are made again. Scenes go to the editor one at a
+// time (it opens each in its own drawing), and the editor goes away once it has been idle a while.
+const SVG_VERSION = 1;
+let svgHost = null, svgHostReady = null, svgHostIdle = 0, svgNextId = 1, svgChain = Promise.resolve();
+const svgWaiting = new Map();
+function svgHostUp() {
+  clearTimeout(svgHostIdle);
+  if (svgHostReady) return svgHostReady;
+  svgHost = document.createElement('iframe');
+  svgHost.className = 'host';
+  svgHost.title = 'the leaf editor, turning scenes into pictures';
+  svgHost.setAttribute('aria-hidden', 'true');
+  svgHost.style.cssText = 'position:absolute;left:-9999px;top:0;width:480px;height:320px;border:0;visibility:hidden';
+  svgHost.src = new URL('../draw.html?embed=1', location.href).href;
+  svgHostReady = new Promise(res => svgHost.addEventListener('load', () => setTimeout(res, 400), { once: true }));
+  document.body.appendChild(svgHost);
+  return svgHostReady;
+}
+function svgHostDown() {
+  clearTimeout(svgHostIdle);
+  if (svgHost) svgHost.remove();
+  svgHost = null;
+  svgHostReady = null;
+}
+window.addEventListener('message', e => {
+  const m = e.data;
+  if (e.origin !== location.origin || !m || m.type !== 'tvf-scene-svg' || !svgWaiting.has(m.id)) return;
+  const res = svgWaiting.get(m.id);
+  svgWaiting.delete(m.id);
+  res(m.svg);
+});
+let svgDbP = null;
+function svgDb() {
+  return svgDbP || (svgDbP = new Promise(res => {
+    try {
+      const r = indexedDB.open('tvf-scene-svg', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('svg');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => res(null);
+    } catch (_) { res(null); } // storage off (a private window): pictures are made each visit
+  }));
+}
+async function svgCacheGet(key) {
+  const db = await svgDb();
+  if (!db) return null;
+  return new Promise(res => {
+    try { const q = db.transaction('svg').objectStore('svg').get(key); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); } catch (_) { res(null); }
+  });
+}
+async function svgCachePut(key, text) {
+  const db = await svgDb();
+  if (!db) return;
+  try { db.transaction('svg', 'readwrite').objectStore('svg').put(text, key); } catch (_) {}
+}
+// a scene's picture: kept, or made now; { svg (null if it could not be made), kept }
+async function sceneSvg(code) {
+  const key = SVG_VERSION + ':' + code;
+  const kept = await svgCacheGet(key);
+  if (kept) return { svg: kept, kept: true };
+  const job = svgChain.then(async () => {
+    await svgHostUp();
+    const id = svgNextId++;
+    return new Promise(res => { svgWaiting.set(id, res); svgHost.contentWindow.postMessage({ type: 'tvf-scene-svg', id, code }, location.origin); });
+  });
+  svgChain = job.catch(() => null);
+  const svg = await job;
+  clearTimeout(svgHostIdle);
+  svgHostIdle = setTimeout(svgHostDown, 20000);
+  if (svg) svgCachePut(key, svg);
+  return { svg, kept: false };
+}
+// the picture as an element filling a tile's stage
+function fitSvg(text) {
+  const box = document.createElement('div');
+  box.innerHTML = text;
+  const el = box.querySelector('svg');
+  if (!el) return null;
+  el.removeAttribute('width');
+  el.removeAttribute('height');
+  el.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  el.classList.add('anim');
+  return el;
+}
 // <<< end of EXAMPLES
 
 // ── THE EMBEDDED GALLERY (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with
@@ -1696,7 +1843,8 @@ async function sceneCode(ex) {
 // The examples above are animated.html's, copied unchanged (npm test fails if the two copies part). Each scene
 // is shown two ways:
 //   as its animated SVG, the light way: one hidden editor (draw.html?embed=1, THE EMBED, which never touches the
-//     saved scene) turns every scene into its SVG in turn (THE EMBED AS A CONVERTER), and each tile then plays
+//     saved scene) turns every scene into its SVG in turn (THE EMBED AS A CONVERTER; sceneSvg, copied with the
+//     examples, keeps each made SVG in this browser, so a second visit makes none), and each tile then plays
 //     with no editor behind it, all at once, SMIL and nothing else; a tile scrolled out of view is paused.
 //     "copy svg" gives that file, the lightest embed there is: no script, no address, a picture that moves.
 //   live, the exact way: "live" swaps the tile for the editor itself in an <iframe> (one tile at a time), and
@@ -1711,44 +1859,6 @@ const kb = n => (n / 1024).toFixed(1) + ' kB';
 const flash = (b, text, back) => { b.classList.add('done'); b.textContent = text; setTimeout(() => { b.classList.remove('done'); b.textContent = back; }, 1400); };
 
 const tiles = [];
-// the one hidden editor that turns scenes into SVG, and the queue it works through
-let host = null, hostReady = null, nextId = 1;
-const waiting = new Map();
-function ensureHost() {
-  if (hostReady) return hostReady;
-  host = document.createElement('iframe');
-  host.className = 'host';
-  host.title = 'the leaf editor, turning scenes into pictures';
-  host.setAttribute('aria-hidden', 'true');
-  host.src = new URL('../draw.html?embed=1', location.href).href;
-  hostReady = new Promise(res => host.addEventListener('load', () => setTimeout(res, 400), { once: true }));
-  document.body.appendChild(host);
-  return hostReady;
-}
-window.addEventListener('message', e => {
-  const m = e.data;
-  if (e.origin !== location.origin || !m || m.type !== 'tvf-scene-svg' || !waiting.has(m.id)) return;
-  const res = waiting.get(m.id);
-  waiting.delete(m.id);
-  res(m.svg);
-});
-async function toSvg(code) {
-  await ensureHost();
-  const id = nextId++;
-  return new Promise(res => { waiting.set(id, res); host.contentWindow.postMessage({ type: 'tvf-scene-svg', id, code }, location.origin); });
-}
-// the SVG export is drawn on a 1000-unit square; in a tile it fills the stage
-function fitSvg(text) {
-  const box = document.createElement('div');
-  box.innerHTML = text;
-  const el = box.querySelector('svg');
-  if (!el) return null;
-  el.removeAttribute('width');
-  el.removeAttribute('height');
-  el.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-  el.classList.add('anim');
-  return el;
-}
 // pause what is out of view: twenty SMIL pictures playing at once off screen would cost for nothing
 const io = new IntersectionObserver(entries => {
   for (const e of entries) {
@@ -1843,7 +1953,7 @@ function setLive(tile) {
   const order = tiles.filter(t => t.classList.contains('seen')).concat(tiles.filter(t => !t.classList.contains('seen')));
   let made = 0;
   for (const tile of order) {
-    const text = await toSvg(tile.dataset.code);
+    const text = (await sceneSvg(tile.dataset.code)).svg;
     const el = text && fitSvg(text);
     const size = tile.querySelector('.svgsize');
     if (!el) { size.textContent = 'could not be made'; continue; }
@@ -1854,7 +1964,7 @@ function setLive(tile) {
     tile.querySelector('.svgcopy').disabled = false;
     document.getElementById('made').textContent = ++made + ' of ' + tiles.length + ' made';
   }
-  if (host) { host.remove(); host = null; hostReady = null; } // its work done, the editor goes
+  svgHostDown(); // its work done, the editor goes
 })();
 </script>
 </body>

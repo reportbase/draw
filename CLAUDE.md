@@ -117,28 +117,46 @@ publishes.
     **corners ◀ ▶** (CORNERS PAIRED BY HAND) turns the corners of the key you stand on (or the next) a place, faint
     lines showing the pairing; scene link `pair: [places per key]`. A morph can play once (A MORPH THAT PLAYS ONCE,
     `run.clip = {start, len}`, scene link `clip`): first key to last over its window, holding either side; the
-    timeline shows it as a bar to move and stretch, a row's ↻/1× toggles it, **in turn** makes a sequence.
+    timeline shows it as a bar to move and stretch, a row's ↻/1× toggles it, **in turn** makes a sequence. Its `show`
+    (A CLIP SEEN ONLY WHEN IT PLAYS; the timeline's **shows** select) is '' (always), 'during', 'fade', 'in' or 'out':
+    a factor on the drawing (`sp._fade`, never saved; the shape loop multiplies every alpha by it), its trails and the
+    SVG export (an opacity animation) following. Undo snapshots carry the live morphs (UNDO STEPS THROUGH THE MORPHS:
+    `snapshotState().morph` is `morphStateSave`, the autosave's own record, restored from a copy at the end of
+    `applySnapshot`, the clock left where it is); a setting from a slider or a field is one step once it rests
+    (`morphHistorySoon`). The AI panel's **animate it** and **change it** (ANIMATE IT WITH AI, 26 Oct 2026, Tom:
+    "the human could gently tweak the generated AI result", then "1,2") ask Claude for the scene link's vocabulary,
+    not frames: the drawing goes out as a picture and as its shapes numbered in a 1000 box (`animSketch`, read without
+    turning held shapes into leaves), with the live morphs' settings (`animMorphsNow`); the reply's `copies` (a shape
+    moved, turned, sized, kept exact: `animCopy`), `svg` (new outlines and motion paths, landed exact where the box
+    puts them) and `morphs` go through the scene link's own `applySceneMorphs` (partial: what it leaves out stays),
+    its `change` items through `sceneChangeRuns` (by morph: only what is named changes; `end` gives the keys back),
+    and the whole reply is one undo step. `SYS_ANIM` is the prompt: a field added to the scene link belongs in it.
     The animated SVG export (EXPORTING A MORPH) takes as many frames as each morph's motion needs (doubling from the
     panel's count to 240 until a straight blend between frames is within 0.2% of the scene), each morph its own count,
     writes a morph that moves and turns as its outline plus a translate and rotate (a still: one outline), and writes
     echoes and ribbons as the same animations begun earlier, in a frame of the drawing's own proportions (1000 on its
     longer side); `__box.morphSvg(o)` returns the text. Opening one replaces the drawing, asking first when the tab
     holds the user's; shapes the SVG gave no stroke get no editor outline. The editor's menu links it ("animations ↗").
-    A tile's **play** button (or its picture) plays it in place, in the editor itself: `draw.html?embed=1#scene=…` (THE
-    EMBED in `draw.html`) shows the canvas alone, draws none of the editor's own marks, and never reads or writes the
-    saved scene (it shares it with every editor tab: a tile must never replace someone's drawing). One tile plays at a
-    time. Exact morphs between keys whose corners differ (MORPHS THAT KEEP THEIR CORNERS) bake roundings into arc edges
+    A tile's **play** button (or its picture) plays it in place as its animated SVG (26 Oct 2026, Tom: "1,3"),
+    made by a hidden editor (`sceneSvg`, THE EMBED AS A CONVERTER, below) and kept in the browser's IndexedDB
+    (`tvf-scene-svg`, keyed by `SVG_VERSION` and the scene code), so only the first visit waits; raise `SVG_VERSION`
+    when the SVG export changes what it writes, or visitors keep old pictures. **live** plays it in the editor
+    itself: `draw.html?embed=1#scene=…` (THE EMBED in `draw.html`) shows the canvas alone, draws none of the editor's
+    own marks, and never reads or writes the saved scene (it shares it with every editor tab: a tile must never
+    replace someone's drawing). One tile plays at a time. Exact morphs between keys whose corners differ (MORPHS THAT KEEP THEIR CORNERS) bake roundings into arc edges
     when any key has curve edges, try twice the corners when that matches much better (a square to a circle drawn from
     0°), and keep a corner smooth in every pose where any key has it smooth (SMOOTH WHERE ANY KEY IS SMOOTH).
     The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
-    come first, the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
+    come first, then the **sequences** (a house builds itself, a seed: morphs that play once, in turn, seen from when they
+    play), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
   - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your
     recommendations": a light player) is the last page, a chart page: the same examples, each tile its **animated
     SVG**, made by one hidden editor (THE EMBED AS A CONVERTER in `draw.html`: an embed of the same origin answers
     `{type: 'tvf-scene-svg', id, code}` with `{type, id, svg}`) and then playing on its own (SMIL, no script, the editor
-    gone once all are made; out of view, paused); **copy svg** gives that file. **live** plays one tile in the editor
+    gone once all are made; out of view, paused; the same `sceneSvg` and cache as animated.html, copied with the
+    examples); **copy svg** gives that file. **live** plays one tile in the editor
     itself (an `<iframe>` of `draw.html?embed=1#scene=…`, THE EMBED) and **copy embed code** gives that `<iframe>`. In
     an embed the editor frames the scene to fill its frame (`embedFit`, again on a resize). Its
     examples are animated.html's, **copied unchanged** between `// >>> copied from animated.html, unchanged: EXAMPLES`

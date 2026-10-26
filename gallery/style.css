@@ -502,6 +502,9 @@ a.paper:hover{background:rgba(124,92,255,.22);color:#d9cfff}
 .page-animated .tile .stage iframe.player{position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .3s;pointer-events:none}
 .page-animated .tile .stage iframe.player.on{opacity:1}
 .page-animated .tile .tools .play.on{background:var(--ok);border-color:var(--ok);color:#0c0f16}
+.page-animated .tile .tools .live.on{background:var(--ok);border-color:var(--ok);color:#0c0f16}
+.page-animated .tile .stage svg.anim{padding:6px}
+.page-animated .tile.svg .stage svg:not(.anim){display:none}
 
 /* ── EMBEDDED ── (embedded.html) every tile the leaf editor itself, playing in an iframe over its drawing */
 .page-embedded .tile .stage{position:relative}
