@@ -871,6 +871,15 @@ current = 'examples';
     s = await open('kite');
     r0 = await runsAt(0.3);
     if (r0.length !== 8 || r0.slice(1, 7).some((q, i) => q.parent !== i || q.follow !== 'spring') || r0[7].look !== 0) throw new Error('the kite: ' + JSON.stringify(r0.map(q => [q.parent, q.follow, q.look])));
+    // the sequences: the house's ten pieces each play once, the walls first and unseen before they rise; the seed's six
+    s = await open('house');
+    r0 = await runsAt(0);
+    if (r0.length !== 10 || r0.some(q => !q.clip) || r0[1].fade !== 0 || r0[0].fade !== 0) throw new Error('the house: ' + JSON.stringify(r0.map(q => [q.clip, q.fade])));
+    r1 = await runsAt(0.5);
+    if (r1[1].fade !== 1 || r1[3].fade !== 1 || r1[7].fade !== 0) throw new Error('the house half way: ' + JSON.stringify(r1.map(q => q.fade)));
+    s = await open('seed');
+    r0 = await runsAt(0.1);
+    if (r0.length !== 6 || r0[0].fade !== 1 || r0[4].fade !== 0) throw new Error('the seed: ' + JSON.stringify(r0.map(q => [q.clip, q.fade])));
     // over a drawing of the user's: asked first, and "keep my drawing" keeps it
     s = await open('shimmer');
     await ep.click('#bMorphKeep', { modifiers: ['Shift'] }); await ep.waitForTimeout(200);
@@ -1244,6 +1253,77 @@ current = 'canvas keys';
     failures.push(`[canvas keys] ${e.message.split('\n')[0]}`);
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} keys edited on the canvas, a path drawn, corners paired, a sequence`);
+}
+
+/* UNDO THROUGH THE MORPHS, AND CLIPS THAT COME AND GO (draw.html, 26 Oct 2026). With two live morphs: a key's time
+   dragged on the strip, a rate set, a key added by an edit on the canvas and the morphs put in turn each undo one
+   step at a time, the morphs staying live with their shapes exact, back to before the morph began, and redo brings
+   each back. A clip that fades is unseen before its window, part seen at its start, whole in its middle; one that
+   comes "in" stays after; the svg animates their opacity. The two sequences open in their places. */
+current = 'undo morphs';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const up = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  up.on('pageerror', e => failures.push(`[undo morphs] ${e.message}`));
+  await up.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  const setT = t => up.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+  const ready = async () => {
+    await up.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await up.waitForFunction(() => !/scene=/.test(location.hash) && window.__box.morph(), null, { timeout: 15000 });
+    await up.waitForTimeout(700);
+  };
+  const st = () => up.evaluate(() => { const m = window.__box.morph(), d = window.__box.morphDiag();
+    return m ? { n: m.runs.length, K: m.runs.map(r => r.K).join(), t1: +m.runs[0].times[1].toFixed(3), clip: m.runs.map(r => r.clip ? r.clip.start.toFixed(2) : '-').join(), rate: m.runs[0].rate, exact: d.every(q => !q.exact || q.lazy) } : null; });
+  try {
+    let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="20" y="20" width="80" height="80" fill="#4f8fd6"/><polygon points="160,20 200,100 120,100" fill="#e05a6a"/>'
+      + '<rect x="220" y="40" width="120" height="40" fill="#4fbf8a"/><circle cx="60" cy="200" r="30" fill="#f2c14e"/><rect x="140" y="170" width="60" height="60" fill="#b07de0"/></svg>';
+    await up.goto(scene({ name: 'undo', svg, play: false, morphs: [[0, 1, 2], [3, 4]] }), { waitUntil: 'load' });
+    await ready();
+    const s0 = await st();
+    await up.evaluate(() => window.__box.select([0])); await up.waitForTimeout(250);
+    const kb = await up.locator('#mrKeys .mr-key[data-k="1"]').boundingBox(), tb = await up.locator('#mrKeys').boundingBox();
+    await up.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2); await up.mouse.down(); await up.mouse.move(tb.x + tb.width * 0.6, kb.y + kb.height / 2, { steps: 5 }); await up.mouse.up();
+    const s1 = await st();
+    await up.fill('#mrRate', '2'); await up.dispatchEvent('#mrRate', 'change'); await up.waitForTimeout(800);
+    const s2 = await st();
+    await setT(0.3);
+    const c = await up.evaluate(() => { const r = window.__box.morph().runs[0]; return window.__box.toPx(r.cx, r.cy); });
+    await up.mouse.move(c.x, c.y); await up.mouse.down(); await up.mouse.move(c.x + 50, c.y, { steps: 5 }); await up.mouse.up(); await up.waitForTimeout(300);
+    const s3 = await st();
+    await up.click('#bMorphTimeline'); await up.waitForTimeout(200);
+    await up.evaluate(() => window.__box.select([])); await up.waitForTimeout(200);
+    await up.click('#tlTurn');
+    const s4 = await st();
+    const states = [s0, s1, s2, s3, s4], key = q => JSON.stringify(q);
+    if (new Set(states.map(key)).size !== 5) throw new Error('the five states are not all different: ' + JSON.stringify(states));
+    for (let i = 3; i >= 0; i--) {
+      await up.evaluate(() => document.getElementById('bUndo').click()); await up.waitForTimeout(200);
+      const q = await st();
+      if (key(q) !== key(states[i])) throw new Error('undo ' + (4 - i) + ' gave ' + key(q) + ', not ' + key(states[i]));
+    }
+    for (let i = 1; i <= 4; i++) {
+      await up.evaluate(() => document.getElementById('bRedo').click()); await up.waitForTimeout(200);
+      const q = await st();
+      if (key(q) !== key(states[i])) throw new Error('redo ' + i + ' gave ' + key(q) + ', not ' + key(states[i]));
+    }
+    // clips that come and go
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="20" y="20" width="60" height="60" fill="#4f8fd6"/><circle cx="50" cy="200" r="30" fill="#4f8fd6"/><rect x="160" y="20" width="60" height="60" fill="#e05a6a"/><circle cx="190" cy="200" r="30" fill="#e05a6a"/></svg>';
+    await up.goto(scene({ name: 'shows', svg, play: false, morphs: [{ keys: [0, 1], clip: { start: 0, len: 0.5, show: 'fade' } }, { keys: [2, 3], clip: { start: 0.5, len: 0.5, show: 'in' } }] }), { waitUntil: 'load' });
+    await ready();
+    const fades = [];
+    for (const t of [0, 0.04, 0.25, 0.6, 0.95]) { await setT(t); fades.push((await up.evaluate(() => window.__box.morph().runs)).map(r => r.fade)); }
+    const ok = fades[0][0] === 0 && fades[1][0] > 0.2 && fades[1][0] < 0.8 && fades[2][0] === 1 && fades[3][0] === 0
+      && fades[2][1] === 0 && fades[3][1] === 1 && fades[4][1] === 1;
+    if (!ok) throw new Error('the clips\' fades: ' + JSON.stringify(fades));
+    const op = await up.evaluate(() => (window.__box.morphSvg({}).match(/attributeName="opacity"/g) || []).length);
+    if (op < 2) throw new Error('the svg has ' + op + ' opacity animations');
+    await up.close();
+  } catch (e){
+    failures.push(`[undo morphs] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} undo through the morphs, and clips that come and go`);
 }
 
 /* EXACT SHAPES (draw.html). The line pen's polygons and lines stay exact: corners sharp,

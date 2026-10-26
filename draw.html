@@ -3204,6 +3204,9 @@
         #morphTimeline .tl-note { color: var(--fg-muted); font-size: 10px; text-align: right; }
         #morphTimeline .tl-tools { display: flex; gap: 6px; align-items: center; margin: 4px 0 2px 70px; }
         #morphTimeline .tl-hint { color: var(--fg-muted); font-size: 10px; }
+        #morphTimeline .tl-showlab { color: var(--fg-muted); font-size: 10px; }
+        #morphTimeline .tl-showlab select { font: inherit; }
+        #morphTimeline .tl-clip.faded { background: repeating-linear-gradient(90deg, rgba(212,160,82,0.12) 0 6px, rgba(212,160,82,0.28) 6px 12px); }
         #morphTimeline .tl-once { padding: 0 4px; font-size: 10px; height: 16px; }
         #morphTimeline .tl-once.on { background: var(--gold); color: #14141a; border-color: var(--gold); }
         #morphTimeline .tl-clip { position: absolute; top: 1px; bottom: 1px; background: rgba(212,160,82,0.22); border: 1px solid rgba(212,160,82,0.75); border-radius: 4px; cursor: grab; touch-action: none; }
@@ -4355,7 +4358,7 @@
     <!-- THE SCENE'S TIMELINE: every live morph a row of its keys on the shared clock -->
     <div id="morphTimeline" role="region" aria-label="every live morph's keys on the shared clock">
         <div class="tl-grid tl-top"><span class="tl-title">timeline</span><div class="tl-ruler" id="tlRuler" title="drag to scrub"><span class="tl-play" id="tlPlay"></span></div><button type="button" id="tlClose" title="put the timeline away">×</button></div>
-        <div class="tl-tools"><button type="button" id="tlTurn" title="A SEQUENCE: the selected morphs (or every one, with none selected) each play once, one after another, in their order, sharing the loop">in turn</button><button type="button" id="tlLoops" title="the selected morphs (or every one) loop again">all loop</button><span class="tl-hint">a row's ↻ / 1× plays it looping or once; drag a once-bar to move it, its ends to stretch it</span></div>
+        <div class="tl-tools"><button type="button" id="tlTurn" title="A SEQUENCE: the selected morphs (or every one, with none selected) each play once, one after another, in their order, sharing the loop">in turn</button><button type="button" id="tlLoops" title="the selected morphs (or every one) loop again">all loop</button><label class="tl-showlab" title="A CLIP SEEN ONLY WHEN IT PLAYS: how the selected morphs that play once (or every one that does) are seen outside their bars">shows <select id="tlShow"><option value="">always</option><option value="during">only in its bar</option><option value="fade">fading in and out</option><option value="in">from its bar on</option><option value="out">until its bar ends</option></select></label><span class="tl-hint">a row's ↻ / 1× plays it looping or once; drag a once-bar to move it, its ends to stretch it</span></div>
         <div class="tl-rows" id="tlRows"></div>
     </div>
     <!-- A PICKED CORNER'S NUMBERS (EXACT SHAPES): shown beside a picked corner. World units,
@@ -30175,6 +30178,11 @@
                     // undoing half of what it had done.
                     tag: sp.tag || null,
                 })),
+                // UNDO STEPS THROUGH THE MORPHS (26 Oct 2026, Tom: "1,2,5"): the live morphs as they stood, kept
+                // the way the autosave keeps them, against the shapes above. Without them an undo put fresh
+                // copies of the shapes back and every live morph lost its shape and ended, and a change to a
+                // morph (a key, a time, a clip, a pairing) could not be undone at all.
+                morph: _morphReady && morphRuns.length ? JSON.parse(JSON.stringify(morphStateSave(state.subpaths, false))) : null,
             };
         }
 
@@ -30248,6 +30256,29 @@
                 rebuildScroller();
             if (typeof syncLineWidth === 'function')
                 syncLineWidth();
+            // UNDO STEPS THROUGH THE MORPHS: the morphs as they were with these shapes, put back in place of
+            // whatever is live now, without handing anything back to the drawing (the shapes above are the
+            // drawing as it was, the morph's lifted shapes included or not as they were then). The clock
+            // stays where you are; only the morphs move back.
+            if (_morphReady) {
+                const tNow = morphLive.t,
+                    playing = morphLive.play;
+                morphRuns.length = 0;
+                morphLive.path = null;
+                if (snap.morph) {
+                    // from a copy: restoring tags the record with the morph it made (own._run), and the
+                    // snapshot stays in the history, where a tag pointing at a live shape would be read
+                    // (and the shape turned into leaves) the next time the history is compared or copied
+                    restoreMorphs(JSON.parse(JSON.stringify(snap.morph)));
+                    morphLive.t = tNow;
+                    morphLive.play = playing && morphRunning();
+                } else
+                    morphClockStop();
+                _mrSig = '';
+                _tlSig = '';
+                morphWrite();
+                morphBarSync();
+            }
             updateStatus();
             drawAll();
         }
@@ -40234,6 +40265,12 @@
             };
             for (let spi = 0; spi < state.subpaths.length; spi++) {
                 const sp = state.subpaths[spi];
+                // A MORPH THAT PLAYS ONCE may be faded or out of sight (its clip's show): a factor on
+                // everything the shape draws, never saved, so the shape's own colours are untouched
+                const _fd = sp._fade != null ? sp._fade : 1;
+                if (_fd <= 0)
+                    continue;
+                ctx.globalAlpha = _fd;
                 // A shape still held as its import (CONVERT ON TOUCH) is drawn from its source
                 // outline: cull, the LOD dot, fill and stroke, as the Path2D fast path below does
                 // for a resting shape. Anything that needs the shape's leaves — selected, edit
@@ -40258,8 +40295,8 @@
                     if (CHROME && _wpx < 4 && _hpx < 4 && !(state.activeSet && state.activeSet.has(spi))) {
                         const dimmed = state.activeSet && state.activeSet.size > 0;
                         _setScreenTF();
-                        ctx.globalAlpha = dimmed ? 0.3
-                        : (state.showFills && sp.fill && sp.fill.opacity != null ? Math.max(0.4, sp.fill.opacity) : 1);
+                        ctx.globalAlpha = _fd * (dimmed ? 0.3
+                        : (state.showFills && sp.fill && sp.fill.opacity != null ? Math.max(0.4, sp.fill.opacity) : 1));
                         ctx.fillStyle = (state.showFills && sp.fill) ? sp.fill.color : (sp.stroke || 'rgba(212,160,82,1)');
                         ctx.fillRect(ax, ay, Math.max(1.2, _wpx), Math.max(1.2, _hpx));
                         ctx.globalAlpha = 1;
@@ -40291,7 +40328,7 @@
                         ctx.transform(_lm[0], _lm[1], _lm[2], _lm[3], _lm[4], _lm[5]);
                     if (state.showFills && sp.fill && sp.fill.color && !lz.open) {
                         const _a0 = ctx.globalAlpha;
-                        ctx.globalAlpha = (sp.fill.opacity != null ? sp.fill.opacity : 1);
+                        ctx.globalAlpha = _fd * (sp.fill.opacity != null ? sp.fill.opacity : 1);
                         ctx.fillStyle = sp.fill.color;
                         ctx.fill(p2, 'evenodd');
                         ctx.globalAlpha = _a0;
@@ -40316,7 +40353,7 @@
                         const spSO = (sp.strokeOpacity != null) ? sp.strokeOpacity : 1;
                         if (spSO > 0) {
                             const _a1 = ctx.globalAlpha;
-                            ctx.globalAlpha = Math.min(1, spSO);
+                            ctx.globalAlpha = _fd * Math.min(1, spSO);
                             // LINE STYLE: dashes, and arrowheads on an exact line
                             const LS = lz.exact ? lineStyleOf(sp) : null;
                             if (LS && LS.dash) {
@@ -40433,8 +40470,8 @@
                         const py0 = _cy - ((_mxy + (sp._mdy || 0)) * _invHR - _vpy) * drawScale;
                         const dimmed = state.activeSet && state.activeSet.size > 0;
                         _setScreenTF(); // LOD rects are screen-space
-                        ctx.globalAlpha = dimmed ? 0.3
-                        : (state.showFills && sp.fill && sp.fill.opacity != null ? Math.max(0.4, sp.fill.opacity) : 1);
+                        ctx.globalAlpha = _fd * (dimmed ? 0.3
+                        : (state.showFills && sp.fill && sp.fill.opacity != null ? Math.max(0.4, sp.fill.opacity) : 1));
                         ctx.fillStyle = (state.showFills && sp.fill) ? sp.fill.color : (sp.stroke || 'rgba(212,160,82,1)');
                         ctx.fillRect(px0, py0, Math.max(1.2, _wpx), Math.max(1.2, _hpx));
                         ctx.globalAlpha = 1;
@@ -40634,7 +40671,7 @@
                         const runPath = (sp.textRun != null) ? textRunFillPath(sp, w, h, _fillRuns) : null;
                         if (runPath !== 'skip') {
                             const _a0 = ctx.globalAlpha;
-                            ctx.globalAlpha = (sp.fill.opacity != null ? sp.fill.opacity : 1);
+                            ctx.globalAlpha = _fd * (sp.fill.opacity != null ? sp.fill.opacity : 1);
                             ctx.fillStyle = sp.fill.color;
                             ctx.fill(runPath || p2, 'evenodd');
                             ctx.globalAlpha = _a0;
@@ -40654,7 +40691,7 @@
                             ctx.stroke(p2);
                         else if (spSO > 0) {
                             const _a1 = ctx.globalAlpha;
-                            ctx.globalAlpha = spSO;
+                            ctx.globalAlpha = _fd * spSO;
                             ctx.stroke(p2);
                             ctx.globalAlpha = _a1;
                         }
@@ -40702,7 +40739,7 @@
                         // globalAlpha needs putting back; fillStyle is reassigned by every shape
                         // that fills and by the caller otherwise.
                         const _a0 = ctx.globalAlpha;
-                        ctx.globalAlpha = (sp.fill.opacity != null ? sp.fill.opacity : 1);
+                        ctx.globalAlpha = _fd * (sp.fill.opacity != null ? sp.fill.opacity : 1);
                         ctx.fillStyle = sp.fill.color;
                         if (runPath) {
                             _setWorldTF();
@@ -40791,7 +40828,7 @@
                         ctx.stroke();
                     else if (spSO > 0) {
                         const a = ctx.globalAlpha;
-                        ctx.globalAlpha = spSO;
+                        ctx.globalAlpha = _fd * spSO;
                         ctx.stroke();
                         ctx.globalAlpha = a;
                     }
@@ -40857,6 +40894,7 @@
                         disp
                     });
             }
+            ctx.globalAlpha = 1; // a faded shape last in the loop leaves the alpha where it set it
             _setScreenTF(); // everything from here down is screen-space
             // Second pass — draw the collected edit-mode circles AFTER every shape body,
             // so the rings render on top of the shapes (z-order top). Same visibility
@@ -50939,6 +50977,7 @@
                 morphWriteExact(run, sp, morphPoseExact(run, morphLive.t));
                 if (run.cols)
                     sp.fill = morphColourAt(run, morphLive.t); // COLOUR THAT MORPHS
+                sp._fade = morphShowFactor(run, morphLive.t); // A MORPH THAT PLAYS ONCE: out of sight, or fading
                 morphNoteWritten(run, sp);
                 return;
             }
@@ -50948,6 +50987,7 @@
             morphNoteWritten(run, sp);
             if (run.cols)
                 sp.fill = morphColourAt(run, morphLive.t); // COLOUR THAT MORPHS
+            sp._fade = morphShowFactor(run, morphLive.t); // A MORPH THAT PLAYS ONCE: out of sight, or fading
             // The reference follows the leaves. A morph is not a resample of some earlier curve —
             // each pose IS the shape, so a pose dropped by `keep` has to be its own origin or every
             // downstream reading would be taken against a curve that is not there.
@@ -51197,6 +51237,8 @@
         function morphAbandon(runs) {
             const drop = runs || morphRuns.slice();
             for (const r of drop) {
+                if (r.sp)
+                    delete r.sp._fade; // A MORPH THAT PLAYS ONCE: a shape left behind is drawn whole
                 const i = morphRuns.indexOf(r);
                 if (i >= 0)
                     morphRuns.splice(i, 1);
@@ -51660,6 +51702,7 @@
             morphBarSync();
             drawAll();
             scheduleSave();
+            morphHistorySoon();
         }
 
         // ── EASING AND HOLDS (25 Oct 2026, Tom: "1,2") ───────────────────────────────────
@@ -51797,6 +51840,7 @@
             morphBarSync();
             drawAll();
             scheduleSave();
+            morphHistorySoon();
         }
 
         // ── MORPHS THAT KEEP THEIR CORNERS (25 Oct 2026, Tom: "1,2") ───────────────────────
@@ -52526,6 +52570,32 @@
         function morphClipOk(c) {
             return !!c && Number.isFinite(+c.start) && Number.isFinite(+c.len) && c.start >= 0 && c.len > 0 && c.start + c.len <= 1 + 1e-9;
         }
+        // A CLIP SEEN ONLY WHEN IT PLAYS (26 Oct 2026, Tom: "1,2,5"). Outside its window a clip holds its
+        // first or last pose, which keeps it on screen the whole loop. clip.show says otherwise:
+        //   'during'  seen only within its window;
+        //   'fade'    fading in over the window's first sixth and out over its last, unseen outside;
+        //   'in'      unseen before, fading in over the first sixth, and staying after;
+        //   'out'     there from the start, fading out over the last sixth, and gone after.
+        // So a sequence can bring things on and take them off: a title, then a shape, then the next. It is
+        // a factor on the drawing (sp._fade), never on the shape's own colours, so nothing of it is saved
+        // in the drawing.
+        const MORPH_SHOWS = ['during', 'fade', 'in', 'out'],
+            MORPH_FADE = 1 / 6;
+        function morphShowFactor(run, t) {
+            const c = run.clip;
+            if (!c || !MORPH_SHOWS.includes(c.show))
+                return undefined;
+            const p = (t - c.start) / Math.max(1e-6, c.len),
+                up = Math.max(0, Math.min(1, p / MORPH_FADE)),
+                down = Math.max(0, Math.min(1, (1 - p) / MORPH_FADE));
+            if (c.show === 'during')
+                return p >= 0 && p <= 1 ? 1 : 0;
+            if (c.show === 'fade')
+                return p < 0 || p > 1 ? 0 : Math.min(up, down);
+            if (c.show === 'in')
+                return p < 0 ? 0 : up;
+            return p > 1 ? 0 : down; // 'out'
+        }
         // the morph's own clock: `rate` times round a loop, `phase` ahead (0 to 1); the shared clock
         // when it has neither. A whole rate keeps the loop seamless.
         function morphRunT(run, t) {
@@ -52918,6 +52988,7 @@
             morphBarSync();
             drawAll();
             scheduleSave();
+            morphHistorySoon();
         }
         // the path as a dashed guide, with a dot where each shape is on it (the editor's, never a recording's)
         function drawMorphPath(w, h) {
@@ -53057,8 +53128,9 @@
                         const u = morphTrailTime(run, t, span * k / MORPH_ECHOES);
                         if (u == null)
                             continue;
-                        const g = morphOutlineAt(run, u), // an exact morph's echoes keep their corners
-                            a = 0.6 * (1 - k / (MORPH_ECHOES + 1));
+                        const fu = morphShowFactor(run, u), // A CLIP SEEN ONLY WHEN IT PLAYS: an echo as seen then
+                            g = morphOutlineAt(run, u), // an exact morph's echoes keep their corners
+                            a = 0.6 * (1 - k / (MORPH_ECHOES + 1)) * (fu == null ? 1 : fu);
                         if (!g)
                             continue;
                         ctx.beginPath();
@@ -53116,8 +53188,9 @@
                         const c = morphCentreAt(run, u),
                             q = worldToPx(c.x, c.y, w, h);
                         if (prev) {
-                            const f = 1 - k / S; // 0 at the tail, 1 at the head
-                            ctx.globalAlpha = 0.5 * f * (fillCol ? fillA : 1);
+                            const f = 1 - k / S, // 0 at the tail, 1 at the head
+                                fu = morphShowFactor(run, u);
+                            ctx.globalAlpha = 0.5 * f * (fillCol ? fillA : 1) * (fu == null ? 1 : fu);
                             ctx.lineWidth = Math.max(0.5, head * 0.8 * f);
                             ctx.beginPath();
                             ctx.moveTo(prev.x, prev.y);
@@ -53138,6 +53211,7 @@
             morphBarSync();
             drawAll();
             scheduleSave();
+            morphHistorySoon();
         }
 
         // ── THE MORPH'S OWN SETTINGS, IN THE EDITOR (25 Oct 2026, Tom: "1,3") ───────────────────
@@ -53290,6 +53364,23 @@
             if (hd)
                 hd.style.left = pct(morphRunT(r, morphLive.t));
         }
+        // UNDO STEPS THROUGH THE MORPHS: a setting changed by a slider or a field (the strip, the bar) is one
+        // step of the history once it has stopped changing for a moment, not one step per tick of the slider;
+        // and none at all when the morphs are as the last step left them (a button that took its own step).
+        let _morphHistTimer = 0;
+        function morphHistorySoon() {
+            clearTimeout(_morphHistTimer);
+            _morphHistTimer = setTimeout(() => {
+                _morphHistTimer = 0;
+                if (!morphRuns.length)
+                    return;
+                const top = history.stack[history.index],
+                    now = JSON.stringify(morphStateSave(state.subpaths, false));
+                if (top && top.morph && JSON.stringify(top.morph) === now)
+                    return;
+                pushHistory();
+            }, 450);
+        }
         function morphRunToolApply(fn) {
             const runs = morphRunToolRuns();
             if (!runs.length)
@@ -53305,6 +53396,7 @@
             morphBarSync();
             drawAll();
             scheduleSave();
+            morphHistorySoon();
         }
         // ── CORNERS PAIRED BY HAND (26 Oct 2026, Tom: "proceed with your recommendations") ──────────────
         // An exact morph pairs each key's corners with the next key's by the turn that moves them least
@@ -53632,7 +53724,13 @@
                 if (r && r.clip) {
                     el.style.left = pct(r.clip.start);
                     el.style.width = pct(r.clip.len);
+                    el.classList.toggle('faded', MORPH_SHOWS.includes(r.clip.show));
                 }
+            }
+            const tsel = $('tlShow'); // the shows select tells the first selected (or first clipped) morph's
+            if (tsel && document.activeElement !== tsel) {
+                const r0 = (morphRunToolRuns().find(r => r.clip)) || morphRuns.find(r => r.clip);
+                tsel.value = r0 && r0.clip.show ? r0.clip.show : '';
             }
             const pl = $('tlPlay');
             if (pl)
@@ -53661,6 +53759,15 @@
                 });
                 morphTimelineChanged();
                 flashStatus(runs.length + ' morphs in turn, each once, a ' + (runs.length > 1 ? (1 / runs.length * 100).toFixed(0) + '%' : 'whole') + ' share of the loop');
+            });
+            $('tlShow').addEventListener('change', e => { // A CLIP SEEN ONLY WHEN IT PLAYS
+                const v = MORPH_SHOWS.includes(e.target.value) ? e.target.value : '';
+                const runs = pick().filter(r => r.clip);
+                for (const r of runs)
+                    r.clip = Object.assign({}, r.clip, { show: v });
+                morphTimelineChanged();
+                if (!runs.length)
+                    flashStatus('shows: none of those morphs plays once; press its ↻ (or in turn) first');
             });
             $('tlLoops').addEventListener('click', () => {
                 for (const r of pick())
@@ -53734,7 +53841,7 @@
                         st = Math.max(0, Math.min(end0 - MIN, t));
                     else
                         en = Math.min(1, Math.max(c0.start + MIN, t));
-                    run.clip = { start: st, len: en - st };
+                    run.clip = { start: st, len: en - st, show: run.clip.show || '' };
                     drag.c0 = c0;
                     drag.moved = true;
                     run._centres = null;
@@ -66675,6 +66782,7 @@
                             morphLive.speed = 1 / Math.max(0.5, Math.min(60, v));
                         morphBarSync();
                         scheduleSave();
+                        morphHistorySoon();
                     });
                 const bs = $('bMorphSvg');
                 if (bs)
@@ -70142,6 +70250,10 @@
                 const anim = (attr, vals) => `<animate attributeName="${attr}" calcMode="linear" dur="${dur.toFixed(2)}s" repeatCount="indefinite"${begin} values="${vals}"/>`;
                 const G = rigidOf[ri];
                 const fillAnim = run.cols ? anim('fill', (G ? G.ts : tsR(ri)).map(t => morphColourAt(run, t).color).join(';')) : '';
+                // A CLIP SEEN ONLY WHEN IT PLAYS: its opacity on the same schedule (in steps for 'during')
+                const showTs = G ? G.ts : tsR(ri),
+                    fadeAnim = run.clip && MORPH_SHOWS.includes(run.clip.show)
+                    ? `<animate attributeName="opacity" calcMode="${run.clip.show === 'during' ? 'discrete' : 'linear'}" dur="${dur.toFixed(2)}s" repeatCount="indefinite"${begin} values="${showTs.map(t => +morphShowFactor(run, t).toFixed(3)).join(';')}"/>` : '';
                 if (G) {
                     const pd = S => run.exact ? cubicsToPathD(S, DP) : ringToPathD(S, DP),
                         d = pd(G.shapes[0]),
@@ -70149,12 +70261,12 @@
                     const tr = (type, vals, add) => `<animateTransform attributeName="transform" type="${type}" calcMode="linear" dur="${dur.toFixed(2)}s" repeatCount="indefinite"${begin}${add ? ' additive="sum"' : ''} values="${vals}"/>`;
                     return `<g>${tr('translate', G.at.map(c => f1(c.x) + ' ' + f1(c.y)).join(';'))}`
                     + `${G.deg.some(v => Math.abs(v - G.deg[0]) > 1e-3) ? tr('rotate', G.deg.map(v => +v.toFixed(2)).join(';'), true) : ''}`
-                    + `<path d="${d}" ${style}>${inner || ''}${shapeAnim}${fillAnim}</path></g>`;
+                    + `<path d="${d}" ${style}>${inner || ''}${shapeAnim}${fillAnim}${fadeAnim}</path></g>`;
                 }
                 const ds = seq[ri].map(r => r ? (run.exact ? cubicsToPathD(mapRing(r), DP) : ringToPathD(mapRing(r), DP)) : null).filter(Boolean);
                 if (ds.length < 2)
                     return '';
-                return `<path d="${ds[0]}" ${style}>${inner || ''}${anim('d', ds.join(';'))}${fillAnim}</path>`;
+                return `<path d="${ds[0]}" ${style}>${inner || ''}${anim('d', ds.join(';'))}${fillAnim}${fadeAnim}</path>`;
             }
             const lagBegin = back => ` begin="${(-(dur - back * (bounce ? dur / 2 : dur))).toFixed(3)}s"`;
             const trails = [];
@@ -80274,6 +80386,14 @@
                 // An unconverted shape (CONVERT ON TOUCH) is saved as its import, under `lz`, and
                 // comes back unconverted; its outline is its only geometry, so dropRefs keeps it.
                 subpaths: saved.map(sp => spSave(sp, dropRefs)),
+                ...morphStateSave(saved, dropRefs), // THE TIMELINE IS SAVED
+            });
+        }
+        // The live morphs as the autosave and the undo history both keep them: each morph's live shape by its
+        // place among `saved` (the shapes saved beside it), its keys, its own settings, the shapes it lifted out
+        // of the drawing, and the bar's settings and the shared path.
+        function morphStateSave(saved, dropRefs) {
+            return {
                 // THE TIMELINE IS SAVED (25 Oct 2026, Tom: "yes, proceed"): each live morph, its live shape
                 // by its place among the saved shapes, its keys, and the shapes it lifted out of the
                 // drawing (so a reload mid-morph no longer loses them); the clock's place and loop.
@@ -80313,7 +80433,7 @@
                 morphEase: state.morphEase || '', // EASING AND HOLDS
                 morphHold: +state.morphHold || 0,
                 morphFps: +state.morphFps || 30,
-            });
+            };
         }
         function spSaveable(sp) {
             return !!(sp && (sp._lazy || (sp.leafX && sp.leafX.length >= 2)));
@@ -80502,7 +80622,7 @@
                 laps: r.laps || 1,
                 start: r.at != null ? +r.at : null,
                 times: r.times ? r.times.map(Number) : null, // KEYS AT CHOSEN TIMES
-                clip: r.clip ? { start: +r.clip.start, len: +r.clip.len } : null, // A MORPH THAT PLAYS ONCE
+                clip: r.clip ? { start: +r.clip.start, len: +r.clip.len, show: r.clip.show || '' } : null, // A MORPH THAT PLAYS ONCE
                 eases: r.eases ? r.eases.slice() : null,
                 trail: r.trail ? { kind: r.trail.kind || '', len: r.trail.len != null ? +r.trail.len : 0.5 } : null,
                 cols: r.cols ? r.cols.map(c => ({ r: +c.r.toPrecision(7), g: +c.g.toPrecision(7), b: +c.b.toPrecision(7), a: +c.a.toPrecision(7) })) : null,
@@ -80528,7 +80648,7 @@
             run.at = o.start != null ? +o.start : null;
             run.follow = o.follow && MORPH_FOLLOW.includes(o.follow.kind) ? { kind: o.follow.kind, amount: Math.max(0, Math.min(1, +o.follow.amount || 0)) } : null;
             run.times = morphTimesOk(o.times, run.keys.length) ? o.times.map(Number) : null; // KEYS AT CHOSEN TIMES
-            run.clip = morphClipOk(o.clip) ? { start: +o.clip.start, len: +o.clip.len } : null; // A MORPH THAT PLAYS ONCE
+            run.clip = morphClipOk(o.clip) ? { start: +o.clip.start, len: +o.clip.len, show: MORPH_SHOWS.includes(o.clip.show) ? o.clip.show : '' } : null; // A MORPH THAT PLAYS ONCE
             run.eases = morphEasesOk(o.eases, run.keys.length) ? o.eases.slice() : null;
             run.trail = o.trail ? { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: +o.trail.len } : null;
             run.cols = Array.isArray(o.cols) && o.cols.length === run.keys.length ? o.cols.map(c => ({ r: +c.r, g: +c.g, b: +c.b, a: +c.a })) : null;
@@ -83198,7 +83318,7 @@
                 runs: morphRuns.map(r => ({ K: r.keys.length, exact: !!r.exact, phase: +r.phase || 0, rate: r.rate || 1, spin: +r.spin || 0,
                     parent: r.parent ? morphRuns.indexOf(r.parent) : -1, at: r.at, follow: r.follow ? r.follow.kind : null, look: r.look ? morphRuns.indexOf(r.look) : -1,
                     turn: r.exact ? (r.pose ? Math.atan2(r.pose.y[0] - exactCentre(r.pose).y, r.pose.x[0] - exactCentre(r.pose).x) : null) : null, fx: r.fx ? r.fx.kind : null,
-                    laps: r.laps || 1, path: !!r.path, times: morphKeyTimes(r).slice(), clip: r.clip ? { start: r.clip.start, len: r.clip.len } : null, eases: r.eases ? r.eases.slice() : null, trail: r.trail ? r.trail.kind : null, fill: r.sp && r.sp.fill ? r.sp.fill.color : null,
+                    laps: r.laps || 1, path: !!r.path, times: morphKeyTimes(r).slice(), clip: r.clip ? { start: r.clip.start, len: r.clip.len, show: r.clip.show || '' } : null, fade: r.sp && r.sp._fade != null ? r.sp._fade : 1, eases: r.eases ? r.eases.slice() : null, trail: r.trail ? r.trail.kind : null, fill: r.sp && r.sp.fill ? r.sp.fill.color : null,
                     cx: r.exact ? (r.pose ? exactCentre(r.pose).x : null) : (r.sp.leafX ? r.sp.leafX.reduce((a, b) => a + b) / r.sp.leafX.length : null),
                     cy: r.exact ? (r.pose ? exactCentre(r.pose).y : null) : (r.sp.leafY ? r.sp.leafY.reduce((a, b) => a + b) / r.sp.leafY.length : null),
                     x0: r.exact ? (r.pose ? r.pose.x[0] : null) : r.sp.leafX[0], y0: r.exact ? (r.pose ? r.pose.y[0] : null) : r.sp.leafY[0],
@@ -83212,6 +83332,7 @@
             canvasUrl: () => { (drawAll.now || drawAll)(); return cv.toDataURL(); }, // drawAll alone waits for the next frame
             morphKey: k => morphRuns.length ? { x: Array.from(morphRuns[0].keys[k].x) } : null,
             // a world point on the page, for a test's mouse (EDITING A KEY ON THE CANVAS)
+            morphDiag: () => morphRuns.map(r => ({ exact: !!r.exact, lazy: !!(r.sp && r.sp._lazy), inDrawing: state.subpaths.indexOf(r.sp), K: r.keys.length })),
             toPx: (x, y) => { const r = cv.getBoundingClientRect(), q = worldToPx(x, y, r.width, r.height); return { x: r.left + q.x, y: r.top + q.y }; },
             morphSvg: o => { const r = exportMorphSvg(Object.assign({}, o, { noDownload: true })); return r ? r.svg : null; },
             recordGif: () => morphRecordGif().then(b => b ? b.size : 0),
@@ -84656,7 +84777,8 @@
         //                          path, laps, at, turn, mode, rate, phase, spin, fx, trail, lag,
         //                          inPlace, parent, follow: {kind: 'lag' | 'spring', amount}, look,
         //                          times, eases, pair: [per key, places to turn its corners],
-        //                          clip: {start, len} (A MORPH THAT PLAYS ONCE) } (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL; ONE
+        //                          clip: {start, len, show: '' | 'during' | 'fade' | 'in' | 'out'}
+        //                          (A MORPH THAT PLAYS ONCE; A CLIP SEEN ONLY WHEN IT PLAYS) } (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL; ONE
         //                          MORPH RIDING ANOTHER; FOLLOWING LOOSELY, AND FACING; KEYS AT
         //                          CHOSEN TIMES),
         //     path: i              a line or curve every live shape rides, or absent,
@@ -84806,7 +84928,7 @@
                         // KEYS AT CHOSEN TIMES: `times` a time per key, `eases` an ease per stretch
                         run.times = morphTimesOk(o.times, run.keys.length) ? o.times.map(Number) : null;
                         run.eases = morphEasesOk(o.eases, run.keys.length) ? o.eases.slice() : null;
-                        run.clip = morphClipOk(o.clip) ? { start: +o.clip.start, len: +o.clip.len } : null; // A MORPH THAT PLAYS ONCE
+                        run.clip = morphClipOk(o.clip) ? { start: +o.clip.start, len: +o.clip.len, show: MORPH_SHOWS.includes(o.clip.show) ? o.clip.show : '' } : null; // A MORPH THAT PLAYS ONCE
                         if (o.trail)
                             run.trail = { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: clamp(o.trail.len, 0, 1, 0.5) };
                         if (o.path != null && S[o.path])
@@ -84911,9 +85033,11 @@
                     }
                 };
                 for (const sp of state.subpaths)
-                    if (sp && sp._lazy) // an exact shape's corners (never its leaves, which would turn it into leaves)
+                    if (!sp || sp._fade === 0) // out of sight (A CLIP SEEN ONLY WHEN IT PLAYS): not in the frame
+                        continue;
+                    else if (sp._lazy) // an exact shape's corners (never its leaves, which would turn it into leaves)
                         take(sp._lazy.x, sp._lazy.y);
-                    else if (sp && sp.leafX)
+                    else if (sp.leafX)
                         take(sp.leafX, sp.leafY);
                 for (const P of [morphLive.path, ...morphRuns.map(r => r.path)])
                     if (P)

@@ -117,7 +117,13 @@ publishes.
     **corners ◀ ▶** (CORNERS PAIRED BY HAND) turns the corners of the key you stand on (or the next) a place, faint
     lines showing the pairing; scene link `pair: [places per key]`. A morph can play once (A MORPH THAT PLAYS ONCE,
     `run.clip = {start, len}`, scene link `clip`): first key to last over its window, holding either side; the
-    timeline shows it as a bar to move and stretch, a row's ↻/1× toggles it, **in turn** makes a sequence.
+    timeline shows it as a bar to move and stretch, a row's ↻/1× toggles it, **in turn** makes a sequence. Its `show`
+    (A CLIP SEEN ONLY WHEN IT PLAYS; the timeline's **shows** select) is '' (always), 'during', 'fade', 'in' or 'out':
+    a factor on the drawing (`sp._fade`, never saved; the shape loop multiplies every alpha by it), its trails and the
+    SVG export (an opacity animation) following. Undo snapshots carry the live morphs (UNDO STEPS THROUGH THE MORPHS:
+    `snapshotState().morph` is `morphStateSave`, the autosave's own record, restored from a copy at the end of
+    `applySnapshot`, the clock left where it is); a setting from a slider or a field is one step once it rests
+    (`morphHistorySoon`).
     The animated SVG export (EXPORTING A MORPH) takes as many frames as each morph's motion needs (doubling from the
     panel's count to 240 until a straight blend between frames is within 0.2% of the scene), each morph its own count,
     writes a morph that moves and turns as its outline plus a translate and rotate (a still: one outline), and writes
@@ -131,7 +137,8 @@ publishes.
     when any key has curve edges, try twice the corners when that matches much better (a square to a circle drawn from
     0°), and keep a corner smooth in every pose where any key has it smooth (SMOOTH WHERE ANY KEY IS SMOOTH).
     The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
-    come first, the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
+    come first, then the **sequences** (a house builds itself, a seed: morphs that play once, in turn, seen from when they
+    play), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
   - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your
