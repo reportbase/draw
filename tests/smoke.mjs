@@ -1654,7 +1654,10 @@ current = 'chains, contact, emitters';
     if (!(ms[0].ground < -1) || ms[0].onto !== undefined || !Array.isArray(ms[1].to)) throw new Error('contact worked into numbers: ' + JSON.stringify(ms));
     await open(link);
     const ms2 = (await mp.evaluate(() => window.__animSketch())).morphs.map(o => o.motion);
-    if (JSON.stringify(ms) !== JSON.stringify(ms2)) throw new Error('contact through the link: ' + JSON.stringify([ms, ms2]));
+    // worked out again on opening from the shapes as the link wrote them (to its rounding): the same to a ten-thousandth
+    const near = (a, b) => typeof a === 'number' ? Math.abs(a - b) <= 1e-3 * Math.max(1, Math.abs(a)) : Array.isArray(a) ? Array.isArray(b) && a.length === b.length && a.every((v, i) => near(v, b[i]))
+      : a && typeof a === 'object' ? b && typeof b === 'object' && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(k => near(a[k], b[k])) : a === b;
+    if (!near(ms, ms2)) throw new Error('contact through the link: ' + JSON.stringify([ms, ms2]));
     // an emitter
     const rain = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="290" y="20" width="6" height="16" fill="#4f8fd6"/></svg>';
     const em = scene({ name: 'rain', svg: rain, play: false, morphs: [{ keys: [0], motion: { kind: 'drift', to: [0, -12], amount: 0.2 }, emit: { count: 10, spread: [30, 2], vary: 0.4, seed: 7 } }] });
