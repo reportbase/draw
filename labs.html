@@ -14,7 +14,7 @@
 <body class="page-labs">
 <header>
   <nav class="crumbs"><a href="draw.html">← the editor</a> · <a href="gallery/index.html">the galleries</a></nav>
-  <h1>tvf <em>labs</em> <span class="pill">92 labs</span></h1>
+  <h1>tvf <em>labs</em> <span class="pill">93 labs</span></h1>
   <p class="lede">
     The leaf editor's lab drawer holds the <b>experiments</b>: instruments that measure the format rather than
     make shapes with it, test suites that print their own numbers, and figures laid out for a paper. Each
@@ -29,7 +29,7 @@
 </header>
 <div class="bar"><div class="bar-in">
   <input id="q" type="search" placeholder="filter: a code, a word, a heading" aria-label="filter the labs" autocomplete="off">
-  <span class="count" id="count">92 labs</span>
+  <span class="count" id="count">93 labs</span>
   <div class="spacer"></div>
   <a class="jump" href="draw.html?lab=list" title="open the editor with the lab drawer listed">open the drawer</a>
 </div></div>
@@ -681,7 +681,7 @@
     </ul>
   </section>
   <section class="group" id="g56">
-    <div class="sec-head"><h2>the live morph</h2><div class="rule"></div><span class="n">13 labs</span></div>
+    <div class="sec-head"><h2>the live morph</h2><div class="rule"></div><span class="n">14 labs</span></div>
     <div class="sec-note">The controls of a running morph, which sit in the bar under the canvas rather than in the drawer. <details><summary>more</summary>They act on the morph that is live, so they do nothing until one is: select two or more shapes, press morph in the toolbar, then live.</details></div>
     <ul class="labs">
       <li class="lab" data-q="mpl run run every live morph as a loop. one clock drives all of them, so several morphs started separately stay in register with each other and a still frame is a frame of the same moment. the blend is recomputed from the keys every frame — there is nothing baked, so the shapes you are watching are real shapes at every instant and you can stop anywhere and keep them. the live morph">
@@ -711,6 +711,10 @@
       <li class="lab" data-q="mkp keep drop a copy of the pose you are looking at into the drawing and keep morphing. it is an ordinary shape from there on — leaves, rung, colour, everything — and because the morph is still running you can scrub somewhere else and keep again, building a strip by hand one chosen cell at a time. with several morphs live it takes one pose from each, at the same t. shift-click to freeze instead: the morph ends, the pose stays where it stands and the keys are consumed. the live morph">
         <a class="run" href="draw.html?lab=mkp" title="open the editor and run keep"><span class="code">mkp</span>keep</a>
         <p>Drop a copy of the pose you are looking at into the drawing and KEEP MORPHING. It is an ordinary shape from there on — leaves, rung, colour, everything — and because the morph is still running you can scrub somewhere else and keep again, building a strip by hand one chosen cell at a time. With several morphs live it takes one pose from each, at the same t. SHIFT-CLICK to freeze instead: the morph ends, the pose stays where it stands and the keys are consumed.</p>
+      </li>
+      <li class="lab" data-q=" tvfs the tvf scene: write what is on the page as a .tvfs file for the tvf player (player/tvf-player.js): the morphs as their keys and settings, the shapes as their leaves or corners, no frames. the player runs this editor's own engine on it and draws the curves at whatever size it is shown, so it plays as it plays here, at any size the live morph">
+        <a class="run" href="draw.html?lab=" title="open the editor and run tvfs"><span class="code"></span>tvfs</a>
+        <p>THE TVF SCENE: write what is on the page as a .tvfs file for the TVF player (player/tvf-player.js): the morphs as their keys and settings, the shapes as their leaves or corners, no frames. The player runs this editor's own engine on it and draws the curves at whatever size it is shown, so it plays as it plays here, at any size</p>
       </li>
       <li class="lab" data-q="msv svg write the whole scene out as one animated .svg — every live morph on the shared clock, the static shapes around them as a backdrop. it plays in any browser with no library and no runtime, because smil's &lt;animate attributename=&quot;d&quot;&gt; interpolates between path strings and this format guarantees the one thing smil requires and cannot check: every frame is the same cubics in the same order. frame count and loop mode are in the morph panel. the live morph">
         <a class="run" href="draw.html?lab=msv" title="open the editor and run svg"><span class="code">msv</span>svg</a>
@@ -760,7 +764,7 @@ q.addEventListener('input', () => {
     }
     sec.hidden = !any;
   }
-  count.textContent = words.length ? shown + ' of 92' : '92 labs';
+  count.textContent = words.length ? shown + ' of 93' : '93 labs';
   none.hidden = shown > 0;
 });
 </script>
