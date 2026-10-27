@@ -1752,7 +1752,9 @@ current = 'scene link out';
     p.on('pageerror', e => failures.push(`[scene link out] ${e.message}`));
     await p.route(/fonts\.g/, r => r.abort());
     await p.goto(url, { waitUntil: 'load' });
-    await p.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+    // when it does not come up, say which scene and what the page shows, not only that it timed out
+    await p.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 })
+      .catch(async () => { throw new Error('the scene ' + url.slice(url.indexOf('#'), url.indexOf('#') + 24) + '… did not open: ' + await p.evaluate(() => JSON.stringify({ hash: location.hash.slice(0, 16), status: document.getElementById('status')?.textContent, morphs: window.__box && window.__box.morphDiag ? window.__box.morphDiag().length : null })).catch(x => 'page gone: ' + x.message)); });
     await p.waitForTimeout(400);
     return p;
   };
@@ -1777,7 +1779,8 @@ current = 'scene link out';
     e.on('pageerror', x => failures.push(`[scene link out] ${x.message}`));
     await e.route(/fonts\.g/, r => r.abort());
     await e.goto(scene({ name: 'made', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="60" cy="140" r="20" fill="#f5c542"/><rect x="120" y="120" width="30" height="30" fill="#4287f5"/><polygon points="20,190 180,190 100,170" fill="#3a3"/></svg>', morphs: [] }), { waitUntil: 'load' });
-    await e.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 });
+    await e.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 })
+      .catch(async () => { throw new Error('the editor-made scene did not open: ' + await e.evaluate(() => document.getElementById('status')?.textContent).catch(x => 'page gone: ' + x.message)); });
     await e.evaluate(() => window.__animApply({ copies: [{ of: 0, dy: -300, turn: 30 }], svg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><circle cx='640' cy='640' r='120' fill='none' stroke='#888'/></svg>",
       morphs: [{ keys: [0, 3] }, { keys: [1], path: 4, spin: 1 }], loop: 3 }));
     await e.evaluate(() => window.__animApply({ change: [{ morph: 0, rate: 3 }] }));
@@ -1791,7 +1794,8 @@ current = 'scene link out';
     m.on('pageerror', x => failures.push(`[scene link out] ${x.message}`));
     await m.route(/fonts\.g/, r => r.abort());
     await m.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
-    await m.waitForFunction(() => window.__animSketch && window.__animSketch(), null, { timeout: 60000 });
+    await m.waitForFunction(() => window.__animSketch && window.__animSketch(), null, { timeout: 60000 })
+      .catch(async () => { throw new Error('the startup maple did not come up: ' + await m.evaluate(() => document.getElementById('status')?.textContent).catch(x => 'page gone: ' + x.message)); });
     const gold = await m.evaluate(async () => { window.__animApply({ copies: [{ of: 0, dx: 300 }], morphs: [{ keys: [0, 1] }] }); return /stroke="#d4a052"/.test((await window.__sceneShare()).d.svg); });
     if (!gold) throw new Error('the link dropped the outline the editor draws');
     await m.close();
