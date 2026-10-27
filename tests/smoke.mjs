@@ -1391,6 +1391,64 @@ current = 'animate with ai';
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} animate it with ai: a reply lands as morphs, one undo step, and change it keeps the rest`);
 }
 
+/* PHYSICAL MOTIONS (draw.html). A ball drawn resting on the ground, bouncing 2 of its heights: at the start of
+   the loop it sits on the ground squashed (wider than tall by the squash, 1.3 / 0.7), half way it is up, round again,
+   its bottom two of its heights above the ground; a sign hung from its top swings 30° either side, its top staying
+   put; both kept through the scene link, and the ball exact. */
+current = 'motions';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const before = failures.length;
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[motions] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><circle cx="100" cy="260" r="20" fill="#e05a6a"/><rect x="290" y="40" width="20" height="100" fill="#4f8fd6"/><rect x="0" y="280" width="400" height="10" fill="#3a3"/></svg>';
+    const open = async url => {
+      await mp.goto(url, { waitUntil: 'load' });
+      await mp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+      await mp.waitForTimeout(400);
+    };
+    await open(scene({ name: 'motions', svg, play: false, morphs: [{ keys: [0], motion: { kind: 'bounce', amount: 2, squash: 0.3 } }, { keys: [1], motion: { kind: 'swing', amount: 30, pivot: 'top' } }] }));
+    const at = async t => {
+      await mp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+      await mp.waitForTimeout(150);
+      const k = await mp.evaluate(() => window.__animSketch());
+      const box = id => { const m = k.svg.match(new RegExp('id="' + id + '"[^>]* d="M([^"]*)"')); const pts = m[1].replace(/ Z$/, '').split(' L').map(p => p.split(' ').map(Number)); const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; };
+      return { ball: box('s0'), sign: box('s1'), ground: box('s2'), k };
+    };
+    const a = await at(0), b = await at(0.5), c = await at(0.25);
+    const asp = q => (q.x1 - q.x0) / (q.y1 - q.y0);
+    const lift = (b.ground.y0 - b.ball.y1) / (b.ball.y1 - b.ball.y0);
+    if (Math.abs(asp(a.ball) - 1.3 / 0.7) > 0.08 || Math.abs(a.ground.y0 - a.ball.y1) > 1.5 || Math.abs(asp(b.ball) - 1) > 0.04 || Math.abs(lift - 2) > 0.06)
+      throw new Error('the bounce: ' + JSON.stringify({ squash: asp(a.ball), onGround: a.ground.y0 - a.ball.y1, round: asp(b.ball), lift }));
+    const sw = (c.sign.x1 - c.sign.x0) / (a.sign.x1 - a.sign.x0), want = (20 * Math.cos(Math.PI / 6) + 100 * Math.sin(Math.PI / 6)) / 20;
+    if (Math.abs(sw - want) > 0.15 || Math.abs(a.sign.x1 - a.sign.x0 - (b.sign.x1 - b.sign.x0)) > 1)
+      throw new Error('the swing: width ' + sw.toFixed(3) + ' of its rest at a quarter loop, not ' + want.toFixed(3));
+    const d = await mp.evaluate(() => window.__box.morphDiag().map(q => q.exact));
+    if (!d.every(Boolean)) throw new Error('the motions turned the shapes into leaves');
+    // a fall from 3 heights, keeping half its speed: up there at the start, at rest on the ground by the end, and on
+    // the ground (squashed) at the first landing, 1 / (1 + 2·0.5/0.5) = a third of the way through
+    await open(scene({ name: 'fall', svg, play: false, morphs: [{ keys: [0], motion: { kind: 'fall', amount: 3, bounce: 0.5 } }, { keys: [1], motion: { kind: 'spring', amount: 0.3, along: 'y' } }] }));
+    const f0 = await at(0), f1 = await at(1 / (3 * 0.98)), f2 = await at(0.999);
+    const up = q => (q.ground.y0 - q.ball.y1) / (q.ball.x1 - q.ball.x0);
+    if (Math.abs(up(f0) - 3) > 0.06 || up(f1) > 0.05 || asp(f1.ball) < 1.05 || up(f2) > 0.02)
+      throw new Error('the fall: ' + JSON.stringify({ start: up(f0), landing: up(f1), squash: asp(f1.ball), end: up(f2) }));
+    // a spring along y starts and ends where it was drawn
+    if (Math.abs(f0.sign.y0 - (await at(0.999)).sign.y0) > 1.5) throw new Error('the spring does not come back to rest');
+    const link = await mp.evaluate(async () => (await window.__sceneShare()).link);
+    const m0 = f0.k.morphs.map(o => o.motion);
+    await open(link);
+    const m1 = (await mp.evaluate(() => window.__animSketch())).morphs.map(o => o.motion);
+    if (JSON.stringify(m0) !== JSON.stringify(m1) || !m0[0] || m0[0].kind !== 'fall' || m0[1].kind !== 'spring') throw new Error('the motions through the link: ' + JSON.stringify([m0, m1]));
+    await mp.close();
+  } catch (e){
+    failures.push(`[motions] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} physical motions: a bounce squashes on the ground and lifts two heights, a swing turns about its top`);
+}
+
 /* ANIMATE IT, END TO END, STREAMED (draw.html). The gateway is answered here with a reply streamed as the
    API streams it (server-sent events, the text in pieces), the way a real one arrives since a silent minute
    and a half closed the request with HTTP 524: the prompt typed, "animate it" pressed, and the morph lands.
