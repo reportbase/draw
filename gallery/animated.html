@@ -1776,10 +1776,10 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
   const blade = x => [[x - 3, 220], [x + 3, 220], [x + 5, 184], [x, 170], [x - 2, 186]];
   SHOWPIECES.push({
     id: 'wind', name: 'a tree in the wind', section: 'physics', tags: ['sway', 'shear', 'phase'],
-    note: 'A tree and a few blades of grass bend from their roots in the wind, the foot still and the top moving most, a slow push with a quicker flutter on it; the grass bends further and a little later, blade by blade.',
+    note: 'A tree and a few blades of grass bend from their roots in the wind, the foot still and the top moving most, a slow push with a quicker flutter on it; the grass bends further and a little later, blade by blade. The scene\'s wind, blowing to the right, leans them all its way.',
     svg: svg(400, 260, rectP(0, 0, 400, 260, '#dbeef7') + rectP(0, 220, 400, 260, '#7fae5a') + smooth(tree, '#3f8a4a') +
       [70, 100, 300, 330, 360].map(x => polyOf(blade(x), '#4f9a3a')).join('')),
-    scene: { loop: 3, morphs: [{ keys: [2], motion: { kind: 'sway', amount: 6 } },
+    scene: { loop: 3, wind: 0.4, morphs: [{ keys: [2], motion: { kind: 'sway', amount: 6 } },
       ...[0, 1, 2, 3, 4].map(i => ({ keys: [3 + i], phase: 0.06 * (i + 1), motion: { kind: 'sway', amount: 16 } }))] }
   });
   SHOWPIECES.push({
@@ -1813,9 +1813,9 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
   });
   SHOWPIECES.push({
     id: 'snow', name: 'snow', section: 'more', tags: ['emit', 'drift', '60 flakes'],
-    note: 'One flake, drifting down with a wobble, and emit: sixty of it, scattered across the sky, each a little bigger or smaller, each wobbling its own amount and starting at its own moment. Every flake grows in at the top and fades out at the bottom, so the loop has no seam.',
+    note: 'One flake, drifting down with a wobble, and emit: sixty of it, scattered across the sky, each a little bigger or smaller, each wobbling its own amount and starting at its own moment. Every flake grows in at the top and fades out at the bottom, so the loop has no seam, and a light wind carries them all a little to the right.',
     svg: svg(420, 280, rectP(0, 0, 420, 280, '#1f2a44') + rectP(0, 250, 420, 280, '#e8eef6') + circ4(210, 16, 4, '#ffffff')),
-    scene: { loop: 6, morphs: [{ keys: [2], motion: { kind: 'drift', to: [0, -28], amount: 0.6 }, emit: { count: 60, spread: [50, 3], vary: 0.6, seed: 11 } }] }
+    scene: { loop: 6, wind: 0.3, morphs: [{ keys: [2], motion: { kind: 'drift', to: [0, -28], amount: 0.6 }, emit: { count: 60, spread: [50, 3], vary: 0.6, seed: 11 } }] }
   });
   SHOWPIECES.push({
     id: 'confetti', name: 'confetti', section: 'more', tags: ['emit', 'drift', 'spin'],

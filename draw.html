@@ -3209,6 +3209,9 @@
         #morphTimeline .tl-clip.faded { background: repeating-linear-gradient(90deg, rgba(212,160,82,0.12) 0 6px, rgba(212,160,82,0.28) 6px 12px); }
         #morphTimeline .tl-once { padding: 0 4px; font-size: 10px; height: 16px; }
         #morphTimeline .tl-once.on { background: var(--gold); color: #14141a; border-color: var(--gold); }
+        #morphTimeline .tl-mseg { position: absolute; bottom: 0; height: 4px; border-radius: 2px; background: rgba(122,168,255,0.3); pointer-events: none; }
+        #morphTimeline .tl-mseg.odd { background: rgba(170,200,255,0.95); }
+        #morphTimeline .tl-mcut { position: absolute; bottom: -2px; width: 6px; height: 9px; margin-left: -3px; border-radius: 2px; background: #7aa8ff; cursor: ew-resize; touch-action: none; z-index: 3; }
         #morphTimeline .tl-clip { position: absolute; top: 1px; bottom: 1px; background: rgba(212,160,82,0.22); border: 1px solid rgba(212,160,82,0.75); border-radius: 4px; cursor: grab; touch-action: none; }
         /* THE EMBED: the canvas alone, nothing to press */
         html.embed body > *:not(#main), html.embed #main > *:not(#cv) { display: none !important; }
@@ -6711,6 +6714,11 @@
             <select id="morphEase"><option value="">none</option><option value="inout">in &amp; out</option><option value="in">in</option><option value="out">out</option><option value="anticipate">anticipate</option><option value="overshoot">overshoot</option><option value="elastic">elastic</option></select>
             <label for="morphHold" title="how long the blend rests on each key, as a share of the stretch from one key to the next (half before the key, half after). The effects and the path do not rest">hold</label>
             <input type="range" id="morphHold" min="0" max="80" step="1" value="0" style="width:min(90px,10vw);">
+            <!-- SCENE-WIDE GRAVITY AND WIND (27 Oct 2026) -->
+            <label for="morphGravity" title="GRAVITY, for every physical motion in the scene: 1 is the floatiest a loop allows (a hop, a fall or a throw takes its whole cycle); more and they are over sooner and rest, and a swing swings faster">gravity</label>
+            <input type="range" id="morphGravity" min="100" max="400" step="10" value="100" style="width:min(80px,9vw);">
+            <label for="morphWind" title="WIND, for the whole scene: left or right, and how hard. Every sway leans its way, every swing hangs pushed its way, every drift is carried along with it">wind</label>
+            <input type="range" id="morphWind" min="-100" max="100" step="5" value="0" style="width:min(80px,9vw);">
             <!-- MOTION ALONG A PATH and TRAILS (25 Oct 2026): the live shapes ride a line or curve from the
                  drawing, and leave echoes or a ribbon behind them -->
             <button id="bMorphPath" data-code="mpa" class="res-btn" title="select a line or a curve in the drawing and press path: every live shape rides it, once a loop, its centre on the path (several shapes spread evenly along it). The path leaves the drawing while it is one and shows as a dashed guide; press again to take it off and put it back">path</button>
@@ -53147,16 +53155,39 @@
         }
         // one motion (not a chain) at u in its cycle, measured from the centre C and the size Z; in a
         // chain a roll goes one way and a drift does not fade, so the next step can start where it ends
+        // SCENE-WIDE GRAVITY AND WIND (27 Oct 2026, Tom: "1,2,3"). One gravity and one wind for the whole scene,
+        // so everything that falls agrees and everything the wind pushes leans the same way.
+        //   gravity (state.morphGravity, 1 to 4): a cycle is the loop's to give, so the floatiest a hop, a fall or a
+        //            throw can be is the whole cycle in the air (1, as before). More gravity and it is over sooner,
+        //            in 1/√g of the cycle, as a heavier world would have it, and then it rests until the next; a
+        //            swing swings round(√g) times a cycle, a pendulum's period going as 1/√g.
+        //   wind     (state.morphWind, −1 left to 1 right): a sway leans its way and flutters less about it, a
+        //            swing hangs pushed its way, a drift is carried along with it.
+        // Lighter than the loop allows would need more than one loop to fall through, which a loop that closes
+        // cannot give; so gravity starts at 1.
+        function morphGravity() {
+            return Math.max(1, Math.min(4, +state.morphGravity || 1));
+        }
+        function morphWind() {
+            return Math.max(-1, Math.min(1, +state.morphWind || 0));
+        }
         function morphMotionMap(M, u, C, Z, run, t, inChain) {
             const H = 2 * Z.h,
-                g = (M.ground || 0) * H; // CONTACT: a floor other than where the shape is drawn
+                g = (M.ground || 0) * H, // CONTACT: a floor other than where the shape is drawn
+                G = morphGravity(),
+                W = morphWind(),
+                fG = 1 / Math.sqrt(G); // the share of a cycle a hop, a fall or a throw takes
             let sx = 1, sy = 1, px = C.x, py = C.y, th = 0, rx = C.x, ry = C.y, dx = 0, dy = 0, kx = 0;
             const ground = C.y - Z.h;
             if (M.kind === 'bounce') {
+                const air = u < fG; // GRAVITY: the hop over its share of the cycle, then standing still
+                u = air ? u / fG : 1;
                 dy = 4 * M.amount * H * u * (1 - u) + g;
                 const w = 0.08,
                     near = Math.min(u, 1 - u);
-                if (near < w) { // squashed against the ground, flattest at the moment it lands
+                if (!air) {
+                    // resting on the ground between hops, neither squashed nor stretched
+                } else if (near < w) { // squashed against the ground, flattest at the moment it lands
                     const f = M.squash * (1 - near / w);
                     sy = 1 - f;
                     sx = 1 + f;
@@ -53172,7 +53203,7 @@
                     t0 = Math.sqrt(2 * D),
                     e = M.bounce,
                     T = t0 * (1 + 2 * e / Math.max(1e-9, 1 - e)),
-                    q = morphFallAt(u * T * 0.98, D, e),
+                    q = morphFallAt(Math.min(1, u / fG) * T * 0.98, D, e), // GRAVITY: sooner, then at rest
                     band = 0.06 * H;
                 dy = q.y + g;
                 if (q.y < band && q.v > 0) {
@@ -53183,7 +53214,8 @@
                 px = C.x;
                 py = ground + g;
             } else if (M.kind === 'swing') {
-                th = M.amount * Math.PI / 180 * Math.sin(TAU * u);
+                // GRAVITY: round(√g) swings a cycle; WIND: hanging pushed its way by up to half the swing
+                th = M.amount * Math.PI / 180 * (Math.sin(TAU * Math.max(1, Math.round(Math.sqrt(G))) * u) + 0.5 * W);
                 const pv = M.pivot;
                 rx = C.x + (pv === 'left' ? -Z.w : pv === 'right' ? Z.w : 0);
                 ry = C.y + (pv === 'top' ? Z.h : pv === 'bottom' ? -Z.h : 0);
@@ -53218,11 +53250,13 @@
                     b = 4 * A - 2 * Y,
                     c2 = (b + Math.sqrt(Math.max(0, b * b - 4 * Y * Y))) / 2,
                     c1 = c2 + Y;
-                dx = X * u;
-                dy = c1 * u - c2 * u * u;
+                const v = Math.min(1, u / fG); // GRAVITY: lands sooner and waits there
+                dx = X * v;
+                dy = c1 * v - c2 * v * v;
             } else if (M.kind === 'sway') {
                 // a shear from the base: the base still, the top moving most, a slow push and a quicker flutter
-                const a = M.amount * Math.PI / 180 * (0.75 * Math.sin(TAU * u) + 0.25 * Math.sin(3 * TAU * u));
+                // WIND: leaning its way, fluttering less about the lean
+                const a = M.amount * Math.PI / 180 * (0.8 * W + (1 - 0.5 * Math.abs(W)) * (0.75 * Math.sin(TAU * u) + 0.25 * Math.sin(3 * TAU * u)));
                 kx = Math.tan(a);
                 py = ground;
             } else if (M.kind === 'drift') {
@@ -53233,7 +53267,7 @@
                     Y = M.to[1] * H,
                     L = Math.hypot(X, Y) || 1,
                     wob = M.amount * 2 * Z.w * Math.sin(TAU * 2 * u);
-                dx = X * u - Y / L * wob;
+                dx = X * u - Y / L * wob + W * 0.6 * L * u; // WIND: carried along with it
                 dy = Y * u + X / L * wob;
                 if (!inChain) {
                     const f = Math.max(0.001, Math.min(1, u / 0.08, (1 - u) / 0.08));
@@ -53471,8 +53505,9 @@
             for (let r = run, n = 0; r && n < 10; r = r.parent, n++)
                 bits.push([morphRuns.indexOf(r), r.keys.length, r.rate || 1, +r.phase || 0, +r.spin || 0, r.laps || 1, r.at, r.parentAt,
                     r.times && r.times.join(','), r.eases && r.eases.join(','), r.path ? r.path.x.length + ':' + r.path.x[0] : '',
-                    r.follow && r.follow.kind + (r.follow.amount || 0), r._keyEpoch || 0, r.clip ? r.clip.start + ':' + r.clip.len : ''].join(';'));
-            return bits.join('|') + '|' + (morphLive.path ? morphLive.path.x.length : 0) + state.morphEase + (+state.morphHold || 0);
+                    r.follow && r.follow.kind + (r.follow.amount || 0), r._keyEpoch || 0, r.clip ? r.clip.start + ':' + r.clip.len : '',
+                    r.motion ? JSON.stringify(r.motion) : ''].join(';')); // a parent's motion carries its followers too
+            return bits.join('|') + '|' + (morphLive.path ? morphLive.path.x.length : 0) + state.morphEase + (+state.morphHold || 0) + '|' + morphGravity() + '|' + morphWind();
         }
         function morphSpringXform(run, t, depth) {
             const tight = u => morphParentXformTight(run, u, depth);
@@ -54588,11 +54623,54 @@
         function morphMotionHandleRuns() {
             return morphRunning() ? morphRunToolRuns().filter(r => r.motion) : [];
         }
+        // THE MOTION'S PATH (27 Oct 2026, Tom: "1,2,3"): where the shape's centre goes over a whole loop, as all
+        // of it would carry it (its path, spin, motion and parent), drawn dotted under the handles, with a tick
+        // at every eighth of the loop: the arc and its timing at once, close ticks slow and far apart fast, so a
+        // handle can be dragged while seeing what it does without scrubbing.
+        function morphCentreAt(run, t) {
+            const B = morphBareCentre(run, t),
+                C = (morphPathOf(run) || run.spin) ? morphPlace(run, t, B) : B,
+                MX = morphMotionXform(run, t);
+            let p = MX ? MX.at(C.x, C.y) : [C.x, C.y];
+            if (run.parent) {
+                const PX = morphParentXform(run, t);
+                if (PX && PX.at)
+                    p = PX.at(p[0], p[1]);
+            }
+            return p;
+        }
+        function morphMotionTrack(run, n) {
+            const out = [];
+            for (let i = 0; i <= n; i++)
+                out.push(morphCentreAt(run, Math.min(0.9999, i / n)));
+            return out;
+        }
         function drawMorphMotionHandles(w, h) {
             const runs = morphRunToolRuns().filter(r => r.motion);
             if (!runs.length)
                 return;
             ctx.save();
+            for (const r of runs) { // THE MOTION'S PATH
+                const T = morphMotionTrack(r, 96).map(([x, y]) => worldToPx(x, y, w, h));
+                ctx.setLineDash([2, 4]);
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = 'rgba(122,168,255,0.75)';
+                ctx.beginPath();
+                T.forEach((q, i) => {
+                    if (i)
+                        ctx.lineTo(q.x, q.y);
+                    else
+                        ctx.moveTo(q.x, q.y);
+                });
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(122,168,255,0.9)';
+                for (let i = 0; i < 96; i += 12) {
+                    ctx.beginPath();
+                    ctx.arc(T[i].x, T[i].y, i ? 2.5 : 3.5, 0, TAU);
+                    ctx.fill();
+                }
+            }
             ctx.lineWidth = 1.5;
             for (const r of runs)
                 for (const hd of morphMotionHandles(r)) {
@@ -54750,6 +54828,45 @@
             pushHistory();
             scheduleSave();
         }
+        // a motion's steps' edges on its own cycle, 0 … 1 (one step for a plain motion), or null
+        function morphStepEdges(r) {
+            const M = r.motion;
+            if (!M)
+                return null;
+            if (M.kind !== 'chain')
+                return [0, 1];
+            const tot = M.steps.reduce((a, q) => a + q.share, 0),
+                E = [0];
+            M.steps.forEach(q => E.push(E[E.length - 1] + q.share / tot));
+            return E;
+        }
+        // where u of a morph's cycle falls on the shared clock, its m-th time round (a clip: once, in its window)
+        function morphCycleShared(r, u, m) {
+            if (r.clip)
+                return r.clip.start + u * r.clip.len;
+            const v = (u + m - (r.phase || 0)) / (r.rate || 1);
+            return ((v % 1) + 1) % 1;
+        }
+        // the shared clock back onto u of the cycle the m-th time round
+        function morphSharedCycle(r, t, m) {
+            if (r.clip)
+                return Math.max(0, Math.min(1, (t - r.clip.start) / r.clip.len));
+            const v = t * (r.rate || 1) + (r.phase || 0) - m;
+            return v - Math.floor(v);
+        }
+        // a chain's border j moved to u of its cycle: the shares of the steps either side, the rest kept
+        function morphSetStepBorder(r, j, u) {
+            const M = r.motion,
+                E = morphStepEdges(r);
+            if (!M || M.kind !== 'chain' || !E || j >= M.steps.length - 1)
+                return;
+            E[j + 1] = Math.max(E[j] + 0.04, Math.min(E[j + 2] - 0.04, u));
+            const shares = M.steps.map((q, i) => Math.max(0.01, (E[i + 1] - E[i]) * M.steps.length));
+            r.motion = morphMotionOk({ kind: 'chain', steps: M.steps.map((q, i) => Object.assign({}, q, { share: shares[i] })) });
+            const L = r.ontoLink;
+            if (L && L.raw.kind === 'chain' && L.raw.steps.length === shares.length)
+                L.raw.steps.forEach((q, i) => q.share = shares[i]);
+        }
         function morphTimelinePanelSync() {
             const P = $('morphTimeline');
             if (!P)
@@ -54766,7 +54883,11 @@
             P.style.bottom = Math.max(8, innerHeight - top + 8) + 'px';
             const sel = new Set(morphRunToolRuns());
             // (not the fill: a morph whose colour blends changes it every frame, and the dot keeps the first)
-            const sig = morphRuns.map(r => [r.keys.length, r.clip ? 'c' : r.rate || 1, sel.has(r) ? 1 : 0].join(':')).join('|');
+            // CHAINS ON THE TIMELINE: a motion's steps as a band along the foot of its row (one step for a plain
+            // motion), each as long as its share of the morph's cycle, wherever that cycle falls on the shared
+            // clock (rate times round, or within its clip); a chain's borders dragged there set the shares
+            const nSteps = r => r.motion ? (r.motion.kind === 'chain' ? r.motion.steps.length : 1) : 0;
+            const sig = morphRuns.map(r => [r.keys.length, r.clip ? 'c' : r.rate || 1, sel.has(r) ? 1 : 0, nSteps(r)].join(':')).join('|');
             const rows = $('tlRows');
             if (sig !== _tlSig) {
                 _tlSig = sig;
@@ -54776,8 +54897,14 @@
                     for (let k = 0; k < (r.keys.length > 1 ? r.keys.length : 0); k++) // a still has no keys to move
                         for (let m = 0; m < (r.clip ? 1 : r.rate || 1); m++)
                             keys += `<span class="tl-key${m ? ' copy' : ''}" data-r="${i}" data-k="${k}" data-m="${m}" title="morph ${i + 1}, key ${k + 1}: drag to retime"></span>`;
+                    let segs = '';
+                    for (let j = 0; j < nSteps(r); j++)
+                        for (let m = 0; m < (r.clip ? 1 : r.rate || 1); m++)
+                            for (let part = 0; part < 2; part++) // a step that runs over the end of the loop is drawn in two
+                                segs += `<span class="tl-mseg${j % 2 ? ' odd' : ''}" data-r="${i}" data-j="${j}" data-m="${m}" data-p="${part}"></span>`
+                                    + (part === 0 && j < nSteps(r) - 1 ? `<span class="tl-mcut" data-r="${i}" data-j="${j}" data-m="${m}" title="morph ${i + 1}: drag to share the cycle between step ${j + 1} and step ${j + 2}"></span>` : '');
                     return `<div class="tl-row"><button type="button" class="tl-lab${sel.has(r) ? ' sel' : ''}" data-r="${i}" title="select morph ${i + 1}"><span class="tl-dot" style="background:${col}"></span>${i + 1}</button>`
-                    + `<div class="tl-track" data-r="${i}">${r.clip ? `<span class="tl-clip" data-r="${i}" title="morph ${i + 1} plays once here: drag to move it, drag an end to stretch it"></span>` : ''}<span class="tl-line"></span>${keys}</div>`
+                    + `<div class="tl-track" data-r="${i}">${segs}${r.clip ? `<span class="tl-clip" data-r="${i}" title="morph ${i + 1} plays once here: drag to move it, drag an end to stretch it"></span>` : ''}<span class="tl-line"></span>${keys}</div>`
                     + `<button type="button" class="tl-once${r.clip ? ' on' : ''}" data-r="${i}" title="${r.clip ? 'plays once, in its bar; press to loop again' : 'loops; press to play it once'}">${r.clip ? '1×' : (r.rate || 1) > 1 ? '↻' + r.rate : '↻'}</button></div>`;
                 }).join('');
             }
@@ -54792,6 +54919,28 @@
             }
             for (const el of rows.querySelectorAll('.tl-line'))
                 el.style.left = pct(t);
+            for (const el of rows.querySelectorAll('.tl-mseg, .tl-mcut')) { // CHAINS ON THE TIMELINE
+                const r = morphRuns[+el.dataset.r],
+                    E = r && morphStepEdges(r);
+                if (!E)
+                    continue;
+                const j = +el.dataset.j,
+                    m = +el.dataset.m,
+                    at = u => morphCycleShared(r, u, m);
+                if (el.classList.contains('tl-mcut')) {
+                    el.style.left = pct(at(E[j + 1]));
+                    continue;
+                }
+                let a = at(E[j]),
+                    b = a + (E[j + 1] - E[j]) * (r.clip ? r.clip.len : 1 / (r.rate || 1));
+                if (+el.dataset.p) { // the part past the end of the loop, from its start
+                    a = b > 1 ? 0 : 1;
+                    b = b > 1 ? b - 1 : 1;
+                } else
+                    b = Math.min(1, b);
+                el.style.left = pct(a);
+                el.style.width = pct(Math.max(0, b - a));
+            }
             for (const el of rows.querySelectorAll('.tl-clip')) {
                 const r = morphRuns[+el.dataset.r];
                 if (r && r.clip) {
@@ -54857,6 +55006,13 @@
                 return Math.max(0, Math.min(0.999, (e.clientX - rc.left) / rc.width));
             };
             P.addEventListener('pointerdown', e => {
+                const mcut = e.target.closest('.tl-mcut'); // CHAINS ON THE TIMELINE: a border between two steps
+                if (mcut) {
+                    e.preventDefault();
+                    drag = { kind: 'mcut', r: +mcut.dataset.r, j: +mcut.dataset.j, m: +mcut.dataset.m, id: e.pointerId, moved: false };
+                    mcut.setPointerCapture(e.pointerId);
+                    return;
+                }
                 const key = e.target.closest('.tl-key'),
                     clip = !key && e.target.closest('.tl-clip'),
                     track = e.target.closest('.tl-track') || e.target.closest('.tl-ruler');
@@ -54898,6 +55054,14 @@
                 const run = morphRuns[drag.r];
                 if (!run)
                     return;
+                if (drag.kind === 'mcut') {
+                    morphSetStepBorder(run, drag.j, morphSharedCycle(run, t, drag.m));
+                    drag.moved = true;
+                    _mrSig = '';
+                    morphWrite();
+                    drawAll();
+                    return;
+                }
                 if (drag.kind === 'clip' || (run.clip && (drag.k === 0 || drag.k === run.keys.length - 1))) {
                     // a clip's bar, or its first or last key, which are its ends
                     const c0 = drag.c0 || { start: run.clip.start, len: run.clip.len },
@@ -54944,7 +55108,7 @@
             const end = e => {
                 if (!drag || e.pointerId !== drag.id)
                     return;
-                const moved = (drag.kind === 'key' || drag.kind === 'clip') && drag.moved;
+                const moved = (drag.kind === 'key' || drag.kind === 'clip' || drag.kind === 'mcut') && drag.moved;
                 drag = null;
                 if (moved) {
                     _mrSig = '';
@@ -55180,20 +55344,8 @@
                     return;
                 const R = steps.getBoundingClientRect(),
                     f = Math.max(0, Math.min(1, (e.clientX - R.left) / R.width));
-                for (const r of morphRunToolRuns()) {
-                    const M = r.motion;
-                    if (!M || M.kind !== 'chain' || cut.i >= M.steps.length - 1)
-                        continue;
-                    const tot = M.steps.reduce((a, q) => a + q.share, 0),
-                        edges = [0];
-                    M.steps.forEach(q => edges.push(edges[edges.length - 1] + q.share / tot));
-                    edges[cut.i + 1] = Math.max(edges[cut.i] + 0.04, Math.min(edges[cut.i + 2] - 0.04, f));
-                    const shares = M.steps.map((q, j) => Math.max(0.01, (edges[j + 1] - edges[j]) * M.steps.length));
-                    r.motion = morphMotionOk({ kind: 'chain', steps: M.steps.map((q, j) => Object.assign({}, q, { share: shares[j] })) });
-                    const L = r.ontoLink;
-                    if (L && L.raw.kind === 'chain' && L.raw.steps.length === shares.length)
-                        L.raw.steps.forEach((q, j) => q.share = shares[j]);
-                }
+                for (const r of morphRuns.length ? morphRunToolRuns() : [])
+                    morphSetStepBorder(r, cut.i, f); // the strip is one cycle end to end
                 _mrSig = '';
                 morphWrite();
                 drawAll();
@@ -55359,6 +55511,12 @@
                 es.value = MORPH_EASES.includes(state.morphEase) ? state.morphEase : '';
             if (hi && document.activeElement !== hi)
                 hi.value = String(Math.round(100 * (+state.morphHold || 0)));
+            const gi = $('morphGravity'), // SCENE-WIDE GRAVITY AND WIND
+                wi = $('morphWind');
+            if (gi && document.activeElement !== gi)
+                gi.value = String(Math.round(100 * morphGravity()));
+            if (wi && document.activeElement !== wi)
+                wi.value = String(Math.round(100 * morphWind()));
             // MOTION ALONG A PATH and TRAILS
             const pb = $('bMorphPath');
             if (pb) {
@@ -67996,6 +68154,20 @@
                     easeSel.addEventListener('change', () => morphSetTiming(easeSel.value, null));
                 if (holdIn)
                     holdIn.addEventListener('input', () => morphSetTiming(null, (+holdIn.value) / 100));
+                // SCENE-WIDE GRAVITY AND WIND: every motion feels them at once; one undo step once the slider rests
+                for (const [id, key] of [['morphGravity', 'morphGravity'], ['morphWind', 'morphWind']]) {
+                    const el = $(id);
+                    if (el)
+                        el.addEventListener('input', () => {
+                            if (orphaned())
+                                return;
+                            state[key] = (+el.value) / 100;
+                            morphWrite();
+                            drawAll();
+                            scheduleSave();
+                            morphHistorySoon();
+                        });
+                }
                 // MOTION ALONG A PATH and TRAILS
                 onKey('bMorphPath', () => morphSetPath());
                 const turnT = $('tMorphTurn'),
@@ -77496,6 +77668,7 @@
                 '- motion: physics the editor computes exactly, for a thing that moves as a body (use it instead of keying such motion by hand): {"kind": "bounce", "amount": hop height in the shape\'s own heights (1.5), "squash": 0–0.6 (0.25)} one hop a cycle off the ground where it is drawn, squashed as it lands and stretched in flight; {"kind": "fall", "amount": drop height in its heights (3), "bounce": 0–0.9, the share of speed kept each bounce (0.5)} dropped, bouncing lower until it rests (pair with a clip to fall once); {"kind": "swing", "amount": degrees either side (30), "pivot": "top"|"bottom"|"left"|"right"|"centre"} a pendulum, a sign, a bell; {"kind": "spring", "amount": size (0.3), "along": "y"|"x"|"scale"|"turn", "bounces": 4} a damped boing at the start of each cycle, a jelly, a spring, a plant flicked; {"kind": "roll", "amount": widths across and back (4)} rolling without skidding, turned by the distance over its radius (with a path, it rolls along the path instead: a wheel, a ball, a barrel); {"kind": "throw", "to": [right, up] where it lands, in its own heights from where it is drawn ([6, 0]), "amount": the arc\'s top in its heights above the higher end (2)} a toss along gravity\'s parabola landing exactly there (pair with a clip to throw once); {"kind": "sway", "amount": degrees (8)} bending from its base in the wind, the base still and the top moving most (a tree, grass, a flame); {"kind": "pop", "amount": 0–1 liveliness (0.5)} growing from nothing to its size with an overshoot and a settle (pair with a clip and show "in" to pop in). {"kind": "drift", "to": [right, up] in its heights per cycle ([0, -8]), "amount": wobble in widths (0.5)} carried steadily, wobbling, growing in and shrinking out at the ends (rain, snow, bubbles, confetti, leaves: pair with emit). rate sets how many a loop. A morph riding a parent moves with the parent\'s motion too (a rider on a bouncing ball bounces and squashes with it).',
                 '  - contact: fall, bounce, throw and roll take "onto": a shape number, to drop onto it, hop on it, land on its top or roll up to it and back (a ball onto a table, a box onto a shelf, a ball rolling to a wall); the numbers are worked out for you.',
                 '  - in a row: {"kind": "chain", "steps": [motion, motion, …]} plays its steps one after another, each from where the last ended, each with "share" (its part of the cycle, 1 by default): thrown then bouncing to rest, popped in then swaying, dropped onto a table then rolling off it. In a chain a roll goes one way.',
+                '- the scene (beside "loop", "ease" and "hold") may set "gravity": 1–4 (1, the floatiest; more and hops, falls and throws are over sooner and rest, swings swing faster) and "wind": −1 (left) to 1 (right) (every sway leans that way, swings hang pushed, drifts are carried): one weather for every motion, so falling snow and a swaying tree agree.',
                 '- emit: {"count": 2–200 (12), "spread": [across, up] in the shape\'s own heights (where copies are scattered, round where it is drawn), "vary": 0–1 (how much each copy\'s size, turn and motion differ, 0.5), "seed": a number} makes the morph many times over, each copy with its own phase: confetti, rain, snow, a flock of bubbles. Draw the one shape; emit does the rest.',
                 '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out", "anticipate" (draws back first, then goes), "overshoot" (goes past the next key and settles back), "elastic" (goes past and rings to rest) or null; the scene\'s "ease" takes the same names. Two keys with "anticipate" or "overshoot" give a simple morph the cartoon feel: use them for a thing that jumps, pops, snaps or lands.',
                 '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), or there until it plays then gone ("out"). Clips one after another make a sequence.',
@@ -82290,6 +82463,8 @@
                 morphTrailLen: state.morphTrailLen != null ? +state.morphTrailLen : 0.5,
                 morphEase: state.morphEase || '', // EASING AND HOLDS
                 morphHold: +state.morphHold || 0,
+                morphGravity: morphGravity(), // SCENE-WIDE GRAVITY AND WIND
+                morphWind: morphWind(),
                 morphFps: +state.morphFps || 30,
             };
         }
@@ -82542,6 +82717,8 @@
             state.morphFps = [24, 30, 60].includes(+d.morphFps) ? +d.morphFps : 30;
             state.morphEase = MORPH_EASES.includes(d.morphEase) ? d.morphEase : ''; // EASING AND HOLDS
             state.morphHold = Math.max(0, Math.min(0.9, +d.morphHold || 0));
+            state.morphGravity = Math.max(1, Math.min(4, +d.morphGravity || 1)); // SCENE-WIDE GRAVITY AND WIND
+            state.morphWind = Math.max(-1, Math.min(1, +d.morphWind || 0));
             if (!Array.isArray(d.morphs) || !d.morphs.length)
                 return;
             for (const m of d.morphs) {
@@ -85201,6 +85378,8 @@
             // a world point on the page, for a test's mouse (EDITING A KEY ON THE CANVAS)
             // the smooth corners each held exact shape has (the autosave's round trip is checked on them)
             smoothCorners: () => state.subpaths.map(sp => sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth).filter(Boolean).length : 0),
+            // THE MOTION'S PATH: the first selected morph's centre over a loop, n + 1 points, in page units
+            motionTrack: n => { const r = morphRunToolRuns().find(q => q.motion); return r ? morphMotionTrack(r, n || 8) : null; },
             // HANDLES FOR A MOTION: each selected morph's handles, in the canvas's client pixels
             motionHandles: () => {
                 const R = cv.getBoundingClientRect();
@@ -86713,6 +86892,10 @@
                     state.morphEase = MORPH_EASES.includes(d.ease) ? d.ease : '';
                 if (has('hold'))
                     state.morphHold = clamp(d.hold, 0, 0.9, 0);
+                if (has('gravity')) // SCENE-WIDE GRAVITY AND WIND
+                    state.morphGravity = clamp(d.gravity, 1, 4, 1);
+                if (has('wind'))
+                    state.morphWind = clamp(d.wind, -1, 1, 0);
                 if (has('onion'))
                     state.morphOnion = !!d.onion;
                 if (has('turn'))
@@ -87138,6 +87321,10 @@
                     d.ease = state.morphEase;
                 if (state.morphHold)
                     d.hold = r4(state.morphHold);
+                if (morphGravity() !== 1) // SCENE-WIDE GRAVITY AND WIND
+                    d.gravity = r4(morphGravity());
+                if (morphWind())
+                    d.wind = r4(morphWind());
                 if (state.morphOnion)
                     d.onion = true;
                 if (state.morphTrail)

@@ -187,6 +187,14 @@ publishes.
     chain), `#mrSteps` shows the steps by share (click one: `run._step`, which the amount box and the handles work
     on, from where the steps before leave the shape, `morphMotionView`; drag a border for the shares), **× step**
     takes one out. Opening a scene is one undo history (`resetHistory` at the end of `openScene`).
+    Then (Tom: "1,2,3") THE MOTION'S PATH: a selected morph with a motion shows its centre over a loop (path, spin,
+    motion and parent all in, `morphCentreAt`, `morphMotionTrack`; hook `__box.motionTrack(n)`), dotted, a tick each
+    eighth. CHAINS ON THE TIMELINE: each row has its motion's steps as a band along its foot, on the shared clock
+    (`morphStepEdges`, `morphCycleShared`), and a chain's borders drag there too (`morphSetStepBorder`, which the
+    strip uses as well). SCENE-WIDE GRAVITY AND WIND (`state.morphGravity` 1–4, `state.morphWind` −1–1, the bar's
+    sliders, saved, the scene link's `gravity` and `wind`, the AI vocabulary): gravity has hops, falls and throws
+    over in 1/√g of their cycle and then rest, and swings round(√g) times (lighter than 1 would need more than a
+    loop); wind leans sways and swings its way and carries drifts. The snow and tree tiles have some wind.
     The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
     what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
     in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted

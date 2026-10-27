@@ -1757,6 +1757,62 @@ current = 'physics by hand';
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a scene opens as one undo history; contact follows a table moved; scatter copies undo in one step; a chain made, reshared and unmade in the strip`);
 }
 
+/* THE MOTION'S PATH, CHAINS ON THE TIMELINE, GRAVITY AND WIND (draw.html, Tom: "1,2,3"). A ball thrown 4 heights
+   right with its arc a height up: its path (the centre over a loop) tops out one height up and ends four across.
+   Gravity 4 has it land half way through the loop and wait there. Wind to the right leans a swaying post right,
+   to the left left. The timeline shows a chain's two steps along its row, and its border dragged to a quarter
+   shares the cycle so. Gravity and wind come back through the link. */
+current = 'path, timeline, weather';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const before = failures.length;
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[path, timeline, weather] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="40" y="200" width="40" height="40" fill="#e05a6a"/><rect x="300" y="100" width="20" height="140" fill="#3a3"/><rect x="450" y="60" width="30" height="30" fill="#4f8fd6"/></svg>';
+    const open = async url => {
+      await mp.goto(url, { waitUntil: 'load' });
+      await mp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+      await mp.waitForTimeout(400);
+    };
+    await open(scene({ name: 'weather', svg, play: false, morphs: [{ keys: [0], motion: { kind: 'throw', to: [4, 0], amount: 1 } }, { keys: [1], motion: { kind: 'sway', amount: 10 } },
+      { keys: [2], motion: { kind: 'chain', steps: [{ kind: 'fall', amount: 2 }, { kind: 'roll', amount: 1 }] } }] }));
+    const track = async i => { await mp.evaluate(i => window.__box.select([i]), i); await mp.waitForTimeout(200); return mp.evaluate(() => window.__box.motionTrack(8)); };
+    let T = await track(0);
+    const across = T[8][0] - T[0][0], up = Math.max(...T.map(p => p[1])) - T[0][1];
+    if (Math.abs(across / up - 4) > 0.05 || Math.abs(T[4][1] - T[0][1] - up) > 0.01 * up) throw new Error('the throw\'s path: ' + JSON.stringify({ across, up, ratio: across / up }));
+    const slide = async (id, v) => { await mp.evaluate(([id, v]) => { const e = document.getElementById(id); e.value = String(v); e.dispatchEvent(new Event('input')); }, [id, v]); await mp.waitForTimeout(200); };
+    await slide('morphGravity', 400);
+    T = await track(0);
+    if (Math.abs(T[4][0] - T[0][0] - across) > 0.01 * across || Math.abs(T[4][1] - T[0][1]) > 0.01 * up || Math.abs(T[6][0] - T[4][0]) > 1e-9)
+      throw new Error('with gravity 4 the throw does not land half way and wait: ' + JSON.stringify(T.map(p => [+(p[0] - T[0][0]).toFixed(4), +(p[1] - T[0][1]).toFixed(4)])));
+    await slide('morphGravity', 100);
+    const lean = async w => { await slide('morphWind', w); const q = await track(1); return q[0][0]; };
+    const x0 = await lean(0), xr = await lean(100), xl = await lean(-100);
+    if (!(xr > x0 + 1e-6) || !(xl < x0 - 1e-6) || Math.abs((xr - x0) + (xl - x0)) > 1e-6 * Math.abs(xr - x0) + 1e-9) throw new Error('the wind: ' + JSON.stringify({ x0, xr, xl }));
+    await slide('morphGravity', 250);
+    const d = await mp.evaluate(async () => (await window.__sceneShare()).d);
+    if (d.gravity !== 2.5 || d.wind !== -1) throw new Error('the weather in the link: ' + JSON.stringify({ gravity: d.gravity, wind: d.wind }));
+    // the timeline's steps
+    await mp.evaluate(() => window.__box.select([]));
+    await mp.click('#bMorphTimeline'); await mp.waitForTimeout(300);
+    const cuts = await mp.$$('#tlRows .tl-mcut'), segs = await mp.$$('#tlRows .tl-mseg');
+    if (cuts.length !== 1 || segs.length !== 8) throw new Error('the timeline shows ' + segs.length + ' step pieces and ' + cuts.length + ' borders');
+    const tr = await mp.locator('#tlRows .tl-track[data-r="2"]').boundingBox(), cb = await mp.locator('#tlRows .tl-mcut').boundingBox();
+    await mp.mouse.move(cb.x + cb.width / 2, cb.y + cb.height / 2); await mp.mouse.down();
+    await mp.mouse.move(tr.x + tr.width * 0.25, cb.y + cb.height / 2, { steps: 5 }); await mp.mouse.up();
+    await mp.waitForTimeout(300);
+    const m = (await mp.evaluate(() => window.__animSketch())).morphs[2].motion, ratio = m.steps[0].share / (m.steps[0].share + m.steps[1].share);
+    if (Math.abs(ratio - 0.25) > 0.03) throw new Error('the timeline border at a quarter gives ' + ratio.toFixed(3));
+    await mp.close();
+  } catch (e){
+    failures.push(`[path, timeline, weather] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a motion's path shows its arc; gravity lands a throw sooner; wind leans a sway its way; the timeline shares a chain's cycle`);
+}
+
 /* ANIMATE IT, END TO END, STREAMED (draw.html). The gateway is answered here with a reply streamed as the
    API streams it (server-sent events, the text in pieces), the way a real one arrives since a silent minute
    and a half closed the request with HTTP 524: the prompt typed, "animate it" pressed, and the morph lands.
