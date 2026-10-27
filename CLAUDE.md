@@ -19,6 +19,23 @@ publishes.
   `draw.html?lab=CODE` link that runs it. **Generated** by `npm run labs`
   (`tools/build-labs.mjs` reads the lab buttons off the live editor); after adding, renaming
   or re-describing a lab in `draw.html`, run it, or `npm test` fails.
+- `player/`: **the TVF player** (27 Oct 2026, Tom: "build the tvf-native player"). `tvf-player.js` plays a `.tvfs`
+  scene on a canvas (`TVFPlayer.play(canvas, scene or url)`, or `<canvas data-tvfs="…">`; `load`, `poses`, `draw`), next
+  to `tvf-core.js`. **Generated** by `npm run player` (`tools/build-player.mjs`): its engine is the editor's own code,
+  the functions and constants the player's entry points need taken from draw.html's main script by name with all
+  they use (the closure skips locals, object keys, regex literals and property names), unchanged and in the
+  editor's order, between a small shim (`state`'s ease, hold, gravity and wind, `morphLive`, `morphRuns`) and
+  `player/runtime.js` (loading, the clock, drawing: leaves reconstructed with the kernel at about one point every
+  two pixels, exact poses as their cubics, stills through `exactDense`). Names the engine mentions that belong to
+  the editor's page are in its `STUBS`; an unknown one fails the build. After changing the morph engine in
+  draw.html, run it, or `npm test` fails. A `.tvfs` (`{format: 'tvf-scene', v: 1, name, loop, ease, hold,
+  gravity, wind, path, items, morphs}`) is written by the morph bar's **tvfs** button (`morphTvfScene`, hook
+  `__box.tvfScene()`): `items` the drawing order (`{morph: i}`, or a still's `leaves` as float32 base64 or its
+  `exact` corners, roundings, smooth corners, handles and holes, with fill and stroke), `morphs` each as its keys
+  (leaves, or exact corners with `r` and `c`) plus `own`, the autosave's `morphSaveOwn` record, restored by
+  `morphRestoreOwn`. Not in it yet: trails. `player.html` opens one (button, drop, `?src=`); `examples/` holds six
+  written from the gallery. The smoke test checks the player poses gallery scenes as the editor does
+  (`__box.morphPoses(t)`) to the keys' rounding.
 - `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
   specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
   and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and

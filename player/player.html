@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TVF player</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0c0f16; color: #e8ecf5; font: 13px/1.4 system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #232838; flex-wrap: wrap; }
+  header b { color: #d4a052; }
+  header .note { color: #8b95ab; }
+  main { flex: 1; position: relative; min-height: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .drop { position: absolute; inset: 0; display: grid; place-items: center; color: #8b95ab; pointer-events: none; text-align: center; padding: 20px; }
+  button, label.file { background: #1a1f2c; color: #e8ecf5; border: 1px solid #343b50; border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
+  input[type=range] { width: min(320px, 40vw); }
+</style>
+</head>
+<body>
+<!-- THE TVF PLAYER'S PAGE (27 Oct 2026, Tom: "build the tvf-native player"): plays a .tvfs scene, the leaf editor's
+     live morphs written as their keys and settings (its "tvfs" button), with player/tvf-player.js. Open one with the
+     button, drop it on the page, or give its address: player.html?src=scene.tvfs. -->
+<header>
+  <b>TVF player</b>
+  <label class="file">open .tvfs<input type="file" id="file" accept=".tvfs,.json,application/json" hidden></label>
+  <button type="button" id="play">pause</button>
+  <input type="range" id="t" min="0" max="1000" value="0" title="where in the loop">
+  <span class="note" id="info">no scene</span>
+</header>
+<main>
+  <canvas id="cv"></canvas>
+  <div class="drop" id="drop">drop a .tvfs file here, or open one: the leaf editor's morph bar writes them (its "tvfs" button)</div>
+</main>
+<script src="../tvf-core.js"></script>
+<script src="tvf-player.js"></script>
+<script>
+  const cv = document.getElementById('cv'), info = document.getElementById('info'), drop = document.getElementById('drop'),
+    tIn = document.getElementById('t'), playB = document.getElementById('play');
+  let ctl = null;
+  function show(d) {
+    try {
+      if (ctl) ctl.pause();
+      ctl = TVFPlayer.play(cv, d, { background: '#0c0f16' });
+      ctl.ready.then(c => {
+        const S = c.scene, leaves = S.runs.filter(r => !r.exact).length;
+        info.textContent = (d.name || 'scene') + ' · ' + S.runs.length + ' morph' + (S.runs.length === 1 ? '' : 's') + ' (' + leaves + ' of leaves) · '
+          + S.items.filter(it => it.still).length + ' shapes · a ' + S.loop.toFixed(1) + ' s loop';
+        drop.style.display = 'none';
+        playB.textContent = 'pause';
+      }).catch(e => { info.textContent = 'could not play it: ' + e.message; });
+    } catch (e) { info.textContent = 'could not play it: ' + e.message; }
+  }
+  const readFile = f => f.text().then(s => show(JSON.parse(s))).catch(e => { info.textContent = 'not a .tvfs scene: ' + e.message; });
+  document.getElementById('file').addEventListener('change', e => e.target.files[0] && readFile(e.target.files[0]));
+  addEventListener('dragover', e => e.preventDefault());
+  addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+  playB.addEventListener('click', () => { if (!ctl) return; if (ctl.playing) { ctl.pause(); playB.textContent = 'play'; } else { ctl.play(); playB.textContent = 'pause'; } });
+  tIn.addEventListener('input', () => { if (!ctl) return; ctl.pause(); playB.textContent = 'play'; ctl.seek(tIn.value / 1000); });
+  setInterval(() => { if (ctl && ctl.playing && document.activeElement !== tIn) tIn.value = Math.round(ctl.t * 1000); }, 100);
+  const src = new URLSearchParams(location.search).get('src');
+  if (src) fetch(src).then(r => r.json()).then(show).catch(e => { info.textContent = 'could not load ' + src + ': ' + e.message; });
+  window.__player = { show, ctl: () => ctl };
+</script>
+</body>
+</html>

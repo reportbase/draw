@@ -6737,6 +6737,7 @@
             <span class="val" id="morphLagVal">off</span>
             <span id="morphKeys" style="color:var(--fg-muted);font-size:11px;"></span>
             <button id="bMorphKeep" data-code="mkp" class="res-btn" title="Drop a copy of the pose you are looking at into the drawing and KEEP MORPHING. It is an ordinary shape from there on — leaves, rung, colour, everything — and because the morph is still running you can scrub somewhere else and keep again, building a strip by hand one chosen cell at a time. With several morphs live it takes one pose from each, at the same t. SHIFT-CLICK to freeze instead: the morph ends, the pose stays where it stands and the keys are consumed.">keep</button>
+            <button id="bMorphTvfs" type="button" class="res-btn" title="THE TVF SCENE: write what is on the page as a .tvfs file for the TVF player (player/tvf-player.js): the morphs as their keys and settings, the shapes as their leaves or corners, no frames. The player runs this editor's own engine on it and draws the curves at whatever size it is shown, so it plays as it plays here, at any size">tvfs</button>
             <button id="bMorphSvg" data-code="msv" class="res-btn" title="Write the whole scene out as ONE animated .svg — every live morph on the shared clock, the static shapes around them as a backdrop. It plays in any browser with no library and no runtime, because SMIL's <animate attributeName=&quot;d&quot;> interpolates between path strings and this format guarantees the one thing SMIL requires and cannot check: every frame is the same cubics in the same order. Frame count and loop mode are in the morph panel.">svg</button>
             <button id="bMorphVideo" data-code="mvd" class="res-btn" title="record one loop as a .webm video (30 frames a second), the drawing alone with no editor marks, the size of the view">video</button>
             <button id="bMorphGif" data-code="mgf" class="res-btn" title="record one loop as an animated .gif (20 frames a second, at most 480 pixels wide), looping forever">gif</button>
@@ -68198,6 +68199,18 @@
                         scheduleSave();
                         morphHistorySoon();
                     });
+                const bt = $('bMorphTvfs'); // THE TVF SCENE
+                if (bt)
+                    bt.addEventListener('click', () => {
+                        if (orphaned()) {
+                            flashStatus('tvfs: no morph is live');
+                            return;
+                        }
+                        const d = morphTvfScene(),
+                            name = String(d.name || 'scene').replace(/^example · /, '').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'scene';
+                        downloadTextFile(JSON.stringify(d), name + '.tvfs');
+                        flashStatus('tvfs: ' + d.morphs.length + ' morph' + (d.morphs.length === 1 ? '' : 's') + ' and ' + d.items.filter(it => it.morph == null).length + ' shapes written for the TVF player (player/player.html plays it)');
+                    });
                 const bs = $('bMorphSvg');
                 if (bs)
                     bs.addEventListener('click', () => {
@@ -82643,6 +82656,69 @@
         // found by its place), and the shapes it had lifted out, so exit still puts them back. A morph
         // whose live shape or keys do not fit is dropped, and its live shape stays an ordinary shape.
         // what a morph has of its own, as the autosave holds it, and back
+        // ── THE TVF SCENE (27 Oct 2026, Tom: "build the tvf-native player") ─────────────────────────────────
+        // What is on the page, written for player/tvf-player.js rather than as frames: the shapes in their
+        // drawing order, a still one as its leaves (or its exact corners, roundings, smooth corners, curve
+        // handles and holes, as drawn), a live morph as its place in that order; each morph as its keys
+        // (leaves, or corners with their roundings and handles) and the autosave's own record of its settings
+        // (morphSaveOwn); the bar's ease, hold, gravity and wind, the loop's length and the path every morph
+        // without its own shares. The player runs the editor's engine on it (tools/build-player.mjs), so it
+        // plays as it plays here, and draws the curves at whatever size it is shown.
+        function morphTvfScene() {
+            const runOf = new Map(morphRuns.map((r, i) => [r.sp, i])),
+                fillOf = f => state.showFills !== false && f && f.color ? { color: f.color, opacity: f.opacity != null ? +f.opacity : 1 } : null,
+                strokeOf = sp => lineWidthOf(sp) > 0 ? { stroke: sp.stroke || STROKE_DEFAULT, width: lineWidthOf(sp), strokeOpacity: strokeOpacityOf(sp) } : { stroke: null, width: 0 },
+                n9 = a => Array.from(a, v => +(+v).toPrecision(9)),
+                ringOf = (x, y, r, smooth, ctrl) => ({ x: n9(x), y: n9(y), r: r ? n9(r) : null, smooth: smooth ? Array.from(smooth, Boolean) : null, ctrl: ctrl ? ctrl.map(e => e ? n9(e) : null) : null });
+            const items = [];
+            for (const sp of state.subpaths) {
+                if (!sp)
+                    continue;
+                if (runOf.has(sp)) {
+                    items.push({ morph: runOf.get(sp) });
+                    continue;
+                }
+                const it = Object.assign({ fill: fillOf(sp.fill) }, strokeOf(sp)),
+                    lz = sp._lazy;
+                if (lz) { // a held shape as it is drawn, never turned into leaves to be written
+                    it.open = !!lz.open;
+                    it.exact = ringOf(lz.x, lz.y, lzRoundBaked(lz), lz.smooth, lzCtrlBaked(lz));
+                    it.exact.holes = (lzHolesBaked(lz) || []).map(h => ringOf(h.x, h.y, null, h.smooth, h.ctrl));
+                } else if (sp.leafX && sp.leafX.length >= 3)
+                    it.leaves = { x: _f32b64(sp.leafX), y: _f32b64(sp.leafY) };
+                else
+                    continue;
+                items.push(it);
+            }
+            const morphs = morphRuns.map(r => {
+                const own = morphSaveOwn(r, true, null);
+                if (own.path)
+                    own.path.member = null;
+                return Object.assign({
+                    exact: !!r.exact,
+                    keys: r.keys.map(k => r.exact ? { x: n9(k.x), y: n9(k.y), r: n9(k.r), c: k.c.map(e => e ? n9(e) : null) } : { x: _f32b64(k.x), y: _f32b64(k.y) }),
+                    fill: fillOf(r.sp && r.sp.fill),
+                    inPlace: r.inPlace !== false,
+                    lag: +r.lag || 0,
+                    fx: r.fx && r.fx.kind ? { kind: r.fx.kind, amount: +r.fx.amount } : null,
+                    own
+                }, r.sp ? strokeOf(r.sp) : {});
+            });
+            const P = morphLive.path;
+            return {
+                format: 'tvf-scene',
+                v: 1,
+                name: state.svgName || 'scene',
+                loop: 1 / morphLive.speed,
+                ease: state.morphEase || '',
+                hold: +state.morphHold || 0,
+                gravity: morphGravity(),
+                wind: morphWind(),
+                path: P && P.src ? { x: _f32b64(P.src.x), y: _f32b64(P.src.y), closed: !!P.closed, turn: P.turn !== false, mode: P.mode, at: +P.at || 0 } : null,
+                items,
+                morphs
+            };
+        }
         function morphSaveOwn(r, dropRefs, saved) {
             const P = r.path,
                 L = r.ontoLink,
@@ -85378,6 +85454,17 @@
             // a world point on the page, for a test's mouse (EDITING A KEY ON THE CANVAS)
             // the smooth corners each held exact shape has (the autosave's round trip is checked on them)
             smoothCorners: () => state.subpaths.map(sp => sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth).filter(Boolean).length : 0),
+            // THE TVF SCENE: the scene as the player reads it, and each morph's pose at t as the editor has it
+            tvfScene: () => morphTvfScene(),
+            morphPoses: t => morphRuns.map(r => {
+                if (r.exact) {
+                    const P = morphPoseExact(r, t);
+                    return { x: Array.from(P.x), y: Array.from(P.y), r: Array.from(P.r) };
+                }
+                const N = r.keys[0].x.length, X = new Float64Array(N), Y = new Float64Array(N);
+                morphPoseInto(r, t, X, Y);
+                return { x: Array.from(X), y: Array.from(Y) };
+            }),
             // THE MOTION'S PATH: the first selected morph's centre over a loop, n + 1 points, in page units
             motionTrack: n => { const r = morphRunToolRuns().find(q => q.motion); return r ? morphMotionTrack(r, n || 8) : null; },
             // HANDLES FOR A MOTION: each selected morph's handles, in the canvas's client pixels

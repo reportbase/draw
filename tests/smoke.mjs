@@ -3148,6 +3148,59 @@ await step('playground', async () => {
 
 /* labs.html is generated from the lab drawer (tools/build-labs.mjs). Regenerate it here and
    compare: a lab added, renamed or re-described in draw.html without \`npm run labs\` fails. */
+/* THE TVF PLAYER (player/tvf-player.js, built by tools/build-player.mjs from draw.html). The file on disk is what
+   the build writes (else `npm run player`); gallery scenes opened in the editor, written as .tvfs and loaded by the
+   player pose every morph as the editor does at six times through the loop, to the stored keys' rounding: leaves
+   with a detail effect and with a lag, exact corners with physics and a chain, a path with parents, an emitter;
+   and player.html plays a scene from a file, drawing it at two sizes. */
+await step('the tvf player', async () => {
+  const { buildPlayer } = await import('../tools/build-player.mjs');
+  const { out } = await buildPlayer();
+  if (out !== await readFile(join(ROOT, 'player/tvf-player.js'), 'utf8')) throw new Error('player/tvf-player.js is out of date with draw.html: run `npm run player`');
+  const gp = await browser.newPage();
+  await gp.route(/fonts\.g/, r => r.abort());
+  await gp.goto(new URL('gallery/animated.html', base).href, { waitUntil: 'load' });
+  await gp.waitForFunction(() => typeof EXAMPLES !== 'undefined' && typeof sceneCode === 'function');
+  const ids = ['grow', 'lag', 'one-after', 'kite', 'orrery', 'snow', 'house'];
+  const codes = await gp.evaluate(async ids => { const o = {}; for (const e of EXAMPLES.filter(e => ids.includes(e.id))) o[e.id] = await sceneCode(e); return o; }, ids);
+  await gp.close();
+  const pl = await browser.newPage({ viewport: { width: 800, height: 500 } });
+  pl.on('pageerror', e => failures.push(`[player] ${e.message}`));
+  await pl.goto(new URL('player/player.html', base).href, { waitUntil: 'load' });
+  const ts = [0, 0.13, 0.37, 0.5, 0.81, 0.97];
+  for (const id of ids) {
+    const ep = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    ep.on('pageerror', e => failures.push(`[player: ${id} in the editor] ${e.message}`));
+    await ep.route(/fonts\.g/, r => r.abort());
+    await ep.goto(new URL('draw.html', base).href + '#scene=' + codes[id], { waitUntil: 'load' });
+    await ep.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
+    await ep.waitForTimeout(300);
+    const d = await ep.evaluate(() => window.__box.tvfScene());
+    const A = await ep.evaluate(ts => ts.map(t => window.__box.morphPoses(t)), ts);
+    await ep.close();
+    const B = await pl.evaluate(([d, ts]) => { const S = TVFPlayer.load(d); return ts.map(t => TVFPlayer.poses(S, t).map(P => ({ x: Array.from(P.x), y: Array.from(P.y) }))); }, [d, ts]);
+    let worst = 0, scale = 1e-12;
+    A.forEach((ps, i) => ps.forEach((P, j) => { for (let k = 0; k < P.x.length; k++) { scale = Math.max(scale, Math.abs(P.x[k]), Math.abs(P.y[k])); worst = Math.max(worst, Math.abs(P.x[k] - B[i][j].x[k]), Math.abs(P.y[k] - B[i][j].y[k])); } }));
+    if (!(worst / scale < 1e-6)) throw new Error(id + ': the player poses it ' + (worst / scale).toExponential(2) + ' of its size away from the editor');
+  }
+  await pl.close();
+  // the page: a scene from a file, drawn, and drawn again at another size
+  const pp = await browser.newPage({ viewport: { width: 900, height: 600 } });
+  pp.on('pageerror', e => failures.push(`[player.html] ${e.message}`));
+  await pp.goto(new URL('player/player.html?src=examples/grow.tvfs', base).href, { waitUntil: 'load' });
+  await pp.waitForFunction(() => window.__player.ctl() && window.__player.ctl().scene, null, { timeout: 30000 });
+  const lit = () => pp.evaluate(() => { const c = document.getElementById('cv'), x = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < x.length; i += 16) if (x[i] > 120 && x[i + 2] > 200) n++; return { n, w: c.width }; });
+  await pp.evaluate(() => { const c = window.__player.ctl(); c.pause(); c.seek(0.5); });
+  await pp.waitForTimeout(300);
+  const a = await lit();
+  await pp.setViewportSize({ width: 450, height: 300 });
+  await pp.evaluate(() => window.__player.ctl().seek(0.5));
+  await pp.waitForTimeout(300);
+  const b = await lit();
+  await pp.close();
+  if (!(a.n > 200) || !(b.n > 50) || !(b.w < a.w)) throw new Error('player.html drew ' + JSON.stringify({ a, b }));
+});
+
 if (!QUICK) await step('labs.html matches the drawer', async () => {
   const { readLabs, render } = await import('../tools/build-labs.mjs');
   const want = render(await readLabs(base));
