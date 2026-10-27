@@ -54627,7 +54627,7 @@
         // of it would carry it (its path, spin, motion and parent), drawn dotted under the handles, with a tick
         // at every eighth of the loop: the arc and its timing at once, close ticks slow and far apart fast, so a
         // handle can be dragged while seeing what it does without scrubbing.
-        function morphCentreAt(run, t) {
+        function morphMotionCentreAt(run, t) { // (not morphCentreAt, the trails' and facing's own, which this would replace)
             const B = morphBareCentre(run, t),
                 C = (morphPathOf(run) || run.spin) ? morphPlace(run, t, B) : B,
                 MX = morphMotionXform(run, t);
@@ -54642,7 +54642,7 @@
         function morphMotionTrack(run, n) {
             const out = [];
             for (let i = 0; i <= n; i++)
-                out.push(morphCentreAt(run, Math.min(0.9999, i / n)));
+                out.push(morphMotionCentreAt(run, Math.min(0.9999, i / n)));
             return out;
         }
         function drawMorphMotionHandles(w, h) {

@@ -188,7 +188,7 @@ publishes.
     on, from where the steps before leave the shape, `morphMotionView`; drag a border for the shares), **× step**
     takes one out. Opening a scene is one undo history (`resetHistory` at the end of `openScene`).
     Then (Tom: "1,2,3") THE MOTION'S PATH: a selected morph with a motion shows its centre over a loop (path, spin,
-    motion and parent all in, `morphCentreAt`, `morphMotionTrack`; hook `__box.motionTrack(n)`), dotted, a tick each
+    motion and parent all in, `morphMotionCentreAt`, `morphMotionTrack`; hook `__box.motionTrack(n)`), dotted, a tick each
     eighth. CHAINS ON THE TIMELINE: each row has its motion's steps as a band along its foot, on the shared clock
     (`morphStepEdges`, `morphCycleShared`), and a chain's borders drag there too (`morphSetStepBorder`, which the
     strip uses as well). SCENE-WIDE GRAVITY AND WIND (`state.morphGravity` 1–4, `state.morphWind` −1–1, the bar's
