@@ -2760,11 +2760,17 @@ for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === '
     // saved copy) is not in the way: the link should open on a page of its own.
     const ep = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     ep.on('pageerror', e => failures.push(`[gallery/${g} → editor] ${e.message}`));
+    // "opened … from the link" is a flash, gone after 1.4 s; polling for it can miss it on a loaded
+    // runner, where frames are slow. Every line the status shows is kept as it is written instead.
+    await ep.addInitScript(() => {
+      window.__said = [];
+      new MutationObserver(() => {
+        const t = document.getElementById('status')?.textContent;
+        if (t && t !== window.__said[window.__said.length - 1]) window.__said.push(t);
+      }).observe(document, { subtree: true, childList: true, characterData: true });
+    });
     await ep.goto(link, { waitUntil: 'load' });
-    const status = await ep.waitForFunction(() => {
-      const t = document.getElementById('status')?.textContent || '';
-      return /opened|shape link/.test(t) && t;
-    }, null, { timeout: 15000 }).then(h => h.jsonValue()).catch(async () => 'timed out; status: ' + await ep.evaluate(() => document.getElementById('status')?.textContent));
+    const status = await ep.waitForFunction(() => window.__said.find(t => /opened|shape link/.test(t)) || false, null, { timeout: 15000 }).then(h => h.jsonValue()).catch(async () => 'timed out; status: ' + await ep.evaluate(() => document.getElementById('status')?.textContent));
     await ep.close();
     if (!/opened/.test(status)) throw new Error(status);
   } catch (e){ failures.push(`[gallery/${g}] ${e.message.split('\n')[0]}`); }
