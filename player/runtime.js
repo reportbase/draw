@@ -8,7 +8,8 @@
 // leaf shape reconstructed from its leaves with the kernel, as many points as its size on the canvas
 // asks for, so it is as smooth at any size; an exact shape drawn as the cubics of its corners, its arcs
 // and its curve edges, so its corners are sharp at any size; a detail effect worked on the harmonics as
-// it plays; colours blended in linear light; a clip faded as it comes and goes.
+// it plays; colours blended in linear light; a clip faded as it comes and goes; trails (echoes of earlier
+// poses, or a ribbon along the way the centre came) drawn under the shapes, as the editor draws them.
 //
 //   TVFPlayer.play(canvas, scene or url, { loop, background, autoplay })  → { play(), pause(), seek(t), scene }
 //   TVFPlayer.load(scene)              the scene made ready to pose and draw
@@ -30,6 +31,7 @@ function loadScene(d) {
         hold: Math.max(0, Math.min(0.9, num(d.hold, 0))),
         gravity: Math.max(1, Math.min(4, num(d.gravity, 1))),
         wind: Math.max(-1, Math.min(1, num(d.wind, 0))),
+        trail: d.trail && MORPH_TRAILS.includes(d.trail.kind) ? { kind: d.trail.kind, len: Math.max(0, Math.min(1, num(d.trail.len, 0.5))) } : { kind: '', len: 0.5 },
         path: null,
         runs: [],
         items: [],
@@ -110,6 +112,8 @@ function use(S) {
     state.morphHold = S.hold;
     state.morphGravity = S.gravity;
     state.morphWind = S.wind;
+    state.morphTrail = S.trail.kind;
+    state.morphTrailLen = S.trail.len;
     morphLive.path = S.path;
     morphRuns.length = 0;
     for (const r of S.runs)
@@ -212,10 +216,99 @@ function paint(ctx, fill, stroke, width, strokeOpacity, fade, open) {
         ctx.stroke();
     }
 }
+// TRAILS, as the editor's drawMorphTrails: under every shape, echoes the pose at seven earlier moments
+// (fainter the older, in the colour it had then), a ribbon the centre's way back tapering from the
+// shape's width; reaching back round the loop only where the motion is a loop
+function drawTrails(ctx, S, V, t) {
+    ctx.save();
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    for (const run of S.runs) {
+        const kind = morphTrailOf(run).kind;
+        if (!MORPH_TRAILS.includes(kind))
+            continue;
+        const span = morphTrailSpan(run),
+            sp = run.sp,
+            fillCol = sp.fill && sp.fill.color ? sp.fill.color : null,
+            fillA = sp.fill && sp.fill.opacity != null ? +sp.fill.opacity : 1,
+            lineCol = sp.stroke || (fillCol ? null : 'rgba(212,160,82,1)'),
+            lw = sp.lineWidth;
+        if (kind === 'echoes') {
+            for (let k = MORPH_ECHOES; k >= 1; k--) {
+                const u = morphTrailTime(run, t, span * k / MORPH_ECHOES);
+                if (u == null)
+                    continue;
+                const fu = morphShowFactor(run, u),
+                    a = 0.6 * (1 - k / (MORPH_ECHOES + 1)) * (fu == null ? 1 : fu);
+                if (!(a > 0))
+                    continue;
+                const P = poseOf(run, u);
+                ctx.beginPath();
+                if (run.exact)
+                    traceExactPose(ctx, V, P);
+                else
+                    traceLeaves(ctx, V, P.x, P.y);
+                if (fillCol) {
+                    const C = run.cols ? morphColourAt(run, u) : null;
+                    ctx.globalAlpha = a * (C ? C.opacity : fillA);
+                    ctx.fillStyle = C ? C.color : fillCol;
+                    ctx.fill('evenodd');
+                }
+                if (lineCol && lw > 0) {
+                    ctx.globalAlpha = a;
+                    ctx.strokeStyle = lineCol;
+                    ctx.lineWidth = lw;
+                    ctx.stroke();
+                }
+            }
+        } else {
+            const P = poseOf(run, t),
+                O = run.exact ? exactDenseOf(P) : P,
+                N = O.x.length;
+            let cx = 0, cy = 0, r = 0;
+            for (let i = 0; i < N; i++) {
+                cx += O.x[i];
+                cy += O.y[i];
+            }
+            cx /= N;
+            cy /= N;
+            for (let i = 0; i < N; i++)
+                r += Math.hypot(O.x[i] - cx, O.y[i] - cy);
+            const head = 2 * V.k * r / N,
+                S2 = 48;
+            ctx.strokeStyle = fillCol || lineCol || 'rgba(212,160,82,1)';
+            let prev = null;
+            for (let k = S2; k >= 0; k--) {
+                const u = morphTrailTime(run, t, span * k / S2);
+                if (u == null) {
+                    prev = null;
+                    continue;
+                }
+                morphLive.t = u;
+                const c = morphCentreAt(run, u),
+                    q = { x: V.px(c.x), y: V.py(c.y) };
+                if (prev) {
+                    const f = 1 - k / S2,
+                        fu = morphShowFactor(run, u);
+                    ctx.globalAlpha = 0.5 * f * (fillCol ? fillA : 1) * (fu == null ? 1 : fu);
+                    ctx.lineWidth = Math.max(0.5, head * 0.8 * f);
+                    ctx.beginPath();
+                    ctx.moveTo(prev.x, prev.y);
+                    ctx.lineTo(q.x, q.y);
+                    ctx.stroke();
+                }
+                prev = q;
+            }
+        }
+    }
+    ctx.restore();
+    morphLive.t = t;
+}
 function drawScene(ctx, S, t, w, h) {
     const V = viewOf(S, w, h);
     use(S);
     morphLive.t = t;
+    drawTrails(ctx, S, V, t);
     for (const it of S.items) {
         ctx.beginPath();
         if (it.still) {

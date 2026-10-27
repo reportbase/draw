@@ -25,7 +25,8 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const ROOTS = ['morphPoseInto', 'morphPoseExact', 'morphExactCubics', 'morphColourAt', 'morphColsOf', 'morphShowFactor', 'morphPathBuild',
     'morphMotionOk', 'morphExactCurved', 'morphSetParent', 'exactDense', 'exactCentre', '_b64f32', 'morphKeyPhases', 'morphTimesOk',
     'morphEasesOk', 'morphClipOk', 'MORPH_SHOWS', 'MORPH_TRAILS', 'MORPH_FOLLOW', 'MORPH_FX', 'MORPH_LAG_MAX', 'hasRound', 'hasCtrl',
-    'morphRestoreOwn', 'MORPH_EASES'];
+    'morphRestoreOwn', 'MORPH_EASES', 'morphTrailOf', 'morphTrailSpan', 'morphTrailTime', 'morphCentreAt', 'MORPH_ECHOES',
+    'exactDenseOf'];
 
 // names the player provides itself (the shim), so they are never taken from the editor
 const SHIM = new Set(['state', 'morphLive', 'morphRuns', 'TAU']);
@@ -225,7 +226,7 @@ const TVF_CORE = root.TVF_CORE || (typeof require === 'function' ? require('../t
 const tvf = TVF_CORE.tvf;
 const TAU = 2 * Math.PI;
 // what the engine reads of the editor: the bar's ease and hold, the scene's gravity and wind
-const state = { morphEase: '', morphHold: 0, morphGravity: 1, morphWind: 0, morphCorners: true, aperture: null, subpaths: [] };
+const state = { morphEase: '', morphHold: 0, morphGravity: 1, morphWind: 0, morphTrail: '', morphTrailLen: 0.5, morphCorners: true, aperture: null, subpaths: [] };
 // the live clock and a path shared by every morph that has none of its own
 const morphLive = { t: 0, speed: 0.25, play: true, path: null };
 // the live morphs, in the editor's sense: what parents, riders and facings are looked up in

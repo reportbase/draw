@@ -29,13 +29,18 @@ publishes.
   two pixels, exact poses as their cubics, stills through `exactDense`). Names the engine mentions that belong to
   the editor's page are in its `STUBS`; an unknown one fails the build. After changing the morph engine in
   draw.html, run it, or `npm test` fails. A `.tvfs` (`{format: 'tvf-scene', v: 1, name, loop, ease, hold,
-  gravity, wind, path, items, morphs}`) is written by the morph bar's **tvfs** button (`morphTvfScene`, hook
+  gravity, wind, trail, path, items, morphs}`) is written by the morph bar's **tvfs** button (`morphTvfScene`, hook
   `__box.tvfScene()`): `items` the drawing order (`{morph: i}`, or a still's `leaves` as float32 base64 or its
   `exact` corners, roundings, smooth corners, handles and holes, with fill and stroke), `morphs` each as its keys
   (leaves, or exact corners with `r` and `c`) plus `own`, the autosave's `morphSaveOwn` record, restored by
-  `morphRestoreOwn`. Not in it yet: trails. `player.html` opens one (button, drop, `?src=`); `examples/` holds six
-  written from the gallery. The smoke test checks the player poses gallery scenes as the editor does
-  (`__box.morphPoses(t)`) to the keys' rounding.
+  `morphRestoreOwn`. Trails (echoes, ribbons) are drawn by the runtime as the editor's `drawMorphTrails` does,
+  under the shapes, from the engine's `morphTrailSpan`, `morphTrailTime` and `morphCentreAt`. `player.html` opens one
+  (button, drop, `?src=`). `examples/` holds every example on `gallery/animated.html` as a `.tvfs`, and `index.json`
+  (its sections, each example's name, note and tags, each file's size), **generated** by `npm run examples`
+  (`tools/write-examples.mjs`: each example's scene link opened in a headless editor and `__box.tvfScene()` written;
+  `npm run examples -- id …` writes some): after changing an example, the scene link or the `.tvfs` writer, run it,
+  or `npm test` fails. The smoke test checks the player poses gallery scenes as the editor does
+  (`__box.morphPoses(t)`) to the keys' rounding, and that those files are what the editor writes now.
 - `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
   specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
   and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and
@@ -46,10 +51,10 @@ publishes.
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before
   anything else, typeset by KaTeX from cdnjs when that loads and shown as source when it does not.
-- `gallery/`: twenty-eight teaching pages, in reading order: `gallery.html` (the catalogue),
+- `gallery/`: twenty-nine teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `epicycles`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`
-  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`, `embedded`. Also `playground.html` (sculpt
+  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`, `embedded`, `played`. Also `playground.html` (sculpt
   a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
   library as an ES module, *generated* from the copy the pages inline: regenerate it from
   a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
@@ -67,16 +72,16 @@ publishes.
   - **Styles live in `gallery/style.css`**, shared by every page in `gallery/` (and by
     `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
     a layout of their own have a section there scoped to their body class (`page-index`,
-    `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`, `page-animated`).
-  - Each page bundles its JavaScript so it runs from one file. All twenty-eight, and the playground, carry the **same**
+    `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`, `page-animated`, `page-embedded`, `page-played`).
+  - Each page bundles its JavaScript so it runs from one file. All twenty-nine, and the playground, carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
     mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
     names the page that differs.
-  - The other nineteen have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
+  - The other twenty have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
     STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES, SITUATED, DEPTHPAGE, RECOVER, CORNER, LEVELS, STAND, BETWEEN, COMPILE), and no spectrum strip or predict mode. `spiral`,
-    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated`, `embedded` are *chart* pages (`body.page-chart`: a measurement and a
+    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated`, `embedded`, `played` are *chart* pages (`body.page-chart`: a measurement and a
     verdict line per tile); `motion`, `compose` and `epicycles` animate (`page-chart page-motion`; epicycles
     carries only tvf.js, FORMAT and EPICYCLES, and its dials may be selects);
     `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`).
@@ -239,7 +244,7 @@ publishes.
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
   - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your
-    recommendations": a light player) is the last page, a chart page: the same examples, each tile its **animated
+    recommendations": a light player) is a chart page: the same examples, each tile its **animated
     SVG**, made by one hidden editor (THE EMBED AS A CONVERTER in `draw.html`: an embed of the same origin answers
     `{type: 'tvf-scene-svg', id, code}` with `{type, id, svg}`) and then playing on its own (SMIL, no script, the editor
     gone once all are made; out of view, paused; the same `sceneSvg` and cache as animated.html, copied with the
@@ -249,8 +254,17 @@ publishes.
     examples are animated.html's, **copied unchanged** between `// >>> copied from animated.html, unchanged: EXAMPLES`
     and `// <<< end of EXAMPLES` (from `// ── THE EXAMPLES` up to `// the settings as one line`): change them in
     animated.html and copy them across, or `npm test` fails. Hook `window.__embedded`.
+  - `played` (27 Oct 2026, Tom: "lets put it to work with its own gallery help page.") is the last page, a chart page:
+    the TVF player at work and its help. Four cards on top say how to make a scene (the morph bar's tvfs), put it on
+    a page (two scripts and `<canvas data-tvfs>`, with that code running beside it), drive it (`TVFPlayer.play`'s
+    controller; `load`, `draw`, `poses`) and what a `.tvfs` holds; then a wide panel to open or drop your own and
+    scrub it; then every file in `player/examples/`, built from its `index.json`, each tile a canvas and a
+    controller of the player's, started when first in view and paused out of view (a click pauses one).
+    **copy embed code** gives the two scripts and a canvas at `https://reportbase.github.io/draw/`. It is the one
+    gallery page that loads scripts beside it (`../tvf-core.js`, `../player/tvf-player.js`), since that is what
+    it shows; it still carries `tvf.js` like the rest. Hook `window.__played`.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 28" crumbs and "next" links in each page.
+    a page means updating it, and the "N of 29" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE

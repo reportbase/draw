@@ -82697,7 +82697,9 @@
                 return Object.assign({
                     exact: !!r.exact,
                     keys: r.keys.map(k => r.exact ? { x: n9(k.x), y: n9(k.y), r: n9(k.r), c: k.c.map(e => e ? n9(e) : null) } : { x: _f32b64(k.x), y: _f32b64(k.y) }),
-                    fill: fillOf(r.sp && r.sp.fill),
+                    // blended colours are posed as it plays; the fill written is where the clock starts, so the
+                    // file does not depend on when it was written
+                    fill: r.cols && state.showFills !== false ? morphColourAt(r, 0) : fillOf(r.sp && r.sp.fill),
                     inPlace: r.inPlace !== false,
                     lag: +r.lag || 0,
                     fx: r.fx && r.fx.kind ? { kind: r.fx.kind, amount: +r.fx.amount } : null,
@@ -82714,6 +82716,7 @@
                 hold: +state.morphHold || 0,
                 gravity: morphGravity(),
                 wind: morphWind(),
+                trail: state.morphTrail ? { kind: state.morphTrail, len: state.morphTrailLen != null ? +state.morphTrailLen : 0.5 } : null, // the bar's, for morphs with none of their own
                 path: P && P.src ? { x: _f32b64(P.src.x), y: _f32b64(P.src.y), closed: !!P.closed, turn: P.turn !== false, mode: P.mode, at: +P.at || 0 } : null,
                 items,
                 morphs

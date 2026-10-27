@@ -2711,7 +2711,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html', 'played.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -3178,6 +3178,9 @@ await step('the tvf player', async () => {
     const d = await ep.evaluate(() => window.__box.tvfScene());
     const A = await ep.evaluate(ts => ts.map(t => window.__box.morphPoses(t)), ts);
     await ep.close();
+    // player/examples/ holds what the editor writes now (npm run examples writes them again)
+    const file = await readFile(join(ROOT, 'player', 'examples', id + '.tvfs'), 'utf8').catch(() => null);
+    if (file !== JSON.stringify(d)) throw new Error('player/examples/' + id + '.tvfs is not what the editor writes now: run `npm run examples`');
     const B = await pl.evaluate(([d, ts]) => { const S = TVFPlayer.load(d); return ts.map(t => TVFPlayer.poses(S, t).map(P => ({ x: Array.from(P.x), y: Array.from(P.y) }))); }, [d, ts]);
     let worst = 0, scale = 1e-12;
     A.forEach((ps, i) => ps.forEach((P, j) => { for (let k = 0; k < P.x.length; k++) { scale = Math.max(scale, Math.abs(P.x[k]), Math.abs(P.y[k])); worst = Math.max(worst, Math.abs(P.x[k] - B[i][j].x[k]), Math.abs(P.y[k] - B[i][j].y[k])); } }));
@@ -3199,6 +3202,89 @@ await step('the tvf player', async () => {
   const b = await lit();
   await pp.close();
   if (!(a.n > 200) || !(b.n > 50) || !(b.w < a.w)) throw new Error('player.html drew ' + JSON.stringify({ a, b }));
+});
+
+/* THE PLAYED GALLERY (gallery/played.html): the TVF player at work. Every example on the animated page is a
+   file in player/examples/ listed in its index.json; the page plays each one through the player alone, only
+   the tiles in view; a trail draws (a ribbon and echoes add to what the shape alone draws); the embed code it
+   hands out works pasted into a page of someone else's, the scripts and the scene fetched from GitHub Pages;
+   and "scrub" puts a scene on the wide panel. */
+await step('the played gallery', async () => {
+  const dir = join(ROOT, 'player', 'examples');
+  const index = JSON.parse(await readFile(join(dir, 'index.json'), 'utf8'));
+  const files = (await readdir(dir)).filter(f => f.endsWith('.tvfs')).map(f => f.slice(0, -5)).sort();
+  const listed = index.sections.flatMap(s => s.ids);
+  if (listed.slice().sort().join() !== files.join()) throw new Error('index.json lists ' + listed.length + ' scenes for ' + files.length + ' files');
+  for (const id of files) {
+    const n = (await readFile(join(dir, id + '.tvfs'), 'utf8')).length;
+    if (index.bytes[id] !== n) throw new Error('index.json gives ' + id + '.tvfs as ' + index.bytes[id] + ' bytes, not ' + n);
+  }
+  const A = await readFile(join(ROOT, 'gallery/animated.html'), 'utf8');
+  const ids = [...A.matchAll(/^\s+id: '([a-z0-9-]+)', name:/gm)].map(m => m[1]).sort();
+  if (ids.join() !== files.join()) throw new Error('player/examples/ is not the animated page\'s examples: run `npm run examples`');
+  // trails: the orbit's ribbon and the fish's echoes draw more than the shape alone
+  const tp = await browser.newPage();
+  tp.on('pageerror', e => failures.push(`[played: trails] ${e.message}`));
+  await tp.goto(new URL('player/player.html', base).href, { waitUntil: 'load' });
+  for (const id of ['orbit', 'fish']) {
+    const d = JSON.parse(await readFile(join(dir, id + '.tvfs'), 'utf8'));
+    const [withT, without] = await tp.evaluate(d => [true, false].map(on => {
+      const s = JSON.parse(JSON.stringify(d));
+      if (!on) { s.trail = null; for (const m of s.morphs) m.own.trail = { kind: '', len: 0.5 }; }
+      const c = document.createElement('canvas'); c.width = 400; c.height = 300;
+      const x = c.getContext('2d');
+      TVFPlayer.draw(x, TVFPlayer.load(s), 0.4, 400, 300);
+      const p = x.getImageData(0, 0, 400, 300).data; let n = 0;
+      for (let i = 3; i < p.length; i += 4) if (p[i] > 8) n++;
+      return n;
+    }), d);
+    if (!(withT > without * 1.3)) throw new Error(id + ': its trail drew ' + withT + ' pixels against ' + without + ' without it');
+  }
+  await tp.close();
+  // the page
+  const gp = await browser.newPage({ viewport: { width: 1300, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[played] ${e.message}`));
+  await gp.route(/fonts\.g/, r => r.abort());
+  await gp.goto(new URL('gallery/played.html', base).href, { waitUntil: 'load' });
+  await gp.waitForFunction(() => window.__played && window.__played.ids.length > 0, null, { timeout: 20000 });
+  const n = await gp.evaluate(() => window.__played.ids.length);
+  if (n !== files.length) throw new Error(n + ' tiles for ' + files.length + ' scenes');
+  // each tile brought into view and held there until it has started (one scrolled past within a frame is never seen)
+  await gp.evaluate(async () => {
+    for (const id of window.__played.ids) {
+      const t = document.getElementById(id);
+      t.scrollIntoView();
+      for (let k = 0; k < 100 && !window.__played.ctl(id); k++) await new Promise(r => setTimeout(r, 30));
+    }
+  });
+  await gp.waitForFunction(() => window.__played.ready().length + window.__played.failed().length === window.__played.ids.length, null, { timeout: 60000 });
+  const st = await gp.evaluate(() => ({ failed: window.__played.failed(), playing: window.__played.playing(), first: window.__played.ids[0],
+    blank: window.__played.ids.filter(id => { const c = document.getElementById(id).querySelector('canvas'), x = c.getContext('2d');
+      const p = x.getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < p.length; i += 4) if (p[i] > 8) return false; return true; }) }));
+  if (st.failed.length) throw new Error('could not play ' + st.failed.join(', '));
+  if (st.blank.length) throw new Error('drew nothing for ' + st.blank.join(', '));
+  if (st.playing.includes(st.first) || st.playing.length > 12) throw new Error('tiles out of view keep playing: ' + st.playing.join(', '));
+  // scrub: the wide panel takes a scene
+  await gp.click('#orbit .mine');
+  await gp.waitForFunction(() => window.__played.yours() && window.__played.yours().scene, null, { timeout: 10000 });
+  const embed = await gp.evaluate(() => window.__played.embed('bouncing-ball'));
+  await gp.close();
+  // the embed code, pasted into someone's page: its scripts and scene fetched from GitHub Pages
+  const xp = await browser.newPage({ viewport: { width: 600, height: 400 } });
+  xp.on('pageerror', e => failures.push(`[played: embed code] ${e.message}`));
+  await xp.route('https://reportbase.github.io/draw/**', async r => {
+    const path = new URL(r.request().url()).pathname.replace(/^\/draw\//, '');
+    r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': path.endsWith('.js') ? 'text/javascript' : 'application/json' },
+      body: await readFile(join(ROOT, path)) });
+  });
+  await xp.route('https://someone.example/', r => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><body>' + embed + '</body>' }));
+  await xp.goto('https://someone.example/', { waitUntil: 'load' });
+  await xp.waitForFunction(() => { const c = document.querySelector('canvas'); return c && c._tvfs && c._tvfs.scene; }, null, { timeout: 15000 });
+  await xp.waitForTimeout(300);
+  const lit = await xp.evaluate(() => { const c = document.querySelector('canvas'), p = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let n = 0; for (let i = 3; i < p.length; i += 4) if (p[i] > 8) n++; return { n, w: c.width }; });
+  await xp.close();
+  if (!(lit.w >= 480 && lit.n > 1000)) throw new Error('the embed code drew ' + JSON.stringify(lit));
 });
 
 if (!QUICK) await step('labs.html matches the drawer', async () => {
