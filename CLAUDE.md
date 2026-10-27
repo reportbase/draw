@@ -130,7 +130,24 @@ publishes.
     moved, turned, sized, kept exact: `animCopy`), `svg` (new outlines and motion paths, landed exact where the box
     puts them) and `morphs` go through the scene link's own `applySceneMorphs` (partial: what it leaves out stays),
     its `change` items through `sceneChangeRuns` (by morph: only what is named changes; `end` gives the keys back),
-    and the whole reply is one undo step. `SYS_ANIM` is the prompt: a field added to the scene link belongs in it.
+    and the whole reply is one undo step. "animate it" keeps to the drawing (`strict`: a shape it adds that becomes no
+    key and no path is left out); **make a scene** (MAKE A SCENE, 27 Oct 2026, Tom: "should we have seperate ways to
+    create full scenes from animations", "yes") asks for a whole scene from words in the same vocabulary, its svg opened
+    by `openScene` and its copies and morphs landed by `animApply` in the box the svg was drawn in (`sceneBoxOf`). A
+    reply's svg is read at its own box size (`animBoxSvg`: `parseSvgExact` reads through the CTM of a 10-pixel host,
+    a hundredth of a 1000 box). Requests stream (`apiCall`), or a long answer is cut off at about 100 s (HTTP 524).
+    `ANIM_MORPH_FIELDS` is the morph vocabulary both prompts share (`SYS_ANIM`, `SYS_SCENE`): a field added to the
+    scene link belongs in it.
+    PHYSICAL MOTIONS (27 Oct 2026, Tom: "some animations are rather simple … or more physical, such as a bouncing
+    ball", then "this application is better suited to 1 and 2", intricate rigs like a bird being another
+    application's): `run.motion = {kind, amount, …}` (`morphMotionOk`), computed, not keyed: `bounce` (gravity's
+    parabola, `amount` heights, `squash`), `fall` (dropped `amount` heights, keeping `bounce` of its speed each
+    bounce until it rests), `swing` (a pendulum, `amount` degrees, `pivot`), `spring` (a damped boing `along` y, x,
+    scale or turn). `morphMotionXform` is applied after the path and spin and before a parent (leaves and exact
+    corners, handles and radii alike), measured from the placed pose and the first key's size, the ground where the
+    shape is drawn; undone in `morphUndoCarry`; saved, in the scene link both ways, in the AI vocabulary and the strip
+    (`#mrMotion`). A parent's motion does not carry its followers (only its path and spin do). The gallery's
+    **physical motions** section shows one of each.
     The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
     what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
     in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted
@@ -154,7 +171,7 @@ publishes.
     0°), and keep a corner smooth in every pose where any key has it smooth (SMOOTH WHERE ANY KEY IS SMOOTH).
     The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
     come first, then the **sequences** (a house builds itself, a seed: morphs that play once, in turn, seen from when they
-    play), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
+    play), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
   - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your

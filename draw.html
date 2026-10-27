@@ -4334,6 +4334,9 @@
         <input type="range" id="mrPhase" min="0" max="1000" step="1" title="how far ahead of the clock this morph runs, as a share of a loop">
         <span class="val" id="mrPhaseV">0.00</span>
         <button type="button" id="mrStagger" title="spread the selected morphs' phases evenly round the loop, in their order">stagger</button>
+        <span class="lab">motion</span>
+        <select id="mrMotion" title="PHYSICAL MOTIONS: physics the editor computes for this morph, on top of its keys and its path. bounce: hops off the ground where it is drawn, squashing as it lands. fall: dropped, bouncing lower until it rests. swing: a pendulum from its top. spring: a damped boing at the start of each cycle"><option value="">none</option><option value="bounce">bounce</option><option value="fall">fall</option><option value="swing">swing</option><option value="spring">spring</option></select>
+        <input type="number" id="mrMotionAmt" step="0.1" title="how much: a bounce's or a fall's height in the shape's own heights, a swing's degrees either side, a spring's size">
         <span class="lab">spin</span>
         <input type="number" id="mrSpin" step="0.25" title="turns a loop about its own centre; negative turns the other way. A fraction closes the loop only where the shape's symmetry does">
         <button type="button" id="mrDraw" title="DRAW ITS PATH: press, and the morph plays while you draw a line on the canvas; let go and the line is the path it rides (closed if you end near where you began). Press again, or Escape, to stop without one">draw path</button>
@@ -4480,7 +4483,8 @@
         <!-- ANIMATE IT WITH AI (26 Oct 2026): the words in the box say how the drawing should move; the
                answer is morphs, in the scene link's own terms, to tweak by hand afterwards -->
         <div class="pop-row">
-            <button class="pop-act" id="aiAnimate" title="Claude makes the drawing move as the box says ('the sun rises and the smoke puffs'): it picks the keys, paths, timing and clips of live morphs, adding a moved copy of a shape or a motion path where it needs one. One undo takes it all back; the morph bar, its strip and the timeline tweak it.">animate it</button>
+            <button class="pop-act" id="aiAnimate" title="Claude makes YOUR drawing move as the box says ('the sun rises and the smoke puffs'): it picks the keys, paths, timing and clips of live morphs, adding only moved copies of your shapes and motion paths (anything it adds that moves nothing is left out). One undo takes it all back; the morph bar, its strip and the timeline tweak it. For a new scene from words, use make a scene.">animate it</button>
+            <button class="pop-act" id="aiScene" title="Claude draws AND animates a whole scene from the words in the box ('a harbour at dusk with boats bobbing', 'a clock whose hands turn'): the shapes, the poses and the motion in one answer. It opens as a new scene, asking first when the page holds your drawing; change it, the strip and the timeline tweak it.">make a scene</button>
             <button class="pop-act" id="aiAnimChange" disabled title="Claude changes the animation that is playing as the box says ('slower', 'let the bird lag more', 'the roof comes down later'), keeping everything else, including what you adjusted by hand. One undo takes it back.">change it</button>
         </div>
         <div class="pop-row">
@@ -50960,6 +50964,10 @@
                 morphApplyFx(run, X, Y, tt); // DETAIL EFFECTS
             if (morphPathOf(run) || run.spin)
                 morphApplyPath(run, X, Y, t); // MOTION ALONG A PATH, and the morph's spin
+            const MX = morphMotionXform(run, t); // PHYSICAL MOTIONS
+            if (MX)
+                for (let i = 0; i < N; i++)
+                    [X[i], Y[i]] = MX.at(X[i], Y[i]);
             const PX = morphParentXform(run, t); // ONE MORPH RIDING ANOTHER
             if (PX)
                 for (let i = 0; i < N; i++)
@@ -51089,6 +51097,9 @@
                     sn = Math.sin(-th);
                 steps.push((x, y) => [cs * (x - ax) - sn * (y - ay), sn * (x - ax) + cs * (y - ay)]);
             }
+            const MX = morphMotionXform(run, t); // PHYSICAL MOTIONS, undone before the path is
+            if (MX)
+                steps.push((x, y) => MX.inv(x, y));
             if (morphPathOf(run) || run.spin) {
                 let ctr;
                 if (run.exact)
@@ -52291,6 +52302,19 @@
                     }
                 }
             }
+            const MX = !bare && morphMotionXform(run, t); // PHYSICAL MOTIONS: corners, handles and radii carried
+            if (MX) {
+                const rs = Math.sqrt(Math.abs(MX.det));
+                for (let j = 0; j < n; j++) {
+                    [x[j], y[j]] = MX.at(x[j], y[j]);
+                    r[j] *= rs;
+                    const e = c[j];
+                    if (e) {
+                        [e[0], e[1]] = MX.at(e[0], e[1]);
+                        [e[2], e[3]] = MX.at(e[2], e[3]);
+                    }
+                }
+            }
             const PX = !bare && morphParentXform(run, t); // ONE MORPH RIDING ANOTHER
             if (PX) {
                 for (let j = 0; j < n; j++) {
@@ -52562,6 +52586,160 @@
             if (run.spin)
                 q.turn += TAU * run.spin * t;
             return q;
+        }
+        // ── PHYSICAL MOTIONS (27 Oct 2026, Tom: "some animations are rather simple, just morphing between two shapes.
+        // or more physical, such as a bouncing ball", then "this application is better suited to 1 and 2") ──────────
+        // A morph's keys say what it looks like; run.motion says how it moves, computed rather than keyed, so a ball
+        // falls the way a ball falls without anyone (or any model) having to invent the timing:
+        //   bounce  one hop a cycle along gravity's parabola, `amount` its height in the shape's own heights, squashed
+        //           flat where it meets the ground and stretched along the way it is going (`squash`);
+        //   fall    dropped from `amount` heights up, bouncing lower each time by `bounce` (the share of speed it keeps)
+        //           until it rests, the time of each bounce gravity's own; one fall a cycle (with a clip, once);
+        //   swing   a pendulum, `amount` degrees either side, hung from its top (or `pivot`);
+        //   spring  a damped boing at the start of each cycle along `along` (y, x, scale or turn), `amount` its size.
+        // It acts on the pose after its path and spin, in the page's own up and across (gravity is down the page),
+        // measured from where the pose is placed and from the shape's own size (its first key), and before a parent
+        // carries it. The ground is where the shape was drawn: a ball drawn on the floor bounces off it.
+        const MORPH_MOTIONS = ['bounce', 'fall', 'swing', 'spring'],
+            MORPH_MOTION_PIVOTS = ['top', 'bottom', 'left', 'right', 'centre'],
+            MORPH_MOTION_ALONG = ['y', 'x', 'scale', 'turn'];
+        // a motion as a record holds it: its kind and its numbers, each within reach, or null
+        function morphMotionOk(m) {
+            if (!m || !MORPH_MOTIONS.includes(m.kind))
+                return null;
+            const num = (v, a, b, d) => Number.isFinite(+v) ? Math.max(a, Math.min(b, +v)) : d;
+            const o = { kind: m.kind };
+            if (m.kind === 'bounce') {
+                o.amount = num(m.amount, 0, 20, 1.5);
+                o.squash = num(m.squash, 0, 0.6, 0.25);
+            } else if (m.kind === 'fall') {
+                o.amount = num(m.amount, 0, 40, 3);
+                o.bounce = num(m.bounce, 0, 0.9, 0.5);
+                o.squash = num(m.squash, 0, 0.6, 0.2);
+            } else if (m.kind === 'swing') {
+                o.amount = num(m.amount, 0, 180, 30);
+                o.pivot = MORPH_MOTION_PIVOTS.includes(m.pivot) ? m.pivot : 'top';
+            } else {
+                o.amount = num(m.amount, -2, 2, 0.3);
+                o.along = MORPH_MOTION_ALONG.includes(m.along) ? m.along : 'y';
+                o.bounces = num(m.bounces, 1, 12, 4);
+            }
+            return o;
+        }
+        // the shape's own half-width and half-height, from its first key (kept: the keys change only by editing)
+        function morphMotionSize(run) {
+            const K = run.keys[0];
+            if (run._msize && run._msizeOf === K)
+                return run._msize;
+            const D = run.exact ? exactDenseOf(K) : { x: K.x, y: K.y };
+            let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+            for (let i = 0; i < D.x.length; i++) {
+                x0 = Math.min(x0, D.x[i]);
+                x1 = Math.max(x1, D.x[i]);
+                y0 = Math.min(y0, D.y[i]);
+                y1 = Math.max(y1, D.y[i]);
+            }
+            run._msizeOf = K;
+            return (run._msize = { w: Math.max(1e-9, (x1 - x0) / 2), h: Math.max(1e-9, (y1 - y0) / 2) });
+        }
+        // where a fall is at time s (gravity 1) when dropped from D and keeping e of its speed at each bounce:
+        // its height above the ground and its speed there
+        function morphFallAt(s, D, e) {
+            const t0 = Math.sqrt(2 * D);
+            if (s < t0)
+                return { y: D - s * s / 2, v: s };
+            s -= t0;
+            for (let i = 1, v0 = t0 * e; v0 > 1e-4 * t0 && i < 64; i++, v0 *= e) {
+                const d = 2 * v0;
+                if (s < d)
+                    return { y: v0 * s - s * s / 2, v: Math.abs(v0 - s) };
+                s -= d;
+            }
+            return { y: 0, v: 0 };
+        }
+        // the motion at t as a map of the page: { at(x, y), inv(x, y), det }, or null when the morph has none
+        function morphMotionXform(run, t) {
+            const M = run.motion;
+            if (!M)
+                return null;
+            const u = run.clip ? morphClipP(run, t) : ((t * (run.rate || 1) + (run.phase || 0)) % 1 + 1) % 1;
+            const B = morphBareCentre(run, t),
+                C = (morphPathOf(run) || run.spin) ? morphPlace(run, t, B) : B,
+                Z = morphMotionSize(run),
+                H = 2 * Z.h;
+            let sx = 1, sy = 1, px = C.x, py = C.y, th = 0, rx = C.x, ry = C.y, dx = 0, dy = 0;
+            const ground = C.y - Z.h;
+            if (M.kind === 'bounce') {
+                dy = 4 * M.amount * H * u * (1 - u);
+                const w = 0.08,
+                    near = Math.min(u, 1 - u);
+                if (near < w) { // squashed against the ground, flattest at the moment it lands
+                    const f = M.squash * (1 - near / w);
+                    sy = 1 - f;
+                    sx = 1 + f;
+                } else { // stretched the way it travels, most just after it leaves the ground and just before it lands
+                    const g = 0.5 * M.squash * Math.abs(1 - 2 * u) * Math.min(1, (near - w) / w);
+                    sy = 1 + g;
+                    sx = 1 / (1 + g);
+                }
+                px = C.x;
+                py = ground;
+            } else if (M.kind === 'fall') {
+                const D = M.amount * H,
+                    t0 = Math.sqrt(2 * D),
+                    e = M.bounce,
+                    T = t0 * (1 + 2 * e / Math.max(1e-9, 1 - e)),
+                    q = morphFallAt(u * T * 0.98, D, e),
+                    band = 0.06 * H;
+                dy = q.y;
+                if (q.y < band && q.v > 0) {
+                    const f = M.squash * (q.v / t0) * (1 - q.y / band);
+                    sy = 1 - f;
+                    sx = 1 + f;
+                }
+                px = C.x;
+                py = ground;
+            } else if (M.kind === 'swing') {
+                th = M.amount * Math.PI / 180 * Math.sin(TAU * u);
+                const pv = M.pivot;
+                rx = C.x + (pv === 'left' ? -Z.w : pv === 'right' ? Z.w : 0);
+                ry = C.y + (pv === 'top' ? Z.h : pv === 'bottom' ? -Z.h : 0);
+            } else { // spring
+                const v = Math.exp(-5 * u) * Math.sin(TAU * M.bounces * u),
+                    a = M.amount;
+                if (M.along === 'y')
+                    dy = a * H * v;
+                else if (M.along === 'x')
+                    dx = a * 2 * Z.w * v;
+                else if (M.along === 'scale') {
+                    sx = sy = Math.max(0.05, 1 + a * v);
+                    px = C.x;
+                    py = ground;
+                } else {
+                    th = a * Math.PI / 3 * v;
+                    rx = C.x;
+                    ry = ground;
+                }
+            }
+            const cs = Math.cos(th),
+                sn = Math.sin(th);
+            return {
+                det: sx * sy,
+                at(x, y) {
+                    let X = px + sx * (x - px),
+                        Y = py + sy * (y - py);
+                    const ux = X - rx,
+                        uy = Y - ry;
+                    return [rx + cs * ux - sn * uy + dx, ry + sn * ux + cs * uy + dy];
+                },
+                inv(x, y) {
+                    const ux = x - dx - rx,
+                        uy = y - dy - ry;
+                    const X = rx + cs * ux + sn * uy,
+                        Y = ry - sn * ux + cs * uy;
+                    return [px + (X - px) / sx, py + (Y - py) / sy];
+                }
+            };
         }
         // ── A MORPH THAT PLAYS ONCE (26 Oct 2026, Tom: "proceed with your recommendations": sequencing) ──
         // Everything so far loops: a morph goes round its keys (and its path, and its spin) once or a
@@ -53284,6 +53462,8 @@
             set('mrPhase', Math.round(1000 * (r.phase || 0)));
             $('mrPhaseV').textContent = (r.phase || 0).toFixed(2);
             set('mrSpin', +(r.spin || 0).toFixed(4));
+            set('mrMotion', r.motion ? r.motion.kind : ''); // PHYSICAL MOTIONS
+            set('mrMotionAmt', r.motion ? +(+r.motion.amount).toFixed(3) : '');
             set('mrLaps', r.laps || 1);
             set('mrAt', Math.round(1000 * (r.at || 0)));
             const own = runs.some(q => q.path);
@@ -53946,6 +54126,12 @@
             });
             num('mrRate', (r, v) => r.rate = Math.max(1, Math.min(64, Math.round(v))));
             num('mrSpin', (r, v) => r.spin = v);
+            // PHYSICAL MOTIONS: the kind from the select (its usual size when it is new), the size from the box
+            $('mrMotion').addEventListener('change', e => {
+                const k = e.target.value;
+                morphRunToolApply(r => r.motion = k ? morphMotionOk(Object.assign({}, r.motion && r.motion.kind === k ? r.motion : {}, { kind: k })) : null);
+            });
+            num('mrMotionAmt', (r, v) => { if (r.motion) r.motion = morphMotionOk(Object.assign({}, r.motion, { amount: v })); });
             num('mrLaps', (r, v) => r.laps = Math.max(1, Math.min(64, Math.round(v))));
             $('mrPhase').addEventListener('input', e => morphRunToolApply(r => r.phase = (+e.target.value) / 1000));
             $('mrAt').addEventListener('input', e => morphRunToolApply(r => r.at = (+e.target.value) / 1000));
@@ -75739,6 +75925,12 @@
             // One door to the API for all three features (generate, critique, refine),
             // so the headers, error mapping and key handling can't drift apart.
             async function apiCall(payload) {
+                // STREAMED (26 Oct 2026, Tom: '"animate it" request failed — HTTP 524'). A request that sends
+                // nothing back for about 100 seconds is closed on the way by Cloudflare (HTTP 524), and an
+                // answer to a picture plus a long brief can take longer than that to write. Streamed, the
+                // reply arrives as it is written, so the line is never silent; the pieces are put back
+                // together here into the same shape a plain reply has, and the callers read it as before.
+                // (The 3d studio's describe-it streams through the same gateway for the same reason.)
                 const res = await fetch(GATEWAY + '/v1/messages', {
                     method: 'POST',
                     headers: {
@@ -75747,7 +75939,7 @@
                         authorization: 'Bearer ' + session,
                     },
                     // who you are; the key stays in the Worker
-                    body: JSON.stringify(payload),
+                    body: JSON.stringify(Object.assign({}, payload, { stream: true })),
                 });
                 // The gateway reports the allowance on every reply, so the button can show
                 // what is left without a second round trip.
@@ -75763,8 +75955,8 @@
                     };
                     syncAccount();
                 }
-                const data = await res.json().catch(() => null);
                 if (!res.ok) {
+                    const data = await res.json().catch(() => null);
                     const apiMsg = data && data.error && data.error.message;
                     const type = data && data.error && data.error.type;
                     if (res.status === 401) {
@@ -75778,9 +75970,55 @@
                         throw new Error(apiMsg || 'this gateway will not serve this page');
                     if (res.status === 429)
                         throw new Error('too many requests — wait a moment and try again');
+                    if (res.status === 524 || res.status === 504)
+                        throw new Error('the request timed out on the way (HTTP ' + res.status + ') — try again, or ask for something a little smaller');
+                    if (res.status === 529 || res.status === 503)
+                        throw new Error('Claude is busy right now (HTTP ' + res.status + ') — try again in a minute');
                     throw new Error(apiMsg || ('request failed — HTTP ' + res.status));
                 }
-                return data;
+                if (!/event-stream/.test(res.headers.get('content-type') || ''))
+                    return await res.json(); // a gateway that answered plainly after all
+                const rd = res.body.getReader(),
+                    dec = new TextDecoder();
+                let buf = '',
+                    text = '',
+                    stop = null,
+                    errMsg = null,
+                    last = 0;
+                for (;;) {
+                    const { done, value } = await rd.read();
+                    if (done)
+                        break;
+                    buf += dec.decode(value, { stream: true });
+                    let i;
+                    while ((i = buf.indexOf('\n\n')) >= 0) {
+                        const ev = buf.slice(0, i);
+                        buf = buf.slice(i + 2);
+                        const line = ev.split('\n').find(l => l.startsWith('data:'));
+                        if (!line)
+                            continue;
+                        let d;
+                        try {
+                            d = JSON.parse(line.slice(5));
+                        } catch (_) {
+                            continue;
+                        }
+                        if (d.type === 'content_block_delta' && d.delta && d.delta.type === 'text_delta')
+                            text += d.delta.text;
+                        else if (d.type === 'message_delta' && d.delta && d.delta.stop_reason)
+                            stop = d.delta.stop_reason;
+                        else if (d.type === 'error')
+                            errMsg = (d.error && d.error.message) || 'the reply broke off';
+                    }
+                    const now = performance.now();
+                    if (text && now - last > 400) {
+                        last = now;
+                        setStatus('writing… ' + (text.length / 1024).toFixed(1) + ' kB so far', 'busy');
+                    }
+                }
+                if (errMsg)
+                    throw new Error(/overload/i.test(errMsg) ? 'Claude is busy right now — try again in a minute' : errMsg);
+                return { content: [{ type: 'text', text }], stop_reason: stop };
             }
             const textOf = data => (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
             function svgOf(text) {
@@ -76200,6 +76438,20 @@
             // Either way the whole reply is one undo step.
             const animBtn = $('aiAnimate'),
                 animChangeBtn = $('aiAnimChange');
+            // what a morph can be told, shared by "animate it" and "make a scene" (one vocabulary: the scene link's)
+            const ANIM_MORPH_FIELDS = [
+                'A MORPH blends its keys in order and loops back from the last key to the first, smoothly (a key may repeat: [bud, bloom, bud]). One key is a still that can ride a path, spin or take an effect. Fields:',
+                '- keys: shape numbers. A shape can be a key of one morph only. The first key is where the morph is drawn.',
+                '- path: a shape number to ride (an open line goes along it and back, or "mode":"along" round a closed loop); laps: whole times round per loop; at: where on the path it starts (0–1); turn: true to face along the path.',
+                '- rate: a whole number of times the morph plays per loop (a fast flicker 3, a slow drift 1). phase: 0–1, its offset on the clock (stagger a row: 0, 0.1, 0.2 …).',
+                '- spin: whole turns per loop (negative anticlockwise on screen).',
+                '- motion: physics the editor computes exactly, for a thing that moves as a body (use it instead of keying such motion by hand): {"kind": "bounce", "amount": hop height in the shape\'s own heights (1.5), "squash": 0–0.6 (0.25)} one hop a cycle off the ground where it is drawn, squashed as it lands and stretched in flight; {"kind": "fall", "amount": drop height in its heights (3), "bounce": 0–0.9, the share of speed kept each bounce (0.5)} dropped, bouncing lower until it rests (pair with a clip to fall once); {"kind": "swing", "amount": degrees either side (30), "pivot": "top"|"bottom"|"left"|"right"|"centre"} a pendulum, a sign, a bell; {"kind": "spring", "amount": size (0.3), "along": "y"|"x"|"scale"|"turn", "bounces": 4} a damped boing at the start of each cycle, a jelly, a spring, a plant flicked. rate sets how many a loop.',
+                '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out" or null.',
+                '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), or there until it plays then gone ("out"). Clips one after another make a sequence.',
+                '- trail: {"kind": "echoes" | "ribbon", "len": 0–1}. fx: {"kind": "shimmer" | "grow" | "boil", "amount": 0–1}: a living outline, for flames, water, a heartbeat.',
+                '- lag: 0–0.9, the outline\'s parts arriving one after another (a flag, a jelly). follow: {"kind": "lag" | "spring", "amount": 0–1}, with parent: how loosely it is carried.',
+                '- parent: a MORPH number whose every move and turn carries this one (a moon on its planet, a rider on a horse). look: a morph number it keeps turning to face.',
+            ];
             const SYS_ANIM = [
                 'You animate an existing flat vector drawing in a shape editor whose animation is made of MORPHS. You never draw frames: you say which shapes are the keys of each morph and how it moves, and the editor plays it.',
                 '',
@@ -76218,22 +76470,46 @@
                 '- "copies": a copy of shape `of`, moved by (dx, dy), turned `turn` degrees clockwise and scaled (`scale`, or `sx`/`sy`) about `about` (default: its own centre), optionally refilled. A copy keeps the original\'s exact corners and curves, so it is the RIGHT way to make another pose of a shape: the sun higher, the door swung, the bird with its wing down.',
                 '- "svg": new outlines (<path>, <polygon>, <circle>, <ellipse>, <rect>, <line>, <polyline>; solid fill or stroke colours only; no <text>, no transforms, no gradients) for new things and for MOTION PATHS: an open line, or a closed loop for an orbit. A path shape a morph rides is hidden.',
                 '',
-                'A MORPH blends its keys in order and loops back from the last key to the first, smoothly (a key may repeat: [bud, bloom, bud]). One key is a still that can ride a path, spin or take an effect. Fields:',
-                '- keys: shape numbers. A shape can be a key of one morph only. The first key is where the morph is drawn.',
-                '- path: a shape number to ride (an open line goes along it and back, or "mode":"along" round a closed loop); laps: whole times round per loop; at: where on the path it starts (0–1); turn: true to face along the path.',
-                '- rate: a whole number of times the morph plays per loop (a fast flicker 3, a slow drift 1). phase: 0–1, its offset on the clock (stagger a row: 0, 0.1, 0.2 …).',
-                '- spin: whole turns per loop (negative anticlockwise on screen).',
-                '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out" or null.',
-                '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), or there until it plays then gone ("out"). Clips one after another make a sequence.',
-                '- trail: {"kind": "echoes" | "ribbon", "len": 0–1}. fx: {"kind": "shimmer" | "grow" | "boil", "amount": 0–1}: a living outline, for flames, water, a heartbeat.',
-                '- lag: 0–0.9, the outline\'s parts arriving one after another (a flag, a jelly). follow: {"kind": "lag" | "spring", "amount": 0–1}, with parent: how loosely it is carried.',
-                '- parent: a MORPH number whose every move and turn carries this one (a moon on its planet, a rider on a horse). look: a morph number it keeps turning to face.',
+                ...ANIM_MORPH_FIELDS,
                 '',
                 'MORPHS are numbered: the morphs already live 0 … M−1 as given, then your "morphs" entries in order. "change" (only when morphs are live) changes a live morph: { "morph": k, and any of the fields above except keys }; { "morph": k, "end": true } ends it and gives its keys back as shapes. Change only what the request asks; everything you leave out stays as it is, including what the person has adjusted by hand.',
                 '',
                 'Whole-scene fields: loop (seconds for one loop, 0.5–60), ease ("" | "inout" | "in" | "out", for every morph without its own eases), hold (0–0.9, a pause at each key).',
                 '',
-                'GOOD PRACTICE: move only what the request is about; leave the rest still. Prefer a copy of a shape over redrawing it. Keys blended together should be the same kind of outline (a copy of each other, or with the same number of corners). An orbit is a still on a closed path. Bobbing, swaying and breathing are two keys (a copy moved or turned a little). Keep it simple: a few morphs that read well beat many.',
+                'ANIMATE WHAT IS DRAWN. Do not add scenery, a background, a sky, ground or anything new that the request does not name: the drawing is the person\'s own. Your new shapes are other poses of drawn shapes (copies), motion paths, and only the few new things the request asks for (smoke for "the smoke puffs"). Every new shape must be a key or a path of one of your morphs: one that is not is thrown away.',
+                'GOOD PRACTICE: move only what the request is about; leave the rest still. Prefer a copy of a shape over redrawing it. Keys blended together should be the same kind of outline (a copy of each other, or with the same number of corners). An orbit is a still on a closed path. A bounce, a fall, a swing or a spring is one key and a motion (the physics is computed; do not key it by hand). Bobbing, swaying and breathing are two keys (a copy moved or turned a little). Keep it simple: a few morphs that read well beat many.',
+            ].join('\n');
+            // MAKE A SCENE (27 Oct 2026, Tom: "should we have seperate ways to create full scenes from animations", then
+            // "yes"): words alone, answered with a whole scene, drawn and animated at once, in the scene link's own form
+            // (THE SCENE LINK), so it opens as a gallery example does. "animate it" keeps to the drawing that is there.
+            const SYS_SCENE = [
+                'You draw AND animate a small scene for a shape editor whose animation is made of MORPHS. You never draw frames: you draw the shapes, including every pose a moving thing passes through, and say which shapes are the keys of each morph and how it moves; the editor plays it.',
+                '',
+                'Reply with ONLY one JSON object, no code fences, no commentary:',
+                '{ "name": "a few words", "note": "one short sentence: what you made",',
+                '  "svg": "<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 1000 1000\'>…</svg>",',
+                '  "copies": [ { "of": i, "dx": 0, "dy": 0, "turn": 0, "scale": 1, "sx": 1, "sy": 1, "about": [x, y], "fill": "#rrggbb" } ],',
+                '  "morphs": [ { "keys": [i, j], … } ],',
+                '  "loop": 4, "ease": "inout", "hold": 0 }',
+                'The svg is a string inside the JSON: write its attributes in single quotes.',
+                '',
+                'THE DRAWING (the importer silently drops anything else):',
+                '- Root: <svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 1000 1000\'>; x right, y DOWN.',
+                '- Only path, circle, ellipse, rect, polygon, polyline, line. No text, image, use, defs, style, group transforms, filters, masks or gradients.',
+                '- Plain hex colours in fill and stroke attributes. Opacity only as fill-opacity, and only where something is really see-through.',
+                '- ONE CLOSED OUTLINE PER ELEMENT: each element is one shape, numbered by its order in the svg (0, 1, 2 …). A hole (a ring, a window in a wall) is a second subpath in the same path; never put two separate outlines in one path.',
+                '- Back to front: a full-bleed backdrop first (sky, wall, water), then the middle, then the things in front. Poster art, confident simplified forms, 10 to 60 elements, curves (C, Q) over many tiny segments.',
+                '',
+                'SHAPES are numbered: the svg\'s elements 0 … N−1 in order, then your copies, in order.',
+                '- "copies": a copy of shape `of`, moved by (dx, dy), turned `turn` degrees clockwise and scaled (`scale`, or `sx`/`sy`) about `about` (default: its own centre), optionally refilled. A copy keeps the original\'s exact outline, so it is the RIGHT way to make another pose of a shape: the sun higher, the door swung, the wing down. A pose made by a copy is not drawn in the svg.',
+                '',
+                ...ANIM_MORPH_FIELDS,
+                '',
+                'MORPHS are numbered by their order in "morphs" (for parent and look).',
+                '',
+                'Whole-scene fields: loop (seconds for one loop, 0.5–60), ease ("" | "inout" | "in" | "out", for every morph without its own eases), hold (0–0.9, a pause at each key).',
+                '',
+                'GOOD PRACTICE: the backdrop and everything that stays still are drawn and in no morph. A thing that moves rigidly is one shape with a path or a spin, or two keys made by a copy (bobbing, swaying, a door). A thing that bounces, falls, swings or springs is one shape with a motion: draw it where it rests (a ball on the ground, a lamp hanging), and the editor computes the physics. A thing that changes shape is two or more keys drawn with the same number of corners, or copies sized and turned. Several things moving alike (birds, waves, lanterns) share one way of moving with their phases staggered. Make the motion read at a glance and loop cleanly; a few morphs that read well beat many.',
             ].join('\n');
             // A shape's outline as it is drawn, without asking a held (exact or imported) shape for its
             // leaves: that question turns it into leaves for good.
@@ -76300,6 +76576,8 @@
                         o.phase = r4(run.phase);
                     if (run.spin)
                         o.spin = run.spin;
+                    if (run.motion)
+                        o.motion = Object.assign({}, run.motion); // PHYSICAL MOTIONS
                     if (run.path) {
                         o.path = true;
                         if ((run.laps || 1) !== 1)
@@ -76391,9 +76669,29 @@
                     dy = -num(c.dy, 0) * k;
                 return [a, b, cc, d, ax + dx - (a * ax + cc * ay), ay + dy - (b * ax + d * ay)];
             }
+            // The reply's svg read in the units of its own box. parseSvgExact lays the file out in a 10-pixel host
+            // and reads each element through its CTM, which includes the viewBox's scale to that host, so a 1000 box
+            // came back a hundredth of its size (a fit to the shapes never noticed; a placement in the box does):
+            // the root is given its viewBox's own width and height first, so that scale is 1.
+            function animBoxSvg(text) {
+                try {
+                    const doc = new DOMParser().parseFromString(text, 'image/svg+xml'),
+                        root = doc.documentElement;
+                    const vb = (root.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+                    const w = vb.length === 4 && vb[2] > 0 ? vb[2] : 1000,
+                        h = vb.length === 4 && vb[3] > 0 ? vb[3] : 1000;
+                    if (vb.length !== 4)
+                        root.setAttribute('viewBox', '0 0 1000 1000');
+                    root.setAttribute('width', String(w));
+                    root.setAttribute('height', String(h));
+                    return new XMLSerializer().serializeToString(root);
+                } catch (_) {
+                    return text;
+                }
+            }
             // a reply's new outlines, landed where the box puts them, exact as an opened SVG is
             function animLandSvg(R, text) {
-                const ex = parseSvgExact(text);
+                const ex = parseSvgExact(animBoxSvg(text));
                 if (!ex)
                     throw new Error('the reply\'s svg could not be read');
                 const k = 2 * R.half / 1000;
@@ -76441,7 +76739,9 @@
             }
             // The reply on the page: copies, then new outlines, then the morphs, then the changes, as one
             // undo step. S and R are the shapes and the box the request described.
-            function animApply(reply, S, R, runs) {
+            // opts.strict ("animate it"): a shape the reply added that became no key and no path is thrown away, so
+            // the reply animates the drawing that is there instead of drawing a scene round it (MAKE A SCENE does that)
+            function animApply(reply, S, R, runs, opts) {
                 if (S.some(sp => state.subpaths.indexOf(sp) < 0) || runs.some(r => morphRuns.indexOf(r) < 0))
                     throw new Error('the drawing changed while the answer was on its way — ask again');
                 const base = history.stack[history.index]; // the page before the reply (an index would move if the history is full)
@@ -76471,6 +76771,15 @@
                         d[key] = reply[key];
                 const made = window.applySceneMorphs(d, all, { partial: true, existing: runs });
                 const ended = window.sceneChangeRuns(reply.change, all, runs.concat(made));
+                let unused = 0;
+                if (opts && opts.strict)
+                    for (const sp of all.slice(S.length)) {
+                        const at = sp ? state.subpaths.indexOf(sp) : -1;
+                        if (at >= 0 && !morphRuns.some(r => r.sp === sp)) {
+                            state.subpaths.splice(at, 1);
+                            unused++;
+                        }
+                    }
                 if (morphRunning() && !morphLive.play) {
                     morphLive.play = true;
                     morphLive.last = 0;
@@ -76489,9 +76798,9 @@
                 morphBarSync();
                 scheduleSave();
                 drawAll();
-                return { added, made: made.filter(Boolean).length, changed: Array.isArray(reply.change) ? reply.change.length - ended : 0, ended };
+                return { added: added - unused, unused, made: made.filter(Boolean).length, changed: Array.isArray(reply.change) ? reply.change.length - ended : 0, ended };
             }
-            window.__animApply = (reply, S, R) => animApply(reply, S || state.subpaths.slice(), R || animRect(), morphRuns.slice()); // for the smoke test
+            window.__animApply = (reply, S, R, opts) => animApply(reply, S || state.subpaths.slice(), R || animRect(), morphRuns.slice(), opts); // for the smoke test
             window.__animSketch = () => {
                 const R = animRect(),
                     S = state.subpaths.slice();
@@ -76552,8 +76861,8 @@
                         }],
                     });
                     const reply = animParse(textOf(data));
-                    const r = animApply(reply, S, R, runs);
-                    setStatus((reply.note ? String(reply.note).slice(0, 200) + ' — ' : '') + r.made + ' new morph' + (r.made === 1 ? '' : 's') + (r.changed ? ', ' + r.changed + ' changed' : '') + (r.ended ? ', ' + r.ended + ' ended' : '') + (r.added ? ', ' + r.added + ' new shape' + (r.added === 1 ? '' : 's') : '') + '. Undo takes it all back; the morph bar, its strip and the timeline tweak it.');
+                    const r = animApply(reply, S, R, runs, { strict: true });
+                    setStatus((reply.note ? String(reply.note).slice(0, 200) + ' — ' : '') + r.made + ' new morph' + (r.made === 1 ? '' : 's') + (r.changed ? ', ' + r.changed + ' changed' : '') + (r.ended ? ', ' + r.ended + ' ended' : '') + (r.added ? ', ' + r.added + ' new shape' + (r.added === 1 ? '' : 's') : '') + (r.unused ? ' (' + r.unused + ' that moved nothing left out)' : '') + '. Undo takes it all back; the morph bar, its strip and the timeline tweak it.');
                     animChangeBtn.disabled = !morphRunning();
                 } catch (e) {
                     const msg = e && e.message ? e.message : 'animation failed';
@@ -76570,6 +76879,108 @@
                 animChangeBtn.addEventListener('click', () => animate(true));
                 btn.addEventListener('click', () => { animChangeBtn.disabled = !morphRunning(); });
             }
+            // MAKE A SCENE: the reply's svg opens as a scene link's drawing does (openScene: exact shapes, asking first
+            // when the page holds your drawing), and its copies and morphs then land through animApply, in the box the
+            // svg was drawn in: worked out from where its shapes landed, so a copy moved 300 up in the reply's box moves
+            // 300 up in it here.
+            function sceneBoxOf(svgText, S) {
+                const ex = parseSvgExact(animBoxSvg(svgText));
+                if (!ex || !ex.shapes.length)
+                    return null;
+                let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+                for (const sh of ex.shapes) {
+                    const D = exactDense(sh.ring.x, sh.ring.y, null, sh.open, sh.ring.smooth, sh.ring.ctrl);
+                    for (let i = 0; i < D.x.length; i++) {
+                        a0 = Math.min(a0, D.x[i]);
+                        a1 = Math.max(a1, D.x[i]);
+                        b0 = Math.min(b0, D.y[i]);
+                        b1 = Math.max(b1, D.y[i]);
+                    }
+                }
+                let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+                for (const sp of S) {
+                    const O = animOutline(sp);
+                    if (O)
+                        for (let i = 0; i < O.x.length; i++) {
+                            x0 = Math.min(x0, O.x[i]);
+                            x1 = Math.max(x1, O.x[i]);
+                            y0 = Math.min(y0, O.y[i]);
+                            y1 = Math.max(y1, O.y[i]);
+                        }
+                }
+                const wide = a1 - a0 >= b1 - b0,
+                    k = wide ? (x1 - x0) / Math.max(1e-9, a1 - a0) : (y1 - y0) / Math.max(1e-9, b1 - b0);
+                if (!(k > 0) || !isFinite(k))
+                    return null;
+                return { cx: (x0 + x1) / 2 - ((a0 + a1) / 2 - 500) * k, cy: (y0 + y1) / 2 + ((b0 + b1) / 2 - 500) * k, half: 500 * k };
+            }
+            async function sceneLand(reply) {
+                if (typeof reply.svg !== 'string' || reply.svg.indexOf('<svg') < 0)
+                    throw new Error('the model returned no drawing — try rephrasing');
+                const name = String(reply.name || promptEl.value.trim() || 'scene').slice(0, 60);
+                const ok = await window.openScene({ v: 1, name, svg: reply.svg, exact: true, morphs: [], play: false });
+                if (!ok)
+                    return null;
+                const S = state.subpaths.slice(),
+                    R = sceneBoxOf(reply.svg, S) || animRect();
+                const d = { copies: reply.copies, morphs: reply.morphs };
+                for (const key of ['loop', 'ease', 'hold'])
+                    if (reply[key] !== undefined)
+                        d[key] = reply[key];
+                const r = animApply(d, S, R, []);
+                state.svgName = 'scene · ' + name;
+                return Object.assign(r, { shapes: S.length, name });
+            }
+            window.__sceneLand = sceneLand; // for the smoke test
+            async function makeScene() {
+                if (busy)
+                    return;
+                if (!ensureKey())
+                    return;
+                const promptText = promptEl.value.trim();
+                if (!promptText) {
+                    setStatus('describe the scene first ("a harbour at dusk with boats bobbing")', 'err');
+                    promptEl.focus();
+                    return;
+                }
+                if (state.editMode || drawMode) {
+                    setStatus('leave the edit or draw mode first', 'err');
+                    return;
+                }
+                const b = sceneBtn,
+                    label = b.textContent;
+                busy = true;
+                b.classList.add('busy');
+                b.textContent = 'drawing…';
+                setStatus('asking ' + modelEl.value + ' for a scene… usually 30–90 seconds', 'busy');
+                try {
+                    const data = await apiCall({
+                        model: modelEl.value,
+                        max_tokens: 16000,
+                        system: SYS_SCENE,
+                        messages: [{ role: 'user', content: 'Make the scene: ' + promptText }],
+                    });
+                    const r = await sceneLand(animParse(textOf(data)));
+                    if (!r) {
+                        setStatus('kept your drawing — the scene was not opened');
+                        return;
+                    }
+                    setStatus('“' + r.name + '”: ' + r.shapes + ' shapes, ' + r.made + ' morph' + (r.made === 1 ? '' : 's') + (r.added ? ', ' + r.added + ' poses copied' : '') + '. One undo stills it; change it, the strip and the timeline tweak it; link shares it.');
+                    animChangeBtn.disabled = !morphRunning();
+                    if (data.stop_reason === 'max_tokens')
+                        flashStatus('the scene ran long — some of it may be missing');
+                } catch (e) {
+                    const msg = e && e.message ? e.message : 'the scene failed';
+                    setStatus(/failed to fetch/i.test(msg) ? 'could not reach the gateway — check the connection' : msg, 'err');
+                } finally {
+                    busy = false;
+                    b.classList.remove('busy');
+                    b.textContent = label;
+                }
+            }
+            const sceneBtn = $('aiScene');
+            if (sceneBtn)
+                sceneBtn.addEventListener('click', makeScene);
 
             // ── Vision: critique ──
             // Claude looks at the RENDERED canvas — not the sketch, not the source — and
@@ -81017,6 +81428,7 @@
                 phase: +r.phase || 0,
                 rate: r.rate || 1,
                 spin: +r.spin || 0,
+                motion: r.motion ? Object.assign({}, r.motion) : null, // PHYSICAL MOTIONS
                 laps: r.laps || 1,
                 start: r.at != null ? +r.at : null,
                 times: r.times ? r.times.map(Number) : null, // KEYS AT CHOSEN TIMES
@@ -81042,6 +81454,7 @@
             run.phase = +o.phase || 0;
             run.rate = Math.max(1, Math.round(+o.rate || 1));
             run.spin = +o.spin || 0;
+            run.motion = morphMotionOk(o.motion); // PHYSICAL MOTIONS
             run.laps = Math.max(1, Math.round(+o.laps || 1));
             run.at = o.start != null ? +o.start : null;
             run.follow = o.follow && MORPH_FOLLOW.includes(o.follow.kind) ? { kind: o.follow.kind, amount: Math.max(0, Math.min(1, +o.follow.amount || 0)) } : null;
@@ -85342,6 +85755,8 @@
                     run.rate = Math.max(1, Math.round(+o.rate || 1));
                 if (has('spin'))
                     run.spin = Number.isFinite(+o.spin) ? +o.spin : 0;
+                if (has('motion'))
+                    run.motion = morphMotionOk(o.motion); // PHYSICAL MOTIONS
                 if (has('laps'))
                     run.laps = Math.max(1, Math.round(+o.laps || 1));
                 if (has('at'))
@@ -85590,6 +86005,8 @@
                         o.phase = r4(run.phase);
                     if (run.spin)
                         o.spin = run.spin;
+                    if (run.motion)
+                        o.motion = Object.assign({}, run.motion); // PHYSICAL MOTIONS
                     if (run.path) {
                         o.path = pathOf.get(run);
                         o.turn = run.path.turn !== false;
@@ -85782,8 +86199,14 @@
                 // places (a maple that turns into a star across the page) stays in the frame the whole loop
                 for (const r of morphRuns)
                     if (!r.clip || !r.clip.show)
-                        for (const K of r.keys)
+                        for (const K of r.keys) {
                             take(K.x, K.y);
+                            // PHYSICAL MOTIONS: a bounce or a fall goes up from where it rests, by its height
+                            if (r.motion && (r.motion.kind === 'bounce' || r.motion.kind === 'fall')) {
+                                const up = r.motion.amount * 2 * morphMotionSize(r).h;
+                                take(K.x, Float64Array.from(K.y, y => y + up));
+                            }
+                        }
                 if (!isFinite(x0))
                     return;
                 const hR = state.hRun || 1,

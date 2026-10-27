@@ -1368,6 +1368,12 @@ current = 'animate with ai';
     const s1 = await S();
     if (r.made !== 2 || r.added !== 2 || s1.n !== 3 || s1.held !== 3 || !s1.play || Math.abs(s1.loop - 3) > 1e-9 || s1.morphs.length !== 2 || s1.morphs[0].keys !== 2 || !s1.morphs[1].path)
       throw new Error('the reply landed as ' + JSON.stringify({ r, n: s1.n, held: s1.held, play: s1.play, loop: s1.loop, morphs: s1.morphs }));
+    // the circle path is 240 across in the 1000 box the drawing was sent in, which spans 200 of the drawing's own
+    // 200 × 200 (its widest, 160, × 1.25): 48 of them, three tenths of the triangle's 160 (read off the scene link,
+    // which writes the keys, the triangle and then the path)
+    const wid = await ap.evaluate(async () => { const svg = (await window.__sceneShare()).d.svg;
+      return [...svg.matchAll(/ d="([^"]*)"/g)].map(m => { const v = (m[1].match(/-?[0-9.]+/g) || []).map(Number), xs = v.filter((_, i) => i % 2 === 0); return Math.max(...xs) - Math.min(...xs); }); });
+    if (wid.length !== 5 || Math.abs(wid[4] / wid[3] - 0.3) > 0.02) throw new Error('the reply\'s circle path landed ' + (wid[4] / wid[3]).toFixed(3) + ' of the triangle\'s width, not 0.3: ' + JSON.stringify(wid));
     const exact = await ap.evaluate(() => window.__box.morphDiag().map(q => q.exact));
     if (!exact.every(Boolean)) throw new Error('the morphs are not exact: ' + exact);
     const r2 = await ap.evaluate(() => window.__animApply({ change: [{ morph: 0, rate: 2, phase: 0.25 }, { morph: 1, end: true }] }));
@@ -1383,6 +1389,129 @@ current = 'animate with ai';
     failures.push(`[animate with ai] ${e.message.split('\n')[0]}`);
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} animate it with ai: a reply lands as morphs, one undo step, and change it keeps the rest`);
+}
+
+/* PHYSICAL MOTIONS (draw.html). A ball drawn resting on the ground, bouncing 2 of its heights: at the start of
+   the loop it sits on the ground squashed (wider than tall by the squash, 1.3 / 0.7), half way it is up, round again,
+   its bottom two of its heights above the ground; a sign hung from its top swings 30° either side, its top staying
+   put; both kept through the scene link, and the ball exact. */
+current = 'motions';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const before = failures.length;
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[motions] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><circle cx="100" cy="260" r="20" fill="#e05a6a"/><rect x="290" y="40" width="20" height="100" fill="#4f8fd6"/><rect x="0" y="280" width="400" height="10" fill="#3a3"/></svg>';
+    const open = async url => {
+      await mp.goto(url, { waitUntil: 'load' });
+      await mp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+      await mp.waitForTimeout(400);
+    };
+    await open(scene({ name: 'motions', svg, play: false, morphs: [{ keys: [0], motion: { kind: 'bounce', amount: 2, squash: 0.3 } }, { keys: [1], motion: { kind: 'swing', amount: 30, pivot: 'top' } }] }));
+    const at = async t => {
+      await mp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+      await mp.waitForTimeout(150);
+      const k = await mp.evaluate(() => window.__animSketch());
+      const box = id => { const m = k.svg.match(new RegExp('id="' + id + '"[^>]* d="M([^"]*)"')); const pts = m[1].replace(/ Z$/, '').split(' L').map(p => p.split(' ').map(Number)); const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; };
+      return { ball: box('s0'), sign: box('s1'), ground: box('s2'), k };
+    };
+    const a = await at(0), b = await at(0.5), c = await at(0.25);
+    const asp = q => (q.x1 - q.x0) / (q.y1 - q.y0);
+    const lift = (b.ground.y0 - b.ball.y1) / (b.ball.y1 - b.ball.y0);
+    if (Math.abs(asp(a.ball) - 1.3 / 0.7) > 0.08 || Math.abs(a.ground.y0 - a.ball.y1) > 1.5 || Math.abs(asp(b.ball) - 1) > 0.04 || Math.abs(lift - 2) > 0.06)
+      throw new Error('the bounce: ' + JSON.stringify({ squash: asp(a.ball), onGround: a.ground.y0 - a.ball.y1, round: asp(b.ball), lift }));
+    const sw = (c.sign.x1 - c.sign.x0) / (a.sign.x1 - a.sign.x0), want = (20 * Math.cos(Math.PI / 6) + 100 * Math.sin(Math.PI / 6)) / 20;
+    if (Math.abs(sw - want) > 0.15 || Math.abs(a.sign.x1 - a.sign.x0 - (b.sign.x1 - b.sign.x0)) > 1)
+      throw new Error('the swing: width ' + sw.toFixed(3) + ' of its rest at a quarter loop, not ' + want.toFixed(3));
+    const d = await mp.evaluate(() => window.__box.morphDiag().map(q => q.exact));
+    if (!d.every(Boolean)) throw new Error('the motions turned the shapes into leaves');
+    // a fall from 3 heights, keeping half its speed: up there at the start, at rest on the ground by the end, and on
+    // the ground (squashed) at the first landing, 1 / (1 + 2·0.5/0.5) = a third of the way through
+    await open(scene({ name: 'fall', svg, play: false, morphs: [{ keys: [0], motion: { kind: 'fall', amount: 3, bounce: 0.5 } }, { keys: [1], motion: { kind: 'spring', amount: 0.3, along: 'y' } }] }));
+    const f0 = await at(0), f1 = await at(1 / (3 * 0.98)), f2 = await at(0.999);
+    const up = q => (q.ground.y0 - q.ball.y1) / (q.ball.x1 - q.ball.x0);
+    if (Math.abs(up(f0) - 3) > 0.06 || up(f1) > 0.05 || asp(f1.ball) < 1.05 || up(f2) > 0.02)
+      throw new Error('the fall: ' + JSON.stringify({ start: up(f0), landing: up(f1), squash: asp(f1.ball), end: up(f2) }));
+    // a spring along y starts and ends where it was drawn
+    if (Math.abs(f0.sign.y0 - (await at(0.999)).sign.y0) > 1.5) throw new Error('the spring does not come back to rest');
+    const link = await mp.evaluate(async () => (await window.__sceneShare()).link);
+    const m0 = f0.k.morphs.map(o => o.motion);
+    await open(link);
+    const m1 = (await mp.evaluate(() => window.__animSketch())).morphs.map(o => o.motion);
+    if (JSON.stringify(m0) !== JSON.stringify(m1) || !m0[0] || m0[0].kind !== 'fall' || m0[1].kind !== 'spring') throw new Error('the motions through the link: ' + JSON.stringify([m0, m1]));
+    await mp.close();
+  } catch (e){
+    failures.push(`[motions] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} physical motions: a bounce squashes on the ground and lifts two heights, a swing turns about its top`);
+}
+
+/* ANIMATE IT, END TO END, STREAMED (draw.html). The gateway is answered here with a reply streamed as the
+   API streams it (server-sent events, the text in pieces), the way a real one arrives since a silent minute
+   and a half closed the request with HTTP 524: the prompt typed, "animate it" pressed, and the morph lands.
+   What was sent is checked too: streamed, the drawing as a picture and as its numbered shapes. */
+current = 'animate streamed';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => failures.push(`[animate streamed] ${e.message}`));
+  await sp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  let sent = null,
+    reply = JSON.stringify({ note: 'the sun rises', copies: [{ of: 0, dy: -300 }], morphs: [{ keys: [0, 3] }], loop: 3 });
+  await sp.route('https://login.tangent.workers.dev/auth/me', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { email: 'test@example.com' }, quota: { remaining: 9, limit: 10 } }) }));
+  await sp.route('https://login.tangent.workers.dev/v1/messages', r => {
+    sent = JSON.parse(r.request().postData() || '{}');
+    const pieces = reply.match(/.{1,40}/g);
+    const ev = (t, d) => 'event: ' + t + '\ndata: ' + JSON.stringify(d) + '\n\n';
+    const body = ev('message_start', { type: 'message_start', message: {} })
+      + pieces.map(p => ev('content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: p } })).join('')
+      + ev('message_delta', { type: 'message_delta', delta: { stop_reason: 'end_turn' } }) + ev('message_stop', { type: 'message_stop' });
+    r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream', 'access-control-allow-origin': '*', 'x-gateway-quota-remaining': '8', 'x-gateway-quota-limit': '10' }, body });
+  });
+  try {
+    await sp.addInitScript(() => { try { localStorage.setItem('tangent.login.v1', 'test-session'); } catch (_) {} });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="60" cy="140" r="20" fill="#f5c542"/><rect x="120" y="120" width="30" height="30" fill="#4287f5"/><polygon points="20,190 180,190 100,170" fill="#3a3"/></svg>';
+    await sp.goto(scene({ name: 'streamed', svg, morphs: [] }), { waitUntil: 'load' });
+    await sp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 });
+    await sp.click('#bAi'); await sp.waitForTimeout(200);
+    await sp.fill('#aiPrompt', 'the sun rises');
+    await sp.click('#aiAnimate');
+    await sp.waitForFunction(() => { const s = window.__animSketch(); return s && s.morphs.length === 1; }, null, { timeout: 15000 });
+    const s = await sp.evaluate(() => window.__animSketch());
+    const status = await sp.$eval('#aiStatus', e => e.textContent);
+    if (!sent || sent.stream !== true || sent.system.indexOf('MORPHS') < 0 || !sent.messages[0].content.some(b => b.type === 'image') || !sent.messages[0].content.some(b => b.type === 'text' && b.text.indexOf('id="s0"') >= 0))
+      throw new Error('the request: ' + JSON.stringify(sent).slice(0, 200));
+    if (s.morphs[0].keys !== 2 || s.held !== s.n || !/the sun rises/.test(status) || !(await sp.$eval('#aiAnimChange', b => !b.disabled)))
+      throw new Error('the reply landed as ' + JSON.stringify({ morphs: s.morphs, held: s.held, n: s.n, status }));
+    // "animate it" keeps to the drawing: a shape the reply adds that moves nothing is left out
+    const strict = await sp.evaluate(n => window.__animApply({ svg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><rect x='0' y='0' width='1000' height='1000' fill='#88ccee'/><circle cx='500' cy='500' r='40' fill='#ffffff'/></svg>",
+      morphs: [{ keys: [n + 1], spin: 1 }] }, null, null, { strict: true }), s.n);
+    const s2 = await sp.evaluate(() => window.__animSketch());
+    if (strict.unused !== 1 || s2.n !== s.n + 1) throw new Error('animate it kept a shape that moved nothing: ' + JSON.stringify([strict, s.n, s2.n]));
+    // MAKE A SCENE: words alone, the reply a whole drawing and its motion; it opens as a scene does, and a copy
+    // lands where the reply's own box put it (300 up in a 1000 box is three tenths of the backdrop's height up)
+    reply = JSON.stringify({ name: 'sunrise', note: 'the sun comes up',
+      svg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><rect x='0' y='0' width='1000' height='1000' fill='#1b2440'/><circle cx='300' cy='800' r='60' fill='#ffcc33'/><rect x='0' y='800' width='1000' height='200' fill='#2f5d3a'/><circle cx='800' cy='700' r='30' fill='#ffffff'/></svg>",
+      copies: [{ of: 1, dy: -300 }, { of: 3, dy: -300 }], morphs: [{ keys: [1, 4] }], loop: 5 });
+    await sp.fill('#aiPrompt', 'a sunrise');
+    await sp.click('#aiScene');
+    await sp.waitForFunction(() => /sunrise/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
+    const sc = await sp.evaluate(() => window.__animSketch());
+    if (sent.system.indexOf('ONE CLOSED OUTLINE PER ELEMENT') < 0 || sc.morphs.length !== 1 || sc.morphs[0].keys !== 2 || sc.held !== sc.n || Math.abs(sc.loop - 5) > 1e-9)
+      throw new Error('the scene landed as ' + JSON.stringify({ morphs: sc.morphs, n: sc.n, held: sc.held, loop: sc.loop }));
+    const box = id => { const m = sc.svg.match(new RegExp('id="' + id + '"[^>]* d="M([^"]*)"')); const pts = m[1].replace(/ Z$/, '').split(' L').map(p => p.split(' ').map(Number)); const ys = pts.map(p => p[1]); return [Math.min(...ys), Math.max(...ys)]; };
+    const back = box('s0'), moon = box('s3'), moonUp = box('s4'), H = back[1] - back[0], rise = (moon[0] - moonUp[0]) / H;
+    if (Math.abs(rise - 0.3) > 0.01) throw new Error('a copy 300 up in the reply\'s box landed ' + rise.toFixed(3) + ' of the backdrop up, not 0.3 ');
+    await sp.close();
+  } catch (e){
+    failures.push(`[animate streamed] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} animate it, end to end, with the reply streamed`);
 }
 
 /* THE SCENE LINK, WRITTEN BY THE EDITOR (draw.html). A scene with a still riding a path round a parent that

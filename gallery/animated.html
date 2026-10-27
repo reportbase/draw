@@ -40,6 +40,7 @@
   <div class="spacer"></div>
   <a class="jump" href="#showpieces">showpieces</a>
   <a class="jump" href="#sequences">sequences</a>
+  <a class="jump" href="#physics">physical motions</a>
   <a class="jump" href="#corners">corners kept</a>
   <a class="jump" href="#paths">paths and trails</a>
   <a class="jump" href="#effects">detail effects</a>
@@ -1717,6 +1718,37 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
+// placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
+{
+  const room = (w, h, floor) => rectP(0, 0, w, h, '#eef1f6') + rectP(0, floor, w, h, '#c9b79c');
+  SHOWPIECES.push({
+    id: 'bouncing-ball', name: 'a bouncing ball', section: 'physics', tags: ['bounce', 'squash', 'motion'],
+    note: 'One ball and a bounce: it rises and falls along gravity\'s parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.',
+    svg: svg(400, 300, room(400, 300, 250) + circ4(200, 226, 24, '#e05a6a')),
+    scene: { loop: 1.1, morphs: [{ keys: [2], motion: { kind: 'bounce', amount: 3, squash: 0.3 } }] }
+  });
+  SHOWPIECES.push({
+    id: 'dropped', name: 'rubber and clay', section: 'physics', tags: ['fall', 'restitution', 'motion'],
+    note: 'Two balls dropped from the same height: the rubber one keeps three quarters of its speed at each bounce and the clay one a third, so the clay settles while the rubber is still bouncing. Each bounce takes as long as gravity says.',
+    svg: svg(400, 300, room(400, 300, 260) + circ4(130, 240, 20, '#4f8fd6') + circ4(270, 240, 20, '#b07a4a')),
+    scene: { loop: 3.2, morphs: [{ keys: [2], motion: { kind: 'fall', amount: 4.5, bounce: 0.75, squash: 0.25 } }, { keys: [3], motion: { kind: 'fall', amount: 4.5, bounce: 0.33, squash: 0.35 } }] }
+  });
+  const lantern = [[196, 40], [204, 40], [204, 92], [222, 100], [228, 150], [214, 166], [186, 166], [172, 150], [178, 100], [196, 92]];
+  SHOWPIECES.push({
+    id: 'lantern', name: 'a hanging lantern', section: 'physics', tags: ['swing', 'pendulum', 'motion'],
+    note: 'A lantern on its cord swings from the top of the cord like a pendulum, fastest at the bottom of its swing and pausing at each end.',
+    svg: svg(400, 240, rectP(0, 0, 400, 240, '#1f2540') + rectP(120, 30, 280, 40, '#5a4a3a') + polyOf(lantern, '#ffcc55')),
+    scene: { loop: 2.4, morphs: [{ keys: [2], motion: { kind: 'swing', amount: 25, pivot: 'top' } }] }
+  });
+  const dome = [[150, 220], [150, 170], [165, 120], [200, 100], [235, 120], [250, 170], [250, 220]];
+  SHOWPIECES.push({
+    id: 'jelly', name: 'a jelly', section: 'physics', tags: ['spring', 'damped', 'motion'],
+    note: 'A jelly on its plate, tapped once a loop: it wobbles in and out from its base, each wobble smaller than the last, and comes to rest before the next tap.',
+    svg: svg(400, 260, rectP(0, 0, 400, 260, '#f6efe1') + rectP(110, 220, 290, 230, '#d8dde6') + smooth(dome, '#e0507a')),
+    scene: { loop: 1.8, morphs: [{ keys: [2], motion: { kind: 'spring', amount: 0.3, along: 'scale', bounces: 5 } }] }
+  });
+}
 EXAMPLES.push(...SHOWPIECES);
 
 const SECTIONS = [
@@ -1724,6 +1756,8 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
+  { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly'],
+    note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing and a spring, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; nothing else is set by hand.' },
   { id: 'corners', title: 'first steps: corners kept', ids: ['square-star', 'shape-loop', 'heartbeat'],
     note: 'Exact shapes morph as exact shapes: their corners, radii and curve edges blended, so a sharp corner stays sharp the whole way. A key with fewer corners is given more on its edges, which draws it the same.' },
   { id: 'paths', title: 'first steps: paths and trails', ids: ['orbit', 'pendulum', 'fish', 'procession'],
