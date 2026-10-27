@@ -1300,6 +1300,18 @@ const EXAMPLES = [
     scene: { morphs: [[0, 1, 2]], ease: 'inout', hold: 0.15, loop: 1.4 }
   },
   {
+    id: 'snap', name: 'anticipate, overshoot, elastic', tags: ['eases', 'cartoon', '2 keys'],
+    note: 'The same square sliding right and back, three ways. The top one draws back before it goes, the middle one goes past where it stops and settles back, and the bottom one goes past and rings to rest. Each is two keys (the second used twice) and an ease on each stretch; nothing else is set.',
+    svg: svg(360, 210, [30, 100, 170].map((y, i) => `<rect x="30" y="${y}" width="40" height="40" fill="${['#e05a6a', '#e0a33a', '#4f8fd6'][i]}"/><rect x="270" y="${y}" width="40" height="40" fill="${['#e05a6a', '#e0a33a', '#4f8fd6'][i]}"/>`).join('')),
+    scene: { loop: 3, morphs: ['anticipate', 'overshoot', 'elastic'].map((e, i) => ({ keys: [2 * i, 2 * i + 1, 2 * i], times: [0, 0.3, 0.6], eases: [e, e, null] })) }
+  },
+  {
+    id: 'boing', name: 'boing', tags: ['elastic', 'overshoot', 'in place'],
+    note: 'A star grows with an elastic ease, ringing past its size and settling, then shrinks back with an overshoot, dipping below its small size before it rests.',
+    svg: svg(300, 160, star(80, 80, 5, 24, 10, '#f2c14e') + star(220, 80, 5, 66, 28, '#f2c14e')),
+    scene: { loop: 2.4, morphs: [{ keys: [0, 1, 0], times: [0, 0.15, 0.6], eases: ['elastic', 'overshoot', null], inPlace: false }] }
+  },
+  {
     id: 'orbit', name: 'orbit', tags: ['path', 'turn', 'ribbon'],
     note: 'A star rides a circle once a loop, turning with it, and leaves a ribbon behind. The circle is the path: it leaves the drawing while it is one and shows as a dashed guide.',
     svg: svg(240, 240, star(120, 30, 5, 22, 10, '#f2c14e') + `<circle cx="120" cy="120" r="90" fill="none" stroke="#8b95ab" stroke-width="2"/>`),
@@ -1764,10 +1776,10 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
   const blade = x => [[x - 3, 220], [x + 3, 220], [x + 5, 184], [x, 170], [x - 2, 186]];
   SHOWPIECES.push({
     id: 'wind', name: 'a tree in the wind', section: 'physics', tags: ['sway', 'shear', 'phase'],
-    note: 'A tree and a few blades of grass bend from their roots in the wind, the foot still and the top moving most, a slow push with a quicker flutter on it; the grass bends further and a little later, blade by blade.',
+    note: 'A tree and a few blades of grass bend from their roots in the wind, the foot still and the top moving most, a slow push with a quicker flutter on it; the grass bends further and a little later, blade by blade. The scene\'s wind, blowing to the right, leans them all its way.',
     svg: svg(400, 260, rectP(0, 0, 400, 260, '#dbeef7') + rectP(0, 220, 400, 260, '#7fae5a') + smooth(tree, '#3f8a4a') +
       [70, 100, 300, 330, 360].map(x => polyOf(blade(x), '#4f9a3a')).join('')),
-    scene: { loop: 3, morphs: [{ keys: [2], motion: { kind: 'sway', amount: 6 } },
+    scene: { loop: 3, wind: 0.4, morphs: [{ keys: [2], motion: { kind: 'sway', amount: 6 } },
       ...[0, 1, 2, 3, 4].map(i => ({ keys: [3 + i], phase: 0.06 * (i + 1), motion: { kind: 'sway', amount: 16 } }))] }
   });
   SHOWPIECES.push({
@@ -1783,6 +1795,35 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     scene: { loop: 1.1, morphs: [{ keys: [2], motion: { kind: 'bounce', amount: 2.5, squash: 0.3 } }, { keys: [3], parent: 0 }] }
   });
 }
+// 13. CHAINS, CONTACT AND EMITTERS (27 Oct 2026, Tom: "2,4,5"): motions one after another, motions set onto
+// another shape (a table, a shelf, a wall), and one shape made many times over.
+{
+  const room = (w, h, floor) => rectP(0, 0, w, h, '#eef1f6') + rectP(0, floor, w, h, '#c9b79c');
+  SHOWPIECES.push({
+    id: 'one-after', name: 'one thing after another', section: 'more', tags: ['chain', 'onto', 'pop'],
+    note: 'One ball and a chain of four motions: it pops in, is thrown onto the table, hops on it, and rolls along it. Each step starts where the last one left it; the throw and the hops know where the table is because they were set onto it.',
+    svg: svg(420, 280, room(420, 280, 250) + rectP(220, 170, 400, 182, '#a8743c') + rectP(236, 182, 246, 250, '#8a5f30') + rectP(374, 182, 384, 250, '#8a5f30') + circ4(60, 232, 18, '#e05a6a')),
+    scene: { loop: 4, morphs: [{ keys: [5], motion: { kind: 'chain', steps: [{ kind: 'pop', amount: 0.7, share: 0.5 }, { kind: 'throw', amount: 2, onto: 2 }, { kind: 'bounce', amount: 1, onto: 2, share: 0.7 }, { kind: 'roll', amount: 1.6 }] } }] }
+  });
+  SHOWPIECES.push({
+    id: 'onto', name: 'onto the table', section: 'more', tags: ['onto', 'fall', 'roll'],
+    note: 'Set onto other shapes instead of by numbers: a box drops onto the shelf and settles, a ball rolls up to the wall and back, an apple is tossed into the bowl. Move the shelf, press onto again, and the motion follows.',
+    svg: svg(420, 260, room(420, 260, 230) + rectP(40, 120, 170, 132, '#a8743c') + rectP(390, 120, 404, 230, '#5a6070') + polyOf([[250, 200], [330, 200], [318, 230], [262, 230]], '#7a5a9a') + rectP(80, 24, 120, 60, '#d4a052') + circ4(240, 212, 18, '#4f8fd6') + circ4(60, 212, 14, '#e05a6a')),
+    scene: { loop: 3, morphs: [{ keys: [5], motion: { kind: 'fall', bounce: 0.35, onto: 2 } }, { keys: [6], motion: { kind: 'roll', onto: 3 } }, { keys: [7], motion: { kind: 'throw', amount: 2.5, onto: 4 } }] }
+  });
+  SHOWPIECES.push({
+    id: 'snow', name: 'snow', section: 'more', tags: ['emit', 'drift', '60 flakes'],
+    note: 'One flake, drifting down with a wobble, and emit: sixty of it, scattered across the sky, each a little bigger or smaller, each wobbling its own amount and starting at its own moment. Every flake grows in at the top and fades out at the bottom, so the loop has no seam, and a light wind carries them all a little to the right.',
+    svg: svg(420, 280, rectP(0, 0, 420, 280, '#1f2a44') + rectP(0, 250, 420, 280, '#e8eef6') + circ4(210, 16, 4, '#ffffff')),
+    scene: { loop: 6, wind: 0.3, morphs: [{ keys: [2], motion: { kind: 'drift', to: [0, -28], amount: 0.6 }, emit: { count: 60, spread: [50, 3], vary: 0.6, seed: 11 } }] }
+  });
+  SHOWPIECES.push({
+    id: 'confetti', name: 'confetti', section: 'more', tags: ['emit', 'drift', 'spin'],
+    note: 'Three pieces of confetti, each emitted twenty times: drifting down and sideways, tumbling, each copy turned and sized a little differently, with its own phase.',
+    svg: svg(420, 280, rectP(0, 0, 420, 280, '#f6f2ea') + rectP(120, 10, 132, 16, '#e05a6a') + rectP(200, 10, 212, 16, '#4f8fd6') + rectP(280, 10, 292, 16, '#f2c14e')),
+    scene: { loop: 4, morphs: [1, 2, 3].map((k, i) => ({ keys: [k], spin: [2, -3, 3][i], motion: { kind: 'drift', to: [[-6, 6, 2][i], -30], amount: 1.2 }, emit: { count: 20, spread: [16, 2], vary: 0.7, seed: 3 + i } })) }
+  });
+}
 EXAMPLES.push(...SHOWPIECES);
 
 const SECTIONS = [
@@ -1792,8 +1833,12 @@ const SECTIONS = [
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
+  { id: 'more', title: 'chains, contact and emitters', ids: ['one-after', 'onto', 'snow', 'confetti'],
+    note: 'Motions one after another (a chain, each step from where the last ended), motions set onto other shapes (a table, a shelf, a wall), and one shape made many times over with its own phase and a little variation (emit), which is how rain, snow and confetti are drawn: one drop, one flake, one scrap.' },
   { id: 'corners', title: 'first steps: corners kept', ids: ['square-star', 'shape-loop', 'heartbeat'],
     note: 'Exact shapes morph as exact shapes: their corners, radii and curve edges blended, so a sharp corner stays sharp the whole way. A key with fewer corners is given more on its edges, which draws it the same.' },
+  { id: 'feel', title: 'first steps: anticipation and overshoot', ids: ['snap', 'boing'],
+    note: 'Three eases that leave the keys on the way, the cartoon\'s own: anticipate draws back before it goes, overshoot goes past and settles back, elastic goes past and rings to rest. Each still arrives exactly on its key, so a plain two-key morph gets weight and snap with nothing else changed.' },
   { id: 'paths', title: 'first steps: paths and trails', ids: ['orbit', 'pendulum', 'fish', 'procession'],
     note: 'A line or a curve in the drawing becomes a path: every live shape rides it once a loop at an even speed, turning with it if asked, and leaves echoes or a ribbon behind. The path itself leaves the drawing while it is one.' },
   { id: 'effects', title: 'first steps: detail effects', ids: ['shimmer', 'grow', 'boil', 'lag'],

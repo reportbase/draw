@@ -96,7 +96,7 @@ publishes.
     lag, inPlace, parent, follow, look, times, eases}` (`parent`: the index of another entry, whose every move and turn carries this one, measured
     from where the parent was drawn: ONE MORPH RIDING ANOTHER; `follow: {kind: 'lag' | 'spring', amount}` how loosely, and
     `look` an entry it keeps turning to face, from the way it faces at the link's `t`: FOLLOWING LOOSELY, AND FACING; `times` a time per key on the morph's clock, `eases` an
-    ease per stretch between keys, 'linear', 'inout', 'in', 'out' or null for the bar's: KEYS AT CHOSEN TIMES): what a morph has of its own (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL in `draw.html`, 25 Oct
+    ease per stretch between keys, 'linear', 'inout', 'in', 'out', 'anticipate', 'overshoot', 'elastic' or null for the bar's: KEYS AT CHOSEN TIMES): what a morph has of its own (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL in `draw.html`, 25 Oct
     2026, Tom: "can you do some top quality animation examples, to really push the framework?"): its clock at a whole
     `rate` and a `phase`, its own path ridden `laps` times from `at`, `spin` turns a loop, its trail and effect; a
     shape may be a key more than once; the keys' fills blend in linear light (`run.cols`). All of it saves with the
@@ -152,7 +152,49 @@ publishes.
     shape is drawn; undone in `morphUndoCarry`; saved, in the scene link both ways, in the AI vocabulary and the strip
     (`#mrMotion`). A parent's motion carries its followers too (`morphParentRigid` puts the parent's
     `morphMotionXform` after its rigid map: a hat on a bouncing ball bounces and squashes with it). The gallery's
-    **physical motions** section shows one of each, and a hat riding a ball.
+    **physical motions** section shows one of each, and a hat riding a ball. HANDLES FOR A MOTION (27 Oct 2026, Tom:
+    "1,3"): while the strip is up, each selected morph's motion is drawn from its first key with gold handles to drag
+    (a throw's landing point and arc top, the arc dashed; a bounce's or fall's height; a swing's pivot, snapping to
+    the five places, and its widest swing; a roll's travel when it has no path; a sway's lean), taken before the
+    editor sees the pointer (a capturing listener, like draw path), written through `morphMotionOk`, one undo step a
+    drag (`morphMotionHandles`, `morphMotionDragTo`; hook `__box.motionHandles()`). ANTICIPATION AND OVERSHOOT: the
+    eases (the bar's and each stretch's) also take `anticipate`, `overshoot` and `elastic`, which leave [0, 1] and
+    land exactly on 1; two keys extrapolate through their weights, three or more along the stretch's line
+    (`morphWeightsOf`, which every pose, colour and centre now uses in place of `morphWeights(morphWarp(…))`); an
+    exact pose's radii are kept at 0 or more; `embedFit` frames a sixth past the keys. The strip's stretch buttons
+    cycle the eight (shift-click goes back). The gallery's **first steps: anticipation and overshoot** shows them.
+    Then (Tom: "2,4,5") MOTIONS IN A ROW: `{kind: 'chain', steps: [motion…]}` (each step with `share`, its part of the
+    cycle), each step from where the last left the shape (`morphMotionMap` gives one step and what it leaves, `dx`,
+    `dy`, `th`; `morphMotionXform` composes; in a chain a roll goes one way and a drift does not fade). CONTACT WITH
+    OTHER SHAPES: fall and bounce take `ground` (their floor in their heights from where they are drawn), and fall,
+    bounce, throw and roll take `onto` (a shape's number in a scene link or AI reply, or the strip's **onto** with one
+    other shape selected), worked into numbers once from the two boxes (`morphMotionOnto`, `morphShapeBox`; a
+    chain's steps from where the ones before leave it), and followed since (CONTACT THAT FOLLOWS, below). EMITTERS: an
+    entry's `emit: {count, spread: [across, up] in its heights, vary, seed}` makes count − 1 seeded copies of its keys
+    (`spCopyXform`, beside the original in the drawing) as ordinary morphs with their own phase and varied numbers
+    (`morphEmitExpand`, in `applySceneMorphs`; a copy's carried distances refitted to the first's height), and
+    `drift` (`to` per cycle, a wobble, grown in and shrunk out at the ends) is the motion for rain, snow and confetti.
+    `embedFit` samples each motion over its cycle. The gallery's **chains, contact and emitters** shows them.
+    THE PHYSICS BY HAND (Tom: "1,2,3,4"): CONTACT THAT FOLLOWS: a run set onto shapes keeps `run.ontoLink = {raw,
+    targets}` (the motion as given, each `onto` a slot in `targets`, the shapes themselves) and works it out again
+    when a target's box changes (`morphOntoRefresh`, from `morphMotionXform`, at most every 150 ms; `morphMotionSet`
+    for a scene link); saved as `own.onto = {raw, at}` by the targets' places among the saved shapes, written into a
+    link as their numbers; a handle or amount set by hand on what the target decides unlinks it (a throw's arc does
+    not). COPIES FROM THE STRIP: **copies** and **scatter** clone the selected runs (`morphEmitRuns`: keys and shape
+    copied under the map, own settings through `morphSaveOwn`/`morphRestoreOwn`, phase and motion varied, parent,
+    facing and contact kept) across the view, one undo step; the scene link's emitter shares `morphRand`,
+    `morphVaryMotion`, `morphEmitMap`. CHAINS IN THE EDITOR: **then…** adds a step (a plain motion becomes a
+    chain), `#mrSteps` shows the steps by share (click one: `run._step`, which the amount box and the handles work
+    on, from where the steps before leave the shape, `morphMotionView`; drag a border for the shares), **× step**
+    takes one out. Opening a scene is one undo history (`resetHistory` at the end of `openScene`).
+    Then (Tom: "1,2,3") THE MOTION'S PATH: a selected morph with a motion shows its centre over a loop (path, spin,
+    motion and parent all in, `morphMotionCentreAt`, `morphMotionTrack`; hook `__box.motionTrack(n)`), dotted, a tick each
+    eighth. CHAINS ON THE TIMELINE: each row has its motion's steps as a band along its foot, on the shared clock
+    (`morphStepEdges`, `morphCycleShared`), and a chain's borders drag there too (`morphSetStepBorder`, which the
+    strip uses as well). SCENE-WIDE GRAVITY AND WIND (`state.morphGravity` 1–4, `state.morphWind` −1–1, the bar's
+    sliders, saved, the scene link's `gravity` and `wind`, the AI vocabulary): gravity has hops, falls and throws
+    over in 1/√g of their cycle and then rest, and swings round(√g) times (lighter than 1 would need more than a
+    loop); wind leans sways and swings its way and carries drifts. The snow and tree tiles have some wind.
     The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
     what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
     in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted
@@ -176,7 +218,7 @@ publishes.
     0°), and keep a corner smooth in every pose where any key has it smooth (SMOOTH WHERE ANY KEY IS SMOOTH).
     The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
     come first, then the **sequences** (a house builds itself, a seed: morphs that play once, in turn, seen from when they
-    play), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
+    play), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), **chains, contact and emitters** (one thing after another, onto the table, snow, confetti), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
   - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your

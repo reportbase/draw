@@ -1520,6 +1520,302 @@ current = 'motions 2';
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} more physical motions: a roll turns by its distance, a sway keeps its foot, a pop grows in, a hat rides a bounce, a throw lands`);
 }
 
+/* ANTICIPATION AND OVERSHOOT, and HANDLES FOR A MOTION (draw.html). A bar morphing right between two keys with
+   'overshoot' goes past the second key and comes back to it exactly; with 'anticipate' it first goes left of the
+   first; three keys with 'overshoot' on the first stretch go past the second along the line from the first (no
+   drift up or down) and are exactly the second at its time. Then a thrown ball selected shows its handles: the
+   landing point dragged lands where it was let go, a bounce's top likewise, a swing's pivot dragged to the bottom
+   swings from there, and undo puts the throw back. */
+current = 'eases and handles';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const before = failures.length;
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[eases and handles] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  try {
+    const open = async url => {
+      await mp.goto(url, { waitUntil: 'load' });
+      await mp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+      await mp.waitForTimeout(400);
+    };
+    const at = async t => {
+      await mp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+      await mp.waitForTimeout(60);
+      // the first morph's corners on the page (y up), their middle
+      const m = await mp.evaluate(() => window.__box.morph()), n = m.leaves.length;
+      return { x: m.leaves.reduce((a, v) => a + v, 0) / n, y: m.leavesY.reduce((a, v) => a + v, 0) / n };
+    };
+    const bars = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="30" y="40" width="40" height="20" fill="#e05a6a"/><rect x="230" y="40" width="40" height="20" fill="#e05a6a"/><rect x="230" y="220" width="40" height="20" fill="#e05a6a"/></svg>';
+    const sweep = async (t0, t1) => { const out = []; for (let i = 0; i <= 30; i++) out.push(await at(t0 + (t1 - t0) * i / 30)); return out; };
+    for (const ease of ['overshoot', 'anticipate']) {
+      await open(scene({ name: ease, svg: bars, play: false, morphs: [{ keys: [0, 1], eases: [ease] }] }));
+      const a = await at(0), b = await at(0.999), S = await sweep(0, 0.999), span = b.x - a.x;
+      const past = Math.max(...S.map(p => p.x)) - b.x, back = a.x - Math.min(...S.map(p => p.x));
+      if (!(span > 0) || Math.abs(b.y - a.y) > 0.5 || (ease === 'overshoot' ? !(past > 0.05 * span) || back > 0.5 : !(back > 0.05 * span) || past > 0.5))
+        throw new Error(ease + ': ' + JSON.stringify({ span, past, back }));
+    }
+    await open(scene({ name: 'three', svg: bars, play: false, morphs: [{ keys: [0, 1, 2], times: [0, 0.4, 0.7], eases: ['overshoot', null, null] }] }));
+    const k0 = await at(0), k1 = await at(0.4), S3 = await sweep(0, 0.4);
+    const past3 = Math.max(...S3.map(p => p.x)) - k1.x, drift = Math.max(...S3.map(p => Math.abs(p.y - k0.y)));
+    if (!(past3 > 0.05 * (k1.x - k0.x)) || drift > 1 || Math.abs(k1.y - k0.y) > 0.5)
+      throw new Error('three keys overshooting: ' + JSON.stringify({ past3, drift, k0, k1 }));
+    // the handles
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><circle cx="80" cy="200" r="20" fill="#e05a6a"/><circle cx="200" cy="200" r="20" fill="#4f8fd6"/><rect x="300" y="60" width="20" height="100" fill="#3a3"/></svg>';
+    await open(scene({ name: 'handles', svg, play: false, morphs: [{ keys: [0], motion: { kind: 'throw', to: [3, 0], amount: 1.5 } }, { keys: [1], motion: { kind: 'bounce', amount: 1 } }, { keys: [2], motion: { kind: 'swing', amount: 20, pivot: 'top' } }] }));
+    await mp.evaluate(() => window.__box.select([0, 1, 2]));
+    await mp.waitForTimeout(300);
+    const H = async () => (await mp.evaluate(() => window.__box.motionHandles()));
+    const find = (h, run, part) => h.find(q => q.run === run).handles.find(q => q.part === part);
+    let h = await H();
+    if (h.length !== 3) throw new Error('handles for ' + h.length + ' morphs, not 3');
+    const drag = async (p, dx, dy) => { await mp.mouse.move(p.x, p.y); await mp.mouse.down(); await mp.mouse.move(p.x + dx / 2, p.y + dy / 2, { steps: 3 }); await mp.mouse.move(p.x + dx, p.y + dy, { steps: 3 }); await mp.mouse.up(); await mp.waitForTimeout(150); };
+    const to0 = find(h, 0, 'to'), toBefore = h[0].motion.to.slice();
+    await drag(to0, 60, -40);
+    h = await H();
+    const to1 = find(h, 0, 'to');
+    if (Math.hypot(to1.x - to0.x - 60, to1.y - to0.y + 40) > 1.5 || !(h[0].motion.to[0] > toBefore[0]) || !(h[0].motion.to[1] > toBefore[1]))
+      throw new Error('the throw\'s landing handle: ' + JSON.stringify({ to0, to1, motion: h[0].motion }));
+    const ht0 = find(h, 1, 'height');
+    await drag(ht0, 0, -50);
+    h = await H();
+    if (Math.abs(find(h, 1, 'height').y - (ht0.y - 50)) > 1.5 || !(h[1].motion.amount > 1)) throw new Error('the bounce\'s height handle: ' + JSON.stringify(h[1]));
+    const pv = find(h, 2, 'pivot'), end = find(h, 2, 'angle'); // the far end of the swing is by the bottom
+    await drag(pv, end.x - pv.x, end.y - pv.y);
+    h = await H();
+    if (h[2].motion.pivot !== 'bottom' || h[2].motion.amount !== 20) throw new Error('the swing\'s pivot handle: ' + JSON.stringify(h[2].motion));
+    // each drag one step: undo once and the pivot is back at the top, twice and the bounce's height too
+    const motions = async () => (await mp.evaluate(() => window.__animSketch())).morphs.map(o => o.motion);
+    await mp.click('#bUndo'); await mp.waitForTimeout(250);
+    let m = await motions();
+    if (m[2].pivot !== 'top' || !(m[1].amount > 1)) throw new Error('one undo after the handles: ' + JSON.stringify(m));
+    await mp.click('#bUndo'); await mp.waitForTimeout(250);
+    m = await motions();
+    if (m[1].amount !== 1 || JSON.stringify(m[0].to) === JSON.stringify(toBefore)) throw new Error('two undos after the handles: ' + JSON.stringify(m));
+    await mp.close();
+  } catch (e){
+    failures.push(`[eases and handles] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} anticipation and overshoot go past their keys and land on them; a motion's handles put it where they are let go, and undo takes them back`);
+}
+
+/* MOTIONS IN A ROW, CONTACT and EMITTERS (draw.html). A chain of a throw (4 heights right) then a roll (2 widths, one
+   way): half way it has landed, at the end it is half as far again and turned by the roll's distance over its
+   radius. A ball drawn above a table and set to fall onto it (by the table's number) ends resting on the table's top;
+   one thrown onto it lands on the table's top at its middle; one rolled onto a block stops touching it. A drop with a
+   drift and emit {count: 10} is ten morphs, each its own phase, the copies in the drawing, and the same scatter when
+   opened again; the link written by the editor gives the chain and the contact back as numbers. */
+current = 'chains, contact, emitters';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const before = failures.length;
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[chains, contact, emitters] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  try {
+    const open = async url => {
+      await mp.goto(url, { waitUntil: 'load' });
+      await mp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+      await mp.waitForTimeout(400);
+    };
+    const setT = async t => { await mp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t); await mp.waitForTimeout(80); };
+    const first = async () => { const m = await mp.evaluate(() => window.__box.morph()), n = m.leaves.length; return { x: m.leaves.reduce((a, v) => a + v, 0) / n, y: m.leavesY.reduce((a, v) => a + v, 0) / n, turn: m.runs[0].turn }; };
+    const boxes = async () => {
+      const k = await mp.evaluate(() => window.__animSketch());
+      const box = id => { const m = k.svg.match(new RegExp('id="' + id + '"[^>]* d="M([^"]*)"')); if (!m) return null; const pts = m[1].replace(/ Z$/, '').split(' L').map(p => p.split(' ').map(Number)); const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; };
+      return { box, k };
+    };
+    // a chain: thrown, then rolled one way
+    const bar = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="40" y="200" width="40" height="40" fill="#e05a6a"/></svg>';
+    await open(scene({ name: 'chain', svg: bar, play: false, morphs: [{ keys: [0], motion: { kind: 'chain', steps: [{ kind: 'throw', to: [4, 0], amount: 1.5 }, { kind: 'roll', amount: 2 }] } }] }));
+    await setT(0); const c0 = await first(); await setT(0.5); const c1 = await first(); await setT(0.999); const c2 = await first();
+    const ratio = (c2.x - c0.x) / (c1.x - c0.x);
+    let dturn = (c2.turn - c0.turn) % (2 * Math.PI); const want = (-4) % (2 * Math.PI);
+    const dd = Math.abs(((dturn - want) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
+    if (Math.abs(ratio - 1.5) > 0.02 || Math.abs(c1.y - c0.y) > 1e-6 * Math.abs(c1.x - c0.x) + 1e-9 || dd > 0.02)
+      throw new Error('the chain: ' + JSON.stringify({ ratio, dy: c1.y - c0.y, dturn, dd }));
+    // contact: onto a table, a block
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="200" y="200" width="160" height="20" fill="#a8743c"/><circle cx="280" cy="80" r="20" fill="#e05a6a"/><circle cx="60" cy="180" r="20" fill="#4f8fd6"/><rect x="40" y="260" width="40" height="40" fill="#5a7d9a"/><rect x="520" y="230" width="30" height="70" fill="#444"/></svg>';
+    await open(scene({ name: 'contact', svg, play: false, morphs: [{ keys: [1], motion: { kind: 'fall', bounce: 0.4, onto: 0 } }, { keys: [2], motion: { kind: 'throw', amount: 1, onto: 0 } }, { keys: [3], motion: { kind: 'roll', onto: 4 } }] }));
+    await setT(0.999);
+    let { box } = await boxes();
+    const table = box('s0'), ball = box('s1'), thrown = box('s2'), u = (table.x1 - table.x0) / 160;
+    if (Math.abs(ball.y1 - table.y0) > 1.5 * u) throw new Error('the fall onto the table rests ' + ((ball.y1 - table.y0) / u).toFixed(2) + ' off its top');
+    if (Math.abs(thrown.y1 - table.y0) > 1.5 * u || Math.abs((thrown.x0 + thrown.x1) / 2 - (table.x0 + table.x1) / 2) > 1.5 * u)
+      throw new Error('the throw onto the table: ' + JSON.stringify({ thrown, table }));
+    await setT(0.5);
+    ({ box } = await boxes());
+    const rolled = box('s3'), block = box('s4');
+    if (Math.abs(rolled.x1 - block.x0) > 1.5 * u) throw new Error('the roll onto the block stops ' + ((block.x0 - rolled.x1) / u).toFixed(2) + ' short of it');
+    const link = await mp.evaluate(async () => (await window.__sceneShare()).link);
+    const ms = (await mp.evaluate(() => window.__animSketch())).morphs.map(o => o.motion);
+    if (!(ms[0].ground < -1) || ms[0].onto !== undefined || !Array.isArray(ms[1].to)) throw new Error('contact worked into numbers: ' + JSON.stringify(ms));
+    await open(link);
+    const ms2 = (await mp.evaluate(() => window.__animSketch())).morphs.map(o => o.motion);
+    // worked out again on opening from the shapes as the link wrote them (to its rounding): the same to a ten-thousandth
+    const near = (a, b) => typeof a === 'number' ? Math.abs(a - b) <= 1e-3 * Math.max(1, Math.abs(a)) : Array.isArray(a) ? Array.isArray(b) && a.length === b.length && a.every((v, i) => near(v, b[i]))
+      : a && typeof a === 'object' ? b && typeof b === 'object' && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(k => near(a[k], b[k])) : a === b;
+    if (!near(ms, ms2)) throw new Error('contact through the link: ' + JSON.stringify([ms, ms2]));
+    // an emitter
+    const rain = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="290" y="20" width="6" height="16" fill="#4f8fd6"/></svg>';
+    const em = scene({ name: 'rain', svg: rain, play: false, morphs: [{ keys: [0], motion: { kind: 'drift', to: [0, -12], amount: 0.2 }, emit: { count: 10, spread: [30, 2], vary: 0.4, seed: 7 } }] });
+    await open(em);
+    const k1 = await mp.evaluate(() => window.__animSketch()), d1 = await mp.evaluate(() => window.__box.morphDiag());
+    const phases = (await mp.evaluate(() => window.__box.morph())).runs.map(r => r.phase);
+    if (k1.morphs.length !== 10 || d1.filter(q => q.inDrawing >= 0).length !== 10 || new Set(phases.map(p => p.toFixed(4))).size < 9)
+      throw new Error('the emitter: ' + JSON.stringify({ morphs: k1.morphs.length, inDrawing: d1.filter(q => q.inDrawing >= 0).length, phases }));
+    await open(em);
+    const k2 = await mp.evaluate(() => window.__animSketch());
+    if (k1.svg !== k2.svg) throw new Error('the emitter does not scatter the same way twice');
+    await mp.close();
+  } catch (e){
+    failures.push(`[chains, contact, emitters] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a chain plays its steps from where each ended; onto lands on a table and rolls up to a block; an emitter makes ten, the same way twice`);
+}
+
+/* THE PHYSICS BY HAND (draw.html, Tom: "1,2,3,4"). A scene opened is one undo history: nothing to undo straight
+   after. A ball set onto a table follows it: the table dragged lower, the ball lands on its new top, and the link
+   still names the table. The strip's scatter makes copies of the selected morph, all undone in one step. "then…"
+   makes a chain of the fall and a roll, its steps a strip whose border drags their shares and whose second step
+   shows the roll's handle; "× step" takes it out again, leaving the fall still on the table. */
+current = 'physics by hand';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const before = failures.length;
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[physics by hand] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="200" y="200" width="160" height="20" fill="#a8743c"/><circle cx="280" cy="60" r="20" fill="#e05a6a"/></svg>';
+    await mp.goto(scene({ name: 'by hand', svg, play: false, morphs: [{ keys: [1], motion: { kind: 'fall', bounce: 0.4, onto: 0 } }] }), { waitUntil: 'load' });
+    await mp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+    await mp.waitForTimeout(400);
+    if (!(await mp.$eval('#bUndo', b => b.disabled))) throw new Error('something to undo straight after opening a scene');
+    const setT = async t => { await mp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t); await mp.waitForTimeout(250); };
+    const boxes = async () => {
+      const k = await mp.evaluate(() => window.__animSketch());
+      const box = id => { const m = k.svg.match(new RegExp('id="' + id + '"[^>]* d="M([^"]*)"')); const pts = m[1].replace(/ Z$/, '').split(' L').map(p => p.split(' ').map(Number)); const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; };
+      return { table: box('s0'), ball: box('s1') };
+    };
+    await setT(0.999);
+    let b = await boxes();
+    const u = (b.table.x1 - b.table.x0) / 160;
+    if (Math.abs(b.ball.y1 - b.table.y0) > 1.5 * u) throw new Error('the ball does not rest on the table to start with');
+    // drag the table down
+    await mp.evaluate(() => window.__box.select([0]));
+    const R = await mp.evaluate(() => window.__box.rings()[0]);
+    const c = await mp.evaluate(([x, y]) => window.__box.toPx(x, y), [(Math.min(...R.x) + Math.max(...R.x)) / 2, (Math.min(...R.y) + Math.max(...R.y)) / 2]);
+    await mp.mouse.move(c.x, c.y); await mp.mouse.down(); await mp.mouse.move(c.x, c.y + 30, { steps: 4 }); await mp.mouse.move(c.x, c.y + 60, { steps: 4 }); await mp.mouse.up();
+    await mp.waitForTimeout(400);
+    const R2 = (await mp.evaluate(() => window.__box.rings()))[0], moved = Math.max(...R.y) - Math.max(...R2.y); // page units, y up
+    await setT(0.998); await setT(0.999);
+    const b2 = await boxes(); // the sketch frames the drawing as it is now: the ball against the table's top there
+    if (!(moved > 0.1) || Math.abs(b2.ball.y1 - b2.table.y0) > 1.5 * u)
+      throw new Error('the ball did not follow the table: ' + JSON.stringify({ moved, off: (b2.ball.y1 - b2.table.y0) / u }));
+    const d = await mp.evaluate(async () => (await window.__sceneShare()).d);
+    if (!d.morphs[0].motion || d.morphs[0].motion.onto == null) throw new Error('the link forgot the table: ' + JSON.stringify(d.morphs[0].motion));
+    // scatter copies of the ball, undone in one step
+    const n0 = (await mp.evaluate(() => window.__box.morphDiag())).length;
+    await mp.evaluate(() => window.__box.select([1]));
+    await mp.waitForTimeout(300);
+    await mp.fill('#mrCopies', '5');
+    await mp.click('#mrEmit');
+    await mp.waitForTimeout(300);
+    const n1 = (await mp.evaluate(() => window.__box.morphDiag())).length;
+    await mp.click('#bUndo'); await mp.waitForTimeout(300);
+    const n2 = (await mp.evaluate(() => window.__box.morphDiag())).length;
+    if (n1 !== n0 + 4 || n2 !== n0) throw new Error('scatter: ' + JSON.stringify({ n0, n1, n2 }));
+    // a chain made in the strip
+    await mp.evaluate(() => window.__box.select([1]));
+    await mp.waitForTimeout(300);
+    await mp.selectOption('#mrThen', 'roll');
+    await mp.waitForTimeout(300);
+    let m = (await mp.evaluate(() => window.__animSketch())).morphs[0].motion;
+    if (m.kind !== 'chain' || m.steps.length !== 2 || m.steps[0].kind !== 'fall' || m.steps[1].kind !== 'roll') throw new Error('then… gave ' + JSON.stringify(m));
+    const segs = await mp.$$('#mrSteps .mr-seg');
+    if (segs.length !== 2 || await mp.$eval('#mrSteps', e => e.hidden)) throw new Error('the steps strip shows ' + segs.length);
+    const cb = await mp.locator('#mrSteps .mr-cut').boundingBox(), tb = await mp.locator('#mrSteps').boundingBox();
+    await mp.mouse.move(cb.x + cb.width / 2, cb.y + cb.height / 2); await mp.mouse.down();
+    await mp.mouse.move(tb.x + tb.width * 0.25, cb.y + cb.height / 2, { steps: 5 }); await mp.mouse.up();
+    await mp.waitForTimeout(300);
+    m = (await mp.evaluate(() => window.__animSketch())).morphs[0].motion;
+    const ratio = m.steps[0].share / (m.steps[0].share + m.steps[1].share);
+    if (Math.abs(ratio - 0.25) > 0.04) throw new Error('the border dragged to a quarter gives ' + ratio.toFixed(3));
+    await mp.click('#mrSteps .mr-seg[data-i="1"]');
+    await mp.waitForTimeout(300);
+    const hs = await mp.evaluate(() => window.__box.motionHandles());
+    if (!hs[0] || hs[0].handles.map(q => q.part).join() !== 'across') throw new Error('the second step\'s handles: ' + JSON.stringify(hs));
+    await mp.click('#mrStepDel');
+    await mp.waitForTimeout(300);
+    m = (await mp.evaluate(() => window.__animSketch())).morphs[0].motion;
+    if (m.kind !== 'fall' || !(m.ground < 0) || !(await mp.$eval('#mrSteps', e => e.hidden))) throw new Error('× step left ' + JSON.stringify(m));
+    await mp.close();
+  } catch (e){
+    failures.push(`[physics by hand] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a scene opens as one undo history; contact follows a table moved; scatter copies undo in one step; a chain made, reshared and unmade in the strip`);
+}
+
+/* THE MOTION'S PATH, CHAINS ON THE TIMELINE, GRAVITY AND WIND (draw.html, Tom: "1,2,3"). A ball thrown 4 heights
+   right with its arc a height up: its path (the centre over a loop) tops out one height up and ends four across.
+   Gravity 4 has it land half way through the loop and wait there. Wind to the right leans a swaying post right,
+   to the left left. The timeline shows a chain's two steps along its row, and its border dragged to a quarter
+   shares the cycle so. Gravity and wind come back through the link. */
+current = 'path, timeline, weather';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const before = failures.length;
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[path, timeline, weather] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="40" y="200" width="40" height="40" fill="#e05a6a"/><rect x="300" y="100" width="20" height="140" fill="#3a3"/><rect x="450" y="60" width="30" height="30" fill="#4f8fd6"/></svg>';
+    const open = async url => {
+      await mp.goto(url, { waitUntil: 'load' });
+      await mp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+      await mp.waitForTimeout(400);
+    };
+    await open(scene({ name: 'weather', svg, play: false, morphs: [{ keys: [0], motion: { kind: 'throw', to: [4, 0], amount: 1 } }, { keys: [1], motion: { kind: 'sway', amount: 10 } },
+      { keys: [2], motion: { kind: 'chain', steps: [{ kind: 'fall', amount: 2 }, { kind: 'roll', amount: 1 }] } }] }));
+    const track = async i => { await mp.evaluate(i => window.__box.select([i]), i); await mp.waitForTimeout(200); return mp.evaluate(() => window.__box.motionTrack(8)); };
+    let T = await track(0);
+    const across = T[8][0] - T[0][0], up = Math.max(...T.map(p => p[1])) - T[0][1];
+    if (Math.abs(across / up - 4) > 0.05 || Math.abs(T[4][1] - T[0][1] - up) > 0.01 * up) throw new Error('the throw\'s path: ' + JSON.stringify({ across, up, ratio: across / up }));
+    const slide = async (id, v) => { await mp.evaluate(([id, v]) => { const e = document.getElementById(id); e.value = String(v); e.dispatchEvent(new Event('input')); }, [id, v]); await mp.waitForTimeout(200); };
+    await slide('morphGravity', 400);
+    T = await track(0);
+    if (Math.abs(T[4][0] - T[0][0] - across) > 0.01 * across || Math.abs(T[4][1] - T[0][1]) > 0.01 * up || Math.abs(T[6][0] - T[4][0]) > 1e-9)
+      throw new Error('with gravity 4 the throw does not land half way and wait: ' + JSON.stringify(T.map(p => [+(p[0] - T[0][0]).toFixed(4), +(p[1] - T[0][1]).toFixed(4)])));
+    await slide('morphGravity', 100);
+    const lean = async w => { await slide('morphWind', w); const q = await track(1); return q[0][0]; };
+    const x0 = await lean(0), xr = await lean(100), xl = await lean(-100);
+    if (!(xr > x0 + 1e-6) || !(xl < x0 - 1e-6) || Math.abs((xr - x0) + (xl - x0)) > 1e-6 * Math.abs(xr - x0) + 1e-9) throw new Error('the wind: ' + JSON.stringify({ x0, xr, xl }));
+    await slide('morphGravity', 250);
+    const d = await mp.evaluate(async () => (await window.__sceneShare()).d);
+    if (d.gravity !== 2.5 || d.wind !== -1) throw new Error('the weather in the link: ' + JSON.stringify({ gravity: d.gravity, wind: d.wind }));
+    // the timeline's steps
+    await mp.evaluate(() => window.__box.select([]));
+    await mp.click('#bMorphTimeline'); await mp.waitForTimeout(300);
+    const cuts = await mp.$$('#tlRows .tl-mcut'), segs = await mp.$$('#tlRows .tl-mseg');
+    if (cuts.length !== 1 || segs.length !== 8) throw new Error('the timeline shows ' + segs.length + ' step pieces and ' + cuts.length + ' borders');
+    const tr = await mp.locator('#tlRows .tl-track[data-r="2"]').boundingBox(), cb = await mp.locator('#tlRows .tl-mcut').boundingBox();
+    await mp.mouse.move(cb.x + cb.width / 2, cb.y + cb.height / 2); await mp.mouse.down();
+    await mp.mouse.move(tr.x + tr.width * 0.25, cb.y + cb.height / 2, { steps: 5 }); await mp.mouse.up();
+    await mp.waitForTimeout(300);
+    const m = (await mp.evaluate(() => window.__animSketch())).morphs[2].motion, ratio = m.steps[0].share / (m.steps[0].share + m.steps[1].share);
+    if (Math.abs(ratio - 0.25) > 0.03) throw new Error('the timeline border at a quarter gives ' + ratio.toFixed(3));
+    await mp.close();
+  } catch (e){
+    failures.push(`[path, timeline, weather] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a motion's path shows its arc; gravity lands a throw sooner; wind leans a sway its way; the timeline shares a chain's cycle`);
+}
+
 /* ANIMATE IT, END TO END, STREAMED (draw.html). The gateway is answered here with a reply streamed as the
    API streams it (server-sent events, the text in pieces), the way a real one arrives since a silent minute
    and a half closed the request with HTTP 524: the prompt typed, "animate it" pressed, and the morph lands.
@@ -1599,7 +1895,9 @@ current = 'scene link out';
     p.on('pageerror', e => failures.push(`[scene link out] ${e.message}`));
     await p.route(/fonts\.g/, r => r.abort());
     await p.goto(url, { waitUntil: 'load' });
-    await p.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+    // when it does not come up, say which scene and what the page shows, not only that it timed out
+    await p.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 })
+      .catch(async () => { throw new Error('the scene ' + url.slice(url.indexOf('#'), url.indexOf('#') + 24) + '… did not open: ' + await p.evaluate(() => JSON.stringify({ hash: location.hash.slice(0, 16), status: document.getElementById('status')?.textContent, morphs: window.__box && window.__box.morphDiag ? window.__box.morphDiag().length : null })).catch(x => 'page gone: ' + x.message)); });
     await p.waitForTimeout(400);
     return p;
   };
@@ -1624,7 +1922,8 @@ current = 'scene link out';
     e.on('pageerror', x => failures.push(`[scene link out] ${x.message}`));
     await e.route(/fonts\.g/, r => r.abort());
     await e.goto(scene({ name: 'made', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="60" cy="140" r="20" fill="#f5c542"/><rect x="120" y="120" width="30" height="30" fill="#4287f5"/><polygon points="20,190 180,190 100,170" fill="#3a3"/></svg>', morphs: [] }), { waitUntil: 'load' });
-    await e.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 });
+    await e.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 })
+      .catch(async () => { throw new Error('the editor-made scene did not open: ' + await e.evaluate(() => document.getElementById('status')?.textContent).catch(x => 'page gone: ' + x.message)); });
     await e.evaluate(() => window.__animApply({ copies: [{ of: 0, dy: -300, turn: 30 }], svg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><circle cx='640' cy='640' r='120' fill='none' stroke='#888'/></svg>",
       morphs: [{ keys: [0, 3] }, { keys: [1], path: 4, spin: 1 }], loop: 3 }));
     await e.evaluate(() => window.__animApply({ change: [{ morph: 0, rate: 3 }] }));
@@ -1638,7 +1937,8 @@ current = 'scene link out';
     m.on('pageerror', x => failures.push(`[scene link out] ${x.message}`));
     await m.route(/fonts\.g/, r => r.abort());
     await m.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
-    await m.waitForFunction(() => window.__animSketch && window.__animSketch(), null, { timeout: 60000 });
+    await m.waitForFunction(() => window.__animSketch && window.__animSketch(), null, { timeout: 60000 })
+      .catch(async () => { throw new Error('the startup maple did not come up: ' + await m.evaluate(() => document.getElementById('status')?.textContent).catch(x => 'page gone: ' + x.message)); });
     const gold = await m.evaluate(async () => { window.__animApply({ copies: [{ of: 0, dx: 300 }], morphs: [{ keys: [0, 1] }] }); return /stroke="#d4a052"/.test((await window.__sceneShare()).d.svg); });
     if (!gold) throw new Error('the link dropped the outline the editor draws');
     await m.close();
