@@ -4335,8 +4335,8 @@
         <span class="val" id="mrPhaseV">0.00</span>
         <button type="button" id="mrStagger" title="spread the selected morphs' phases evenly round the loop, in their order">stagger</button>
         <span class="lab">motion</span>
-        <select id="mrMotion" title="PHYSICAL MOTIONS: physics the editor computes for this morph, on top of its keys and its path. bounce: hops off the ground where it is drawn, squashing as it lands. fall: dropped, bouncing lower until it rests. swing: a pendulum from its top. spring: a damped boing at the start of each cycle"><option value="">none</option><option value="bounce">bounce</option><option value="fall">fall</option><option value="swing">swing</option><option value="spring">spring</option></select>
-        <input type="number" id="mrMotionAmt" step="0.1" title="how much: a bounce's or a fall's height in the shape's own heights, a swing's degrees either side, a spring's size">
+        <select id="mrMotion" title="PHYSICAL MOTIONS: physics the editor computes for this morph, on top of its keys and its path. bounce: hops off the ground where it is drawn, squashing as it lands. fall: dropped, bouncing lower until it rests. swing: a pendulum from its top. spring: a damped boing at the start of each cycle. roll: across and back (or along its path) turning as it goes. throw: tossed in an arc six heights to the right. sway: bending from its base. pop: growing from nothing with an overshoot"><option value="">none</option><option value="bounce">bounce</option><option value="fall">fall</option><option value="swing">swing</option><option value="spring">spring</option><option value="roll">roll</option><option value="throw">throw</option><option value="sway">sway</option><option value="pop">pop</option></select>
+        <input type="number" id="mrMotionAmt" step="0.1" title="how much: a bounce's or a fall's height in the shape's own heights, a swing's degrees either side, a spring's size, a roll's widths across, a throw's arc height in its heights, a sway's degrees, a pop's liveliness (0 to 1)">
         <span class="lab">spin</span>
         <input type="number" id="mrSpin" step="0.25" title="turns a loop about its own centre; negative turns the other way. A fraction closes the loop only where the shape's symmetry does">
         <button type="button" id="mrDraw" title="DRAW ITS PATH: press, and the morph plays while you draw a line on the canvas; let go and the line is the path it rides (closed if you end near where you began). Press again, or Escape, to stop without one">draw path</button>
@@ -52596,11 +52596,19 @@
         //   fall    dropped from `amount` heights up, bouncing lower each time by `bounce` (the share of speed it keeps)
         //           until it rests, the time of each bounce gravity's own; one fall a cycle (with a clip, once);
         //   swing   a pendulum, `amount` degrees either side, hung from its top (or `pivot`);
-        //   spring  a damped boing at the start of each cycle along `along` (y, x, scale or turn), `amount` its size.
+        //   spring  a damped boing at the start of each cycle along `along` (y, x, scale or turn), `amount` its size;
+        // and (27 Oct 2026, Tom: "1,2", after "roll, throw, sway, pop"):
+        //   roll    turning as it goes so it never skids: along its own path if it rides one (the turn the path's
+        //           length over its radius), else `amount` of its widths across and back each cycle;
+        //   throw   a projectile from where it is drawn to `to` ([right, up], in its own heights), its arc's top
+        //           `amount` heights above the higher end; one throw a cycle (with a clip, once);
+        //   sway    bending from its base, the top moving most, `amount` degrees, as a tree or grass in wind;
+        //   pop     growing from nothing to its size with an overshoot and a settle, `amount` how lively (with a
+        //           clip, it pops in when its window opens).
         // It acts on the pose after its path and spin, in the page's own up and across (gravity is down the page),
         // measured from where the pose is placed and from the shape's own size (its first key), and before a parent
         // carries it. The ground is where the shape was drawn: a ball drawn on the floor bounces off it.
-        const MORPH_MOTIONS = ['bounce', 'fall', 'swing', 'spring'],
+        const MORPH_MOTIONS = ['bounce', 'fall', 'swing', 'spring', 'roll', 'throw', 'sway', 'pop'],
             MORPH_MOTION_PIVOTS = ['top', 'bottom', 'left', 'right', 'centre'],
             MORPH_MOTION_ALONG = ['y', 'x', 'scale', 'turn'];
         // a motion as a record holds it: its kind and its numbers, each within reach, or null
@@ -52619,10 +52627,20 @@
             } else if (m.kind === 'swing') {
                 o.amount = num(m.amount, 0, 180, 30);
                 o.pivot = MORPH_MOTION_PIVOTS.includes(m.pivot) ? m.pivot : 'top';
-            } else {
+            } else if (m.kind === 'spring') {
                 o.amount = num(m.amount, -2, 2, 0.3);
                 o.along = MORPH_MOTION_ALONG.includes(m.along) ? m.along : 'y';
                 o.bounces = num(m.bounces, 1, 12, 4);
+            } else if (m.kind === 'roll') {
+                o.amount = num(m.amount, -40, 40, 4);
+            } else if (m.kind === 'throw') {
+                o.amount = num(m.amount, 0, 40, 2);
+                const to = Array.isArray(m.to) ? m.to : [];
+                o.to = [num(to[0], -100, 100, 6), num(to[1], -100, 100, 0)];
+            } else if (m.kind === 'sway') {
+                o.amount = num(m.amount, 0, 60, 8);
+            } else { // pop
+                o.amount = num(m.amount, 0, 1, 0.5);
             }
             return o;
         }
@@ -52667,7 +52685,7 @@
                 C = (morphPathOf(run) || run.spin) ? morphPlace(run, t, B) : B,
                 Z = morphMotionSize(run),
                 H = 2 * Z.h;
-            let sx = 1, sy = 1, px = C.x, py = C.y, th = 0, rx = C.x, ry = C.y, dx = 0, dy = 0;
+            let sx = 1, sy = 1, px = C.x, py = C.y, th = 0, rx = C.x, ry = C.y, dx = 0, dy = 0, kx = 0;
             const ground = C.y - Z.h;
             if (M.kind === 'bounce') {
                 dy = 4 * M.amount * H * u * (1 - u);
@@ -52704,6 +52722,49 @@
                 const pv = M.pivot;
                 rx = C.x + (pv === 'left' ? -Z.w : pv === 'right' ? Z.w : 0);
                 ry = C.y + (pv === 'top' ? Z.h : pv === 'bottom' ? -Z.h : 0);
+            } else if (M.kind === 'roll') {
+                // rolling without skidding: the turn is the distance gone over the radius (half its width)
+                const P = morphPathOf(run);
+                let dist;
+                if (P) { // along its own path (or the shared one): the path's length times the share of it gone
+                    if (P._len == null) {
+                        P._len = 0;
+                        for (let i = 1; i < P.x.length; i++)
+                            P._len += Math.hypot(P.x[i] - P.x[i - 1], P.y[i] - P.y[i - 1]);
+                    }
+                    const tp = (run.clip ? morphClipP(run, t) : t) * (run.laps || 1);
+                    if (P.mode === 'back')
+                        dist = P._len * (1 - Math.cos(TAU * tp)) / 2;
+                    else { // round a loop in whole turns, so the loop closes (within half a turn of rolling true)
+                        const n = Math.max(1, Math.round(P._len / (TAU * Z.w)));
+                        dist = TAU * Z.w * n * tp;
+                    }
+                } else { // across and back, easing at each end
+                    dist = M.amount * 2 * Z.w * (1 - Math.cos(TAU * u)) / 2;
+                    dx = dist;
+                }
+                th = -dist / Z.w;
+            } else if (M.kind === 'throw') {
+                // a parabola through where it is drawn and the target, its top `amount` heights above the higher end,
+                // going across at an even speed (gravity acts only up and down)
+                const X = M.to[0] * H,
+                    Y = M.to[1] * H,
+                    A = Math.max(0, Y) + Math.max(1e-6, M.amount) * H,
+                    b = 4 * A - 2 * Y,
+                    c2 = (b + Math.sqrt(Math.max(0, b * b - 4 * Y * Y))) / 2,
+                    c1 = c2 + Y;
+                dx = X * u;
+                dy = c1 * u - c2 * u * u;
+            } else if (M.kind === 'sway') {
+                // a shear from the base: the base still, the top moving most, a slow push and a quicker flutter
+                const a = M.amount * Math.PI / 180 * (0.75 * Math.sin(TAU * u) + 0.25 * Math.sin(3 * TAU * u));
+                kx = Math.tan(a);
+                py = ground;
+            } else if (M.kind === 'pop') {
+                // from nothing to its size, overshooting and settling: a damped spring let go at the start
+                const d = 3 + 9 * (1 - M.amount),
+                    k = Math.max(0.001, 1 - Math.exp(-d * u) * Math.cos(12 * u) + u * Math.exp(-d) * Math.cos(12));
+                sx = sy = k;
             } else { // spring
                 const v = Math.exp(-5 * u) * Math.sin(TAU * M.bounces * u),
                     a = M.amount;
@@ -52725,9 +52786,11 @@
                 sn = Math.sin(th);
             return {
                 det: sx * sy,
+                turn: th,
                 at(x, y) {
                     let X = px + sx * (x - px),
                         Y = py + sy * (y - py);
+                    X += kx * (Y - py);
                     const ux = X - rx,
                         uy = Y - ry;
                     return [rx + cs * ux - sn * uy + dx, ry + sn * ux + cs * uy + dy];
@@ -52735,8 +52798,9 @@
                 inv(x, y) {
                     const ux = x - dx - rx,
                         uy = y - dy - ry;
-                    const X = rx + cs * ux + sn * uy,
-                        Y = ry - sn * ux + cs * uy;
+                    let X = rx + cs * ux + sn * uy;
+                    const Y = ry - sn * ux + cs * uy;
+                    X -= kx * (Y - py);
                     return [px + (X - px) / sx, py + (Y - py) / sy];
                 }
             };
@@ -53047,6 +53111,38 @@
                 turn = q.turn;
             }
             const up = morphParentXform(P, t, (depth || 0) + 1);
+            // PHYSICAL MOTIONS carried too (27 Oct 2026, Tom: "1,2"): what rides a bouncing ball bounces and squashes
+            // with it. The parent's own placing (path and spin), then its motion, then its own parent, in that order,
+            // as its pose is made; without a motion the three fold into one turn and move as before.
+            const M = morphMotionXform(P, t);
+            if (M) {
+                const c1 = Math.cos(turn),
+                    s1 = Math.sin(turn),
+                    qx = px,
+                    qy = py;
+                const own = (x, y) => M.at(qx + c1 * (x - B.x) - s1 * (y - B.y), qy + s1 * (x - B.x) + c1 * (y - B.y));
+                const [ox, oy] = up ? up.at(0, 0) : [0, 0],
+                    ut = up ? up.turn : 0,
+                    uc = Math.cos(ut),
+                    us = Math.sin(ut);
+                return {
+                    turn: turn + M.turn + ut,
+                    at: (x, y) => {
+                        const p = own(x, y);
+                        return up ? up.at(p[0], p[1]) : p;
+                    },
+                    back: (x, y) => {
+                        let u = x, v = y;
+                        if (up) { // a parent's parent is rigid here: its turn and where it takes the origin undo it
+                            const dx = x - ox, dy = y - oy;
+                            u = uc * dx + us * dy;
+                            v = -us * dx + uc * dy;
+                        }
+                        const [a, b] = M.inv(u, v);
+                        return [B.x + c1 * (a - qx) + s1 * (b - qy), B.y - s1 * (a - qx) + c1 * (b - qy)];
+                    }
+                };
+            }
             if (up) {
                 [px, py] = up.at(px, py);
                 turn += up.turn;
@@ -76445,7 +76541,7 @@
                 '- path: a shape number to ride (an open line goes along it and back, or "mode":"along" round a closed loop); laps: whole times round per loop; at: where on the path it starts (0–1); turn: true to face along the path.',
                 '- rate: a whole number of times the morph plays per loop (a fast flicker 3, a slow drift 1). phase: 0–1, its offset on the clock (stagger a row: 0, 0.1, 0.2 …).',
                 '- spin: whole turns per loop (negative anticlockwise on screen).',
-                '- motion: physics the editor computes exactly, for a thing that moves as a body (use it instead of keying such motion by hand): {"kind": "bounce", "amount": hop height in the shape\'s own heights (1.5), "squash": 0–0.6 (0.25)} one hop a cycle off the ground where it is drawn, squashed as it lands and stretched in flight; {"kind": "fall", "amount": drop height in its heights (3), "bounce": 0–0.9, the share of speed kept each bounce (0.5)} dropped, bouncing lower until it rests (pair with a clip to fall once); {"kind": "swing", "amount": degrees either side (30), "pivot": "top"|"bottom"|"left"|"right"|"centre"} a pendulum, a sign, a bell; {"kind": "spring", "amount": size (0.3), "along": "y"|"x"|"scale"|"turn", "bounces": 4} a damped boing at the start of each cycle, a jelly, a spring, a plant flicked. rate sets how many a loop.',
+                '- motion: physics the editor computes exactly, for a thing that moves as a body (use it instead of keying such motion by hand): {"kind": "bounce", "amount": hop height in the shape\'s own heights (1.5), "squash": 0–0.6 (0.25)} one hop a cycle off the ground where it is drawn, squashed as it lands and stretched in flight; {"kind": "fall", "amount": drop height in its heights (3), "bounce": 0–0.9, the share of speed kept each bounce (0.5)} dropped, bouncing lower until it rests (pair with a clip to fall once); {"kind": "swing", "amount": degrees either side (30), "pivot": "top"|"bottom"|"left"|"right"|"centre"} a pendulum, a sign, a bell; {"kind": "spring", "amount": size (0.3), "along": "y"|"x"|"scale"|"turn", "bounces": 4} a damped boing at the start of each cycle, a jelly, a spring, a plant flicked; {"kind": "roll", "amount": widths across and back (4)} rolling without skidding, turned by the distance over its radius (with a path, it rolls along the path instead: a wheel, a ball, a barrel); {"kind": "throw", "to": [right, up] where it lands, in its own heights from where it is drawn ([6, 0]), "amount": the arc\'s top in its heights above the higher end (2)} a toss along gravity\'s parabola landing exactly there (pair with a clip to throw once); {"kind": "sway", "amount": degrees (8)} bending from its base in the wind, the base still and the top moving most (a tree, grass, a flame); {"kind": "pop", "amount": 0–1 liveliness (0.5)} growing from nothing to its size with an overshoot and a settle (pair with a clip and show "in" to pop in). rate sets how many a loop. A morph riding a parent moves with the parent\'s motion too (a rider on a bouncing ball bounces and squashes with it).',
                 '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out" or null.',
                 '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), or there until it plays then gone ("out"). Clips one after another make a sequence.',
                 '- trail: {"kind": "echoes" | "ribbon", "len": 0–1}. fx: {"kind": "shimmer" | "grow" | "boil", "amount": 0–1}: a living outline, for flames, water, a heartbeat.',
@@ -76477,7 +76573,7 @@
                 'Whole-scene fields: loop (seconds for one loop, 0.5–60), ease ("" | "inout" | "in" | "out", for every morph without its own eases), hold (0–0.9, a pause at each key).',
                 '',
                 'ANIMATE WHAT IS DRAWN. Do not add scenery, a background, a sky, ground or anything new that the request does not name: the drawing is the person\'s own. Your new shapes are other poses of drawn shapes (copies), motion paths, and only the few new things the request asks for (smoke for "the smoke puffs"). Every new shape must be a key or a path of one of your morphs: one that is not is thrown away.',
-                'GOOD PRACTICE: move only what the request is about; leave the rest still. Prefer a copy of a shape over redrawing it. Keys blended together should be the same kind of outline (a copy of each other, or with the same number of corners). An orbit is a still on a closed path. A bounce, a fall, a swing or a spring is one key and a motion (the physics is computed; do not key it by hand). Bobbing, swaying and breathing are two keys (a copy moved or turned a little). Keep it simple: a few morphs that read well beat many.',
+                'GOOD PRACTICE: move only what the request is about; leave the rest still. Prefer a copy of a shape over redrawing it. Keys blended together should be the same kind of outline (a copy of each other, or with the same number of corners). An orbit is a still on a closed path. A bounce, a fall, a swing, a spring, a roll, a throw, a sway or a pop is one key and a motion (the physics is computed; do not key it by hand). Bobbing, swaying and breathing are two keys (a copy moved or turned a little). Keep it simple: a few morphs that read well beat many.',
             ].join('\n');
             // MAKE A SCENE (27 Oct 2026, Tom: "should we have seperate ways to create full scenes from animations", then
             // "yes"): words alone, answered with a whole scene, drawn and animated at once, in the scene link's own form
@@ -76509,7 +76605,7 @@
                 '',
                 'Whole-scene fields: loop (seconds for one loop, 0.5–60), ease ("" | "inout" | "in" | "out", for every morph without its own eases), hold (0–0.9, a pause at each key).',
                 '',
-                'GOOD PRACTICE: the backdrop and everything that stays still are drawn and in no morph. A thing that moves rigidly is one shape with a path or a spin, or two keys made by a copy (bobbing, swaying, a door). A thing that bounces, falls, swings or springs is one shape with a motion: draw it where it rests (a ball on the ground, a lamp hanging), and the editor computes the physics. A thing that changes shape is two or more keys drawn with the same number of corners, or copies sized and turned. Several things moving alike (birds, waves, lanterns) share one way of moving with their phases staggered. Make the motion read at a glance and loop cleanly; a few morphs that read well beat many.',
+                'GOOD PRACTICE: the backdrop and everything that stays still are drawn and in no morph. A thing that moves rigidly is one shape with a path or a spin, or two keys made by a copy (bobbing, swaying, a door). A thing that bounces, falls, swings, springs, rolls, is thrown, sways or pops in is one shape with a motion: draw it where it rests or starts (a ball on the ground, a lamp hanging, a tree standing), and the editor computes the physics. A thing that changes shape is two or more keys drawn with the same number of corners, or copies sized and turned. Several things moving alike (birds, waves, lanterns) share one way of moving with their phases staggered. Make the motion read at a glance and loop cleanly; a few morphs that read well beat many.',
             ].join('\n');
             // A shape's outline as it is drawn, without asking a held (exact or imported) shape for its
             // leaves: that question turns it into leaves for good.
@@ -86205,6 +86301,14 @@
                             if (r.motion && (r.motion.kind === 'bounce' || r.motion.kind === 'fall')) {
                                 const up = r.motion.amount * 2 * morphMotionSize(r).h;
                                 take(K.x, Float64Array.from(K.y, y => y + up));
+                            } else if (r.motion && r.motion.kind === 'throw') { // where it lands, and the arc's top
+                                const H = 2 * morphMotionSize(r).h, X = r.motion.to[0] * H, Y = r.motion.to[1] * H,
+                                    top = Math.max(0, Y) + r.motion.amount * H;
+                                take(Float64Array.from(K.x, x => x + X), Float64Array.from(K.y, y => y + Y));
+                                take(Float64Array.from(K.x, x => x + X / 2), Float64Array.from(K.y, y => y + top));
+                            } else if (r.motion && r.motion.kind === 'roll' && !morphPathOf(r)) {
+                                const across = r.motion.amount * 2 * morphMotionSize(r).w;
+                                take(Float64Array.from(K.x, x => x + across), K.y);
                             }
                         }
                 if (!isFinite(x0))
