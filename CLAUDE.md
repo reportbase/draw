@@ -163,6 +163,18 @@ publishes.
     (`morphWeightsOf`, which every pose, colour and centre now uses in place of `morphWeights(morphWarp(…))`); an
     exact pose's radii are kept at 0 or more; `embedFit` frames a sixth past the keys. The strip's stretch buttons
     cycle the eight (shift-click goes back). The gallery's **first steps: anticipation and overshoot** shows them.
+    Then (Tom: "2,4,5") MOTIONS IN A ROW: `{kind: 'chain', steps: [motion…]}` (each step with `share`, its part of the
+    cycle), each step from where the last left the shape (`morphMotionMap` gives one step and what it leaves, `dx`,
+    `dy`, `th`; `morphMotionXform` composes; in a chain a roll goes one way and a drift does not fade). CONTACT WITH
+    OTHER SHAPES: fall and bounce take `ground` (their floor in their heights from where they are drawn), and fall,
+    bounce, throw and roll take `onto` (a shape's number in a scene link or AI reply, or the strip's **onto** with one
+    other shape selected), worked into numbers once from the two boxes (`morphMotionOnto`, `morphShapeBox`; a
+    chain's steps from where the ones before leave it); the other shape is not followed afterwards. EMITTERS: an
+    entry's `emit: {count, spread: [across, up] in its heights, vary, seed}` makes count − 1 seeded copies of its keys
+    (`spCopyXform`, beside the original in the drawing) as ordinary morphs with their own phase and varied numbers
+    (`morphEmitExpand`, in `applySceneMorphs`; a copy's carried distances refitted to the first's height), and
+    `drift` (`to` per cycle, a wobble, grown in and shrunk out at the ends) is the motion for rain, snow and confetti.
+    `embedFit` samples each motion over its cycle. The gallery's **chains, contact and emitters** shows them.
     The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
     what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
     in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted
@@ -186,7 +198,7 @@ publishes.
     0°), and keep a corner smooth in every pose where any key has it smooth (SMOOTH WHERE ANY KEY IS SMOOTH).
     The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
     come first, then the **sequences** (a house builds itself, a seed: morphs that play once, in turn, seen from when they
-    play), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
+    play), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), **chains, contact and emitters** (one thing after another, onto the table, snow, confetti), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
   - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your

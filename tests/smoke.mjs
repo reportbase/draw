@@ -1600,6 +1600,79 @@ current = 'eases and handles';
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} anticipation and overshoot go past their keys and land on them; a motion's handles put it where they are let go, and undo takes them back`);
 }
 
+/* MOTIONS IN A ROW, CONTACT and EMITTERS (draw.html). A chain of a throw (4 heights right) then a roll (2 widths, one
+   way): half way it has landed, at the end it is half as far again and turned by the roll's distance over its
+   radius. A ball drawn above a table and set to fall onto it (by the table's number) ends resting on the table's top;
+   one thrown onto it lands on the table's top at its middle; one rolled onto a block stops touching it. A drop with a
+   drift and emit {count: 10} is ten morphs, each its own phase, the copies in the drawing, and the same scatter when
+   opened again; the link written by the editor gives the chain and the contact back as numbers. */
+current = 'chains, contact, emitters';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const before = failures.length;
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[chains, contact, emitters] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  try {
+    const open = async url => {
+      await mp.goto(url, { waitUntil: 'load' });
+      await mp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+      await mp.waitForTimeout(400);
+    };
+    const setT = async t => { await mp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t); await mp.waitForTimeout(80); };
+    const first = async () => { const m = await mp.evaluate(() => window.__box.morph()), n = m.leaves.length; return { x: m.leaves.reduce((a, v) => a + v, 0) / n, y: m.leavesY.reduce((a, v) => a + v, 0) / n, turn: m.runs[0].turn }; };
+    const boxes = async () => {
+      const k = await mp.evaluate(() => window.__animSketch());
+      const box = id => { const m = k.svg.match(new RegExp('id="' + id + '"[^>]* d="M([^"]*)"')); if (!m) return null; const pts = m[1].replace(/ Z$/, '').split(' L').map(p => p.split(' ').map(Number)); const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; };
+      return { box, k };
+    };
+    // a chain: thrown, then rolled one way
+    const bar = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="40" y="200" width="40" height="40" fill="#e05a6a"/></svg>';
+    await open(scene({ name: 'chain', svg: bar, play: false, morphs: [{ keys: [0], motion: { kind: 'chain', steps: [{ kind: 'throw', to: [4, 0], amount: 1.5 }, { kind: 'roll', amount: 2 }] } }] }));
+    await setT(0); const c0 = await first(); await setT(0.5); const c1 = await first(); await setT(0.999); const c2 = await first();
+    const ratio = (c2.x - c0.x) / (c1.x - c0.x);
+    let dturn = (c2.turn - c0.turn) % (2 * Math.PI); const want = (-4) % (2 * Math.PI);
+    const dd = Math.abs(((dturn - want) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
+    if (Math.abs(ratio - 1.5) > 0.02 || Math.abs(c1.y - c0.y) > 1e-6 * Math.abs(c1.x - c0.x) + 1e-9 || dd > 0.02)
+      throw new Error('the chain: ' + JSON.stringify({ ratio, dy: c1.y - c0.y, dturn, dd }));
+    // contact: onto a table, a block
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="200" y="200" width="160" height="20" fill="#a8743c"/><circle cx="280" cy="80" r="20" fill="#e05a6a"/><circle cx="60" cy="180" r="20" fill="#4f8fd6"/><rect x="40" y="260" width="40" height="40" fill="#5a7d9a"/><rect x="520" y="230" width="30" height="70" fill="#444"/></svg>';
+    await open(scene({ name: 'contact', svg, play: false, morphs: [{ keys: [1], motion: { kind: 'fall', bounce: 0.4, onto: 0 } }, { keys: [2], motion: { kind: 'throw', amount: 1, onto: 0 } }, { keys: [3], motion: { kind: 'roll', onto: 4 } }] }));
+    await setT(0.999);
+    let { box } = await boxes();
+    const table = box('s0'), ball = box('s1'), thrown = box('s2'), u = (table.x1 - table.x0) / 160;
+    if (Math.abs(ball.y1 - table.y0) > 1.5 * u) throw new Error('the fall onto the table rests ' + ((ball.y1 - table.y0) / u).toFixed(2) + ' off its top');
+    if (Math.abs(thrown.y1 - table.y0) > 1.5 * u || Math.abs((thrown.x0 + thrown.x1) / 2 - (table.x0 + table.x1) / 2) > 1.5 * u)
+      throw new Error('the throw onto the table: ' + JSON.stringify({ thrown, table }));
+    await setT(0.5);
+    ({ box } = await boxes());
+    const rolled = box('s3'), block = box('s4');
+    if (Math.abs(rolled.x1 - block.x0) > 1.5 * u) throw new Error('the roll onto the block stops ' + ((block.x0 - rolled.x1) / u).toFixed(2) + ' short of it');
+    const link = await mp.evaluate(async () => (await window.__sceneShare()).link);
+    const ms = (await mp.evaluate(() => window.__animSketch())).morphs.map(o => o.motion);
+    if (!(ms[0].ground < -1) || ms[0].onto !== undefined || !Array.isArray(ms[1].to)) throw new Error('contact worked into numbers: ' + JSON.stringify(ms));
+    await open(link);
+    const ms2 = (await mp.evaluate(() => window.__animSketch())).morphs.map(o => o.motion);
+    if (JSON.stringify(ms) !== JSON.stringify(ms2)) throw new Error('contact through the link: ' + JSON.stringify([ms, ms2]));
+    // an emitter
+    const rain = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="290" y="20" width="6" height="16" fill="#4f8fd6"/></svg>';
+    const em = scene({ name: 'rain', svg: rain, play: false, morphs: [{ keys: [0], motion: { kind: 'drift', to: [0, -12], amount: 0.2 }, emit: { count: 10, spread: [30, 2], vary: 0.4, seed: 7 } }] });
+    await open(em);
+    const k1 = await mp.evaluate(() => window.__animSketch()), d1 = await mp.evaluate(() => window.__box.morphDiag());
+    const phases = (await mp.evaluate(() => window.__box.morph())).runs.map(r => r.phase);
+    if (k1.morphs.length !== 10 || d1.filter(q => q.inDrawing >= 0).length !== 10 || new Set(phases.map(p => p.toFixed(4))).size < 9)
+      throw new Error('the emitter: ' + JSON.stringify({ morphs: k1.morphs.length, inDrawing: d1.filter(q => q.inDrawing >= 0).length, phases }));
+    await open(em);
+    const k2 = await mp.evaluate(() => window.__animSketch());
+    if (k1.svg !== k2.svg) throw new Error('the emitter does not scatter the same way twice');
+    await mp.close();
+  } catch (e){
+    failures.push(`[chains, contact, emitters] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a chain plays its steps from where each ended; onto lands on a table and rolls up to a block; an emitter makes ten, the same way twice`);
+}
+
 /* ANIMATE IT, END TO END, STREAMED (draw.html). The gateway is answered here with a reply streamed as the
    API streams it (server-sent events, the text in pieces), the way a real one arrives since a silent minute
    and a half closed the request with HTTP 524: the prompt typed, "animate it" pressed, and the morph lands.
