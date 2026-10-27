@@ -1673,6 +1673,90 @@ current = 'chains, contact, emitters';
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a chain plays its steps from where each ended; onto lands on a table and rolls up to a block; an emitter makes ten, the same way twice`);
 }
 
+/* THE PHYSICS BY HAND (draw.html, Tom: "1,2,3,4"). A scene opened is one undo history: nothing to undo straight
+   after. A ball set onto a table follows it: the table dragged lower, the ball lands on its new top, and the link
+   still names the table. The strip's scatter makes copies of the selected morph, all undone in one step. "then…"
+   makes a chain of the fall and a roll, its steps a strip whose border drags their shares and whose second step
+   shows the roll's handle; "× step" takes it out again, leaving the fall still on the table. */
+current = 'physics by hand';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const before = failures.length;
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[physics by hand] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="200" y="200" width="160" height="20" fill="#a8743c"/><circle cx="280" cy="60" r="20" fill="#e05a6a"/></svg>';
+    await mp.goto(scene({ name: 'by hand', svg, play: false, morphs: [{ keys: [1], motion: { kind: 'fall', bounce: 0.4, onto: 0 } }] }), { waitUntil: 'load' });
+    await mp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+    await mp.waitForTimeout(400);
+    if (!(await mp.$eval('#bUndo', b => b.disabled))) throw new Error('something to undo straight after opening a scene');
+    const setT = async t => { await mp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t); await mp.waitForTimeout(250); };
+    const boxes = async () => {
+      const k = await mp.evaluate(() => window.__animSketch());
+      const box = id => { const m = k.svg.match(new RegExp('id="' + id + '"[^>]* d="M([^"]*)"')); const pts = m[1].replace(/ Z$/, '').split(' L').map(p => p.split(' ').map(Number)); const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; };
+      return { table: box('s0'), ball: box('s1') };
+    };
+    await setT(0.999);
+    let b = await boxes();
+    const u = (b.table.x1 - b.table.x0) / 160;
+    if (Math.abs(b.ball.y1 - b.table.y0) > 1.5 * u) throw new Error('the ball does not rest on the table to start with');
+    // drag the table down
+    await mp.evaluate(() => window.__box.select([0]));
+    const R = await mp.evaluate(() => window.__box.rings()[0]);
+    const c = await mp.evaluate(([x, y]) => window.__box.toPx(x, y), [(Math.min(...R.x) + Math.max(...R.x)) / 2, (Math.min(...R.y) + Math.max(...R.y)) / 2]);
+    await mp.mouse.move(c.x, c.y); await mp.mouse.down(); await mp.mouse.move(c.x, c.y + 30, { steps: 4 }); await mp.mouse.move(c.x, c.y + 60, { steps: 4 }); await mp.mouse.up();
+    await mp.waitForTimeout(400);
+    const R2 = (await mp.evaluate(() => window.__box.rings()))[0], moved = Math.max(...R.y) - Math.max(...R2.y); // page units, y up
+    await setT(0.998); await setT(0.999);
+    const b2 = await boxes(); // the sketch frames the drawing as it is now: the ball against the table's top there
+    if (!(moved > 0.1) || Math.abs(b2.ball.y1 - b2.table.y0) > 1.5 * u)
+      throw new Error('the ball did not follow the table: ' + JSON.stringify({ moved, off: (b2.ball.y1 - b2.table.y0) / u }));
+    const d = await mp.evaluate(async () => (await window.__sceneShare()).d);
+    if (!d.morphs[0].motion || d.morphs[0].motion.onto == null) throw new Error('the link forgot the table: ' + JSON.stringify(d.morphs[0].motion));
+    // scatter copies of the ball, undone in one step
+    const n0 = (await mp.evaluate(() => window.__box.morphDiag())).length;
+    await mp.evaluate(() => window.__box.select([1]));
+    await mp.waitForTimeout(300);
+    await mp.fill('#mrCopies', '5');
+    await mp.click('#mrEmit');
+    await mp.waitForTimeout(300);
+    const n1 = (await mp.evaluate(() => window.__box.morphDiag())).length;
+    await mp.click('#bUndo'); await mp.waitForTimeout(300);
+    const n2 = (await mp.evaluate(() => window.__box.morphDiag())).length;
+    if (n1 !== n0 + 4 || n2 !== n0) throw new Error('scatter: ' + JSON.stringify({ n0, n1, n2 }));
+    // a chain made in the strip
+    await mp.evaluate(() => window.__box.select([1]));
+    await mp.waitForTimeout(300);
+    await mp.selectOption('#mrThen', 'roll');
+    await mp.waitForTimeout(300);
+    let m = (await mp.evaluate(() => window.__animSketch())).morphs[0].motion;
+    if (m.kind !== 'chain' || m.steps.length !== 2 || m.steps[0].kind !== 'fall' || m.steps[1].kind !== 'roll') throw new Error('then… gave ' + JSON.stringify(m));
+    const segs = await mp.$$('#mrSteps .mr-seg');
+    if (segs.length !== 2 || await mp.$eval('#mrSteps', e => e.hidden)) throw new Error('the steps strip shows ' + segs.length);
+    const cb = await mp.locator('#mrSteps .mr-cut').boundingBox(), tb = await mp.locator('#mrSteps').boundingBox();
+    await mp.mouse.move(cb.x + cb.width / 2, cb.y + cb.height / 2); await mp.mouse.down();
+    await mp.mouse.move(tb.x + tb.width * 0.25, cb.y + cb.height / 2, { steps: 5 }); await mp.mouse.up();
+    await mp.waitForTimeout(300);
+    m = (await mp.evaluate(() => window.__animSketch())).morphs[0].motion;
+    const ratio = m.steps[0].share / (m.steps[0].share + m.steps[1].share);
+    if (Math.abs(ratio - 0.25) > 0.04) throw new Error('the border dragged to a quarter gives ' + ratio.toFixed(3));
+    await mp.click('#mrSteps .mr-seg[data-i="1"]');
+    await mp.waitForTimeout(300);
+    const hs = await mp.evaluate(() => window.__box.motionHandles());
+    if (!hs[0] || hs[0].handles.map(q => q.part).join() !== 'across') throw new Error('the second step\'s handles: ' + JSON.stringify(hs));
+    await mp.click('#mrStepDel');
+    await mp.waitForTimeout(300);
+    m = (await mp.evaluate(() => window.__animSketch())).morphs[0].motion;
+    if (m.kind !== 'fall' || !(m.ground < 0) || !(await mp.$eval('#mrSteps', e => e.hidden))) throw new Error('× step left ' + JSON.stringify(m));
+    await mp.close();
+  } catch (e){
+    failures.push(`[physics by hand] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a scene opens as one undo history; contact follows a table moved; scatter copies undo in one step; a chain made, reshared and unmade in the strip`);
+}
+
 /* ANIMATE IT, END TO END, STREAMED (draw.html). The gateway is answered here with a reply streamed as the
    API streams it (server-sent events, the text in pieces), the way a real one arrives since a silent minute
    and a half closed the request with HTTP 524: the prompt typed, "animate it" pressed, and the morph lands.

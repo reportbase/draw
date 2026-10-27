@@ -169,12 +169,24 @@ publishes.
     OTHER SHAPES: fall and bounce take `ground` (their floor in their heights from where they are drawn), and fall,
     bounce, throw and roll take `onto` (a shape's number in a scene link or AI reply, or the strip's **onto** with one
     other shape selected), worked into numbers once from the two boxes (`morphMotionOnto`, `morphShapeBox`; a
-    chain's steps from where the ones before leave it); the other shape is not followed afterwards. EMITTERS: an
+    chain's steps from where the ones before leave it), and followed since (CONTACT THAT FOLLOWS, below). EMITTERS: an
     entry's `emit: {count, spread: [across, up] in its heights, vary, seed}` makes count − 1 seeded copies of its keys
     (`spCopyXform`, beside the original in the drawing) as ordinary morphs with their own phase and varied numbers
     (`morphEmitExpand`, in `applySceneMorphs`; a copy's carried distances refitted to the first's height), and
     `drift` (`to` per cycle, a wobble, grown in and shrunk out at the ends) is the motion for rain, snow and confetti.
     `embedFit` samples each motion over its cycle. The gallery's **chains, contact and emitters** shows them.
+    THE PHYSICS BY HAND (Tom: "1,2,3,4"): CONTACT THAT FOLLOWS: a run set onto shapes keeps `run.ontoLink = {raw,
+    targets}` (the motion as given, each `onto` a slot in `targets`, the shapes themselves) and works it out again
+    when a target's box changes (`morphOntoRefresh`, from `morphMotionXform`, at most every 150 ms; `morphMotionSet`
+    for a scene link); saved as `own.onto = {raw, at}` by the targets' places among the saved shapes, written into a
+    link as their numbers; a handle or amount set by hand on what the target decides unlinks it (a throw's arc does
+    not). COPIES FROM THE STRIP: **copies** and **scatter** clone the selected runs (`morphEmitRuns`: keys and shape
+    copied under the map, own settings through `morphSaveOwn`/`morphRestoreOwn`, phase and motion varied, parent,
+    facing and contact kept) across the view, one undo step; the scene link's emitter shares `morphRand`,
+    `morphVaryMotion`, `morphEmitMap`. CHAINS IN THE EDITOR: **then…** adds a step (a plain motion becomes a
+    chain), `#mrSteps` shows the steps by share (click one: `run._step`, which the amount box and the handles work
+    on, from where the steps before leave the shape, `morphMotionView`; drag a border for the shares), **× step**
+    takes one out. Opening a scene is one undo history (`resetHistory` at the end of `openScene`).
     The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
     what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
     in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted

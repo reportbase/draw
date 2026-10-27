@@ -3219,6 +3219,10 @@
         #morphRunTool .mr-step:hover { background: rgba(255,255,255,0.1); }
         #morphRunTool .mr-step.own { color: var(--gold); }
         #morphRunTool .mr-key { position: absolute; top: 5px; width: 10px; height: 10px; margin-left: -5px; transform: rotate(45deg); background: var(--gold); border-radius: 2px; cursor: ew-resize; touch-action: none; z-index: 2; }
+        #morphRunTool .mr-steps { position: relative; width: 160px; height: 22px; border: 1px solid var(--line2); border-radius: 6px; flex: none; }
+        #morphRunTool .mr-seg { position: absolute; top: 3px; height: 14px; padding: 0; border: 0; border-radius: 3px; background: rgba(255,255,255,0.06); color: var(--fg-muted); font-size: 9px; line-height: 14px; cursor: pointer; overflow: hidden; white-space: nowrap; }
+        #morphRunTool .mr-seg.on { background: rgba(212,160,82,0.28); color: var(--gold); }
+        #morphRunTool .mr-cut { position: absolute; top: 2px; width: 6px; height: 16px; margin-left: -3px; background: var(--gold); border-radius: 2px; cursor: ew-resize; touch-action: none; z-index: 2; }
         #morphRunTool .mr-head { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(232,236,245,0.55); pointer-events: none; z-index: 1; }
         #morphRunTool .who { color: var(--gold); font-weight: 600; margin-right: 2px; }
         #morphRunTool .lab { color: var(--fg-muted); margin: 0 0 0 6px; }
@@ -4337,6 +4341,12 @@
         <span class="lab">motion</span>
         <select id="mrMotion" title="PHYSICAL MOTIONS: physics the editor computes for this morph, on top of its keys and its path. bounce: hops off the ground where it is drawn, squashing as it lands. fall: dropped, bouncing lower until it rests. swing: a pendulum from its top. spring: a damped boing at the start of each cycle. roll: across and back (or along its path) turning as it goes. throw: tossed in an arc six heights to the right. sway: bending from its base. pop: growing from nothing with an overshoot"><option value="">none</option><option value="bounce">bounce</option><option value="fall">fall</option><option value="swing">swing</option><option value="spring">spring</option><option value="roll">roll</option><option value="throw">throw</option><option value="sway">sway</option><option value="pop">pop</option><option value="drift">drift</option><option value="chain" disabled>chain</option></select>
         <input type="number" id="mrMotionAmt" step="0.1" title="how much: a bounce's or a fall's height in the shape's own heights, a swing's degrees either side, a spring's size, a roll's widths across, a throw's arc height in its heights, a sway's degrees, a pop's liveliness (0 to 1), a drift's wobble in widths">
+        <select id="mrThen" title="CHAINS: add a motion after this one: the morph plays them one after another, each from where the last left it (a throw then a bounce, a pop then a sway)"><option value="">then…</option><option value="bounce">bounce</option><option value="fall">fall</option><option value="swing">swing</option><option value="spring">spring</option><option value="roll">roll</option><option value="throw">throw</option><option value="sway">sway</option><option value="pop">pop</option><option value="drift">drift</option></select>
+        <div class="mr-steps" id="mrSteps" title="CHAINS: the steps one after another round the cycle. Click a step to work on it (the amount box and the handles on the canvas are its); drag a border to give a step more or less of the cycle" hidden></div>
+        <button type="button" id="mrStepDel" title="CHAINS: take the selected step out of the chain" hidden>× step</button>
+        <span class="lab">copies</span>
+        <input type="number" id="mrCopies" min="2" max="200" step="1" value="12" title="COPIES: how many the scatter makes, the first included">
+        <button type="button" id="mrEmit" title="COPIES: make the selected morphs that many times over, scattered across the view round their level, each a little different in size, turn, phase and motion (snow, rain, confetti: one flake with a drift, scattered). One undo step">scatter</button>
         <button type="button" id="mrOnto" title="CONTACT: select the morph and one other shape, and press: a fall drops onto it, a bounce hops on it, a throw lands on its top, a roll goes up to it and back">onto</button>
         <span class="lab">spin</span>
         <input type="number" id="mrSpin" step="0.25" title="turns a loop about its own centre; negative turns the other way. A fraction closes the loop only where the shape's symmetry does">
@@ -52729,8 +52739,8 @@
         //   throw    landing on the other's top, at its middle;
         //   roll     up to the other's near side and back.
         // In a chain a step's `onto` is worked out from where the steps before it leave the shape. The
-        // numbers are what is kept (a link, a save, the handles all see them); the other shape is not
-        // followed if it moves afterwards.
+        // numbers are what the motion holds (the handles and the strip see them); the run keeps the shapes too,
+        // and works the numbers out again when one moves (CONTACT THAT FOLLOWS, below).
         function morphShapeBox(sp) {
             const lz = sp && sp._lazy;
             let X, Y;
@@ -52797,6 +52807,42 @@
         // ordinary morphs from then on, written back out one by one; `seed` makes the same scatter every
         // time. A `drift` (carried `to` once a cycle, wobbling, growing in and shrinking out at the ends) is
         // the motion most of these want.
+        // a seeded random (mulberry32), the same numbers for the same seed
+        function morphRand(seed) {
+            let x = (Number.isFinite(+seed) ? +seed : 1) >>> 0 || 1;
+            return () => {
+                x = (x + 0x6D2B79F5) >>> 0;
+                let z = x;
+                z = Math.imul(z ^ (z >>> 15), z | 1);
+                z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
+                return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
+            };
+        }
+        // a motion as a copy has it: its numbers varied by up to `vary` either way, and its carried distances
+        // (in its own heights) multiplied by f, the first's height over the copy's
+        function morphVaryMotion(m, vary, rnd, f) {
+            if (!m || typeof m !== 'object')
+                return m;
+            const q = Object.assign({}, m);
+            if (Number.isFinite(+q.amount))
+                q.amount = +q.amount * (1 + vary * (rnd() - 0.5));
+            if (Array.isArray(q.to))
+                q.to = q.to.map(v => Number.isFinite(+v) ? +v * (1 + vary * (rnd() - 0.5) * 0.5) * f : v);
+            if (Array.isArray(q.steps))
+                q.steps = q.steps.map(x => morphVaryMotion(x, vary, rnd, f));
+            return q;
+        }
+        // the map for copy c of a shape centred (cx, cy) H tall: moved within spread [across, up] (in page units),
+        // sized and turned a little
+        function morphEmitMap(rnd, vary, cx, cy, ax, ay, ox, oy) {
+            const ddx = (rnd() - 0.5) * ax,
+                ddy = (rnd() - 0.5) * ay,
+                k = 1 + vary * (rnd() - 0.5) * 0.6,
+                a = vary * (rnd() - 0.5) * Math.PI / 3,
+                co = k * Math.cos(a),
+                si = k * Math.sin(a);
+            return { k, t: [co, si, -si, co, ox + ddx - (co * cx - si * cy), oy + ddy - (si * cx + co * cy)] };
+        }
         function morphEmitExpand(entries, S) {
             const out = entries.slice(),
                 clampN = (v, a, b, d) => Number.isFinite(+v) ? Math.max(a, Math.min(b, +v)) : d;
@@ -52817,34 +52863,9 @@
                 const H = Math.max(1e-9, B0.y1 - B0.y0),
                     cx = B0.cx,
                     cy = (B0.y0 + B0.y1) / 2;
-                let seed = (Number.isFinite(+E.seed) ? +E.seed : 1) >>> 0 || 1;
-                const rnd = () => { // mulberry32
-                    seed = (seed + 0x6D2B79F5) >>> 0;
-                    let z = seed;
-                    z = Math.imul(z ^ (z >>> 15), z | 1);
-                    z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
-                    return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
-                };
-                const varyMotion = m => {
-                    if (!m || typeof m !== 'object')
-                        return m;
-                    const q = Object.assign({}, m);
-                    if (Number.isFinite(+q.amount))
-                        q.amount = +q.amount * (1 + vary * (rnd() - 0.5));
-                    if (Array.isArray(q.to))
-                        q.to = q.to.map(v => Number.isFinite(+v) ? +v * (1 + vary * (rnd() - 0.5) * 0.5) : v);
-                    if (Array.isArray(q.steps))
-                        q.steps = q.steps.map(varyMotion);
-                    return q;
-                };
+                const rnd = morphRand(E.seed);
                 for (let c = 1; c < n; c++) {
-                    const ddx = (rnd() - 0.5) * clampN(spread[0], 0, 400, 6) * H,
-                        ddy = (rnd() - 0.5) * clampN(spread[1], 0, 400, 0) * H,
-                        k = 1 + vary * (rnd() - 0.5) * 0.6,
-                        a = vary * (rnd() - 0.5) * Math.PI / 3,
-                        co = k * Math.cos(a),
-                        si = k * Math.sin(a),
-                        t = [co, si, -si, co, cx + ddx - (co * cx - si * cy), cy + ddy - (si * cx + co * cy)],
+                    const { t } = morphEmitMap(rnd, vary, cx, cy, clampN(spread[0], 0, 400, 6) * H, clampN(spread[1], 0, 400, 0) * H, cx, cy),
                         map = new Map();
                     for (const i of uniq) {
                         const cp = spCopyXform(S[i], t);
@@ -52859,25 +52880,87 @@
                     // a motion's distances are in its own heights, and a copy turned or sized is a different
                     // height: carried distances are put back in the first's, so every flake falls as far
                     const Bc = morphShapeBox(S[map.get(uniq[0])]),
-                        f = Bc ? H / Math.max(1e-9, Bc.y1 - Bc.y0) : 1,
-                        refit = m => {
-                            if (!m || typeof m !== 'object')
-                                return m;
-                            if (Array.isArray(m.to))
-                                m.to = m.to.map(v => Number.isFinite(+v) ? +v * f : v);
-                            if (Array.isArray(m.steps))
-                                m.steps = m.steps.map(q => refit(Object.assign({}, q)));
-                            return m;
-                        };
+                        f = Bc ? H / Math.max(1e-9, Bc.y1 - Bc.y0) : 1;
                     out.push(Object.assign({}, o, {
                         emit: undefined,
                         keys: keys.map(i => map.get(i)),
                         phase: rnd(),
-                        motion: refit(varyMotion(o.motion))
+                        motion: morphVaryMotion(o.motion, vary, rnd, f)
                     }));
                 }
             }
             return out;
+        }
+        // COPIES FROM THE STRIP (27 Oct 2026, Tom: "1,2,3,4"): the same emitter for morphs already live. Each
+        // selected morph is made count times over, the copies scattered across most of the view's width and a
+        // little of its height round the shape's level, each sized and turned a little, with its own phase and its
+        // motion varied; its path, timing, clip, trail, parent and facing kept, and a contact still on its targets.
+        // The copies are ordinary morphs (their own shapes beside the first in the drawing), and the whole scatter
+        // is one undo step.
+        function morphEmitRuns(runs, count, seed, viewBox) {
+            const rnd = morphRand(seed),
+                vary = 0.5,
+                made = [];
+            for (const run of runs) {
+                if (morphRuns.indexOf(run) < 0 || state.subpaths.indexOf(run.sp) < 0)
+                    continue;
+                const Z = morphMotionSize(run),
+                    H = 2 * Z.h,
+                    ax = viewBox ? 0.9 * (viewBox.x1 - viewBox.x0) : 12 * H,
+                    ay = viewBox ? 0.25 * (viewBox.y1 - viewBox.y0) : 2 * H,
+                    ox = viewBox ? (viewBox.x0 + viewBox.x1) / 2 : Z.cx,
+                    own = morphSaveOwn(run, false, null);
+                if (own.path)
+                    own.path = Object.assign({}, own.path, { member: null }); // the line ridden stays the first's to give back
+                for (let c = 1; c < count; c++) {
+                    const { t, k } = morphEmitMap(rnd, vary, Z.cx, Z.cy, ax, ay, ox, Z.cy),
+                        P = (x, y) => [t[0] * x + t[2] * y + t[4], t[1] * x + t[3] * y + t[5]],
+                        cp = spCopyXform(run.sp, t);
+                    if (!cp)
+                        continue;
+                    const keys = run.keys.map(K => {
+                        const X = new Float64Array(K.x.length),
+                            Y = new Float64Array(K.x.length);
+                        for (let i = 0; i < X.length; i++)
+                            [X[i], Y[i]] = P(K.x[i], K.y[i]);
+                        if (!run.exact)
+                            return { x: X, y: Y };
+                        return {
+                            x: X,
+                            y: Y,
+                            r: Float64Array.from(K.r, v => v * k),
+                            c: K.c.map(e => e ? [...P(e[0], e[1]), ...P(e[2], e[3])] : null)
+                        };
+                    });
+                    state.subpaths.splice(state.subpaths.indexOf(run.sp) + 1, 0, cp);
+                    const nr = {
+                        keys,
+                        exact: !!run.exact,
+                        curved: run.exact ? morphExactCurved(keys) : undefined,
+                        sp: cp,
+                        inPlace: run.inPlace,
+                        lag: run.lag || 0,
+                        spec: null,
+                        freq: null,
+                        fx: run.fx ? Object.assign({}, run.fx) : null,
+                        members: [],
+                    };
+                    const Bc = morphShapeBox(cp),
+                        f = Bc ? H / Math.max(1e-9, Bc.y1 - Bc.y0) : 1;
+                    morphRestoreOwn(nr, Object.assign({}, own, { phase: rnd(), motion: morphVaryMotion(run.motion, vary, rnd, f), onto: null }));
+                    if (run.ontoLink) // a contact stays on its targets, each copy landing on them from where it is
+                        morphOntoLink(nr, morphVaryMotion(run.ontoLink.raw, vary, rnd, f), run.ontoLink.targets);
+                    if (run.parent)
+                        morphSetParent(nr, run.parent, run.parentAt);
+                    if (run.look) {
+                        nr.look = run.look;
+                        nr.lookRef = run.lookRef;
+                    }
+                    morphRuns.push(nr);
+                    made.push(nr);
+                }
+            }
+            return made;
         }
         // one motion (not a chain) set onto the box B, the shape (size Z) carried (ox, oy) from where it
         // is drawn; null when that kind has nothing to land on
@@ -52928,6 +53011,66 @@
             });
             return ok;
         }
+        // CONTACT THAT FOLLOWS (27 Oct 2026, Tom: "1,2,3,4"): worked out once, a motion set onto a table kept
+        // landing where the table had been. So the run keeps the motion as it was given (`raw`, each `onto` a slot
+        // in `targets`, the shapes themselves) and works it out again whenever a target's box changes: move the
+        // table, edit the shelf, and the ball lands on it. At most a few times a second, since a box can cost an
+        // outline. Saved (and undone) by the targets' places among the saved shapes; written into a scene link as
+        // their numbers there. A target that leaves the drawing leaves the motion as it last was.
+        function morphOntoLink(run, raw, targets) {
+            run.ontoLink = { raw: JSON.parse(JSON.stringify(raw)), targets: targets.slice(), sig: null, t: 0 };
+            morphOntoRefresh(run, true);
+        }
+        function morphOntoRefresh(run, force) {
+            const L = run.ontoLink;
+            if (!L)
+                return;
+            const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            if (!force && now - L.t < 150)
+                return;
+            L.t = now;
+            if (!L.targets.every(sp => sp && (state.subpaths.indexOf(sp) >= 0 || morphRuns.some(r => r.sp === sp))))
+                return;
+            const boxes = L.targets.map(morphShapeBox);
+            if (boxes.some(b => !b))
+                return;
+            const sig = boxes.map(b => [b.x0, b.x1, b.y0, b.y1].map(v => v.toPrecision(7)).join(',')).join(';');
+            if (!force && sig === L.sig)
+                return;
+            L.sig = sig;
+            const m = morphMotionOnto(run, L.raw, k => L.targets[k]);
+            if (m)
+                run.motion = m;
+        }
+        // a motion as given in a scene link (onto by shape number, S the link's shapes) set on the run: linked
+        // when it names any shape, plain numbers otherwise
+        function morphMotionSet(run, M, S) {
+            const targets = [],
+                slot = i => {
+                    const sp = Number.isInteger(i) && S[i] ? S[i] : null;
+                    if (!sp)
+                        return undefined;
+                    if (targets.indexOf(sp) < 0)
+                        targets.push(sp);
+                    return targets.indexOf(sp);
+                };
+            run.ontoLink = null;
+            if (!M || typeof M !== 'object') {
+                run.motion = null;
+                return;
+            }
+            const raw = JSON.parse(JSON.stringify(M));
+            if (raw.onto != null)
+                raw.onto = slot(raw.onto);
+            if (Array.isArray(raw.steps))
+                for (const q of raw.steps)
+                    if (q && q.onto != null)
+                        q.onto = slot(q.onto);
+            if (targets.length)
+                morphOntoLink(run, raw, targets);
+            else
+                run.motion = morphMotionOk(M);
+        }
         // where a fall is at time s (gravity 1) when dropped from D and keeping e of its speed at each bounce:
         // its height above the ground and its speed there
         function morphFallAt(s, D, e) {
@@ -52945,6 +53088,8 @@
         }
         // the motion at t as a map of the page: { at(x, y), inv(x, y), det }, or null when the morph has none
         function morphMotionXform(run, t) {
+            if (run.ontoLink)
+                morphOntoRefresh(run); // CONTACT THAT FOLLOWS
             const M = run.motion;
             if (!M)
                 return null;
@@ -53886,7 +54031,8 @@
             const r = runs[0],
                 line = morphRunToolLine(),
                 state_ = [sig, r.rate, r.phase, r.spin, r.laps, r.at, !!r.path, r.trail && r.trail.kind, r.fx && r.fx.kind,
-                    morphRuns.indexOf(r.parent), r.follow && r.follow.kind, r.follow && r.follow.amount, morphRuns.indexOf(r.look), morphRuns.length, !!line, !!morphRunToolOther(), r.motion && r.motion.kind, r.keys.length, (r.eases || []).join(',')].join('|');
+                    morphRuns.indexOf(r.parent), r.follow && r.follow.kind, r.follow && r.follow.amount, morphRuns.indexOf(r.look), morphRuns.length, !!line, !!morphRunToolOther(), r.motion && r.motion.kind,
+                    r.motion && r.motion.kind === 'chain' ? r.motion.steps.map(q => q.kind + q.share.toFixed(3)).join() + '@' + (r._step || 0) : '', r.keys.length, (r.eases || []).join(',')].join('|');
             mrKeysLayout(r); // KEYS AT CHOSEN TIMES: moved in place, never rebuilt, so a key held by a drag stays held
             if (state_ === _mrSig)
                 return;
@@ -53902,7 +54048,9 @@
             $('mrPhaseV').textContent = (r.phase || 0).toFixed(2);
             set('mrSpin', +(r.spin || 0).toFixed(4));
             set('mrMotion', r.motion ? r.motion.kind : ''); // PHYSICAL MOTIONS
-            set('mrMotionAmt', r.motion && r.motion.amount != null ? +(+r.motion.amount).toFixed(3) : '');
+            const MV = morphMotionView(r); // CHAINS IN THE EDITOR: a chain's amount is its selected step's
+            set('mrMotionAmt', MV && MV.M.amount != null ? +(+MV.M.amount).toFixed(3) : '');
+            mrStepsBuild(r);
             $('mrOnto').disabled = !morphRunToolOther() || !runs.some(q => q.motion && ['fall', 'bounce', 'throw', 'roll'].includes(q.motion.kind));
             set('mrLaps', r.laps || 1);
             set('mrAt', Math.round(1000 * (r.at || 0)));
@@ -53941,6 +54089,34 @@
         // round the loop drawn as its two ends), built when the count or the eases change, placed every frame
         const MR_EASES = [null, 'linear', 'inout', 'in', 'out', 'anticipate', 'overshoot', 'elastic'],
             MR_EASE_LABEL = { linear: 'lin', inout: 'io', in: 'in', out: 'out', anticipate: 'ant', overshoot: 'ovr', elastic: 'ela' };
+        // CHAINS IN THE EDITOR: the steps as a strip, each as wide as its share, the selected one gold, a border
+        // between each two to drag
+        function mrStepsBuild(r) {
+            const track = $('mrSteps'),
+                del = $('mrStepDel');
+            if (!track)
+                return;
+            const M = r.motion,
+                on = !!(M && M.kind === 'chain');
+            track.hidden = !on;
+            del.hidden = !on;
+            if (!on) {
+                track.innerHTML = '';
+                return;
+            }
+            const tot = M.steps.reduce((a, q) => a + q.share, 0),
+                sel = Math.max(0, Math.min(M.steps.length - 1, r._step || 0));
+            let html = '',
+                lo = 0;
+            M.steps.forEach((q, i) => {
+                const w = q.share / tot;
+                html += `<button type="button" class="mr-seg${i === sel ? ' on' : ''}" data-i="${i}" style="left:${(100 * lo).toFixed(3)}%;width:calc(${(100 * w).toFixed(3)}% - 2px)" title="step ${i + 1}: ${q.kind} · click to work on it">${q.kind}</button>`;
+                lo += w;
+                if (i < M.steps.length - 1)
+                    html += `<span class="mr-cut" data-i="${i}" style="left:${(100 * lo).toFixed(3)}%" title="drag: this step's share against the next's"></span>`;
+            });
+            track.innerHTML = html;
+        }
         function mrKeysBuild(r) {
             const track = $('mrKeys');
             if (!track)
@@ -54281,11 +54457,44 @@
         // A drag writes the motion through morphMotionOk (so it is clamped as anything else is) and the
         // whole drag is one undo step. The handles are taken before the editor sees the pointer, like a
         // path being drawn, so dragging one never moves a shape. Spring and pop have nothing to place.
-        function morphMotionHandles(run) {
+        // CHAINS IN THE EDITOR: the motion the handles and the amount box work on, with the shape's size and centre
+        // as that motion sees it (a chain's selected step, from where the steps before leave the shape), and how to
+        // put an edited step back into the whole
+        function morphMotionView(run) {
             const M = run.motion;
-            if (!M || !run.keys.length)
+            if (!M)
+                return null;
+            const Z = morphMotionSize(run);
+            if (M.kind !== 'chain')
+                return { M, Z, step: -1, set: m => m };
+            const i = Math.max(0, Math.min(M.steps.length - 1, run._step || 0)),
+                C = { x: Z.cx, y: Z.cy };
+            let ox = 0,
+                oy = 0;
+            for (let j = 0; j < i; j++) {
+                const E = morphMotionMap(M.steps[j], 1, C, Z, run, 0, true);
+                ox += E.dx;
+                oy += E.dy;
+            }
+            return {
+                M: M.steps[i],
+                Z: Object.assign({}, Z, { cx: Z.cx + ox, cy: Z.cy + oy }),
+                step: i,
+                set: m => {
+                    if (!m)
+                        return M;
+                    const steps = M.steps.slice();
+                    steps[i] = Object.assign({}, m, { share: M.steps[i].share });
+                    return morphMotionOk({ kind: 'chain', steps });
+                }
+            };
+        }
+        function morphMotionHandles(run) {
+            const V = run.keys.length ? morphMotionView(run) : null;
+            if (!V)
                 return [];
-            const Z = morphMotionSize(run),
+            const M = V.M,
+                Z = V.Z,
                 H = 2 * Z.h,
                 cx = Z.cx,
                 cy = Z.cy,
@@ -54338,8 +54547,9 @@
         }
         // a handle dragged to (x, y) on the page, as the motion's new numbers
         function morphMotionDragTo(run, hd, x, y) {
-            const M = run.motion,
-                Z = morphMotionSize(run),
+            const V = morphMotionView(run),
+                M = V.M,
+                Z = V.Z,
                 H = 2 * Z.h,
                 m = Object.assign({}, M);
             if (hd.part === 'to') {
@@ -54372,7 +54582,7 @@
                 m.amount = (x - Z.cx) / (2 * Z.w);
             else if (hd.part === 'lean')
                 m.amount = Math.max(0, Math.atan2(x - Z.cx, H) * 180 / Math.PI);
-            return morphMotionOk(m);
+            return V.set(morphMotionOk(m, V.step >= 0));
         }
         let _motionDrag = null; // { run, part, id } while a handle is held
         function morphMotionHandleRuns() {
@@ -54460,6 +54670,16 @@
                     return;
                 const m = morphMotionDragTo(D.run, D.hd, q.x, q.y);
                 if (m) {
+                    // CONTACT THAT FOLLOWS: a throw's arc may be dragged and it still lands on its target; dragging
+                    // what the target set (where it lands, how far it falls or rolls) takes it off the target
+                    const L = D.run.ontoLink,
+                        st = m.kind === 'chain' ? Math.max(0, Math.min(m.steps.length - 1, D.run._step || 0)) : -1,
+                        rawQ = L ? (st >= 0 ? L.raw.steps && L.raw.steps[st] : L.raw) : null,
+                        newQ = st >= 0 ? m.steps[st] : m;
+                    if (rawQ && D.part === 'top' && rawQ.kind === 'throw')
+                        rawQ.amount = newQ.amount;
+                    else
+                        D.run.ontoLink = null;
                     D.run.motion = m;
                     D.moved = true;
                     // the handle's own place for the next move (an angle is measured from the same pivot)
@@ -54794,9 +55014,34 @@
             // PHYSICAL MOTIONS: the kind from the select (its usual size when it is new), the size from the box
             $('mrMotion').addEventListener('change', e => {
                 const k = e.target.value;
-                morphRunToolApply(r => r.motion = k ? morphMotionOk(Object.assign({}, r.motion && r.motion.kind === k ? r.motion : {}, { kind: k })) : null);
+                morphRunToolApply(r => {
+                    r.ontoLink = null; // CONTACT THAT FOLLOWS: another kind is set by hand
+                    r.motion = k ? morphMotionOk(Object.assign({}, r.motion && r.motion.kind === k ? r.motion : {}, { kind: k })) : null;
+                });
             });
-            num('mrMotionAmt', (r, v) => { if (r.motion) r.motion = morphMotionOk(Object.assign({}, r.motion, { amount: v })); });
+            num('mrMotionAmt', (r, v) => {
+                if (!r.motion)
+                    return;
+                if (r.motion.kind === 'chain') { // CHAINS IN THE EDITOR: the selected step's amount
+                    const V = morphMotionView(r),
+                        L = r.ontoLink,
+                        rq = L && L.raw.kind === 'chain' ? L.raw.steps[V.step] : null;
+                    if (rq && rq.onto != null && rq.kind !== 'throw')
+                        r.ontoLink = null;
+                    else if (rq)
+                        rq.amount = v;
+                    r.motion = V.set(morphMotionOk(Object.assign({}, V.M, { amount: v }), true));
+                    return;
+                }
+                const L = r.ontoLink;
+                if (L && L.raw.kind === 'throw') { // a throw's arc is its own; where it lands is still the target's
+                    L.raw.amount = v;
+                    morphOntoRefresh(r, true);
+                    return;
+                }
+                r.ontoLink = null; // a fall's height or a roll's reach set by hand: no longer worked out from the shape
+                r.motion = morphMotionOk(Object.assign({}, r.motion, { amount: v }));
+            });
             num('mrLaps', (r, v) => r.laps = Math.max(1, Math.min(64, Math.round(v))));
             $('mrPhase').addEventListener('input', e => morphRunToolApply(r => r.phase = (+e.target.value) / 1000));
             $('mrAt').addEventListener('input', e => morphRunToolApply(r => r.at = (+e.target.value) / 1000));
@@ -54882,6 +55127,126 @@
                 const runs = morphRunToolRuns();
                 morphRunToolApply(r => r.at = runs.indexOf(r) / runs.length);
             });
+            // CHAINS IN THE EDITOR: a step added after the motion (the motion itself when there is none), a step
+            // picked, a border dragged, a step taken out; a contact's own record follows the same change
+            const chainOf = M => M && M.kind === 'chain' ? M.steps.slice() : M ? [Object.assign({}, M, { share: 1 })] : [];
+            $('mrThen').addEventListener('change', e => {
+                const k = e.target.value;
+                e.target.value = '';
+                if (!k)
+                    return;
+                morphRunToolApply(r => {
+                    if (!r.motion) {
+                        r.ontoLink = null;
+                        r.motion = morphMotionOk({ kind: k });
+                        return;
+                    }
+                    const steps = chainOf(r.motion);
+                    steps.push({ kind: k, share: 1 });
+                    r.motion = morphMotionOk({ kind: 'chain', steps });
+                    r._step = steps.length - 1;
+                    if (r.ontoLink) {
+                        const rs = chainOf(r.ontoLink.raw);
+                        rs.push({ kind: k, share: 1 });
+                        r.ontoLink.raw = { kind: 'chain', steps: rs };
+                        morphOntoRefresh(r, true);
+                    }
+                });
+            });
+            const steps = $('mrSteps');
+            let cut = null;
+            steps.addEventListener('click', e => {
+                const b = e.target.closest('.mr-seg');
+                if (!b)
+                    return;
+                const i = +b.dataset.i;
+                for (const r of morphRunToolRuns())
+                    r._step = i;
+                _mrSig = '';
+                drawAll();
+            });
+            steps.addEventListener('pointerdown', e => {
+                const c = e.target.closest('.mr-cut');
+                if (!c)
+                    return;
+                e.preventDefault();
+                cut = { i: +c.dataset.i, id: e.pointerId };
+                try {
+                    steps.setPointerCapture(e.pointerId);
+                } catch (_) {}
+            });
+            steps.addEventListener('pointermove', e => {
+                if (!cut || cut.id !== e.pointerId)
+                    return;
+                const R = steps.getBoundingClientRect(),
+                    f = Math.max(0, Math.min(1, (e.clientX - R.left) / R.width));
+                for (const r of morphRunToolRuns()) {
+                    const M = r.motion;
+                    if (!M || M.kind !== 'chain' || cut.i >= M.steps.length - 1)
+                        continue;
+                    const tot = M.steps.reduce((a, q) => a + q.share, 0),
+                        edges = [0];
+                    M.steps.forEach(q => edges.push(edges[edges.length - 1] + q.share / tot));
+                    edges[cut.i + 1] = Math.max(edges[cut.i] + 0.04, Math.min(edges[cut.i + 2] - 0.04, f));
+                    const shares = M.steps.map((q, j) => Math.max(0.01, (edges[j + 1] - edges[j]) * M.steps.length));
+                    r.motion = morphMotionOk({ kind: 'chain', steps: M.steps.map((q, j) => Object.assign({}, q, { share: shares[j] })) });
+                    const L = r.ontoLink;
+                    if (L && L.raw.kind === 'chain' && L.raw.steps.length === shares.length)
+                        L.raw.steps.forEach((q, j) => q.share = shares[j]);
+                }
+                _mrSig = '';
+                morphWrite();
+                drawAll();
+            });
+            const cutEnd = e => {
+                if (!cut || cut.id !== e.pointerId)
+                    return;
+                cut = null;
+                morphRunToolApply(() => {});
+            };
+            steps.addEventListener('pointerup', cutEnd);
+            steps.addEventListener('pointercancel', cutEnd);
+            $('mrStepDel').addEventListener('click', () => {
+                morphRunToolApply(r => {
+                    const M = r.motion;
+                    if (!M || M.kind !== 'chain')
+                        return;
+                    const i = Math.max(0, Math.min(M.steps.length - 1, r._step || 0)),
+                        rest = M.steps.filter((q, j) => j !== i);
+                    r.motion = rest.length > 1 ? morphMotionOk({ kind: 'chain', steps: rest }) : morphMotionOk(rest[0]);
+                    r._step = Math.max(0, i - 1);
+                    const L = r.ontoLink;
+                    if (L && L.raw.kind === 'chain' && L.raw.steps.length === M.steps.length) {
+                        const rr = L.raw.steps.filter((q, j) => j !== i);
+                        L.raw = rr.length > 1 ? { kind: 'chain', steps: rr } : Object.assign({}, rr[0]);
+                        delete L.raw.share;
+                        if (!rr.some(q => q.onto != null) && L.raw.onto == null)
+                            r.ontoLink = null;
+                        else
+                            morphOntoRefresh(r, true);
+                    } else if (L)
+                        r.ontoLink = null;
+                });
+            });
+            $('mrEmit').addEventListener('click', () => { // COPIES FROM THE STRIP
+                const runs = morphRunToolRuns(),
+                    n = Math.round(Math.max(2, Math.min(200, +$('mrCopies').value || 12)));
+                if (!runs.length)
+                    return;
+                const R = cv.getBoundingClientRect(),
+                    a = pxToWorld(0, 0, R.width, R.height),
+                    b = pxToWorld(R.width, R.height, R.width, R.height);
+                const made = morphEmitRuns(runs, n, (Date.now() & 0xffff) + 1, { x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x), y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y) });
+                rebuildSignalSelect();
+                rebuildScroller();
+                _mrSig = '';
+                morphWrite();
+                morphBarSync();
+                pushHistory();
+                scheduleSave();
+                drawAll();
+                flashStatus(made.length ? made.length + ' cop' + (made.length > 1 ? 'ies' : 'y') + ' scattered · undo takes them all back' : 'nothing to copy');
+            });
             $('mrOnto').addEventListener('click', () => { // CONTACT
                 const other = morphRunToolOther();
                 if (!other)
@@ -54890,9 +55255,9 @@
                 morphRunToolApply(r => {
                     if (!r.motion || r.motion.kind === 'chain')
                         return;
-                    const m = morphMotionOnto(r, Object.assign({}, r.motion, { onto: 0 }), () => other);
-                    if (m && JSON.stringify(m) !== JSON.stringify(r.motion)) {
-                        r.motion = m;
+                    const raw = Object.assign({}, r.ontoLink && r.ontoLink.raw.kind === r.motion.kind ? r.ontoLink.raw : r.motion, { onto: 0 });
+                    if (morphMotionOntoBox(morphMotionOk(raw), morphMotionSize(r), morphShapeBox(other) || { x0: 0, x1: 0, y0: 0, y1: 0, cx: 0 }, 0, 0)) {
+                        morphOntoLink(r, raw, [other]); // CONTACT THAT FOLLOWS
                         n++;
                     }
                 });
@@ -81906,7 +82271,7 @@
                         y: _f32b64(k.y)
                     }),
                     members: (r.members || []).filter(spSaveable).map(m => spSave(m, dropRefs)),
-                    own: morphSaveOwn(r, dropRefs), // EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL
+                    own: morphSaveOwn(r, dropRefs, saved), // EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL
                 })).filter(m => m.at >= 0),
                 morphT: morphLive.t,
                 morphSecs: 1 / morphLive.speed,
@@ -82103,8 +82468,10 @@
         // found by its place), and the shapes it had lifted out, so exit still puts them back. A morph
         // whose live shape or keys do not fit is dropped, and its live shape stays an ordinary shape.
         // what a morph has of its own, as the autosave holds it, and back
-        function morphSaveOwn(r, dropRefs) {
-            const P = r.path;
+        function morphSaveOwn(r, dropRefs, saved) {
+            const P = r.path,
+                L = r.ontoLink,
+                at = L && saved ? L.targets.map(sp => saved.indexOf(sp)) : null;
             return {
                 parent: r.parent ? morphRuns.indexOf(r.parent) : -1, // ONE MORPH RIDING ANOTHER
                 parentAt: r.parent && r.parentAt != null ? +r.parentAt : null,
@@ -82115,6 +82482,7 @@
                 rate: r.rate || 1,
                 spin: +r.spin || 0,
                 motion: r.motion ? Object.assign({}, r.motion) : null, // PHYSICAL MOTIONS
+                onto: at && at.every(i => i >= 0) ? { raw: JSON.parse(JSON.stringify(L.raw)), at } : null, // CONTACT THAT FOLLOWS
                 laps: r.laps || 1,
                 start: r.at != null ? +r.at : null,
                 times: r.times ? r.times.map(Number) : null, // KEYS AT CHOSEN TIMES
@@ -82141,6 +82509,8 @@
             run.rate = Math.max(1, Math.round(+o.rate || 1));
             run.spin = +o.spin || 0;
             run.motion = morphMotionOk(o.motion); // PHYSICAL MOTIONS
+            run.ontoLink = o.onto && Array.isArray(o.onto.at) && o.onto.at.length && o.onto.at.every(i => state.subpaths[i]) && o.onto.raw ?
+                { raw: o.onto.raw, targets: o.onto.at.map(i => state.subpaths[i]), sig: null, t: 0 } : null; // CONTACT THAT FOLLOWS
             run.laps = Math.max(1, Math.round(+o.laps || 1));
             run.at = o.start != null ? +o.start : null;
             run.follow = o.follow && MORPH_FOLLOW.includes(o.follow.kind) ? { kind: o.follow.kind, amount: Math.max(0, Math.min(1, +o.follow.amount || 0)) } : null;
@@ -86449,8 +86819,8 @@
                     run.rate = Math.max(1, Math.round(+o.rate || 1));
                 if (has('spin'))
                     run.spin = Number.isFinite(+o.spin) ? +o.spin : 0;
-                if (has('motion')) // PHYSICAL MOTIONS; CONTACT: `onto` a shape of the link, by its number
-                    run.motion = morphMotionOnto(run, o.motion, i => Number.isInteger(i) && S[i] ? S[i] : null);
+                if (has('motion')) // PHYSICAL MOTIONS; CONTACT: `onto` a shape of the link, by its number, followed
+                    morphMotionSet(run, o.motion, S);
                 if (has('laps'))
                     run.laps = Math.max(1, Math.round(+o.laps || 1));
                 if (has('at'))
@@ -86513,6 +86883,9 @@
                 applySceneMorphs(d, S);
                 state.svgName = name;
                 applyShapeSelection(new Set());
+                // one undo history, starting here: making each morph pushed a step of its own, so undoing past the
+                // open took the morphs away one at a time; a scene is opened whole, as a file is
+                resetHistory();
                 morphBarSync();
                 drawAll();
                 scheduleSave();
@@ -86701,6 +87074,20 @@
                         o.spin = run.spin;
                     if (run.motion)
                         o.motion = Object.assign({}, run.motion); // PHYSICAL MOTIONS
+                    const L = run.ontoLink; // CONTACT THAT FOLLOWS: the targets by their numbers in this link
+                    if (L) {
+                        const at = L.targets.map(sp => items.findIndex(it => it.sp === sp || (it.run && it.run.sp === sp && it.k === 0)));
+                        if (at.every(i => i >= 0)) {
+                            const raw = JSON.parse(JSON.stringify(L.raw)),
+                                put = q => {
+                                    if (q && q.onto != null)
+                                        q.onto = at[q.onto];
+                                };
+                            put(raw);
+                            (raw.steps || []).forEach(put);
+                            o.motion = raw;
+                        }
+                    }
                     if (run.path) {
                         o.path = pathOf.get(run);
                         o.turn = run.path.turn !== false;
