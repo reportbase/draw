@@ -130,7 +130,14 @@ publishes.
     moved, turned, sized, kept exact: `animCopy`), `svg` (new outlines and motion paths, landed exact where the box
     puts them) and `morphs` go through the scene link's own `applySceneMorphs` (partial: what it leaves out stays),
     its `change` items through `sceneChangeRuns` (by morph: only what is named changes; `end` gives the keys back),
-    and the whole reply is one undo step. `SYS_ANIM` is the prompt: a field added to the scene link belongs in it.
+    and the whole reply is one undo step. "animate it" keeps to the drawing (`strict`: a shape it adds that becomes no
+    key and no path is left out); **make a scene** (MAKE A SCENE, 27 Oct 2026, Tom: "should we have seperate ways to
+    create full scenes from animations", "yes") asks for a whole scene from words in the same vocabulary, its svg opened
+    by `openScene` and its copies and morphs landed by `animApply` in the box the svg was drawn in (`sceneBoxOf`). A
+    reply's svg is read at its own box size (`animBoxSvg`: `parseSvgExact` reads through the CTM of a 10-pixel host,
+    a hundredth of a 1000 box). Requests stream (`apiCall`), or a long answer is cut off at about 100 s (HTTP 524).
+    `ANIM_MORPH_FIELDS` is the morph vocabulary both prompts share (`SYS_ANIM`, `SYS_SCENE`): a field added to the
+    scene link belongs in it.
     The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
     what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
     in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted

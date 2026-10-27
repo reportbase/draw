@@ -1368,6 +1368,12 @@ current = 'animate with ai';
     const s1 = await S();
     if (r.made !== 2 || r.added !== 2 || s1.n !== 3 || s1.held !== 3 || !s1.play || Math.abs(s1.loop - 3) > 1e-9 || s1.morphs.length !== 2 || s1.morphs[0].keys !== 2 || !s1.morphs[1].path)
       throw new Error('the reply landed as ' + JSON.stringify({ r, n: s1.n, held: s1.held, play: s1.play, loop: s1.loop, morphs: s1.morphs }));
+    // the circle path is 240 across in the 1000 box the drawing was sent in, which spans 200 of the drawing's own
+    // 200 × 200 (its widest, 160, × 1.25): 48 of them, three tenths of the triangle's 160 (read off the scene link,
+    // which writes the keys, the triangle and then the path)
+    const wid = await ap.evaluate(async () => { const svg = (await window.__sceneShare()).d.svg;
+      return [...svg.matchAll(/ d="([^"]*)"/g)].map(m => { const v = (m[1].match(/-?[0-9.]+/g) || []).map(Number), xs = v.filter((_, i) => i % 2 === 0); return Math.max(...xs) - Math.min(...xs); }); });
+    if (wid.length !== 5 || Math.abs(wid[4] / wid[3] - 0.3) > 0.02) throw new Error('the reply\'s circle path landed ' + (wid[4] / wid[3]).toFixed(3) + ' of the triangle\'s width, not 0.3: ' + JSON.stringify(wid));
     const exact = await ap.evaluate(() => window.__box.morphDiag().map(q => q.exact));
     if (!exact.every(Boolean)) throw new Error('the morphs are not exact: ' + exact);
     const r2 = await ap.evaluate(() => window.__animApply({ change: [{ morph: 0, rate: 2, phase: 0.25 }, { morph: 1, end: true }] }));
@@ -1397,11 +1403,11 @@ current = 'animate streamed';
   sp.on('pageerror', e => failures.push(`[animate streamed] ${e.message}`));
   await sp.route(/fonts\.g/, r => r.abort());
   const before = failures.length;
-  let sent = null;
+  let sent = null,
+    reply = JSON.stringify({ note: 'the sun rises', copies: [{ of: 0, dy: -300 }], morphs: [{ keys: [0, 3] }], loop: 3 });
   await sp.route('https://login.tangent.workers.dev/auth/me', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { email: 'test@example.com' }, quota: { remaining: 9, limit: 10 } }) }));
   await sp.route('https://login.tangent.workers.dev/v1/messages', r => {
     sent = JSON.parse(r.request().postData() || '{}');
-    const reply = JSON.stringify({ note: 'the sun rises', copies: [{ of: 0, dy: -300 }], morphs: [{ keys: [0, 3] }], loop: 3 });
     const pieces = reply.match(/.{1,40}/g);
     const ev = (t, d) => 'event: ' + t + '\ndata: ' + JSON.stringify(d) + '\n\n';
     const body = ev('message_start', { type: 'message_start', message: {} })
@@ -1424,6 +1430,25 @@ current = 'animate streamed';
       throw new Error('the request: ' + JSON.stringify(sent).slice(0, 200));
     if (s.morphs[0].keys !== 2 || s.held !== s.n || !/the sun rises/.test(status) || !(await sp.$eval('#aiAnimChange', b => !b.disabled)))
       throw new Error('the reply landed as ' + JSON.stringify({ morphs: s.morphs, held: s.held, n: s.n, status }));
+    // "animate it" keeps to the drawing: a shape the reply adds that moves nothing is left out
+    const strict = await sp.evaluate(n => window.__animApply({ svg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><rect x='0' y='0' width='1000' height='1000' fill='#88ccee'/><circle cx='500' cy='500' r='40' fill='#ffffff'/></svg>",
+      morphs: [{ keys: [n + 1], spin: 1 }] }, null, null, { strict: true }), s.n);
+    const s2 = await sp.evaluate(() => window.__animSketch());
+    if (strict.unused !== 1 || s2.n !== s.n + 1) throw new Error('animate it kept a shape that moved nothing: ' + JSON.stringify([strict, s.n, s2.n]));
+    // MAKE A SCENE: words alone, the reply a whole drawing and its motion; it opens as a scene does, and a copy
+    // lands where the reply's own box put it (300 up in a 1000 box is three tenths of the backdrop's height up)
+    reply = JSON.stringify({ name: 'sunrise', note: 'the sun comes up',
+      svg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><rect x='0' y='0' width='1000' height='1000' fill='#1b2440'/><circle cx='300' cy='800' r='60' fill='#ffcc33'/><rect x='0' y='800' width='1000' height='200' fill='#2f5d3a'/><circle cx='800' cy='700' r='30' fill='#ffffff'/></svg>",
+      copies: [{ of: 1, dy: -300 }, { of: 3, dy: -300 }], morphs: [{ keys: [1, 4] }], loop: 5 });
+    await sp.fill('#aiPrompt', 'a sunrise');
+    await sp.click('#aiScene');
+    await sp.waitForFunction(() => /sunrise/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
+    const sc = await sp.evaluate(() => window.__animSketch());
+    if (sent.system.indexOf('ONE CLOSED OUTLINE PER ELEMENT') < 0 || sc.morphs.length !== 1 || sc.morphs[0].keys !== 2 || sc.held !== sc.n || Math.abs(sc.loop - 5) > 1e-9)
+      throw new Error('the scene landed as ' + JSON.stringify({ morphs: sc.morphs, n: sc.n, held: sc.held, loop: sc.loop }));
+    const box = id => { const m = sc.svg.match(new RegExp('id="' + id + '"[^>]* d="M([^"]*)"')); const pts = m[1].replace(/ Z$/, '').split(' L').map(p => p.split(' ').map(Number)); const ys = pts.map(p => p[1]); return [Math.min(...ys), Math.max(...ys)]; };
+    const back = box('s0'), moon = box('s3'), moonUp = box('s4'), H = back[1] - back[0], rise = (moon[0] - moonUp[0]) / H;
+    if (Math.abs(rise - 0.3) > 0.01) throw new Error('a copy 300 up in the reply\'s box landed ' + rise.toFixed(3) + ' of the backdrop up, not 0.3 ');
     await sp.close();
   } catch (e){
     failures.push(`[animate streamed] ${e.message.split('\n')[0]}`);

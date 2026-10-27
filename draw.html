@@ -4480,7 +4480,8 @@
         <!-- ANIMATE IT WITH AI (26 Oct 2026): the words in the box say how the drawing should move; the
                answer is morphs, in the scene link's own terms, to tweak by hand afterwards -->
         <div class="pop-row">
-            <button class="pop-act" id="aiAnimate" title="Claude makes the drawing move as the box says ('the sun rises and the smoke puffs'): it picks the keys, paths, timing and clips of live morphs, adding a moved copy of a shape or a motion path where it needs one. One undo takes it all back; the morph bar, its strip and the timeline tweak it.">animate it</button>
+            <button class="pop-act" id="aiAnimate" title="Claude makes YOUR drawing move as the box says ('the sun rises and the smoke puffs'): it picks the keys, paths, timing and clips of live morphs, adding only moved copies of your shapes and motion paths (anything it adds that moves nothing is left out). One undo takes it all back; the morph bar, its strip and the timeline tweak it. For a new scene from words, use make a scene.">animate it</button>
+            <button class="pop-act" id="aiScene" title="Claude draws AND animates a whole scene from the words in the box ('a harbour at dusk with boats bobbing', 'a clock whose hands turn'): the shapes, the poses and the motion in one answer. It opens as a new scene, asking first when the page holds your drawing; change it, the strip and the timeline tweak it.">make a scene</button>
             <button class="pop-act" id="aiAnimChange" disabled title="Claude changes the animation that is playing as the box says ('slower', 'let the bird lag more', 'the roof comes down later'), keeping everything else, including what you adjusted by hand. One undo takes it back.">change it</button>
         </div>
         <div class="pop-row">
@@ -76252,6 +76253,19 @@
             // Either way the whole reply is one undo step.
             const animBtn = $('aiAnimate'),
                 animChangeBtn = $('aiAnimChange');
+            // what a morph can be told, shared by "animate it" and "make a scene" (one vocabulary: the scene link's)
+            const ANIM_MORPH_FIELDS = [
+                'A MORPH blends its keys in order and loops back from the last key to the first, smoothly (a key may repeat: [bud, bloom, bud]). One key is a still that can ride a path, spin or take an effect. Fields:',
+                '- keys: shape numbers. A shape can be a key of one morph only. The first key is where the morph is drawn.',
+                '- path: a shape number to ride (an open line goes along it and back, or "mode":"along" round a closed loop); laps: whole times round per loop; at: where on the path it starts (0–1); turn: true to face along the path.',
+                '- rate: a whole number of times the morph plays per loop (a fast flicker 3, a slow drift 1). phase: 0–1, its offset on the clock (stagger a row: 0, 0.1, 0.2 …).',
+                '- spin: whole turns per loop (negative anticlockwise on screen).',
+                '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out" or null.',
+                '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), or there until it plays then gone ("out"). Clips one after another make a sequence.',
+                '- trail: {"kind": "echoes" | "ribbon", "len": 0–1}. fx: {"kind": "shimmer" | "grow" | "boil", "amount": 0–1}: a living outline, for flames, water, a heartbeat.',
+                '- lag: 0–0.9, the outline\'s parts arriving one after another (a flag, a jelly). follow: {"kind": "lag" | "spring", "amount": 0–1}, with parent: how loosely it is carried.',
+                '- parent: a MORPH number whose every move and turn carries this one (a moon on its planet, a rider on a horse). look: a morph number it keeps turning to face.',
+            ];
             const SYS_ANIM = [
                 'You animate an existing flat vector drawing in a shape editor whose animation is made of MORPHS. You never draw frames: you say which shapes are the keys of each morph and how it moves, and the editor plays it.',
                 '',
@@ -76270,22 +76284,46 @@
                 '- "copies": a copy of shape `of`, moved by (dx, dy), turned `turn` degrees clockwise and scaled (`scale`, or `sx`/`sy`) about `about` (default: its own centre), optionally refilled. A copy keeps the original\'s exact corners and curves, so it is the RIGHT way to make another pose of a shape: the sun higher, the door swung, the bird with its wing down.',
                 '- "svg": new outlines (<path>, <polygon>, <circle>, <ellipse>, <rect>, <line>, <polyline>; solid fill or stroke colours only; no <text>, no transforms, no gradients) for new things and for MOTION PATHS: an open line, or a closed loop for an orbit. A path shape a morph rides is hidden.',
                 '',
-                'A MORPH blends its keys in order and loops back from the last key to the first, smoothly (a key may repeat: [bud, bloom, bud]). One key is a still that can ride a path, spin or take an effect. Fields:',
-                '- keys: shape numbers. A shape can be a key of one morph only. The first key is where the morph is drawn.',
-                '- path: a shape number to ride (an open line goes along it and back, or "mode":"along" round a closed loop); laps: whole times round per loop; at: where on the path it starts (0–1); turn: true to face along the path.',
-                '- rate: a whole number of times the morph plays per loop (a fast flicker 3, a slow drift 1). phase: 0–1, its offset on the clock (stagger a row: 0, 0.1, 0.2 …).',
-                '- spin: whole turns per loop (negative anticlockwise on screen).',
-                '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out" or null.',
-                '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), or there until it plays then gone ("out"). Clips one after another make a sequence.',
-                '- trail: {"kind": "echoes" | "ribbon", "len": 0–1}. fx: {"kind": "shimmer" | "grow" | "boil", "amount": 0–1}: a living outline, for flames, water, a heartbeat.',
-                '- lag: 0–0.9, the outline\'s parts arriving one after another (a flag, a jelly). follow: {"kind": "lag" | "spring", "amount": 0–1}, with parent: how loosely it is carried.',
-                '- parent: a MORPH number whose every move and turn carries this one (a moon on its planet, a rider on a horse). look: a morph number it keeps turning to face.',
+                ...ANIM_MORPH_FIELDS,
                 '',
                 'MORPHS are numbered: the morphs already live 0 … M−1 as given, then your "morphs" entries in order. "change" (only when morphs are live) changes a live morph: { "morph": k, and any of the fields above except keys }; { "morph": k, "end": true } ends it and gives its keys back as shapes. Change only what the request asks; everything you leave out stays as it is, including what the person has adjusted by hand.',
                 '',
                 'Whole-scene fields: loop (seconds for one loop, 0.5–60), ease ("" | "inout" | "in" | "out", for every morph without its own eases), hold (0–0.9, a pause at each key).',
                 '',
+                'ANIMATE WHAT IS DRAWN. Do not add scenery, a background, a sky, ground or anything new that the request does not name: the drawing is the person\'s own. Your new shapes are other poses of drawn shapes (copies), motion paths, and only the few new things the request asks for (smoke for "the smoke puffs"). Every new shape must be a key or a path of one of your morphs: one that is not is thrown away.',
                 'GOOD PRACTICE: move only what the request is about; leave the rest still. Prefer a copy of a shape over redrawing it. Keys blended together should be the same kind of outline (a copy of each other, or with the same number of corners). An orbit is a still on a closed path. Bobbing, swaying and breathing are two keys (a copy moved or turned a little). Keep it simple: a few morphs that read well beat many.',
+            ].join('\n');
+            // MAKE A SCENE (27 Oct 2026, Tom: "should we have seperate ways to create full scenes from animations", then
+            // "yes"): words alone, answered with a whole scene, drawn and animated at once, in the scene link's own form
+            // (THE SCENE LINK), so it opens as a gallery example does. "animate it" keeps to the drawing that is there.
+            const SYS_SCENE = [
+                'You draw AND animate a small scene for a shape editor whose animation is made of MORPHS. You never draw frames: you draw the shapes, including every pose a moving thing passes through, and say which shapes are the keys of each morph and how it moves; the editor plays it.',
+                '',
+                'Reply with ONLY one JSON object, no code fences, no commentary:',
+                '{ "name": "a few words", "note": "one short sentence: what you made",',
+                '  "svg": "<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 1000 1000\'>…</svg>",',
+                '  "copies": [ { "of": i, "dx": 0, "dy": 0, "turn": 0, "scale": 1, "sx": 1, "sy": 1, "about": [x, y], "fill": "#rrggbb" } ],',
+                '  "morphs": [ { "keys": [i, j], … } ],',
+                '  "loop": 4, "ease": "inout", "hold": 0 }',
+                'The svg is a string inside the JSON: write its attributes in single quotes.',
+                '',
+                'THE DRAWING (the importer silently drops anything else):',
+                '- Root: <svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 1000 1000\'>; x right, y DOWN.',
+                '- Only path, circle, ellipse, rect, polygon, polyline, line. No text, image, use, defs, style, group transforms, filters, masks or gradients.',
+                '- Plain hex colours in fill and stroke attributes. Opacity only as fill-opacity, and only where something is really see-through.',
+                '- ONE CLOSED OUTLINE PER ELEMENT: each element is one shape, numbered by its order in the svg (0, 1, 2 …). A hole (a ring, a window in a wall) is a second subpath in the same path; never put two separate outlines in one path.',
+                '- Back to front: a full-bleed backdrop first (sky, wall, water), then the middle, then the things in front. Poster art, confident simplified forms, 10 to 60 elements, curves (C, Q) over many tiny segments.',
+                '',
+                'SHAPES are numbered: the svg\'s elements 0 … N−1 in order, then your copies, in order.',
+                '- "copies": a copy of shape `of`, moved by (dx, dy), turned `turn` degrees clockwise and scaled (`scale`, or `sx`/`sy`) about `about` (default: its own centre), optionally refilled. A copy keeps the original\'s exact outline, so it is the RIGHT way to make another pose of a shape: the sun higher, the door swung, the wing down. A pose made by a copy is not drawn in the svg.',
+                '',
+                ...ANIM_MORPH_FIELDS,
+                '',
+                'MORPHS are numbered by their order in "morphs" (for parent and look).',
+                '',
+                'Whole-scene fields: loop (seconds for one loop, 0.5–60), ease ("" | "inout" | "in" | "out", for every morph without its own eases), hold (0–0.9, a pause at each key).',
+                '',
+                'GOOD PRACTICE: the backdrop and everything that stays still are drawn and in no morph. A thing that moves rigidly is one shape with a path or a spin, or two keys made by a copy (bobbing, swaying, a door). A thing that changes shape is two or more keys drawn with the same number of corners, or copies sized and turned. Several things moving alike (birds, waves, lanterns) share one way of moving with their phases staggered. Make the motion read at a glance and loop cleanly; a few morphs that read well beat many.',
             ].join('\n');
             // A shape's outline as it is drawn, without asking a held (exact or imported) shape for its
             // leaves: that question turns it into leaves for good.
@@ -76443,9 +76481,29 @@
                     dy = -num(c.dy, 0) * k;
                 return [a, b, cc, d, ax + dx - (a * ax + cc * ay), ay + dy - (b * ax + d * ay)];
             }
+            // The reply's svg read in the units of its own box. parseSvgExact lays the file out in a 10-pixel host
+            // and reads each element through its CTM, which includes the viewBox's scale to that host, so a 1000 box
+            // came back a hundredth of its size (a fit to the shapes never noticed; a placement in the box does):
+            // the root is given its viewBox's own width and height first, so that scale is 1.
+            function animBoxSvg(text) {
+                try {
+                    const doc = new DOMParser().parseFromString(text, 'image/svg+xml'),
+                        root = doc.documentElement;
+                    const vb = (root.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+                    const w = vb.length === 4 && vb[2] > 0 ? vb[2] : 1000,
+                        h = vb.length === 4 && vb[3] > 0 ? vb[3] : 1000;
+                    if (vb.length !== 4)
+                        root.setAttribute('viewBox', '0 0 1000 1000');
+                    root.setAttribute('width', String(w));
+                    root.setAttribute('height', String(h));
+                    return new XMLSerializer().serializeToString(root);
+                } catch (_) {
+                    return text;
+                }
+            }
             // a reply's new outlines, landed where the box puts them, exact as an opened SVG is
             function animLandSvg(R, text) {
-                const ex = parseSvgExact(text);
+                const ex = parseSvgExact(animBoxSvg(text));
                 if (!ex)
                     throw new Error('the reply\'s svg could not be read');
                 const k = 2 * R.half / 1000;
@@ -76493,7 +76551,9 @@
             }
             // The reply on the page: copies, then new outlines, then the morphs, then the changes, as one
             // undo step. S and R are the shapes and the box the request described.
-            function animApply(reply, S, R, runs) {
+            // opts.strict ("animate it"): a shape the reply added that became no key and no path is thrown away, so
+            // the reply animates the drawing that is there instead of drawing a scene round it (MAKE A SCENE does that)
+            function animApply(reply, S, R, runs, opts) {
                 if (S.some(sp => state.subpaths.indexOf(sp) < 0) || runs.some(r => morphRuns.indexOf(r) < 0))
                     throw new Error('the drawing changed while the answer was on its way — ask again');
                 const base = history.stack[history.index]; // the page before the reply (an index would move if the history is full)
@@ -76523,6 +76583,15 @@
                         d[key] = reply[key];
                 const made = window.applySceneMorphs(d, all, { partial: true, existing: runs });
                 const ended = window.sceneChangeRuns(reply.change, all, runs.concat(made));
+                let unused = 0;
+                if (opts && opts.strict)
+                    for (const sp of all.slice(S.length)) {
+                        const at = sp ? state.subpaths.indexOf(sp) : -1;
+                        if (at >= 0 && !morphRuns.some(r => r.sp === sp)) {
+                            state.subpaths.splice(at, 1);
+                            unused++;
+                        }
+                    }
                 if (morphRunning() && !morphLive.play) {
                     morphLive.play = true;
                     morphLive.last = 0;
@@ -76541,9 +76610,9 @@
                 morphBarSync();
                 scheduleSave();
                 drawAll();
-                return { added, made: made.filter(Boolean).length, changed: Array.isArray(reply.change) ? reply.change.length - ended : 0, ended };
+                return { added: added - unused, unused, made: made.filter(Boolean).length, changed: Array.isArray(reply.change) ? reply.change.length - ended : 0, ended };
             }
-            window.__animApply = (reply, S, R) => animApply(reply, S || state.subpaths.slice(), R || animRect(), morphRuns.slice()); // for the smoke test
+            window.__animApply = (reply, S, R, opts) => animApply(reply, S || state.subpaths.slice(), R || animRect(), morphRuns.slice(), opts); // for the smoke test
             window.__animSketch = () => {
                 const R = animRect(),
                     S = state.subpaths.slice();
@@ -76604,8 +76673,8 @@
                         }],
                     });
                     const reply = animParse(textOf(data));
-                    const r = animApply(reply, S, R, runs);
-                    setStatus((reply.note ? String(reply.note).slice(0, 200) + ' — ' : '') + r.made + ' new morph' + (r.made === 1 ? '' : 's') + (r.changed ? ', ' + r.changed + ' changed' : '') + (r.ended ? ', ' + r.ended + ' ended' : '') + (r.added ? ', ' + r.added + ' new shape' + (r.added === 1 ? '' : 's') : '') + '. Undo takes it all back; the morph bar, its strip and the timeline tweak it.');
+                    const r = animApply(reply, S, R, runs, { strict: true });
+                    setStatus((reply.note ? String(reply.note).slice(0, 200) + ' — ' : '') + r.made + ' new morph' + (r.made === 1 ? '' : 's') + (r.changed ? ', ' + r.changed + ' changed' : '') + (r.ended ? ', ' + r.ended + ' ended' : '') + (r.added ? ', ' + r.added + ' new shape' + (r.added === 1 ? '' : 's') : '') + (r.unused ? ' (' + r.unused + ' that moved nothing left out)' : '') + '. Undo takes it all back; the morph bar, its strip and the timeline tweak it.');
                     animChangeBtn.disabled = !morphRunning();
                 } catch (e) {
                     const msg = e && e.message ? e.message : 'animation failed';
@@ -76622,6 +76691,108 @@
                 animChangeBtn.addEventListener('click', () => animate(true));
                 btn.addEventListener('click', () => { animChangeBtn.disabled = !morphRunning(); });
             }
+            // MAKE A SCENE: the reply's svg opens as a scene link's drawing does (openScene: exact shapes, asking first
+            // when the page holds your drawing), and its copies and morphs then land through animApply, in the box the
+            // svg was drawn in: worked out from where its shapes landed, so a copy moved 300 up in the reply's box moves
+            // 300 up in it here.
+            function sceneBoxOf(svgText, S) {
+                const ex = parseSvgExact(animBoxSvg(svgText));
+                if (!ex || !ex.shapes.length)
+                    return null;
+                let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+                for (const sh of ex.shapes) {
+                    const D = exactDense(sh.ring.x, sh.ring.y, null, sh.open, sh.ring.smooth, sh.ring.ctrl);
+                    for (let i = 0; i < D.x.length; i++) {
+                        a0 = Math.min(a0, D.x[i]);
+                        a1 = Math.max(a1, D.x[i]);
+                        b0 = Math.min(b0, D.y[i]);
+                        b1 = Math.max(b1, D.y[i]);
+                    }
+                }
+                let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+                for (const sp of S) {
+                    const O = animOutline(sp);
+                    if (O)
+                        for (let i = 0; i < O.x.length; i++) {
+                            x0 = Math.min(x0, O.x[i]);
+                            x1 = Math.max(x1, O.x[i]);
+                            y0 = Math.min(y0, O.y[i]);
+                            y1 = Math.max(y1, O.y[i]);
+                        }
+                }
+                const wide = a1 - a0 >= b1 - b0,
+                    k = wide ? (x1 - x0) / Math.max(1e-9, a1 - a0) : (y1 - y0) / Math.max(1e-9, b1 - b0);
+                if (!(k > 0) || !isFinite(k))
+                    return null;
+                return { cx: (x0 + x1) / 2 - ((a0 + a1) / 2 - 500) * k, cy: (y0 + y1) / 2 + ((b0 + b1) / 2 - 500) * k, half: 500 * k };
+            }
+            async function sceneLand(reply) {
+                if (typeof reply.svg !== 'string' || reply.svg.indexOf('<svg') < 0)
+                    throw new Error('the model returned no drawing — try rephrasing');
+                const name = String(reply.name || promptEl.value.trim() || 'scene').slice(0, 60);
+                const ok = await window.openScene({ v: 1, name, svg: reply.svg, exact: true, morphs: [], play: false });
+                if (!ok)
+                    return null;
+                const S = state.subpaths.slice(),
+                    R = sceneBoxOf(reply.svg, S) || animRect();
+                const d = { copies: reply.copies, morphs: reply.morphs };
+                for (const key of ['loop', 'ease', 'hold'])
+                    if (reply[key] !== undefined)
+                        d[key] = reply[key];
+                const r = animApply(d, S, R, []);
+                state.svgName = 'scene · ' + name;
+                return Object.assign(r, { shapes: S.length, name });
+            }
+            window.__sceneLand = sceneLand; // for the smoke test
+            async function makeScene() {
+                if (busy)
+                    return;
+                if (!ensureKey())
+                    return;
+                const promptText = promptEl.value.trim();
+                if (!promptText) {
+                    setStatus('describe the scene first ("a harbour at dusk with boats bobbing")', 'err');
+                    promptEl.focus();
+                    return;
+                }
+                if (state.editMode || drawMode) {
+                    setStatus('leave the edit or draw mode first', 'err');
+                    return;
+                }
+                const b = sceneBtn,
+                    label = b.textContent;
+                busy = true;
+                b.classList.add('busy');
+                b.textContent = 'drawing…';
+                setStatus('asking ' + modelEl.value + ' for a scene… usually 30–90 seconds', 'busy');
+                try {
+                    const data = await apiCall({
+                        model: modelEl.value,
+                        max_tokens: 16000,
+                        system: SYS_SCENE,
+                        messages: [{ role: 'user', content: 'Make the scene: ' + promptText }],
+                    });
+                    const r = await sceneLand(animParse(textOf(data)));
+                    if (!r) {
+                        setStatus('kept your drawing — the scene was not opened');
+                        return;
+                    }
+                    setStatus('“' + r.name + '”: ' + r.shapes + ' shapes, ' + r.made + ' morph' + (r.made === 1 ? '' : 's') + (r.added ? ', ' + r.added + ' poses copied' : '') + '. One undo stills it; change it, the strip and the timeline tweak it; link shares it.');
+                    animChangeBtn.disabled = !morphRunning();
+                    if (data.stop_reason === 'max_tokens')
+                        flashStatus('the scene ran long — some of it may be missing');
+                } catch (e) {
+                    const msg = e && e.message ? e.message : 'the scene failed';
+                    setStatus(/failed to fetch/i.test(msg) ? 'could not reach the gateway — check the connection' : msg, 'err');
+                } finally {
+                    busy = false;
+                    b.classList.remove('busy');
+                    b.textContent = label;
+                }
+            }
+            const sceneBtn = $('aiScene');
+            if (sceneBtn)
+                sceneBtn.addEventListener('click', makeScene);
 
             // ── Vision: critique ──
             // Claude looks at the RENDERED canvas — not the sketch, not the source — and
