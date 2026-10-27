@@ -143,11 +143,16 @@ publishes.
     application's): `run.motion = {kind, amount, …}` (`morphMotionOk`), computed, not keyed: `bounce` (gravity's
     parabola, `amount` heights, `squash`), `fall` (dropped `amount` heights, keeping `bounce` of its speed each
     bounce until it rests), `swing` (a pendulum, `amount` degrees, `pivot`), `spring` (a damped boing `along` y, x,
-    scale or turn). `morphMotionXform` is applied after the path and spin and before a parent (leaves and exact
+    scale or turn), and since Tom's "1,2": `roll` (across `amount` widths and back, or along its path, turned by the
+    distance over its half-width; round a closed path in whole turns so the loop closes), `throw` (gravity's parabola
+    to `to: [right, up]` in its heights, its top `amount` heights over the higher end), `sway` (a shear from its base,
+    `amount` degrees, the foot still) and `pop` (from nothing to its size, overshooting, `amount` the liveliness 0–1,
+    ending exactly at 1). `morphMotionXform` is applied after the path and spin and before a parent (leaves and exact
     corners, handles and radii alike), measured from the placed pose and the first key's size, the ground where the
     shape is drawn; undone in `morphUndoCarry`; saved, in the scene link both ways, in the AI vocabulary and the strip
-    (`#mrMotion`). A parent's motion does not carry its followers (only its path and spin do). The gallery's
-    **physical motions** section shows one of each.
+    (`#mrMotion`). A parent's motion carries its followers too (`morphParentRigid` puts the parent's
+    `morphMotionXform` after its rigid map: a hat on a bouncing ball bounces and squashes with it). The gallery's
+    **physical motions** section shows one of each, and a hat riding a ball.
     The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
     what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
     in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted
@@ -171,7 +176,7 @@ publishes.
     0°), and keep a corner smooth in every pose where any key has it smooth (SMOOTH WHERE ANY KEY IS SMOOTH).
     The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
     come first, then the **sequences** (a house builds itself, a seed: morphs that play once, in turn, seen from when they
-    play), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
+    play), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
   - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your

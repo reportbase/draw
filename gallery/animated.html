@@ -1748,6 +1748,40 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     svg: svg(400, 260, rectP(0, 0, 400, 260, '#f6efe1') + rectP(110, 220, 290, 230, '#d8dde6') + smooth(dome, '#e0507a')),
     scene: { loop: 1.8, morphs: [{ keys: [2], motion: { kind: 'spring', amount: 0.3, along: 'scale', bounces: 5 } }] }
   });
+  SHOWPIECES.push({
+    id: 'wheel', name: 'a rolling wheel', section: 'physics', tags: ['roll', 'no skid', 'motion'],
+    note: 'A cog rolls across the floor and back without skidding: it turns by the distance gone over its radius, so its teeth meet the floor and leave it where they touched, easing at each end.',
+    svg: svg(400, 240, room(400, 240, 200) + gear(70, 166, 12, 5, 0, '#5a7d9a')),
+    scene: { loop: 4, morphs: [{ keys: [2], motion: { kind: 'roll', amount: 3.6 } }] }
+  });
+  SHOWPIECES.push({
+    id: 'toss', name: 'into the basket', section: 'physics', tags: ['throw', 'parabola', 'clip'],
+    note: 'A ball tossed from the left lands in the basket: gravity\'s parabola through where it starts and where it lands, its top two of its heights above the basket, played once and seen only while it flies.',
+    svg: svg(400, 260, room(400, 260, 230) + circ4(60, 212, 18, '#e05a6a') + polyOf([[300, 170], [360, 170], [352, 230], [308, 230]], '#a8743c')),
+    scene: { loop: 1.6, morphs: [{ keys: [2], motion: { kind: 'throw', to: [7.5, 0], amount: 2.5 }, clip: { start: 0.08, len: 0.7, show: 'fade' } }] }
+  });
+  const tree = [[186, 220], [214, 220], [210, 168], [240, 160], [256, 124], [240, 82], [214, 60], [186, 60], [160, 82], [144, 124], [160, 160], [190, 168]];
+  const blade = x => [[x - 3, 220], [x + 3, 220], [x + 5, 184], [x, 170], [x - 2, 186]];
+  SHOWPIECES.push({
+    id: 'wind', name: 'a tree in the wind', section: 'physics', tags: ['sway', 'shear', 'phase'],
+    note: 'A tree and a few blades of grass bend from their roots in the wind, the foot still and the top moving most, a slow push with a quicker flutter on it; the grass bends further and a little later, blade by blade.',
+    svg: svg(400, 260, rectP(0, 0, 400, 260, '#dbeef7') + rectP(0, 220, 400, 260, '#7fae5a') + smooth(tree, '#3f8a4a') +
+      [70, 100, 300, 330, 360].map(x => polyOf(blade(x), '#4f9a3a')).join('')),
+    scene: { loop: 3, morphs: [{ keys: [2], motion: { kind: 'sway', amount: 6 } },
+      ...[0, 1, 2, 3, 4].map(i => ({ keys: [3 + i], phase: 0.06 * (i + 1), motion: { kind: 'sway', amount: 16 } }))] }
+  });
+  SHOWPIECES.push({
+    id: 'pop', name: 'popping in', section: 'physics', tags: ['pop', 'overshoot', 'sequence'],
+    note: 'Three bubbles pop in one after another, each growing from nothing past its size and settling back, the last the liveliest; then all three stay until the loop comes round.',
+    svg: svg(400, 220, rectP(0, 0, 400, 220, '#f2f0fa') + circ4(100, 110, 40, '#7c5cff') + circ4(200, 110, 40, '#e2563f') + circ4(300, 110, 40, '#f2c14e')),
+    scene: { loop: 3, morphs: [0, 1, 2].map(i => ({ keys: [1 + i], motion: { kind: 'pop', amount: [0.3, 0.6, 0.9][i] }, clip: { start: 0.05 + 0.2 * i, len: 0.3, show: 'in' } })) }
+  });
+  SHOWPIECES.push({
+    id: 'rider', name: 'a hat on a ball', section: 'physics', tags: ['bounce', 'parent', 'carried'],
+    note: 'A hat riding a bouncing ball: the hat is a follower of the ball, so it goes up and down with it and squashes with it on the floor, with nothing of its own to set.',
+    svg: svg(400, 300, room(400, 300, 250) + circ4(200, 222, 28, '#4f8fd6') + polyOf([[176, 196], [224, 196], [214, 190], [210, 160], [190, 160], [186, 190]], '#2a2a3a')),
+    scene: { loop: 1.1, morphs: [{ keys: [2], motion: { kind: 'bounce', amount: 2.5, squash: 0.3 } }, { keys: [3], parent: 0 }] }
+  });
 }
 EXAMPLES.push(...SHOWPIECES);
 
@@ -1756,8 +1790,8 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly'],
-    note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing and a spring, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; nothing else is set by hand.' },
+  { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
+    note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
   { id: 'corners', title: 'first steps: corners kept', ids: ['square-star', 'shape-loop', 'heartbeat'],
     note: 'Exact shapes morph as exact shapes: their corners, radii and curve edges blended, so a sharp corner stays sharp the whole way. A key with fewer corners is given more on its edges, which draws it the same.' },
   { id: 'paths', title: 'first steps: paths and trails', ids: ['orbit', 'pendulum', 'fish', 'procession'],
