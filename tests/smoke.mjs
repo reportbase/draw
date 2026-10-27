@@ -1520,6 +1520,86 @@ current = 'motions 2';
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} more physical motions: a roll turns by its distance, a sway keeps its foot, a pop grows in, a hat rides a bounce, a throw lands`);
 }
 
+/* ANTICIPATION AND OVERSHOOT, and HANDLES FOR A MOTION (draw.html). A bar morphing right between two keys with
+   'overshoot' goes past the second key and comes back to it exactly; with 'anticipate' it first goes left of the
+   first; three keys with 'overshoot' on the first stretch go past the second along the line from the first (no
+   drift up or down) and are exactly the second at its time. Then a thrown ball selected shows its handles: the
+   landing point dragged lands where it was let go, a bounce's top likewise, a swing's pivot dragged to the bottom
+   swings from there, and undo puts the throw back. */
+current = 'eases and handles';
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const before = failures.length;
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[eases and handles] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  try {
+    const open = async url => {
+      await mp.goto(url, { waitUntil: 'load' });
+      await mp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__box.morph(), null, { timeout: 60000 });
+      await mp.waitForTimeout(400);
+    };
+    const at = async t => {
+      await mp.evaluate(t => { const e = document.getElementById('morphT'); e.value = Math.round(t * 1000); e.dispatchEvent(new Event('input')); }, t);
+      await mp.waitForTimeout(60);
+      // the first morph's corners on the page (y up), their middle
+      const m = await mp.evaluate(() => window.__box.morph()), n = m.leaves.length;
+      return { x: m.leaves.reduce((a, v) => a + v, 0) / n, y: m.leavesY.reduce((a, v) => a + v, 0) / n };
+    };
+    const bars = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="30" y="40" width="40" height="20" fill="#e05a6a"/><rect x="230" y="40" width="40" height="20" fill="#e05a6a"/><rect x="230" y="220" width="40" height="20" fill="#e05a6a"/></svg>';
+    const sweep = async (t0, t1) => { const out = []; for (let i = 0; i <= 30; i++) out.push(await at(t0 + (t1 - t0) * i / 30)); return out; };
+    for (const ease of ['overshoot', 'anticipate']) {
+      await open(scene({ name: ease, svg: bars, play: false, morphs: [{ keys: [0, 1], eases: [ease] }] }));
+      const a = await at(0), b = await at(0.999), S = await sweep(0, 0.999), span = b.x - a.x;
+      const past = Math.max(...S.map(p => p.x)) - b.x, back = a.x - Math.min(...S.map(p => p.x));
+      if (!(span > 0) || Math.abs(b.y - a.y) > 0.5 || (ease === 'overshoot' ? !(past > 0.05 * span) || back > 0.5 : !(back > 0.05 * span) || past > 0.5))
+        throw new Error(ease + ': ' + JSON.stringify({ span, past, back }));
+    }
+    await open(scene({ name: 'three', svg: bars, play: false, morphs: [{ keys: [0, 1, 2], times: [0, 0.4, 0.7], eases: ['overshoot', null, null] }] }));
+    const k0 = await at(0), k1 = await at(0.4), S3 = await sweep(0, 0.4);
+    const past3 = Math.max(...S3.map(p => p.x)) - k1.x, drift = Math.max(...S3.map(p => Math.abs(p.y - k0.y)));
+    if (!(past3 > 0.05 * (k1.x - k0.x)) || drift > 1 || Math.abs(k1.y - k0.y) > 0.5)
+      throw new Error('three keys overshooting: ' + JSON.stringify({ past3, drift, k0, k1 }));
+    // the handles
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><circle cx="80" cy="200" r="20" fill="#e05a6a"/><circle cx="200" cy="200" r="20" fill="#4f8fd6"/><rect x="300" y="60" width="20" height="100" fill="#3a3"/></svg>';
+    await open(scene({ name: 'handles', svg, play: false, morphs: [{ keys: [0], motion: { kind: 'throw', to: [3, 0], amount: 1.5 } }, { keys: [1], motion: { kind: 'bounce', amount: 1 } }, { keys: [2], motion: { kind: 'swing', amount: 20, pivot: 'top' } }] }));
+    await mp.evaluate(() => window.__box.select([0, 1, 2]));
+    await mp.waitForTimeout(300);
+    const H = async () => (await mp.evaluate(() => window.__box.motionHandles()));
+    const find = (h, run, part) => h.find(q => q.run === run).handles.find(q => q.part === part);
+    let h = await H();
+    if (h.length !== 3) throw new Error('handles for ' + h.length + ' morphs, not 3');
+    const drag = async (p, dx, dy) => { await mp.mouse.move(p.x, p.y); await mp.mouse.down(); await mp.mouse.move(p.x + dx / 2, p.y + dy / 2, { steps: 3 }); await mp.mouse.move(p.x + dx, p.y + dy, { steps: 3 }); await mp.mouse.up(); await mp.waitForTimeout(150); };
+    const to0 = find(h, 0, 'to'), toBefore = h[0].motion.to.slice();
+    await drag(to0, 60, -40);
+    h = await H();
+    const to1 = find(h, 0, 'to');
+    if (Math.hypot(to1.x - to0.x - 60, to1.y - to0.y + 40) > 1.5 || !(h[0].motion.to[0] > toBefore[0]) || !(h[0].motion.to[1] > toBefore[1]))
+      throw new Error('the throw\'s landing handle: ' + JSON.stringify({ to0, to1, motion: h[0].motion }));
+    const ht0 = find(h, 1, 'height');
+    await drag(ht0, 0, -50);
+    h = await H();
+    if (Math.abs(find(h, 1, 'height').y - (ht0.y - 50)) > 1.5 || !(h[1].motion.amount > 1)) throw new Error('the bounce\'s height handle: ' + JSON.stringify(h[1]));
+    const pv = find(h, 2, 'pivot'), end = find(h, 2, 'angle'); // the far end of the swing is by the bottom
+    await drag(pv, end.x - pv.x, end.y - pv.y);
+    h = await H();
+    if (h[2].motion.pivot !== 'bottom' || h[2].motion.amount !== 20) throw new Error('the swing\'s pivot handle: ' + JSON.stringify(h[2].motion));
+    // each drag one step: undo once and the pivot is back at the top, twice and the bounce's height too
+    const motions = async () => (await mp.evaluate(() => window.__animSketch())).morphs.map(o => o.motion);
+    await mp.click('#bUndo'); await mp.waitForTimeout(250);
+    let m = await motions();
+    if (m[2].pivot !== 'top' || !(m[1].amount > 1)) throw new Error('one undo after the handles: ' + JSON.stringify(m));
+    await mp.click('#bUndo'); await mp.waitForTimeout(250);
+    m = await motions();
+    if (m[1].amount !== 1 || JSON.stringify(m[0].to) === JSON.stringify(toBefore)) throw new Error('two undos after the handles: ' + JSON.stringify(m));
+    await mp.close();
+  } catch (e){
+    failures.push(`[eases and handles] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} anticipation and overshoot go past their keys and land on them; a motion's handles put it where they are let go, and undo takes them back`);
+}
+
 /* ANIMATE IT, END TO END, STREAMED (draw.html). The gateway is answered here with a reply streamed as the
    API streams it (server-sent events, the text in pieces), the way a real one arrives since a silent minute
    and a half closed the request with HTTP 524: the prompt typed, "animate it" pressed, and the morph lands.

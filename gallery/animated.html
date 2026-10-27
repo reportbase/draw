@@ -1300,6 +1300,18 @@ const EXAMPLES = [
     scene: { morphs: [[0, 1, 2]], ease: 'inout', hold: 0.15, loop: 1.4 }
   },
   {
+    id: 'snap', name: 'anticipate, overshoot, elastic', tags: ['eases', 'cartoon', '2 keys'],
+    note: 'The same square sliding right and back, three ways. The top one draws back before it goes, the middle one goes past where it stops and settles back, and the bottom one goes past and rings to rest. Each is two keys (the second used twice) and an ease on each stretch; nothing else is set.',
+    svg: svg(360, 210, [30, 100, 170].map((y, i) => `<rect x="30" y="${y}" width="40" height="40" fill="${['#e05a6a', '#e0a33a', '#4f8fd6'][i]}"/><rect x="270" y="${y}" width="40" height="40" fill="${['#e05a6a', '#e0a33a', '#4f8fd6'][i]}"/>`).join('')),
+    scene: { loop: 3, morphs: ['anticipate', 'overshoot', 'elastic'].map((e, i) => ({ keys: [2 * i, 2 * i + 1, 2 * i], times: [0, 0.3, 0.6], eases: [e, e, null] })) }
+  },
+  {
+    id: 'boing', name: 'boing', tags: ['elastic', 'overshoot', 'in place'],
+    note: 'A star grows with an elastic ease, ringing past its size and settling, then shrinks back with an overshoot, dipping below its small size before it rests.',
+    svg: svg(300, 160, star(80, 80, 5, 24, 10, '#f2c14e') + star(220, 80, 5, 66, 28, '#f2c14e')),
+    scene: { loop: 2.4, morphs: [{ keys: [0, 1, 0], times: [0, 0.15, 0.6], eases: ['elastic', 'overshoot', null], inPlace: false }] }
+  },
+  {
     id: 'orbit', name: 'orbit', tags: ['path', 'turn', 'ribbon'],
     note: 'A star rides a circle once a loop, turning with it, and leaves a ribbon behind. The circle is the path: it leaves the drawing while it is one and shows as a dashed guide.',
     svg: svg(240, 240, star(120, 30, 5, 22, 10, '#f2c14e') + `<circle cx="120" cy="120" r="90" fill="none" stroke="#8b95ab" stroke-width="2"/>`),
@@ -1794,6 +1806,8 @@ const SECTIONS = [
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
   { id: 'corners', title: 'first steps: corners kept', ids: ['square-star', 'shape-loop', 'heartbeat'],
     note: 'Exact shapes morph as exact shapes: their corners, radii and curve edges blended, so a sharp corner stays sharp the whole way. A key with fewer corners is given more on its edges, which draws it the same.' },
+  { id: 'feel', title: 'first steps: anticipation and overshoot', ids: ['snap', 'boing'],
+    note: 'Three eases that leave the keys on the way, the cartoon\'s own: anticipate draws back before it goes, overshoot goes past and settles back, elastic goes past and rings to rest. Each still arrives exactly on its key, so a plain two-key morph gets weight and snap with nothing else changed.' },
   { id: 'paths', title: 'first steps: paths and trails', ids: ['orbit', 'pendulum', 'fish', 'procession'],
     note: 'A line or a curve in the drawing becomes a path: every live shape rides it once a loop at an even speed, turning with it if asked, and leaves echoes or a ribbon behind. The path itself leaves the drawing while it is one.' },
   { id: 'effects', title: 'first steps: detail effects', ids: ['shimmer', 'grow', 'boil', 'lag'],

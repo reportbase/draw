@@ -96,7 +96,7 @@ publishes.
     lag, inPlace, parent, follow, look, times, eases}` (`parent`: the index of another entry, whose every move and turn carries this one, measured
     from where the parent was drawn: ONE MORPH RIDING ANOTHER; `follow: {kind: 'lag' | 'spring', amount}` how loosely, and
     `look` an entry it keeps turning to face, from the way it faces at the link's `t`: FOLLOWING LOOSELY, AND FACING; `times` a time per key on the morph's clock, `eases` an
-    ease per stretch between keys, 'linear', 'inout', 'in', 'out' or null for the bar's: KEYS AT CHOSEN TIMES): what a morph has of its own (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL in `draw.html`, 25 Oct
+    ease per stretch between keys, 'linear', 'inout', 'in', 'out', 'anticipate', 'overshoot', 'elastic' or null for the bar's: KEYS AT CHOSEN TIMES): what a morph has of its own (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL in `draw.html`, 25 Oct
     2026, Tom: "can you do some top quality animation examples, to really push the framework?"): its clock at a whole
     `rate` and a `phase`, its own path ridden `laps` times from `at`, `spin` turns a loop, its trail and effect; a
     shape may be a key more than once; the keys' fills blend in linear light (`run.cols`). All of it saves with the
@@ -152,7 +152,17 @@ publishes.
     shape is drawn; undone in `morphUndoCarry`; saved, in the scene link both ways, in the AI vocabulary and the strip
     (`#mrMotion`). A parent's motion carries its followers too (`morphParentRigid` puts the parent's
     `morphMotionXform` after its rigid map: a hat on a bouncing ball bounces and squashes with it). The gallery's
-    **physical motions** section shows one of each, and a hat riding a ball.
+    **physical motions** section shows one of each, and a hat riding a ball. HANDLES FOR A MOTION (27 Oct 2026, Tom:
+    "1,3"): while the strip is up, each selected morph's motion is drawn from its first key with gold handles to drag
+    (a throw's landing point and arc top, the arc dashed; a bounce's or fall's height; a swing's pivot, snapping to
+    the five places, and its widest swing; a roll's travel when it has no path; a sway's lean), taken before the
+    editor sees the pointer (a capturing listener, like draw path), written through `morphMotionOk`, one undo step a
+    drag (`morphMotionHandles`, `morphMotionDragTo`; hook `__box.motionHandles()`). ANTICIPATION AND OVERSHOOT: the
+    eases (the bar's and each stretch's) also take `anticipate`, `overshoot` and `elastic`, which leave [0, 1] and
+    land exactly on 1; two keys extrapolate through their weights, three or more along the stretch's line
+    (`morphWeightsOf`, which every pose, colour and centre now uses in place of `morphWeights(morphWarp(…))`); an
+    exact pose's radii are kept at 0 or more; `embedFit` frames a sixth past the keys. The strip's stretch buttons
+    cycle the eight (shift-click goes back). The gallery's **first steps: anticipation and overshoot** shows them.
     The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
     what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
     in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted

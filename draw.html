@@ -6697,7 +6697,7 @@
             <input type="range" id="morphFxAmt" min="0" max="100" step="1" value="50" style="width:min(110px,12vw);" title="how strong the effect is">
             <!-- EASING AND HOLDS (25 Oct 2026): how the blend moves from key to key -->
             <label for="morphEase" title="how the blend moves from one key to the next: evenly (none), slow away from a key and slow into the next (in & out), slow away (in) or slow arriving (out). A key is still exact at its place">ease</label>
-            <select id="morphEase"><option value="">none</option><option value="inout">in &amp; out</option><option value="in">in</option><option value="out">out</option></select>
+            <select id="morphEase"><option value="">none</option><option value="inout">in &amp; out</option><option value="in">in</option><option value="out">out</option><option value="anticipate">anticipate</option><option value="overshoot">overshoot</option><option value="elastic">elastic</option></select>
             <label for="morphHold" title="how long the blend rests on each key, as a share of the stretch from one key to the next (half before the key, half after). The effects and the path do not rest">hold</label>
             <input type="range" id="morphHold" min="0" max="80" step="1" value="0" style="width:min(90px,10vw);">
             <!-- MOTION ALONG A PATH and TRAILS (25 Oct 2026): the live shapes ride a line or curve from the
@@ -40185,6 +40185,8 @@
                 morphTimelinePanelSync(); // THE SCENE'S TIMELINE
                 if (morphRunning())
                     drawMorphBadges(w, h);
+                if (morphRunning())
+                    drawMorphMotionHandles(w, h); // HANDLES FOR A MOTION: above the badges, which they may sit on
             }
             // In-progress pencil stroke (canvas space).
             if (CHROME)
@@ -50941,9 +50943,9 @@
                     run.freq = morphFreqScale(N);
                 }
                 morphBlendSpectral(run.spec, run.freq,
-                g => morphWeights(morphWarp(g(tt), K, run), K), run.lag, K > 2, X, Y); // EASING AND HOLDS
+                g => morphWeightsOf(g(tt), K, run), run.lag, K > 2, X, Y); // EASING AND HOLDS
             } else {
-                const w = morphWeights(morphWarp(tt, K, run), K); // EASING AND HOLDS
+                const w = morphWeightsOf(tt, K, run); // EASING AND HOLDS
                 X.fill(0);
                 Y.fill(0);
                 for (let k = 0; k < K; k++) {
@@ -51731,7 +51733,14 @@
         // the next). A key's own time maps to itself, so a key is still exact at its place, and the
         // warp is the same on every stretch, so the loop stays seamless. An effect and a path keep
         // the clock's own time: the shimmer and the ride do not stop for a hold.
-        const MORPH_EASES = ['inout', 'in', 'out'];
+        // ANTICIPATION AND OVERSHOOT (27 Oct 2026, Tom: "1,3"): three more, the cartoon's own. They
+        // leave [0, 1] on the way, so a pose goes past its keys: 'anticipate' draws back first, against
+        // the way it is going, then goes; 'overshoot' goes past the next key and comes back to it;
+        // 'elastic' goes past and rings, smaller each time, settling on the key. Each is 0 at 0 and
+        // exactly 1 at 1, so a key is still exact at its time. Two keys extrapolate on their own
+        // (the weights 1 − v and v); three or more do it in morphWeightsOf, along the stretch.
+        const MORPH_EASES = ['inout', 'in', 'out', 'anticipate', 'overshoot', 'elastic'],
+            MORPH_BACK = 1.70158; // the classic back ease's constant: about a tenth past (or behind)
         function morphEase(u, e) {
             if (e === undefined)
                 e = state.morphEase;
@@ -51741,6 +51750,18 @@
                 return u * u;
             if (e === 'out')
                 return 1 - (1 - u) * (1 - u);
+            if (e === 'anticipate')
+                return u * u * ((MORPH_BACK + 1) * u - MORPH_BACK);
+            if (e === 'overshoot') {
+                const q = u - 1;
+                return 1 + q * q * ((MORPH_BACK + 1) * q + MORPH_BACK);
+            }
+            if (e === 'elastic') {
+                if (u <= 0)
+                    return 0;
+                const ring = v => 1 - Math.pow(2, -10 * v) * Math.cos(3 * Math.PI * v);
+                return ring(u) + u * (1 - ring(1)); // the last ring's leftover taken out, so 1 at 1
+            }
             return u;
         }
         // KEYS AT CHOSEN TIMES, AND EACH STEP ITS OWN EASE (25 Oct 2026, Tom: "2,5,3,1"). The keys sat
@@ -51784,10 +51805,25 @@
             return { k, u: (x - lo) / (hi - lo) };
         }
         function morphWarp(t, K, run) {
+            return morphWarpOf(t, K, run).t;
+        }
+        // the keys' weights at t, warped; past a key (an ease that overshoots or draws back) the pose
+        // goes on along the line from one key to the next, which meets the kernel exactly at the key
+        function morphWeightsOf(t, K, run) {
+            const W = morphWarpOf(t, K, run);
+            if (K > 2 && W.f != null && (W.f < 0 || W.f > 1)) {
+                const w = new Float64Array(K);
+                w[W.k] = 1 - W.f;
+                w[(W.k + 1) % K] = W.f;
+                return w;
+            }
+            return morphWeights(W.t, K);
+        }
+        function morphWarpOf(t, K, run) {
             const hold = Math.max(0, Math.min(0.9, +state.morphHold || 0)),
                 own = run && (run.times || run.eases);
             if (K < 2 || (!own && !(hold > 0) && !MORPH_EASES.includes(state.morphEase)))
-                return t;
+                return { t, f: null };
             let k, u;
             if (run && run.keys.length === K)
                 ({ k, u } = morphStretchOf(run, t));
@@ -51804,8 +51840,8 @@
             let v = hold > 0 ? Math.max(0, Math.min(1, (u - hold / 2) / (1 - hold))) : u;
             const e = run && run.eases && run.eases[k] != null ? run.eases[k] : undefined;
             v = morphEase(v, e === 'linear' ? '' : e);
-            const r = a + v * (b - a);
-            return K === 2 ? r : ((r % 1) + 1) % 1;
+            const r = a + Math.max(0, Math.min(1, v)) * (b - a);
+            return { t: K === 2 ? a + v * (b - a) : ((r % 1) + 1) % 1, k, f: v };
         }
         // a key moved to a time of its own, kept between its neighbours (the first two keys of a ramp
         // in [0, 1], a loop's in [0, 1)); every live morph selected with as many keys moves with it
@@ -52216,7 +52252,7 @@
         // the pose at t: the keys' corners, radii and handles weighed, then the path
         function morphPoseExact(run, t, bare) {
             const K = run.keys.length,
-                w = morphWeights(morphWarp(morphRunT(run, t), K, run), K),
+                w = morphWeightsOf(morphRunT(run, t), K, run),
                 n = run.keys[0].x.length;
             const x = new Float64Array(n),
                 y = new Float64Array(n),
@@ -52233,6 +52269,9 @@
                     r[j] += a * Q.r[j];
                 }
             }
+            for (let j = 0; j < n; j++) // an ease past a key can carry a rounding below none
+                if (r[j] < 0)
+                    r[j] = 0;
             if (!run._smooth || run._smoothKeys !== run.keys || run._smoothSig !== K * 1e4 + n) {
                 run._smooth = morphExactSmooth(run.keys, run.curved);
                 run._smoothKeys = run.keys;
@@ -52658,7 +52697,7 @@
                 y1 = Math.max(y1, D.y[i]);
             }
             run._msizeOf = K;
-            return (run._msize = { w: Math.max(1e-9, (x1 - x0) / 2), h: Math.max(1e-9, (y1 - y0) / 2) });
+            return (run._msize = { w: Math.max(1e-9, (x1 - x0) / 2), h: Math.max(1e-9, (y1 - y0) / 2), cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 });
         }
         // where a fall is at time s (gravity 1) when dropped from D and keeping e of its speed at each bounce:
         // its height above the ground and its speed there
@@ -52885,7 +52924,7 @@
         }
         function morphColourAt(run, t) {
             const K = run.keys.length,
-                w = morphWeights(morphWarp(morphRunT(run, t), K, run), K);
+                w = morphWeightsOf(morphRunT(run, t), K, run);
             let r = 0,
                 g = 0,
                 b = 0,
@@ -52946,7 +52985,7 @@
                     }
                     return { x: cx / k.x.length, y: cy / k.x.length };
                 })());
-            const w = morphWeights(morphWarp(morphRunT(run, t), run.keys.length, run), run.keys.length);
+            const w = morphWeightsOf(morphRunT(run, t), run.keys.length, run);
             let x = 0,
                 y = 0;
             for (let k = 0; k < w.length; k++) {
@@ -53377,7 +53416,7 @@
                     }
                     return { x: cx / k.x.length, y: cy / k.x.length };
                 })());
-            const w = morphWeights(morphWarp(morphRunT(run, u), run.keys.length, run), run.keys.length); // EASING AND HOLDS
+            const w = morphWeightsOf(morphRunT(run, u), run.keys.length, run); // EASING AND HOLDS
             let x = 0,
                 y = 0;
             for (let k = 0; k < w.length; k++) {
@@ -53595,8 +53634,8 @@
         }
         // KEYS AT CHOSEN TIMES: the track's keys (diamonds) and the stretches between them (the wrap
         // round the loop drawn as its two ends), built when the count or the eases change, placed every frame
-        const MR_EASES = [null, 'linear', 'inout', 'in', 'out'],
-            MR_EASE_LABEL = { linear: 'lin', inout: 'io', in: 'in', out: 'out' };
+        const MR_EASES = [null, 'linear', 'inout', 'in', 'out', 'anticipate', 'overshoot', 'elastic'],
+            MR_EASE_LABEL = { linear: 'lin', inout: 'io', in: 'in', out: 'out', anticipate: 'ant', overshoot: 'ovr', elastic: 'ela' };
         function mrKeysBuild(r) {
             const track = $('mrKeys');
             if (!track)
@@ -53609,7 +53648,7 @@
                 const e = E[k],
                     cls = 'mr-step' + (e != null ? ' own' : ''),
                     lab = e != null ? MR_EASE_LABEL[e] : '',
-                    tip = 'from key ' + (k + 1) + ' to key ' + ((k + 1) % K + 1) + ': ' + (e != null ? (e === 'linear' ? 'linear' : e === 'inout' ? 'in and out' : e) : "the bar's ease") + ' · click for the next';
+                    tip = 'from key ' + (k + 1) + ' to key ' + ((k + 1) % K + 1) + ': ' + (e != null ? (e === 'linear' ? 'linear' : e === 'inout' ? 'in and out' : e) : "the bar's ease") + ' · click for the next, shift-click the one before';
                 html += `<button type="button" class="${cls}" data-s="${k}" data-part="0" title="${tip}">${lab}</button>`;
                 if (K > 2 && k === K - 1)
                     html += `<button type="button" class="${cls}" data-s="${k}" data-part="1" title="${tip}">${lab}</button>`;
@@ -53921,6 +53960,230 @@
             const b = $('mrDraw');
             if (b)
                 b.addEventListener('click', () => morphPathRecArm(!_morphPathRec));
+        })();
+        // ── HANDLES FOR A MOTION (27 Oct 2026, Tom: "1,3", to "drag a throw's landing point with the arc
+        // shown ahead … the pivot, stretch the roll's travel") ─────────────────────────────────────────────
+        // A motion's numbers are in the shape's own sizes (heights, widths, degrees), which is what keeps
+        // it right when the shape is scaled, and is also why they are hard to guess. So while the strip is
+        // up, each selected morph with a motion shows that motion on the canvas, measured from where its
+        // first key is drawn, with a gold handle or two to drag:
+        //   throw    where it lands (the target) and the top of its arc, the arc drawn dashed;
+        //   bounce, fall   how high (the top of the hop, or where it is dropped from);
+        //   swing    the pivot (snapping to the top, bottom, left, right or centre) and how far it swings,
+        //            the end of the swing at its widest;
+        //   roll     how far across (not when it rolls along a path: the path says how far);
+        //   sway     how far its top leans.
+        // A drag writes the motion through morphMotionOk (so it is clamped as anything else is) and the
+        // whole drag is one undo step. The handles are taken before the editor sees the pointer, like a
+        // path being drawn, so dragging one never moves a shape. Spring and pop have nothing to place.
+        function morphMotionHandles(run) {
+            const M = run.motion;
+            if (!M || !run.keys.length)
+                return [];
+            const Z = morphMotionSize(run),
+                H = 2 * Z.h,
+                cx = Z.cx,
+                cy = Z.cy,
+                out = [];
+            if (M.kind === 'throw') {
+                const X = M.to[0] * H,
+                    Y = M.to[1] * H,
+                    A = Math.max(0, Y) + M.amount * H,
+                    b = 4 * A - 2 * Y,
+                    c2 = (b + Math.sqrt(Math.max(0, b * b - 4 * Y * Y))) / 2,
+                    c1 = c2 + Y,
+                    u = c1 / (2 * c2),
+                    arc = [];
+                for (let i = 0; i <= 48; i++) {
+                    const v = i / 48;
+                    arc.push([cx + X * v, cy + c1 * v - c2 * v * v]);
+                }
+                out.push({ part: 'to', x: cx + X, y: cy + Y, line: arc });
+                out.push({ part: 'top', x: cx + X * u, y: cy + A });
+            } else if (M.kind === 'bounce' || M.kind === 'fall') {
+                const top = cy + M.amount * H;
+                out.push({ part: 'height', x: cx, y: top, line: [[cx, cy], [cx, top]] });
+            } else if (M.kind === 'swing') {
+                const pv = M.pivot,
+                    px = cx + (pv === 'left' ? -Z.w : pv === 'right' ? Z.w : 0),
+                    py = cy + (pv === 'top' ? Z.h : pv === 'bottom' ? -Z.h : 0),
+                    // the far end from the pivot, through the centre (or straight down from a centre pivot)
+                    fx = pv === 'centre' ? cx : 2 * cx - px,
+                    fy = pv === 'centre' ? cy - Z.h : 2 * cy - py,
+                    R = Math.hypot(fx - px, fy - py),
+                    a0 = Math.atan2(fy - py, fx - px),
+                    th = M.amount * Math.PI / 180,
+                    arc = [];
+                for (let i = 0; i <= 32; i++) {
+                    const a = a0 - th + 2 * th * i / 32;
+                    arc.push([px + R * Math.cos(a), py + R * Math.sin(a)]);
+                }
+                out.push({ part: 'pivot', x: px, y: py, cx, cy, w: Z.w, h: Z.h });
+                out.push({ part: 'angle', x: px + R * Math.cos(a0 + th), y: py + R * Math.sin(a0 + th), px, py, a0, line: arc });
+            } else if (M.kind === 'roll' && !morphPathOf(run)) {
+                const x = cx + M.amount * 2 * Z.w;
+                out.push({ part: 'across', x, y: cy, line: [[cx, cy], [x, cy]] });
+            } else if (M.kind === 'sway') {
+                const foot = cy - Z.h,
+                    lean = Math.tan(M.amount * Math.PI / 180) * H;
+                out.push({ part: 'lean', x: cx + lean, y: cy + Z.h, line: [[cx, foot], [cx + lean, cy + Z.h]] });
+            }
+            return out;
+        }
+        // a handle dragged to (x, y) on the page, as the motion's new numbers
+        function morphMotionDragTo(run, hd, x, y) {
+            const M = run.motion,
+                Z = morphMotionSize(run),
+                H = 2 * Z.h,
+                m = Object.assign({}, M);
+            if (hd.part === 'to') {
+                m.to = [(x - Z.cx) / H, (y - Z.cy) / H];
+                // the arc's top stays where it was on the page, as far as it can
+                const top = Math.max(0, M.to[1]) + M.amount,
+                    hi = Math.max(0, m.to[1]);
+                m.amount = Math.max(0.05, top - hi);
+            } else if (hd.part === 'top')
+                m.amount = (y - Z.cy) / H - Math.max(0, M.to[1]);
+            else if (hd.part === 'height')
+                m.amount = Math.max(0, (y - Z.cy) / H);
+            else if (hd.part === 'pivot') { // the nearest of the five places
+                const spots = { top: [Z.cx, Z.cy + Z.h], bottom: [Z.cx, Z.cy - Z.h], left: [Z.cx - Z.w, Z.cy], right: [Z.cx + Z.w, Z.cy], centre: [Z.cx, Z.cy] };
+                let best = M.pivot,
+                    bd = Infinity;
+                for (const k in spots) {
+                    const d = Math.hypot(x - spots[k][0], y - spots[k][1]);
+                    if (d < bd) {
+                        bd = d;
+                        best = k;
+                    }
+                }
+                m.pivot = best;
+            } else if (hd.part === 'angle') {
+                let a = Math.atan2(y - hd.py, x - hd.px) - hd.a0;
+                a -= TAU * Math.round(a / TAU);
+                m.amount = Math.abs(a) * 180 / Math.PI;
+            } else if (hd.part === 'across')
+                m.amount = (x - Z.cx) / (2 * Z.w);
+            else if (hd.part === 'lean')
+                m.amount = Math.max(0, Math.atan2(x - Z.cx, H) * 180 / Math.PI);
+            return morphMotionOk(m);
+        }
+        let _motionDrag = null; // { run, part, id } while a handle is held
+        function morphMotionHandleRuns() {
+            return morphRunning() ? morphRunToolRuns().filter(r => r.motion) : [];
+        }
+        function drawMorphMotionHandles(w, h) {
+            const runs = morphRunToolRuns().filter(r => r.motion);
+            if (!runs.length)
+                return;
+            ctx.save();
+            ctx.lineWidth = 1.5;
+            for (const r of runs)
+                for (const hd of morphMotionHandles(r)) {
+                    if (hd.line) {
+                        ctx.setLineDash([5, 4]);
+                        ctx.strokeStyle = 'rgba(212,160,82,0.75)';
+                        ctx.beginPath();
+                        hd.line.forEach(([x, y], i) => {
+                            const q = worldToPx(x, y, w, h);
+                            if (i)
+                                ctx.lineTo(q.x, q.y);
+                            else
+                                ctx.moveTo(q.x, q.y);
+                        });
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                    const q = worldToPx(hd.x, hd.y, w, h),
+                        held = _motionDrag && _motionDrag.run === r && _motionDrag.part === hd.part;
+                    ctx.fillStyle = held ? '#f2c14e' : 'rgba(212,160,82,0.95)';
+                    ctx.strokeStyle = 'rgba(20,20,30,0.85)';
+                    ctx.beginPath();
+                    if (hd.part === 'pivot')
+                        ctx.rect(q.x - 5, q.y - 5, 10, 10);
+                    else
+                        ctx.arc(q.x, q.y, 6, 0, TAU);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            ctx.restore();
+        }
+        (function() {
+            const at = e => {
+                const r = cv.getBoundingClientRect();
+                return { r, q: pxToWorld(e.clientX - r.left, e.clientY - r.top, r.width, r.height) };
+            };
+            cv.addEventListener('pointerdown', e => {
+                if (_morphPathRec || e.button > 0)
+                    return;
+                const runs = morphMotionHandleRuns();
+                if (!runs.length)
+                    return;
+                const { r } = at(e),
+                    mx = e.clientX - r.left,
+                    my = e.clientY - r.top;
+                let hit = null,
+                    bd = 11;
+                for (const run of runs)
+                    for (const hd of morphMotionHandles(run)) {
+                        const p = worldToPx(hd.x, hd.y, r.width, r.height),
+                            d = Math.hypot(p.x - mx, p.y - my);
+                        if (d < bd) {
+                            bd = d;
+                            hit = { run, part: hd.part, hd };
+                        }
+                    }
+                if (!hit)
+                    return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                _motionDrag = Object.assign(hit, { id: e.pointerId, moved: false });
+                try {
+                    cv.setPointerCapture(e.pointerId);
+                } catch (_) {}
+                drawAll();
+            }, true);
+            cv.addEventListener('pointermove', e => {
+                if (!_motionDrag || _motionDrag.id !== e.pointerId)
+                    return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                const D = _motionDrag,
+                    { q } = at(e);
+                if (morphRuns.indexOf(D.run) < 0 || !D.run.motion)
+                    return;
+                const m = morphMotionDragTo(D.run, D.hd, q.x, q.y);
+                if (m) {
+                    D.run.motion = m;
+                    D.moved = true;
+                    // the handle's own place for the next move (an angle is measured from the same pivot)
+                    D.hd = morphMotionHandles(D.run).find(x => x.part === D.part) || D.hd;
+                    _mrSig = ''; // the strip's amount box follows the drag
+                }
+                morphBarSync();
+                drawAll();
+            }, true);
+            const up = e => {
+                if (!_motionDrag || _motionDrag.id !== e.pointerId)
+                    return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                const D = _motionDrag;
+                _motionDrag = null;
+                if (D.moved) {
+                    _mrSig = '';
+                    morphWrite();
+                    morphBarSync();
+                    scheduleSave();
+                    pushHistory();
+                    const M = D.run.motion;
+                    flashStatus(M.kind + ': ' + (M.kind === 'throw' ? 'lands ' + M.to.map(v => v.toFixed(2)).join(', ') + ' heights off, top ' + M.amount.toFixed(2) :
+                        M.kind === 'swing' && D.part === 'pivot' ? 'from its ' + M.pivot : 'amount ' + (+M.amount).toFixed(2)));
+                }
+                drawAll();
+            };
+            cv.addEventListener('pointerup', up, true);
+            cv.addEventListener('pointercancel', up, true);
         })();
         // ── THE SCENE'S TIMELINE (25 Oct 2026, Tom: "proceed", to "a real timeline panel") ────────────
         // The strip's key track shows one morph. This shows them all, one row each on the shared clock,
@@ -54298,7 +54561,8 @@
                     k = +st.dataset.s,
                     E = runs[0] && runs[0].eases,
                     cur = E && E[k] != null ? E[k] : null,
-                    next = MR_EASES[(MR_EASES.indexOf(cur) + 1) % MR_EASES.length];
+                    n = MR_EASES.length, // shift goes back a step: eight eases are a long way round
+                    next = MR_EASES[(MR_EASES.indexOf(cur) + (e.shiftKey ? n - 1 : 1)) % n];
                 morphSetStepEase(runs, k, next);
                 morphRunToolApply(() => {});
                 pushHistory();
@@ -54404,7 +54668,7 @@
             const es = $('morphEase'),
                 hi = $('morphHold');
             if (es && document.activeElement !== es)
-                es.value = ['inout', 'in', 'out'].includes(state.morphEase) ? state.morphEase : '';
+                es.value = MORPH_EASES.includes(state.morphEase) ? state.morphEase : '';
             if (hi && document.activeElement !== hi)
                 hi.value = String(Math.round(100 * (+state.morphHold || 0)));
             // MOTION ALONG A PATH and TRAILS
@@ -76542,7 +76806,7 @@
                 '- rate: a whole number of times the morph plays per loop (a fast flicker 3, a slow drift 1). phase: 0–1, its offset on the clock (stagger a row: 0, 0.1, 0.2 …).',
                 '- spin: whole turns per loop (negative anticlockwise on screen).',
                 '- motion: physics the editor computes exactly, for a thing that moves as a body (use it instead of keying such motion by hand): {"kind": "bounce", "amount": hop height in the shape\'s own heights (1.5), "squash": 0–0.6 (0.25)} one hop a cycle off the ground where it is drawn, squashed as it lands and stretched in flight; {"kind": "fall", "amount": drop height in its heights (3), "bounce": 0–0.9, the share of speed kept each bounce (0.5)} dropped, bouncing lower until it rests (pair with a clip to fall once); {"kind": "swing", "amount": degrees either side (30), "pivot": "top"|"bottom"|"left"|"right"|"centre"} a pendulum, a sign, a bell; {"kind": "spring", "amount": size (0.3), "along": "y"|"x"|"scale"|"turn", "bounces": 4} a damped boing at the start of each cycle, a jelly, a spring, a plant flicked; {"kind": "roll", "amount": widths across and back (4)} rolling without skidding, turned by the distance over its radius (with a path, it rolls along the path instead: a wheel, a ball, a barrel); {"kind": "throw", "to": [right, up] where it lands, in its own heights from where it is drawn ([6, 0]), "amount": the arc\'s top in its heights above the higher end (2)} a toss along gravity\'s parabola landing exactly there (pair with a clip to throw once); {"kind": "sway", "amount": degrees (8)} bending from its base in the wind, the base still and the top moving most (a tree, grass, a flame); {"kind": "pop", "amount": 0–1 liveliness (0.5)} growing from nothing to its size with an overshoot and a settle (pair with a clip and show "in" to pop in). rate sets how many a loop. A morph riding a parent moves with the parent\'s motion too (a rider on a bouncing ball bounces and squashes with it).',
-                '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out" or null.',
+                '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out", "anticipate" (draws back first, then goes), "overshoot" (goes past the next key and settles back), "elastic" (goes past and rings to rest) or null; the scene\'s "ease" takes the same names. Two keys with "anticipate" or "overshoot" give a simple morph the cartoon feel: use them for a thing that jumps, pops, snaps or lands.',
                 '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), or there until it plays then gone ("out"). Clips one after another make a sequence.',
                 '- trail: {"kind": "echoes" | "ribbon", "len": 0–1}. fx: {"kind": "shimmer" | "grow" | "boil", "amount": 0–1}: a living outline, for flames, water, a heartbeat.',
                 '- lag: 0–0.9, the outline\'s parts arriving one after another (a flag, a jelly). follow: {"kind": "lag" | "spring", "amount": 0–1}, with parent: how loosely it is carried.',
@@ -84241,6 +84505,14 @@
             // a world point on the page, for a test's mouse (EDITING A KEY ON THE CANVAS)
             // the smooth corners each held exact shape has (the autosave's round trip is checked on them)
             smoothCorners: () => state.subpaths.map(sp => sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth).filter(Boolean).length : 0),
+            // HANDLES FOR A MOTION: each selected morph's handles, in the canvas's client pixels
+            motionHandles: () => {
+                const R = cv.getBoundingClientRect();
+                return morphMotionHandleRuns().map(r => ({ run: morphRuns.indexOf(r), motion: r.motion, handles: morphMotionHandles(r).map(hd => {
+                    const p = worldToPx(hd.x, hd.y, R.width, R.height);
+                    return { part: hd.part, x: R.left + p.x, y: R.top + p.y };
+                }) }));
+            },
             morphDiag: () => morphRuns.map(r => ({ exact: !!r.exact, lazy: !!(r.sp && r.sp._lazy), inDrawing: state.subpaths.indexOf(r.sp), K: r.keys.length })),
             toPx: (x, y) => { const r = cv.getBoundingClientRect(), q = worldToPx(x, y, r.width, r.height); return { x: r.left + q.x, y: r.top + q.y }; },
             morphSvg: o => { const r = exportMorphSvg(Object.assign({}, o, { noDownload: true })); return r ? r.svg : null; },
@@ -86293,10 +86565,19 @@
                         take(P.x, P.y);
                 // every key of every morph, not only the pose it opens on: a morph between keys in different
                 // places (a maple that turns into a star across the page) stays in the frame the whole loop
+                const LEAVE = ['anticipate', 'overshoot', 'elastic'];
                 for (const r of morphRuns)
                     if (!r.clip || !r.clip.show)
-                        for (const K of r.keys) {
+                        for (const [k, K] of r.keys.entries()) {
                             take(K.x, K.y);
+                            // ANTICIPATION AND OVERSHOOT: a pose goes up to about a sixth past a key, either way
+                            if (r.keys.length > 1 && (LEAVE.includes(state.morphEase) || (r.eases || []).some(e => LEAVE.includes(e)))) {
+                                const N = r.keys[(k + 1) % r.keys.length];
+                                if (N !== K && N.x.length === K.x.length) {
+                                    take(Float64Array.from(K.x, (v, i) => v + 0.16 * (v - N.x[i])), Float64Array.from(K.y, (v, i) => v + 0.16 * (v - N.y[i])));
+                                    take(Float64Array.from(N.x, (v, i) => v + 0.16 * (v - K.x[i])), Float64Array.from(N.y, (v, i) => v + 0.16 * (v - K.y[i])));
+                                }
+                            }
                             // PHYSICAL MOTIONS: a bounce or a fall goes up from where it rests, by its height
                             if (r.motion && (r.motion.kind === 'bounce' || r.motion.kind === 'fall')) {
                                 const up = r.motion.amount * 2 * morphMotionSize(r).h;
