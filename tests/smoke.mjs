@@ -1922,8 +1922,12 @@ current = 'scene link out';
     e.on('pageerror', x => failures.push(`[scene link out] ${x.message}`));
     await e.route(/fonts\.g/, r => r.abort());
     await e.goto(scene({ name: 'made', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="60" cy="140" r="20" fill="#f5c542"/><rect x="120" y="120" width="30" height="30" fill="#4287f5"/><polygon points="20,190 180,190 100,170" fill="#3a3"/></svg>', morphs: [] }), { waitUntil: 'load' });
-    await e.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 })
+    // its three shapes in and the opening settled before anything is applied: a scene still opening replaces the
+    // drawing when it lands, and what was applied before that goes with it (seen on a loaded CI runner)
+    await e.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch() && window.__animSketch().n === 3
+      && /made/.test(document.getElementById('status')?.textContent || ''), null, { timeout: 60000 })
       .catch(async () => { throw new Error('the editor-made scene did not open: ' + await e.evaluate(() => document.getElementById('status')?.textContent).catch(x => 'page gone: ' + x.message)); });
+    await e.waitForTimeout(400);
     await e.evaluate(() => window.__animApply({ copies: [{ of: 0, dy: -300, turn: 30 }], svg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><circle cx='640' cy='640' r='120' fill='none' stroke='#888'/></svg>",
       morphs: [{ keys: [0, 3] }, { keys: [1], path: 4, spin: 1 }], loop: 3 }));
     await e.evaluate(() => window.__animApply({ change: [{ morph: 0, rate: 3 }] }));
@@ -3258,6 +3262,10 @@ await step('the played gallery', async () => {
     }
   });
   await gp.waitForFunction(() => window.__played.ready().length + window.__played.failed().length === window.__played.ids.length, null, { timeout: 60000 });
+  // a tile that has just started draws on its next frame: wait for every canvas to have something on it
+  await gp.waitForFunction(() => window.__played.ids.every(id => { const c = document.getElementById(id).querySelector('canvas');
+    if (!c.width) return false; const p = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    for (let i = 3; i < p.length; i += 16) if (p[i] > 8) return true; return false; }), null, { timeout: 20000 }).catch(() => {});
   const st = await gp.evaluate(() => ({ failed: window.__played.failed(), playing: window.__played.playing(), first: window.__played.ids[0],
     blank: window.__played.ids.filter(id => { const c = document.getElementById(id).querySelector('canvas'), x = c.getContext('2d');
       const p = x.getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < p.length; i += 4) if (p[i] > 8) return false; return true; }) }));
