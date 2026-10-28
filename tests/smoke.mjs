@@ -3498,6 +3498,67 @@ await step('text in a scene, and beats', async () => {
   if (n[0] !== n[1] + 2) throw new Error('?src= built ' + n[0] + ' beats for ' + n[1] + ' stops');
 });
 
+/* A SHAPE FROM A FORMULA, A CLIP'S OWN IN AND OUT, LABELS INTO LABELS. The plot language reads sums and functions of
+   its own (eight kernels weighted by eight readings give the readings back at the atoms) and says what is wrong
+   with a bad line; a scene's data-plot becomes a shape that keeps its program, through undo; a plot added from the
+   panel's hook is updated in place. A line drawn on and then faded is unseen before, drawn while it comes in, and
+   gone after it goes; "N = 8" turns into "N = 16" at its key's time; x_2 is set apart from x2. */
+await step('plots, in and out, labels into labels', async () => {
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const pp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  pp.on('pageerror', e => failures.push(`[plots] ${e.message}`));
+  await pp.route(/fonts\.g/, r => r.abort());
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><path d="M50 250 L350 50" fill="none" stroke="#333" stroke-width="4"/>'
+      + '<text x="40" y="60" font-size="28" font-family="sans-serif" fill="#222">N = 8</text><text x="40" y="60" font-size="28" font-family="sans-serif" fill="#222">N = 16</text>'
+      + '<path data-plot="r = 60 + 10cos(5t)" data-cx="200" data-cy="150" fill="none" stroke="#7c5cff" stroke-width="3"/></svg>';
+    await pp.goto(scene({ name: 'plots', svg, play: false, morphs: [
+      { keys: [0], clip: { start: 0.1, len: 0.6, in: { kind: 'draw', len: 0.2 }, out: { kind: 'fade', len: 0.1 } } },
+      { keys: [1, 2], times: [0, 0.5] }] }), { waitUntil: 'load' });
+    await pp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await pp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box.morph(), null, { timeout: 15000 });
+    await pp.waitForTimeout(800);
+    const lang = await pp.evaluate(() => {
+      const src = 'F(t) = 95 + 16cos(3t - 0.4) + 12cos(5t + 0.9) + 7cos(9t + 0.3)\nK(p, N) = sin(N p/2) cos(p/2) / (N sin(p/2))\n'
+        + 'a(j) = (2j + 1)π/8\nr = sum(j, 0, 7, F(a(j)) K(t - a(j), 8))';
+      const S = window.__plot.sample({ src, t0: 'π/8', t1: '2π + π/8', n: 8 }).pts,
+        F = t => 95 + 16 * Math.cos(3 * t - 0.4) + 12 * Math.cos(5 * t + 0.9) + 7 * Math.cos(9 * t + 0.3);
+      let err = 0;
+      S.forEach((q, j) => { err = Math.max(err, Math.abs(Math.hypot(q[0], q[1]) - F((2 * j + 1) * Math.PI / 8))); });
+      let msg = '';
+      try { window.__plot.sample({ src: 'r = 2 +' }); } catch (e) { msg = e.message; }
+      return { err, msg, n: S.length };
+    });
+    if (!(lang.err < 1e-9) || lang.n !== 8 || !lang.msg) throw new Error('the plot language: ' + JSON.stringify(lang));
+    const ofs = await pp.evaluate(() => [...Array(40).keys()].map(i => window.__plot.of(i)).filter(Boolean).map(p => p.src));
+    if (!ofs.includes('r = 60 + 10cos(5t)')) throw new Error('the scene\'s plot kept no program: ' + JSON.stringify(ofs));
+    const i = await pp.evaluate(() => window.__plot.add({ src: 'r = cos(4t)', t1: '2π' }));
+    await pp.evaluate(i => window.__plot.relay(i, { src: 'r = cos(3t)', t1: '2π' }), i);
+    if (await pp.evaluate(i => window.__plot.of(i).src, i) !== 'r = cos(3t)') throw new Error('a plot was not updated in place');
+    await pp.click('#bUndo');
+    await pp.waitForTimeout(300);
+    if (await pp.evaluate(i => window.__plot.of(i) && window.__plot.of(i).src, i) !== 'r = cos(4t)') throw new Error('undo did not bring the plot\'s first formula back');
+    const fades = [];
+    for (const t of [0.05, 0.2, 0.4, 0.65, 0.75]) {
+      await pp.evaluate(t => window.__box.seek(t), t);
+      await pp.waitForTimeout(60);
+      fades.push(await pp.evaluate(() => window.__box.morph().runs.map(r => +(+r.fade).toFixed(2))));
+    }
+    // run 0 the line: unseen, drawn, drawn, fading, gone; the label N = 8 seen at 0.05 and gone by 0.65, N = 16 the other way
+    const line = fades.map(f => f[0]);
+    if (line.join() !== '0,1,1,0.5,0') throw new Error('a line drawn on and faded: ' + line.join());
+    const n8 = fades.map(f => f[1]), last = fades.map(f => f[f.length - 1]);
+    if (!(n8[0] === 1 && n8[4] === 0 && last[0] === 0 && last[4] === 1)) throw new Error('N = 8 into N = 16: ' + JSON.stringify([n8, last]));
+    const sub = await pp.evaluate(() => {
+      return { plain: window.__sceneTextBox('x2'), sub: window.__sceneTextBox('x_2') };
+    });
+    if (!(sub.sub[1] > sub.plain[1] + 2)) throw new Error('x_2 is not set lower than x2: ' + JSON.stringify(sub));
+  } finally {
+    await pp.close();
+  }
+});
+
 if (!QUICK) await step('labs.html matches the drawer', async () => {
   const { readLabs, render } = await import('../tools/build-labs.mjs');
   const want = render(await readLabs(base));

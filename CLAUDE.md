@@ -318,6 +318,25 @@ publishes.
     vocabulary), ▶ to stand at its start, **frame** to key the camera to the view at its end, × to drop its stop;
     **+ beat here** splits the beat at the clock (`morphAddStop`), **preview** opens the explainer page on it.
     Hook `__box.beats()`.
+    A SHAPE FROM A FORMULA (28 Oct 2026, Tom: "1,2,3"): the toolbar's **ƒ** (`#bPlot`, `#plotPop`) plots a program of
+    a small language (`plotCompile`, read here, never eval): definitions a line, functions of your own (`F(t) = …`),
+    `sum(j, a, b, …)`, juxtaposition as multiplication (`16cos(3t)`, `cos 2t`), π, τ, e and the usual functions; what is
+    drawn is `r` (polar, y up, closed over a whole turn), `x` and `y` (a curve in t) or `y` (a graph in x), sampled
+    (`plotSample`; a 0/0 hole filled by its limit) and laid as an exact shape with Catmull–Rom cubic edges
+    (`plotCtrl`). The program, its range and the map from its units to the page ride on the shape (`sp.plot`: undo,
+    autosave), so the panel opened on a plot updates it in place (`plotRelay`, finding the map again from where the
+    shape is now). A scene's svg may carry one: any element with `data-plot` (and `data-t0`, `data-t1`, `data-n`,
+    `data-cx`, `data-cy`, `data-scale`) is drawn by it (`scenePlotOut`, `scenePlotsIn`). The `.tvfs` still holds the
+    geometry, not the formula. Hook `window.__plot` (`compile`, `sample`, `add`, `relay`, `of`).
+    IN AND OUT, EACH ITS OWN (28 Oct 2026): a clip's `in: {kind: 'fade' | 'draw' | 'cut', len}` and `out: {kind:
+    'fade' | 'undraw' | 'cut', len}`, lengths shares of the loop; with either, `show` is not read, and the five shows
+    are the same thing named (`morphClipIO`, which `morphShowFactor` and `morphDrawFactor` read; `morphClipNorm`,
+    `morphClipOut` keep and write it). The timeline's shows select adds drawn on then fades, drawn on then taken back,
+    and quick fades (`MORPH_CLIP_PRESETS`). In the scene link, the `.tvfs`, the SVG export and the AI vocabulary.
+    LABELS INTO LABELS AND SIMPLE MATHS (28 Oct 2026): a morph whose keys are different labels crossfades from one to
+    the next at each key's time (its `times`, or evenly over its clip), each part of each label a clip of its own
+    (`sceneLabelMorphs`); a label's `x_1`, `x^2`, `x_{max}`, `e^{iπ}` are set lower or higher at 0.7 of the size
+    (`sceneTextRuns`, each run traced by `sceneTextRun`). The Tangent Bridge scene uses all three.
     TEXT IN A SCENE (28 Oct 2026): a scene link's (or a made scene's) `<text>` is traced into glyph rings
     (`sceneTextOut`, `sceneTextRings`) and comes in as exact shapes, one per outer ring with its holes, yet counts
     as one shape number (`sceneLabelsIn`: its other parts go after the last shape); a morph on it is made once a
