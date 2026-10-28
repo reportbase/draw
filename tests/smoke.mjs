@@ -165,6 +165,7 @@ try {
      against two planted bugs, leaves half a leaf off and the odd-N kernel at even N, and must
      fail: a check that cannot fail checks nothing. */
   await step('decoder test vectors', async () => {
+    await page.evaluate(() => window.__labFiles.load('decoder-test-vectors')); // the lab lives in labs/ (THE LABS THAT LIVE IN labs/)
     const r = await page.evaluate(() => {
       const res = runDecoderVectors();
       const keep = { lp: tvf.leafPositions, k: tvf.kernel };
@@ -191,6 +192,7 @@ try {
      to zero over an even number of leaves whatever its weight), and the odd-N kernel in the
      float decoder. */
   await step('exact reference decoder', async () => {
+    await page.evaluate(() => window.__labFiles.load('decoder-test-vectors')); // the lab lives in labs/ (THE LABS THAT LIVE IN labs/)
     const r = await page.evaluate(() => {
       const res = runExactDecoder();
       const nyq = runExactDecoder({ ds: [2, 4], nyq: 2, gramMax: 0 });
@@ -216,6 +218,7 @@ try {
      is worse) over everything the full file holds, grow as τ shrinks, and at τ = 1e-6 come in
      well under the full file's 518 sweeps. */
   await step('depth where needed', async () => {
+    await page.evaluate(() => window.__labFiles.load('depth-in-tvf')); // the lab lives in labs/ (THE LABS THAT LIVE IN labs/)
     const r = await page.evaluate(() => runDepthWhereNeeded());
     if (r.rows.length < 20) throw new Error('only ' + r.rows.length + ' shapes read');
     for (const row of r.rows) {
@@ -238,6 +241,7 @@ try {
      every figure but the circle; three readers' quotients, crossed, give back each figure
      exactly up to its size, and with one length, exactly. */
   await step('undoing the division', async () => {
+    await page.evaluate(() => window.__labFiles.load('undoing-the-division')); // the lab lives in labs/ (THE LABS THAT LIVE IN labs/)
     const r = await page.evaluate(() => undoDivisionRun().map(x => ({ key: x.key, kind: x.kind, miss: x.miss })));
     const of = k => r.filter(x => x.kind === k);
     if (of('as held').length < 5) throw new Error('only ' + of('as held').length + ' figures read');
@@ -250,6 +254,7 @@ try {
      its encounters, the nested reader stays under 1% at every distance from 4 to 128 h, while
      the one sweep's error grows more than fifteenfold (23× when measured). */
   await step('learning the shapes', async () => {
+    await page.evaluate(() => window.__labFiles.load('learning-a-shape-from-its-encounters')); // the lab lives in labs/ (THE LABS THAT LIVE IN labs/)
     const r = await page.evaluate(() => runShapeEncounters().rows.map(x => ({ D: x.D, eA: x.eA, eB: x.eB })));
     const med = a => a.slice().sort((x, y) => x - y)[a.length >> 1], at = D => r.filter(x => x.D === D);
     if (r.some(x => !(x.eB < 0.01))) throw new Error('the nested reader misses by ' + Math.max(...r.map(x => x.eB)));
@@ -258,6 +263,7 @@ try {
   });
 
   await step('walls', async () => {
+    await page.evaluate(() => window.__labFiles.load('depth-in-tvf')); // the lab lives in labs/ (THE LABS THAT LIVE IN labs/)
     const r = await page.evaluate(() => runDepthWalls());
     if (r.rows.length < 20) throw new Error('only ' + r.rows.length + ' shapes read');
     for (const x of r.rows) {
@@ -3526,6 +3532,10 @@ await step('a lab that lives in labs/', async () => {
     });
     const bad = loaded.filter(l => !/ run$/.test(l));
     if (bad.length) throw new Error('labs/ files that did not run: ' + bad.join('; '));
+    // a sheet whose code waited in the page for DOMContentLoaded opens from its file too (labAfterLoad)
+    await pp.evaluate(() => document.getElementById('bClosure').click());
+    await pp.waitForFunction(() => { const s = document.getElementById('sheetPanel'); return s && s.offsetParent && /closure sheet/i.test(s.innerText); },
+      null, { timeout: 10000 }).catch(() => { throw new Error('the closure sheet did not open from labs/sheets.js'); });
   } finally { await pp.close(); }
 });
 

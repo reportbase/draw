@@ -21,8 +21,9 @@ publishes.
   or re-describing a lab in `draw.html`, run it, or `npm test` fails.
   **The labs are leaving `draw.html`** (28 Oct 2026, Tom: "all the labs can ultimately be pulled from draw.html. its
   already too big", then "agreed, proceed"): first measured, then written down (`papers/labs.md`), then moved to
-  `labs/*.js` loaded only when asked (Tom: "batch them"). **`labs/`** (28 Oct 2026): 28 of the drawer's groups, a
-  file each named for its heading (`number-tests.js`, `stream-bank.js`, …), about 5,900 lines: a moved lab's code, line for line and in the editor's indent, inside one
+  `labs/*.js` loaded only when asked (Tom: "batch them"). **`labs/`** (28 Oct 2026): 49 of the drawer's groups in 47
+  files named for their headings (`number-tests.js`, `stream-bank.js`, …; `sheets.js` holds the sheets, two fisheyes
+  on one array and readers within readers, one block), about 13,300 lines: a moved lab's code, line for line and in the editor's indent, inside one
   function handed over as `(window.TVF_LABS = window.TVF_LABS || {})[name] = function () { … }`. The editor
   (THE LABS THAT LIVE IN labs/, beside `makeRng`) evaluates that function's text by a direct `eval` inside its own
   closure, so the code reads every editor name as it did in the page and wires its own buttons; a script tag, not a
@@ -33,11 +34,21 @@ publishes.
   stays in the editor. Hook `window.__labFiles` (`files`, `load(name)`, `state`). The ones moved are the groups
   whose code is their own, reached from their own button and named nowhere else (a group's closure from its
   button, less what the editor or another group reaches); each was run before and after (`tools/run-labs.mjs`) and
-  reports the same cells, verdicts and status lines. Still in the editor: the contact walker, the decoder vectors
-  and undoing the division (the editor or the tests name a function of theirs), and the groups wired from blocks
-  shared with the editor's own controls (the sheets, the two- and three-reader tests and their neighbours), to
-  split by hand. A cut takes a piece's comment block with it, and a free-standing comment after a piece's code
-  rides along too: check a moved file's tail.
+  reports the same cells, verdicts and status lines (the sheets, which report none, open with the same text). A
+  moved lab's `window.runX = runX` console hook moves with it, and its names leave the editor's `window.__lab`
+  object and go back on it when its file loads (`Object.assign(window.__lab, …)` at the file's end). Code that
+  waited in the page for DOMContentLoaded waits in a file for the end of that file (`labAfterLoad(f)`, queued and
+  run after the eval; the sheets'). The second batch split the morph bar's wiring block from the labs' (the labs'
+  handlers each their own top-level block). Still in the editor: the contact walker (the editor's own code names its
+  functions), scatter (the editor's scatter shares its code) and the keyboard sheet (its block reaches the
+  editor's settings controls, gearBtn and tabLab). A cut takes a piece's comment block with it; one stops at the piece's last code line, so a
+  free-standing comment after it (a section header, a pointer) stays. What stays in the editor even when only labs use
+  it: code copied word for word elsewhere (the depth code's `depthLearnedFacing` and `depthEnterWhereNeeded`, which
+  the gallery's inspector, depth and where-to-stand pages copy from here) and code two moved files share
+  (`tbLeaves`, `pathoShape`, `_shapePrep`, `_firstMeet`, `_occSeen`, `_inside`: the sheets, occlusion and
+  encounters). Before cutting a file, check that no name it declares is used by another file in labs/, and that
+  no name only labs/ declares is used by the editor; the smoke test's steps that call a moved lab's runner
+  (`runDecoderVectors()`, …) load its file first with `__labFiles.load(name)`.
   `tools/measure-labs.mjs` splits the main script into its top-level pieces and finds what only the labs reach
   (by name, as `build-player.mjs` does; `window.__lab`, the `window.runX` exports and the lab deep link count as
   the labs'): about 10,000 of 83,000 lines, 18,000 with the blocks that wire a lab and something else
