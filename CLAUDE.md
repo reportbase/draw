@@ -55,6 +55,12 @@ publishes.
   `tb_spectral_notes.md` (§23, preliminary). Replace a file when the owner sends a new revision.
   Claude may edit them too, in their voice: when a change here builds or measures something a
   paper lists as open, say so in the paper (its status section and a dated revision line).
+  Their vocabulary is the current one (28 Oct 2026, Tom: "it uses terms like atom that have been long abandoned"):
+  **leaves** for the places read (never atoms), the **sweep** for the interval of ratios, the **reader** and the
+  **writer** (not the bounded observer, the spectator or the surveyor), **levels** (not rungs or octaves), the
+  **corner** (π/4) and the **horizon** (π/2), the reader's **unit circle** (not the virtual circle), the
+  **reconstruction** (not the presentation), the reader's and the writer's (not inside and outside). Other papers
+  are cited by their own titles (*The Observation Atom* keeps its name).
 - `papers.html`: the index of `papers/` and a reader for them (`#tvf` opens one, `#tvf:heading-id`
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before
@@ -307,9 +313,9 @@ publishes.
     title and its paper), and a switcher under the lede goes between them: `?x=bridge` is THE TANGENT BRIDGE (28 Oct
     2026, Tom: "lets create a polished explainer"), the theorem of `papers/tb_classical.md` in six beats, the animated
     gallery's `bridge` tile, every curve computed there from the paper's formulas (the readings at the odd multiples of
-    π/N, the kernel in its product form, their sum): a curve F, eight atoms, one kernel turned to each, the sum through
-    every atom, the camera in on the widest gap, then sixteen and thirty-two atoms (each lattice the last one slid half
-    a step with new atoms between, since the atoms of 2N are not those of N), the sum equal to F at thirty-two. Beat
+    π/N, the kernel in its product form, their sum): a curve F, eight leaves, one kernel turned to each, the sum through
+    every leaf, the camera in on the widest gap, then sixteen and thirty-two leaves (each lattice the last one slid half
+    a step with new leaves between, since the leaves of 2N are not those of N), the sum equal to F at thirty-two. Beat
     words take a blank line between paragraphs, `**bold**`, `*italic*` and `[a link](address)`, a link into
     `papers.html` drawn as the paper pill.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens

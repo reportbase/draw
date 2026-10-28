@@ -2,9 +2,11 @@
 
 ### *A companion section to* The Tangent Bridge in the Spectral Court *(§§17–22), extending the constructible-lattice reading from the transform to the bounded aperture, with the addenda to §18, §20 and §21 that the implementation forced*
 
+*Revised 28 October 2026: the vocabulary of The Tangent Bridge Theorem brought up to date here too (leaves for atoms, the reader and the writer for the observer and the spectator or surveyor, levels for rungs and octaves, the reconstruction for the presentation). Nothing in the mathematics changed.*
+
 > **Status: preliminary.** A working draft. The mathematics of §23.1–23.2 is settled and independently re-derived (§23.3), and the operator it licenses is in service; the open items are collected in §23.4 and touch the taper, the non-dyadic case, and the generality of the measurements rather than the proposition. Numbering assumes §23 is free. — draft 1, Jul 2026
 
-§21.4 found the FFT's twiddle table inside the leaf lattice: the transform the observer needs is carried on slopes it already holds. The same question can be asked of the *other* operation the bounded observer performs, and the answer is better. When the presentation is read through a window — only the $K$ leaves within $\pm$halfW of the sample, which is the §5.2 held-open-circle read made finite — every kernel argument that arises lands on a **reduced constructible lattice**, and the whole windowed operator becomes a sparse matrix of rational numbers. §21.4 made the transform trig-free; §23 makes the aperture trig-free, which is the more consequential of the two, because the aperture is where "only the $K$ in view" actually lives.
+§21.4 found the FFT's twiddle table inside the leaf lattice: the transform the reader needs is carried on slopes it already holds. The same question can be asked of the *other* operation the reader performs, and the answer is better. When the reconstruction is read through a window — only the $K$ leaves within $\pm$halfW of the sample, which is the §5.2 held-open-circle read made finite — every kernel argument that arises lands on a **reduced constructible lattice**, and the whole windowed operator becomes a sparse matrix of rational numbers. §21.4 made the transform trig-free; §23 makes the aperture trig-free, which is the more consequential of the two, because the aperture is where "only the $K$ in view" actually lives.
 
 The section is short, and its content is one congruence. The operational half is that the windowed read — which an implementation will naively write as two transcendentals per (sample, leaf) pair, and which is then *slower than reading every leaf* — becomes the cheapest operator in the system.
 
@@ -12,7 +14,7 @@ The section is short, and its content is one congruence. The operational half is
 
 ## 23.1 Statement
 
-Let the leaves be $\theta_j=(2j+1)\pi/N$, $j=0,\dots,N-1$ (the odd nodes of §2.2, $N=2^{d+1}$), and let the presentation be sampled at the $M$ equispaced angles $\varphi_i=2\pi i/M$ — the grid a renderer, a plotter or a quadrature actually asks for.
+Let the leaves be $\theta_j=(2j+1)\pi/N$, $j=0,\dots,N-1$ (the odd nodes of §2.2, $N=2^{d+1}$), and let the reconstruction be sampled at the $M$ equispaced angles $\varphi_i=2\pi i/M$ — the grid a renderer, a plotter or a quadrature actually asks for.
 
 **Proposition 23.1 (Aperture lattice).** Put $u_{ij}=(\varphi_i-\theta_j)/2$, the half-difference the kernel is evaluated at. Then
 
@@ -32,7 +34,7 @@ in which
 - $\sin(p\pi/\rho)$ is an entry of a table of $2\rho$ values, obtained from the same ladder by $\sin\vartheta=2t/(1+t^2)$;
 - and for $M\le N$ the second table **collapses to $\{0,1,0,-1\}$**, because $\rho=2$.
 
-So the kernel is evaluated with no transcendental at any $(N,M)$, and a shape drawn smaller than its own rung needs no sine table at all.
+So the kernel is evaluated with no transcendental at any $(N,M)$, and a shape drawn smaller than its own level needs no sine table at all.
 
 **Corollary 23.3 (The band is a cacheable sparse operator).** The windowed weights
 $$w_{ij}=K_N(\varphi_i-\theta_j)\cdot\tau\!\left(\tfrac{j-c_i}{\text{halfW}}\right),\qquad c_i=\tfrac{iN}{M}-\tfrac12,$$
@@ -94,7 +96,7 @@ The four rows with $M\le N$ are the $\rho=2$ collapse — no sine table, numerat
 | 0.10 | 51 | 6.51 ms | 0.30 ms | 0.21 ms |
 | 0.05 | 26 | 3.09 ms | 0.14 ms | 0.21 ms |
 
-Read the last two columns against each other and the point of the section appears: reading a *quarter* of the leaves cost seventy-nine times more than reading all of them, and now costs less than reading all of them. A bounded observer that pays more for holding less is not implementing the theorem; it is paying for the angle chart it declined.
+Read the last two columns against each other and the point of the section appears: reading a *quarter* of the leaves cost seventy-nine times more than reading all of them, and now costs less than reading all of them. A reader that pays more for holding less is not implementing the theorem; it is paying for the angle chart it declined.
 
 **Downstream, unchanged.** The instrument that chooses $K$ automatically (smallest window whose deviation stays under half a device pixel) selects the identical aperture before and after — $K=6$ of $512$, 85× fewer terms, deviation $0.27$ px — and the rendered output is bit-unchanged: three scenes decoded and compared pixel by pixel, **0 differing pixels**.
 
@@ -114,7 +116,7 @@ What this draft does not settle, in the order it would matter to close:
 
 ## 23.5 Reading
 
-§20 sorted the sections by court: §17, §19 and §21 run in the observer's chart, §18 is the surveyor's by nature. §23 belongs with the first group and sharpens what membership means. The observer's chart is not merely *available* for the windowed read — it is what makes the windowed read worth having. Evaluated in the angle chart, the aperture is a pessimization: two transcendentals per (sample, leaf) pair, and the "bounded" operator loses to the unbounded one by two orders of magnitude, because the unbounded one can be written as a matrix and the windowed one, apparently, cannot. Evaluated on the reduced lattice (23.1) it is what it always was on paper: a sparse operator over the $K$ atoms in view, costing what $K$ says it should.
+§20 sorted the sections by court: §17, §19 and §21 run in the reader's chart, §18 is the writer's by nature. §23 belongs with the first group and sharpens what membership means. The reader's chart is not merely *available* for the windowed read — it is what makes the windowed read worth having. Evaluated in the angle chart, the aperture is a pessimization: two transcendentals per (sample, leaf) pair, and the "bounded" operator loses to the unbounded one by two orders of magnitude, because the unbounded one can be written as a matrix and the windowed one, apparently, cannot. Evaluated on the reduced lattice (23.1) it is what it always was on paper: a sparse operator over the $K$ leaves in view, costing what $K$ says it should.
 
 The mechanism is the same one §21.4 found in the twiddles, and the reason is the same: **a fixed grid against a fixed grid produces only finitely many angles, and those angles are constructible.** In §21.4 the two grids were the leaves and the modes; here they are the leaves and the sample points. The gcd in (23.1) is doing the work the framework's forced radix already promised — it is because $N$ and $M$ are powers of two that $g=\min(2N,M)$ and the lattice collapses to a single small table, and it is the *same* forcing (§2.4) that gives the nesting, the MRA and the FFT. The dividend is now counted three times, and it is one dividend: the recursion that nests the leaves is the recursion that transforms them, and the lattice that carries the transform is the lattice that carries the window.
 
@@ -126,11 +128,11 @@ Remark 23.4 is the part worth keeping in view. The interpolation property is not
 
 ## To §18 — the fold on the synthesis side
 
-§18 folds on the **analysis** grid, where the leaves are odd nodes and the fold therefore carries the sign twist $e^{i(m+N)\theta_k}=-e^{im\theta_k}$. The presentation is sampled on the **even**-node grid $\varphi_i=2\pi i/M$, and there the corresponding statement is unadorned:
+§18 folds on the **analysis** grid, where the leaves are odd nodes and the fold therefore carries the sign twist $e^{i(m+N)\theta_k}=-e^{im\theta_k}$. The reconstruction is sampled on the **even**-node grid $\varphi_i=2\pi i/M$, and there the corresponding statement is unadorned:
 
 **Corollary 18.2 (Synthesis fold).** For $\varphi_i=2\pi i/M$ and any $m\in\mathbb{Z}$, $e^{im\varphi_i}=e^{i(m\bmod M)\varphi_i}$. Hence evaluating $P_dF$ at $M$ equispaced points by folding its coefficients modulo $M$ and inverse-transforming is **exact for every $M$**, above or below $N$, with no sign twist. The twist of §18.1 is a property of the odd-node analysis grid alone, and is already carried by the half-shift twiddle of (21.1).
 
-This is what licenses a length-$M$ transform for a shape whose rung exceeds its sampled resolution — the ordinary case for a presentation that must draw a $2048$-leaf contour across two hundred pixels. Verified against the direct sum at $10^{-13}$ for $(N,M)$ with $M<N$, $M=N$ and $M>N$.
+This is what licenses a length-$M$ transform for a shape whose level exceeds its sampled resolution — the ordinary case for a reconstruction that must draw a $2048$-leaf contour across two hundred pixels. Verified against the direct sum at $10^{-13}$ for $(N,M)$ with $M<N$, $M=N$ and $M>N$.
 
 ## To §20 — the status table
 
@@ -140,7 +142,7 @@ A row for the aperture:
 
 ## To §21 — an implementation note on the crossover
 
-§21 establishes that the transform is $O(M\log M)$ where the sum is $O(N\cdot M)$, which invites the reading that the transform is always preferable at scale. In practice the decision is governed by $N$ alone, not by $N\cdot M$: the transform costs $\beta(M\log M+N\log N)$, and that does not fall when $N$ does. A coarse shape sampled densely — $N=32$, $M=2048$, a low-rung contour filling the view — is measurably faster by the direct sum (transform at $0.39\times$ the sum's speed), while from $N=128$ upward the transform leads, by $1.2\times$ at $N=128$ and $5$–$10\times$ at $N\ge512$. Swept over $N\in[32,1024]\times M\in[256,4096]$:
+§21 establishes that the transform is $O(M\log M)$ where the sum is $O(N\cdot M)$, which invites the reading that the transform is always preferable at scale. In practice the decision is governed by $N$ alone, not by $N\cdot M$: the transform costs $\beta(M\log M+N\log N)$, and that does not fall when $N$ does. A coarse shape sampled densely — $N=32$, $M=2048$, a low-level contour filling the view — is measurably faster by the direct sum (transform at $0.39\times$ the sum's speed), while from $N=128$ upward the transform leads, by $1.2\times$ at $N=128$ and $5$–$10\times$ at $N\ge512$. Swept over $N\in[32,1024]\times M\in[256,4096]$:
 
 | | $M=256$ | $M=1024$ | $M=2048$ | $M=4096$ |
 |---|---|---|---|---|
