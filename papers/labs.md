@@ -2,7 +2,7 @@
 
 ### *What each lab in the editor's drawer measured, what it found, what the result is called elsewhere, and what in it looks new*
 
-*Written 28 October 2026, from a run of every lab on that day.*
+*Written 28 October 2026, from a run of every lab on that day. Revised the same day: the labs moved to `labs/`, the seeded generator mended and every lab run again (§§ "What the run found wrong", "The run again, after the generator"), six faults dealt with, and the seven items that look new searched for in print.*
 
 > **Status: a record.** Every number below was read off the editor by `tools/run-labs.mjs`, which opens `draw.html?lab=CODE` for each lab in headless Chromium and keeps what the lab reports: its status line, and the caption and verdict of each cell it lays on the page. Nothing here was copied from a lab's own notes without being run again, except where a section says so (the interactive labs, which report nothing to read back). Where a classical source is named from memory rather than checked, the section says *to check*.
 
@@ -12,7 +12,7 @@
 
 The labs were written over many sessions, each to try one idea about readers, curves and the Cauchy law. Each was named in the words we had at the time, and much of what they found had older names we did not use. This paper puts every lab beside its standard name, so that a reader who knows the classical subject can see at once what was checked, and so that the few things that may be new are not lost among the many that are not.
 
-It also prepares the labs to leave `draw.html`. The editor is about 83,000 lines in its main script, and about 10,000 of them are reached only from the labs (18,000 if the blocks that wire a lab and something else are counted as the labs'); `tools/measure-labs.mjs` measures this. Before the code moves, its findings are written down here, where they can be read without running it.
+It was also written so the labs could leave `draw.html`, and they have. The editor's main script was about 83,000 lines, about 10,000 of them reached only from the labs (18,000 counting the blocks that wire a lab and something else); `tools/measure-labs.mjs` measured it. Every lab group in the drawer (53 of its 54 headings; the other is the editor's own paint modes) now lives in a file in `labs/`, 51 files and about 15,700 lines, loaded only when one of its buttons is pressed or `?lab=` asks for it; each section's **In the editor** line names its file. The findings were written down here first, where they can be read without running anything.
 
 ## How to read a section
 
@@ -44,26 +44,51 @@ Thirty-three of the sections say, in their own words, *Nothing beyond the classi
 **A few things look new.** None is a theorem yet. Each is stated where it was found, and each needs a search of the literature before it is claimed:
 
 1. **A curve found from winding numbers alone** (§7): an adaptive quadtree that subdivides only where integer winding readings at a cell's corners disagree, with no distances or normals, and a refinement limit fixed beforehand by the ring's resolution, δ* = (s/2)·tan(π/2C). Every part is known; we did not find the combination.
-2. **A one-bit ring that stays silent outside** (§6): read at one bit, the bearing ring of a point outside the curve recorded no change at all over the whole sweep, on all 58 shapes, not changes that cancelled.
+2. **A one-bit ring that stays silent outside** (§6): read at one bit, the bearing ring of a point outside the curve recorded no change at all over the whole sweep, on all 58 shapes, not changes that cancelled. *Since the search, not new:* a one-bit ring splits the plane by one line through the point, and it is silent exactly when some such line misses the curve, which is the separating line of a point outside a convex hull. The lab's outside point was outside every hull; in a bay of a C-shaped figure the ring would change and cancel.
 3. **The near field's own size** (§10): the light from an evenly glowing flat outline, seen on its axis, is set far off by ⟨R²⟩ (its area) and close in by ⟨R⁻²⟩; the exact symmetry between near and far, f(D²/d) = 1 − f(d), holds only for the circle, and its failure is of second order in Q − 1 for near-round shapes.
 4. **A straight edge for an instrument** (§37): a geometric ladder of stimuli has a cross ratio fixed at every scale, so a sensor's response can be tested for being linear-fractional without any calibrated reference; it caught an exponent of 1.02.
 5. **Corners that hide in the arc element** (§39): curves with hinges (where r′ changes sign abruptly) that share their arc element √(r² + r′²) exactly with a different smooth curve. And the converse, **positive smooth recovery** (§§40, 46): from the arc element alone, damped Gauss–Newton recovered all four smooth figures from blind seeds, the other solution −r excluded by r > 0. Uniqueness is a conjecture with evidence, not a proof.
 6. **An address error that does not depend on the landmarks' spread** (§49): sending a place as a cross ratio against three landmarks, the number's own error falls as 1/separation and solving it back grows as separation; the two cancel, so the recovered place is off by about 0.12 elements a pixel whatever the spread, until the spread is under a pixel.
 7. **A coordinate for a shape read from its own outline** (§13): the inscribed-angle reading tan(θ/2) from a point on the outline, held in levels, each dyadic interval remapped onto a whole quarter turn. A construction, not a result; its approximation behaviour is classical.
 
+**What a search found.** The seven were searched for on 28 October 2026 (fourteen web searches; the sources below were seen as search results only, not read in full, so a "not found" is weaker than a library search would be). None was found as stated; each is set out in "The seven, searched for", at the end. Item 2 reduces to a classical fact. Items 4 and 6 have close prior work that must be read before anything is claimed (Sanders 1972 and Chuang et al. 2007). Item 5's uniqueness conjecture needs a hypothesis it does not yet state.
+
 Smaller and descriptive: the radial and angular codes charge in opposite directions, corners cheap for one and roundness for the other (§5); about a third of the library reads, from its centre, as the ellipse of the same breadth (§9); for about half of it the difference from the circle lies in the levels away from the corner (§11); one stored sample serves a one-pass reader as well as the median does (§27).
 
 ## What the run found wrong
 
-Running every lab, and reading each against its claim, turned up the following. The first is fixed in the commit that adds this paper; the rest are recorded here and not yet changed.
+Running every lab, and reading each against its claim, turned up the following. Each item now says what was done.
 
-1. **Twenty labs could not run.** When the curve library moved to `tvf-core.js` (9 October 2026), its seeded generator `makeRng` went inside the library's closure, while twenty labs still called it by name: fac, num, dis, lib, bhm, whg, swm, asm, ste, frn, hng, fig, whr, ost, swt, sdz, sig, sbk, smp and owt, each stopping with *makeRng is not defined*. The editor now defines `makeRng` and `makeRngCentered` itself (the same stream, so the labs' numbers are what they were); the library's copy stays as it is, since 3d and games copy that block unchanged. All twenty run again, and their numbers are in the sections below.
-2. **A check that cannot fail** (§24, `rec`): claim 5, that a lost tick spoils every later address until the next mark, computes a drift of exactly 1 and sets the drift after the mark to 0 whatever the data. Claims 1 and 2 hold by construction too.
-3. **A tolerance the lab fails** (§29, `lib`): the quantile statistic reads 3.029 to 3.044 against 3.0777 on all six figures, outside the lab's own 1%. With `Math.random` it reads 3.056 to 3.111, so the seeded generator is the likely cause (to check). The lab's text also says eight figures; it runs six.
-4. **No drift by construction** (§30, `bhm`): the chain's seams are solved from exact camera matrices, so the absence of drift over 94 seams says nothing about estimated poses.
-5. **A power law let through** (§38, `frn`): a response x^1.7 passes the 15% band on both figures it was tried on (14.8%, 6.8%). §37's straight edge catches far milder ones.
-6. **A band missed** (§41, `whr`): the arc element came back within 15.2%, 14.8% and 16.3% on three of four figures, outside the lab's 12% band.
-7. **The circle departs** (§13, `dpt`): the library circle shows a departure of 0.547 from its own circle and a level-0 error of 0.65; the cause was not found.
+1. **Twenty labs could not run.** *Fixed.* When the curve library moved to `tvf-core.js` (9 October 2026), its seeded generator `makeRng` went inside the library's closure, while twenty labs still called it by name: fac, num, dis, lib, bhm, whg, swm, asm, ste, frn, hng, fig, whr, ost, swt, sdz, sig, sbk, smp and owt, each stopping with *makeRng is not defined*. The editor now defines `makeRng` and `makeRngCentered` itself; the library's copy stays as it is, since 3d and games copy that block unchanged.
+2. **The seeded generator was not the generator it meant to be.** *Fixed.* `makeRng` steps s ← (1103515245·s + 12345) mod 2³¹, but it wrote the product in floating point, which passes 2⁵³ and loses its low bits before the mod is taken. The stream it made was not the linear congruential one: from the labs' seed 8191 it fell into a cycle after about 10,500 values, so a lab drawing 60,000 numbers drew the same few thousand again and again. It now multiplies in 32-bit integers (`Math.imul`), which is the intended stream exactly; three labs that carried their own copy (geometry, ownership rule, straight edge) were mended the same way. Every lab was run again; what moved is in "The run again, after the generator", below. The same pattern is still in the library's own copy in `tvf-core.js` (3d and games copy that block, so it changes only with them) and in two gallery pages (growth, levels).
+3. **A check that cannot fail** (§24, `rec`). *Fixed.* Claim 5 computed a drift of exactly 1 and set the drift after the mark to 0 whatever the data. It now drops one tick from the string, decodes it, and compares the addresses: the drift reaches every later address on 50 of 58 records, and the next mark ends it on 58 of 58.
+4. **A tolerance the lab failed** (§29, `lib`). *Fixed by item 2.* The quantile statistic read 3.029 to 3.044 against 3.0777, outside the lab's own 1%; with the generator mended it reads 3.052 to 3.094, inside it on all six figures. The lab's text said eight figures and runs six; it now says six.
+5. **No drift by construction** (§30, `bhm`). *Restated.* The chain's seams are solved from exact camera matrices, so the absence of drift over 94 seams says nothing about estimated poses. The lab now says so in its status line and beside the seam.
+6. **A power law let through** (§38, `frn`). *Fixed.* A response x^1.7 passed a fixed 15% band on both figures. The band is now each figure's own floor (what the quantity departs by with the instrument as held): within 1.5 floors held, past 3 broke, between them undecided. The power law now breaks on graze200 (6.3 floors) and is undecided on wedge (2.2). The two ratios were chosen after seeing these numbers, and the lab says so.
+7. **A band missed** (§41, `whr`). *Fixed by item 2.* The arc element came back within 15.2%, 14.8% and 16.3% on three of four figures, outside the lab's 12%; it now comes back within 5.1%, 4.4%, 7.1% and 6.1%.
+8. **The circle departs** (§13, `dpt`). *Explained; no change.* The library's circle is a polygon of 160 points, and its 256-leaf reconstruction does not have constant curvature (it runs from 0.24 to 1.74 of the circle's). Read from a point on that outline, the ratio p(s) is 1.547 at s = 2⁻⁶ and 1.0001 at s = 64: the departure is the polygon's, near the standpoint, where the inscribed reading magnifies it. A closed-form circle (the port check) departs by nothing.
+
+## The run again, after the generator
+
+Every lab was run again with the mended generator and compared, cell by cell, with the run above. Labs that draw no random numbers, or draw them from `Math.random`, reported the same; so did most that use the seeded stream, within their own sampling. These moved by more than that:
+
+| Lab | Before | After |
+|---|---|---|
+| `lib` (§29) | statistic 3.029–3.044, fails 1% on 6/6 | 3.052–3.094, passes on 6/6 |
+| `whr` (§41) | arc element within 15.2, 14.8, 7.6, 16.3% | within 5.1, 4.4, 7.1, 6.1% |
+| `sig` (§21) | the account moved the figure on 7/7, median 3.9% | on 6/7, median 4.9% |
+| `ost` (§42) | 35 of 44 caught | 33 of 44 caught |
+| `owt` (§51) | class counts as listed | 54, 50, 62, every one as the rule says |
+| `smp` (§46) | arc element as listed | to 4·10⁻² |
+| `sbk` (§45) | as listed | cheap statistic within 0.1%, exchange 1.55 |
+| `swm` (§35) | scores as listed | 0.015, 0.018, 0.432, 0.018, 0.016 (the liar still named) |
+| `asm` (§36) | 3.6·10⁻¹³ | 3.6·10⁻¹⁵ and 1.2·10⁻¹⁴ |
+| `geo` (§25) | distance ratios as listed | moved 16.1% and 6.4% |
+| `fac` (§23) | as listed | 49.4% and 69.1% |
+| `dis` (§28) | as listed | 38% |
+| `bhm` (§30) | every m from 6 to 96 under 5% at the median point | the same but m = 46, at 5.5% |
+
+No pass became a failure. Four cells went from pass to undecided: sprout in `sig`, where the account moved the figure by only 0.8% (its three cells), and m = 46 in `bhm`, at 5.5% against the 5% line. Where a section below quotes a number from the first run that has since moved, the table is the one to read; the sections for the six faults are rewritten.
 
 ---
 
@@ -90,7 +115,7 @@ The option η adds odometry noise, whose drift grows as η·s·√(2m) after m s
 
 **Ours.** The work is in the engineering: one bit of contact, odometry, and a lap certificate whose four conditions use no map. Counting holes this way is a direct reading of b₀ and b₁ by contact. The forced winding of the spiral is a property of the corridor's topology, set by construction. No new theorem is claimed.
 
-**In the editor.** `?lab=wlk`, `?lab=wrs`, `?lab=wsv`, `?lab=wco`, `?lab=wmz`, `?lab=wrd`, `?lab=wsp`, `?lab=wjr`
+**In the editor.** `?lab=wlk`, `?lab=wrs`, `?lab=wsv`, `?lab=wco`, `?lab=wmz`, `?lab=wrd`, `?lab=wsp`, `?lab=wjr`. Its code: `labs/contact-walker.js`.
 
 ## 3. Shape sheet
 
@@ -117,7 +142,7 @@ All 73 cells are descriptive, so there is no pass or fail.
 
 **Ours.** Nothing beyond the classical results. These are visual instruments.
 
-**In the editor.** `?lab=psl`, `?lab=ppo`, `?lab=pbe`, `?lab=psy`, `?lab=prt`
+**In the editor.** `?lab=psl`, `?lab=ppo`, `?lab=pbe`, `?lab=psy`, `?lab=prt`. These are the editor's own paint modes, so their code stays in `draw.html`.
 
 ## 5. Two readers: radial log-ratio quantiser and tangent-angle ring (*two-reader tests*)
 
@@ -140,7 +165,7 @@ The angular quantiser holds the direction of each chord between neighbouring sam
 - The radial code is cheap for corners and the angular code is cheap for roundness, so the two charge in opposite directions.
 - On convex shapes the angular cost is the same, H(C/L), for every shape.
 
-**In the editor.** `?lab=two`
+**In the editor.** `?lab=two`. Its code: `labs/two-reader-tests.js`.
 
 ## 6. Winding numbers about points, at 64 cells and at one bit (*three-reader tests*)
 
@@ -160,7 +185,7 @@ Median cost was 0.544 bits per step for the inside ring, the same on every shape
 
 **Ours.** The silence at one bit is a modest observation, which we did not find stated elsewhere. Near enough, it holds because the curve's bearing from the outside point never strays more than a quarter turn from the bearing the one-bit ring started with, so the ring never changes state. Everything else is a check.
 
-**In the editor.** `?lab=tri`
+**In the editor.** `?lab=tri`. Its code: `labs/three-reader-tests.js`.
 
 ## 7. Recovering a curve from winding numbers alone (*recovery tests*)
 
@@ -182,7 +207,7 @@ On a single grid, N(ε)·ε measures the ℓ¹ length in that grid's frame, not 
 
 We did not find this particular combination stated elsewhere (to check). Using the swing as a rotation-invariant measure of the spread of tangent directions is a small practical addition.
 
-**In the editor.** `?lab=rcv`
+**In the editor.** `?lab=rcv`. Its code: `labs/recovery-tests.js`.
 
 ## 8. Arctangent compression of radius and the log-step quantiser (*cauchy tests*)
 
@@ -194,7 +219,7 @@ For each star-shaped primitive, the true radius and the quantised radius are map
 
 **Ours.** Nothing beyond the classical result; the lab is a check. The one point of interest is that a quantiser with uniform log steps and the arctangent map spend their resolution at the same place, the corner ρ = 1, which explains why the largest error sits there.
 
-**In the editor.** `?lab=cau`
+**In the editor.** `?lab=cau`. Its code: `labs/cauchy-tests.js`.
 
 ## 9. Ratios read from the centre, sampled along the outline (*opening the shapes*)
 
@@ -216,7 +241,7 @@ Each shape is set beside an ellipse with the same breadth ratio b = max v / max 
 
 **Ours.** A catalogue rather than a theorem. It measures how far equal-arc-length sampling moves a shape away from the Cauchy law, and finds that about a third of the library is described by the ellipse of the same breadth ratio to within 0.02. We did not find this comparison made elsewhere. It is descriptive.
 
-**In the editor.** `?lab=unc`
+**In the editor.** `?lab=unc`. Its code: `labs/opening-the-shapes.js`.
 
 ## 10. On-axis irradiance from a uniformly glowing flat outline (*near and far*)
 
@@ -248,7 +273,7 @@ The lab reports four quantities:
 
 These are modest results; the near and far limits themselves are classical.
 
-**In the editor.** `?lab=nfr`
+**In the editor.** `?lab=nfr`. Its code: `labs/near-and-far.js`.
 
 ## 11. Where a shape differs from the circle, level by level (*the shape, octave by octave*)
 
@@ -265,7 +290,7 @@ The lab compares this histogram with the circle's and adds up the absolute diffe
 
 **Ours.** The finding is descriptive and holds for this library only: for about half the shapes, most of the difference from the circle lies in the outer levels, not the corner level, and roughly 90% is seen within five levels. This is not a theorem, and 17 shapes go the other way.
 
-**In the editor.** `?lab=oct`
+**In the editor.** `?lab=oct`. Its code: `labs/shape-octave-by-octave.js`.
 
 ## 12. Reading a stretch from the share of ratios below 1 (*the corner reads the breadth*)
 
@@ -277,7 +302,7 @@ The lab samples each single-outline primitive evenly by arc length, reads every 
 
 **Ours.** Nothing beyond the classical result. The lab is a check, and it measures how much the circle's rule misreads other shapes: a 13% median error.
 
-**In the editor.** `?lab=crb`
+**In the editor.** `?lab=crb`. Its code: `labs/corner-reads-the-breadth.js`.
 
 ## 13. Multilevel interpolation of a shape's departure from its osculating-scale circle (*depth of a shape*)
 
@@ -293,13 +318,13 @@ p is held in levels:
 - by level 1: 23;
 - by level 2: 1.
 
-Past the level that holds, each further level cuts the error at least fivefold, except reuleaux at level 2. The port reproduces the earlier Python run to 1.6·10⁻⁴. The rank correlation between the level needed and the sharpest turning is −0.26, so it is not the predicted positive link. Even the library circle shows a departure of 0.547 and a level-0 error of 0.65. The cause was not established here (to check).
+Past the level that holds, each further level cuts the error at least fivefold, except reuleaux at level 2. The port reproduces the earlier Python run to 1.6·10⁻⁴. The rank correlation between the level needed and the sharpest turning is −0.26, so it is not the predicted positive link. Even the library circle shows a departure of 0.547 and a level-0 error of 0.65. The cause is the library's circle itself: a polygon of 160 points, whose 256-leaf reconstruction has curvature from 0.24 to 1.74 of the circle's. Read from a point on it, p(s) is 1.547 at s = 2⁻⁶ and 1.0001 at s = 64, so the departure sits beside the standpoint, where the inscribed reading magnifies the polygon's facets. The closed-form circle of the port check departs by nothing.
 
 **Classical.** This is hierarchical (multilevel) interpolation on a dyadic partition, in the spirit of multiresolution analysis (Mallat 1989). The fast fall per level for smooth residuals is Jackson-type convergence of trigonometric interpolation.
 
 **Ours.** The coordinate system is our construction: the inscribed-angle reading from a point on the outline, with dyadic intervals in s each remapped to a full quarter turn. We did not find it stated elsewhere. The approximation behaviour is classical.
 
-**In the editor.** `?lab=dpt`
+**In the editor.** `?lab=dpt`. Its code: `labs/depth-of-a-shape.js`.
 
 ## 14. How a child interval's nodes lie in its parent (*the nested fisheye*)
 
@@ -311,7 +336,7 @@ Each dyadic child interval holds W = 256 nodes at the Cauchy quantiles of its ow
 
 **Ours.** Nothing beyond the classical result. The lab is a check that the remap does what it was built to do.
 
-**In the editor.** `?lab=nfe`
+**In the editor.** `?lab=nfe`. Its code: `labs/nested-fisheye.js`.
 
 ## 15. Discontinuities at the boundaries of interval-supported corrections (*walls*)
 
@@ -332,7 +357,7 @@ At the parent's corner the two children are images of each other under s ↦ 1/s
 
 **Ours.** Nothing beyond the classical result. The lab is a check on this particular decomposition.
 
-**In the editor.** `?lab=wal`
+**In the editor.** `?lab=wal`. Its code: `labs/walls.js`.
 
 ## 16. Fixed-count range quantisation: Cauchy-spaced against logarithmic (*learning a shape from its encounters*)
 
@@ -348,7 +373,7 @@ The true outline is the reference.
 
 **Ours.** Nothing beyond the classical result. The lab is a check.
 
-**In the editor.** `?lab=sit`
+**In the editor.** `?lab=sit`. Its code: `labs/learning-a-shape-from-its-encounters.js`.
 
 ## 17. Ray visibility of curled and spiral outlines (*what a reader cannot see*)
 
@@ -370,7 +395,7 @@ This agrees with the earlier Python run: curls of 290° and 310° reach 82% and 
 
 **Ours.** Nothing beyond the classical result. The lab is a check on the library's pathological shapes.
 
-**In the editor.** `?lab=occ`
+**In the editor.** `?lab=occ`. Its code: `labs/what-a-reader-cannot-see.js`.
 
 ## 18. Nested standpoints and the reader's coordinate lay (*readers within readers*)
 
@@ -386,7 +411,7 @@ These four labs are interactive overlays with no scored run:
 
 **Ours.** Nothing claimed. These are tools for seeing the rule.
 
-**In the editor.** `?lab=nsr`, `?lab=stg`, `?lab=ocb`, `?lab=sgl`
+**In the editor.** `?lab=nsr`, `?lab=stg`, `?lab=ocb`, `?lab=sgl`. Its code: `labs/sheets.js`.
 
 ## 19. Storing the multilevel representation in TVF, adaptively (*depth in TVF*)
 
@@ -418,7 +443,7 @@ At τ = 10⁻⁶ the miss is at the full file's own floor.
 
 **Ours.** The file layout, and the slope-matching writer as an engineering fix within that format. No new mathematics.
 
-**In the editor.** `?lab=dtv`, `?lab=dwn`, `?lab=wls`, `?lab=dts`, `?lab=dtl`
+**In the editor.** `?lab=dtv`, `?lab=dwn`, `?lab=wls`, `?lab=dts`, `?lab=dtl`. Its code: `labs/depth-in-tvf.js`.
 
 ## 20. The closure and cycle sheets (*the sheets*)
 
@@ -428,7 +453,7 @@ These are two interactive overlays:
 
 **Classical.** The first sheet shows the argument principle and winding number, and the shoelace formula. The second is the discrete Hodge decomposition (as used in HodgeRank, Jiang, Lim, Yao and Ye 2011).
 
-**In the editor.** `?lab=cls`, `?lab=cyc`
+**In the editor.** `?lab=cls`, `?lab=cyc`. Its code: `labs/sheets.js`.
 
 ## 21. Cross-ratio shape signature (*the signature*)
 
@@ -440,7 +465,7 @@ This lab takes the cross-ratio of the four rays from a fixed point to three fixe
 
 **Ours.** Nothing beyond the classical result.
 
-**In the editor.** `?lab=sig`
+**In the editor.** `?lab=sig`. Its code: `labs/signature.js`.
 
 ## 22. Telescoping products, winding numbers and the shoelace formula (*closure tests*)
 
@@ -470,7 +495,7 @@ The 4 marginal cells are probably shapes whose vertex centroid does not lie insi
 
 **Ours.** Nothing beyond the classical result. The lab is a check.
 
-**In the editor.** `?lab=clt`
+**In the editor.** `?lab=clt`. Its code: `labs/closure-tests.js`.
 
 ## 23. Orientation is not in the radial distances (*facing tests*)
 
@@ -485,7 +510,7 @@ The lab compares each closed primitive with its mirror image, both read from the
 
 **Ours.** Nothing beyond the classical result; the lab is a check. The small amount of information about enclosure in the distance features is an empirical note about this library, not a theorem.
 
-**In the editor.** `?lab=fac`
+**In the editor.** `?lab=fac`. Its code: `labs/facing-tests.js`.
 
 ## 24. Encoding the log-radius as ticks and threshold crossings (*record tests*)
 
@@ -505,10 +530,13 @@ It then checks five claims:
 - Claim 4: the median error was 2.7% with fine steps (1.02 against 1.04), within 10% on 47 of 58. It was 37% with coarse steps (1.15 against 1.45).
 - Regular polygons with small radial swing produce no ticks at β = 1.2, so they cannot transfer anything.
 
-Three of the five claims hold by construction, so they are checks of the code rather than findings:
+- Claim 5 (since the re-run): one tick is dropped from the string, which is then decoded. The drift reaches every later address on 50 of 58 records (on the other 8 the dropped tick is the last before a mark), and the next mark ends it on 58 of 58.
+
+Two of the claims hold by construction, so they are checks of the code rather than findings:
 - Claim 1: the reference scales with the radii.
 - Claim 2: the marks never depend on β.
-- Claim 5: the "lost tick" check computes a drift of exactly 1 and sets the post-mark drift to 0 regardless of the data.
+
+Claim 5 also held by construction when this paper was first written: it computed a drift of exactly 1 and set the drift after the mark to 0 whatever the data. It now decodes the damaged string.
 
 **Classical.**
 - Delta modulation (de Jager 1952, to check) and level-crossing sampling.
@@ -517,7 +545,7 @@ Three of the five claims hold by construction, so they are checks of the code ra
 
 **Ours.** Nothing beyond the classical result. The lab's own correction is useful: the transfer of step sizes is a fine-step limit, not an exact identity.
 
-**In the editor.** `?lab=rec`
+**In the editor.** `?lab=rec`. Its code: `labs/record-tests.js`.
 
 ## 25. What survives similarity, affine and projective maps (*geometry tests*)
 
@@ -545,7 +573,7 @@ The projective maps were drawn so that no point crosses the line sent to infinit
 
 **Ours.** Nothing beyond the classical result; the lab is a check, and the editor's "disagreement" D is the orientation determinant.
 
-**In the editor.** `?lab=geo`
+**In the editor.** `?lab=geo`. Its code: `labs/geometry-tests.js`.
 
 ## 26. Arithmetic on a line from joins and meets alone (*number tests*)
 
@@ -568,7 +596,7 @@ Every point is then checked against its projective coordinate, the cross-ratio (
 
 **Ours.** Nothing beyond the classical result; the lab is a careful numerical check of von Staudt's construction.
 
-**In the editor.** `?lab=num`
+**In the editor.** `?lab=num`. Its code: `labs/number-tests.js`.
 
 ## 27. Which threshold a one-pass reader can use (*reference tests*)
 
@@ -593,7 +621,7 @@ Fifteen primitives touch their reference without crossing it. The first-sample f
 
 **Ours.** Nothing beyond the classical result. The practical point is plain: one stored sample, never updated, gives step-independent marks as well as the median does, without holding the whole stream.
 
-**In the editor.** `?lab=ref`
+**In the editor.** `?lab=ref`. Its code: `labs/reference-tests.js`.
 
 ## 28. Error in the orientation determinant as two points close in angle (*the disagreement, drawn*)
 
@@ -614,25 +642,25 @@ A comment in the code records why the median is used: single pairs gave a non-mo
 
 **Ours.** Nothing beyond the classical result; the lab is a check.
 
-**In the editor.** `?lab=dis`
+**In the editor.** `?lab=dis`. Its code: `labs/disagreement-drawn.js`.
 
 ## 29. Direction ratios from a uniform turn are standard Cauchy for every figure (*the library, as it comes home*)
 
-Six library figures are read from their centroids at 60,000 uniformly random angles: circle, clover, wedge, spoon, graze200 and hinge5. The editor's description says eight, but the code uses six. Each figure is met at its own random angles.
+Six library figures are read from their centroids at 60,000 uniformly random angles: circle, clover, wedge, spoon, graze200 and hinge5. (The editor's description said eight; it now says six.) Each figure is met at its own random angles.
 
 Each reading is the ratio of the two Cartesian components of the radius vector, (r sin a)/(r cos a) = tan a. The radius r cancels, so normalising (1, tan a) back to unit length returns the unit circle whatever the figure. The lab plots a histogram of the readings and a quantile statistic, (q₉₀ − q₁₀)/(q₇₅ − q₂₅). For the standard Cauchy this statistic is tan(0.4π) = 3.0777.
 
 **Found.**
 - Every figure's normalised readings returned to radius 1 to 2·10⁻¹⁶. The radii sent ranged from 0.00 to 1.16.
 - About 98% of readings fell within ±30.
-- The quantile statistics were 3.029 to 3.044, 1.1–1.6% below 3.0777. That fails the lab's own 1% tolerance on all six figures.
-- The statistic's sampling spread at n = 60,000 is about 1%: `Math.random` gives 3.056–3.111. All six seeded runs being low points to the LCG used (to check), not to the figures. The statistics equal those of tan a on the same angles alone, as they must.
+- The quantile statistics are 3.052 to 3.094, within the lab's own 1% of 3.0777 on all six figures. The statistics equal those of tan a on the same angles alone, as they must.
+- On the first run they were 3.029 to 3.044, all low and all failing 1%. The cause was the seeded generator, which cycled after about 10,500 values (see "What the run found wrong", item 2); `Math.random` gave 3.056 to 3.111, and so does the mended generator.
 
 **Classical.** If the angle a is uniform, tan a is standard Cauchy. The ratio of the two coordinates of a point depends only on its direction, so the figure cannot enter. Möbius invariance of the Cauchy family is McCullagh (1992).
 
 **Ours.** Nothing beyond the classical result. The lab illustrates that a direction-only reading carries no radial information, so reconstructing from it alone must return a circle.
 
-**In the editor.** `?lab=lib`
+**In the editor.** `?lab=lib`. Its code: `labs/library-as-it-comes-home.js`.
 
 ## 30. Chained projective reconstruction with many 1D cameras (*the figure, by how many read it*)
 
@@ -652,9 +680,9 @@ The absence of drift holds by construction. The seams are solved from the exact 
 - One-dimensional cameras and three-view (trifocal) reconstruction: Faugeras, Quan & Sturm (2000).
 - Chaining partial reconstructions through shared cameras is incremental structure from motion.
 
-**Ours.** Nothing beyond the classical result. The "swarm scales" conclusion should be read as conditional on exactly known registrations.
+**Ours.** Nothing beyond the classical result. The "swarm scales" conclusion holds only for exactly known registrations, and the lab now says so: its status line and the comment at the seam say that the chain does not drift because of how it is built, not because the run found it.
 
-**In the editor.** `?lab=bhm`
+**In the editor.** `?lab=bhm`. Its code: `labs/figure-by-how-many-read-it.js`.
 
 ## 31. Direction ratios carry no radial information (*the figure the ratio never carried*)
 
@@ -674,7 +702,7 @@ The lab compares the quantile statistic (q₉₀ − q₁₀)/(q₇₅ − q₂�
 
 **Ours.** Nothing beyond the classical result; the lab is an identity shown on a page. Its stated moral is sound and elementary: any statistic of direction ratios is independent of the figure, and the shape must come from the radial coordinate.
 
-**In the editor.** `?lab=fbl`
+**In the editor.** `?lab=fbl`. Its code: `labs/figure-the-ratio-never-carried.js`.
 
 ## 32. Coarse logarithmic quantisation and a streaming quantile estimate (*where the geometry goes*)
 
@@ -705,7 +733,7 @@ The median difference stays at about a third of the swing until a single level r
 
 **Ours.** Nothing beyond the classical result. The non-monotone corner estimates (1.09, 1.00, 0.50, 0.13, 1.14, −0.63) are a property of this estimator and its iteration budget, not a law.
 
-**In the editor.** `?lab=whg`
+**In the editor.** `?lab=whg`. Its code: `labs/where-the-geometry-goes.js`.
 
 ## 33. Logarithmic quantisation of a radial profile, coarse to fine (*the figure, rung by rung*)
 
@@ -724,7 +752,7 @@ The error tracks roughly half a step times the local radius, as a uniform quanti
 
 **Ours.** Nothing beyond the classical result. The lab's framing, that a level of detail is the quantisation step and that the coarsest level of detail of any figure is its median circle, is a description of logarithmic quantisation about the median radius, not a new result.
 
-**In the editor.** `?lab=rbr`
+**In the editor.** `?lab=rbr`. Its code: `labs/figure-rung-by-rung.js`.
 
 ## 34. Quantisation of the log-radius and its dead zone (*where the detail turns*)
 
@@ -736,7 +764,7 @@ These three labs hold a figure's log-radius (a clover sampled at 720 directions)
 
 **Ours.** Nothing beyond the classical result. The labs make the point that the threshold depends on the anchor, which here means where the first look laid the unit.
 
-**In the editor.** `?lab=crs`; `?lab=hom`; `?lab=rip`.
+**In the editor.** `?lab=crs`; `?lab=hom`; `?lab=rip`. Its code: `labs/where-the-detail-turns.js`.
 
 ## 35. Detecting an outlier party by projective invariants (*the swarm, and the one that lied*)
 
@@ -748,7 +776,7 @@ Five parties each reconstruct one stretch of a figure, plus 20 shared landmarks.
 
 **Ours.** Nothing beyond the classical result. The lab separates "exactly determined joins certify nothing" from "redundant shared observations can audit".
 
-**In the editor.** `?lab=swm`.
+**In the editor.** `?lab=swm`. Its code: `labs/swarm-and-the-one-that-lied.js`.
 
 ## 36. Merging projective reconstructions through shared cameras (*the shape, assembled*)
 
@@ -760,7 +788,7 @@ A clover is cut into four stretches that do not overlap. Each stretch is reconst
 
 **Ours.** Nothing beyond the classical result; the lab is a check, done exactly.
 
-**In the editor.** `?lab=asm`.
+**In the editor.** `?lab=asm`. Its code: `labs/shape-assembled.js`.
 
 ## 37. Testing an instrument for a Möbius response with a constructed cross ratio (*the straight edge*)
 
@@ -772,19 +800,21 @@ Four values s, sr, sr², sr³ have cross ratio (1+r)²/(1+r+r²) at any scale s.
 
 **Ours.** We did not find stated elsewhere a self-referencing linearity certificate for a sensor's transfer function, built from a geometric ladder of stimuli and needing no calibrated reference. It may well exist in metrology. The lab gives a working sensitivity: an exponent of 1.02 at this grain.
 
-**In the editor.** `?lab=ste`.
+**In the editor.** `?lab=ste`. Its code: `labs/straight-edge.js`.
 
 ## 38. Cross ratio through an uncalibrated sensor (*the uncharacterised front end*)
 
 One figure's radial profile is read through six sensor responses: identity, a gain, two linear-fractional maps (labelled "bridge" and "pinhole"), a power 1.7 and a saturating tanh. Readings are log-quantised. The lab takes the median relative change in the cross ratio of random quadruples whose readings are at least 4 quantiser steps apart. It refuses when no such quadruple exists.
 
-**Found.** On graze200: identity 2.4%, gain 2.2%, bridge 4.0%, pinhole 4.8%, power 1.7 14.8%, tanh 22.6% (fails the 15% band). On wedge: 3.3%, 4.7% and 6.8%. On egg, no four readings are far enough apart, so the lab refuses in all three cases. Caveat: at this grain the power law, which is not linear-fractional, passed both times (14.8% and 6.8%). This run separates saturation from linear-fractional maps, but not a moderate power law; the straight-edge lab above does.
+**Found.** On graze200: identity 2.4%, gain 2.2%, bridge 4.0%, pinhole 4.8%, power 1.7 14.8%, tanh 22.6% (fails the 15% band). On wedge: 3.3%, 4.7% and 6.8%. On egg, no four readings are far enough apart, so the lab refuses in all three cases. Caveat: at this grain the power law, which is not linear-fractional, passed both times (14.8% and 6.8%).
+
+*Since the re-run* the lab judges each response against the figure's own floor, what the quantity departs by with the instrument as held (2.3% on graze200, 3.5% on wedge): within 1.5 floors held, past 3 broke, between them undecided. On graze200 the gain held (0.9 floors), bridge and pinhole fell between (1.7, 2.1), and the power law and tanh broke (6.3, 10.6); on wedge the bridge held (1.4) and the power law fell between (2.2). So the power law no longer passes, but on wedge it is not caught either, and the bridge and pinhole are not cleanly held. The ratios 1.5 and 3 were chosen after seeing these numbers. This lab separates saturation from linear-fractional maps and, at best, flags a moderate power law; the straight-edge lab above catches it.
 
 **Classical.** The cross ratio is invariant under linear-fractional maps (Möbius 1827), and quantisation error grows as readings bunch together.
 
 **Ours.** Nothing beyond the classical result. The refusal rule (readings must be separated in the quantiser's own steps) is a sensible guard, not a result.
 
-**In the editor.** `?lab=frn`.
+**In the editor.** `?lab=frn`. Its code: `labs/uncharacterised-front-end.js`.
 
 ## 39. The arc element does not determine a figure with corners (*what a hinge hides*)
 
@@ -796,7 +826,7 @@ For a star-shaped curve r(θ), the arc element ds/dθ = √(r² + r′²) fixes 
 
 **Ours.** Constructing curves with corners that share their arc element with a smooth curve is a neat counterexample. We did not find it stated in this form.
 
-**In the editor.** `?lab=hng`.
+**In the editor.** `?lab=hng`. Its code: `labs/what-a-hinge-hides.js`.
 
 ## 40. Recovering a smooth figure from its arc element (*the figure, recovered*)
 
@@ -808,19 +838,19 @@ The lab takes the four library figures with the largest radius swing (up to 25.7
 
 **Ours.** The numerical evidence that the positive smooth solution is unique (4/4 recovered from blind seeds) is not a proof, and we did not find this uniqueness stated elsewhere. It should be marked a conjecture with evidence until proved.
 
-**In the editor.** `?lab=fig`.
+**In the editor.** `?lab=fig`. Its code: `labs/figure-recovered.js`.
 
 ## 41. Uniform angle gives the Cauchy; arc-length sampling gives the arc element (*what can be recovered*)
 
 Each figure is sampled two ways and each sample is reported as tan of its angle. Sampled uniformly in angle ("met evenly"), the results are Cauchy whatever the figure. Sampled in proportion to arc length ("walked"), they are not, and the histogram of angles returns ds/dθ. The screen used is the quantile ratio (q₀.₉ − q₀.₁)/(q₀.₇₅ − q₀.₂₅), which is tan(0.4π) = 3.078 for a Cauchy.
 
-**Found.** Even sampling read 3.107, 3.098, 3.097 and 3.091 on four figures (median −0.04, half-IQR 1.02): passed 4/4, and the figure is not recoverable. Walked sampling read 2.21, 2.20, 1.67 and 2.23: failed 4/4. The arc element came back within 15.2%, 14.8%, 7.6% and 16.3% of its size. Only the 7.6% case met the 12% band, so three cells are marked failed.
+**Found.** Even sampling read 3.107, 3.098, 3.097 and 3.091 on four figures (median −0.04, half-IQR 1.02): passed 4/4, and the figure is not recoverable. Walked sampling read 2.23, 2.22, 1.65 and 2.23: failed 4/4, as it should. The arc element came back within 5.1%, 4.4%, 7.1% and 6.1% of its size, inside the 12% band on all four. (On the first run it was 15.2%, 14.8%, 7.6% and 16.3%, three outside the band; the seeded generator was the cause, see "What the run found wrong", item 2.)
 
 **Classical.** If θ is uniform on (−π/2, π/2), tan θ is standard Cauchy. Sampling a curve uniformly by arc length has density ∝ ds/dθ in angle. Both are textbook. The figure is then fixed only up to the ODE's freedom (see the arc-element group).
 
-**Ours.** Nothing beyond the classical result; the lab is a check. Its recovery tolerance (12%) is not met at 48 bins and 240,000 draws on three figures.
+**Ours.** Nothing beyond the classical result; the lab is a check, and it now meets its own 12% tolerance at 48 bins and 240,000 draws.
 
-**In the editor.** `?lab=whr`.
+**In the editor.** `?lab=whr`. Its code: `labs/what-can-be-recovered.js`.
 
 ## 42. A goodness-of-fit battery for the Cauchy, run on every library figure (*the outside streams*)
 
@@ -832,7 +862,7 @@ This lab is a Cauchy goodness-of-fit battery. It checks four quantile-spread rat
 
 **Ours.** Nothing beyond the classical result. The lab records the battery's power and blind spots honestly: a sample that is nearly uniform in angle is indistinguishable from uniform, whatever the figure.
 
-**In the editor.** `?lab=ost`.
+**In the editor.** `?lab=ost`. Its code: `labs/outside-streams.js`.
 
 ## 43. Estimating the median from an ordered stream (*the sweep, read three ways*)
 
@@ -851,7 +881,7 @@ Values tan θ arrive in order as θ sweeps evenly (1,500 a lap, as a sawtooth). 
 
 **Ours.** Nothing beyond the classical result. The lab illustrates that ordering defeats per-sample updates but not whole-lap or order-statistic rules.
 
-**In the editor.** `?lab=swt`.
+**In the editor.** `?lab=swt`. Its code: `labs/sweep-read-three-ways.js`.
 
 ## 44. Redundancy, consistency and least-squares residuals (*the seed at zero*)
 
@@ -866,7 +896,7 @@ These checks cover whether a system of difference or correspondence equations ca
 
 **Ours.** Nothing beyond the classical result; the lab is a check, and its √(excess/statements) is the standard projection result.
 
-**In the editor.** `?lab=sdz`.
+**In the editor.** `?lab=sdz`. Its code: `labs/seed-at-zero.js`.
 
 ## 45. A goodness-of-fit regression suite for the Cauchy screen (*the stream bank*)
 
@@ -893,7 +923,7 @@ Two rows record known limits. A smooth oval sampled uniformly by arc length pass
 
 **Ours.** Nothing new mathematically. The lab is a regression suite. Its useful content is that it records two blind spots of this screen: a near-circular figure sampled by arc length, and the ramp, which only the reciprocal test catches. These are kept as rows so that any change in the screen's power shows up.
 
-**In the editor.** `?lab=sbk`
+**In the editor.** `?lab=sbk`. Its code: `labs/stream-bank.js`.
 
 ## 46. Uniform-angle versus arc-length sampling of a closed curve (*sampling tests*)
 
@@ -910,7 +940,7 @@ The lab's own text adds that the arc element fixes the figure only up to one con
 
 **Ours.** The framing is ours: the Cauchy belongs to how the turn is sampled, not to the figure. The mathematics is not new, and we did not find the reverse step (recovering r from √(r² + r′²) with the sign fixed by r > 0) stated elsewhere (to check). Otherwise the lab is a check.
 
-**In the editor.** `?lab=smp`
+**In the editor.** `?lab=smp`. Its code: `labs/sampling-tests.js`.
 
 ## 47. Ratios lose the radius (*the recovered circle*)
 
@@ -926,7 +956,7 @@ The lab casts 512 rays, evenly spaced in angle across a half-turn, from each pri
 
 **Ours.** Nothing beyond the classical result; the lab is a check. It shows that a ratio carries direction only, so normalising returns the same circle whatever the shape.
 
-**In the editor.** `?lab=rcc`
+**In the editor.** `?lab=rcc`. Its code: `labs/recovered-circle.js`.
 
 ## 48. Recovering a shape from bearings: intersection and one baseline (*undoing the division*)
 
@@ -951,7 +981,7 @@ Which reading belongs to which point is given, not discovered.
 
 **Ours.** Nothing beyond the classical result. The cost accounting is a clear way to put it: no extra number per reading, one agreed length per figure.
 
-**In the editor.** `?lab=udv`
+**In the editor.** `?lab=udv`. Its code: `labs/undoing-the-division.js`.
 
 ## 49. Two stereographic views of one cyclic array (*two fisheyes on one array*)
 
@@ -971,7 +1001,7 @@ This is an interactive page with no report. N elements sit at angles iπ/N on a 
 
 **Ours.** The measured cancellation in P3 is an error-propagation result for this encoding. It is not stated as such in sources we know (to check). The rest demonstrates classical projective geometry.
 
-**In the editor.** `?lab=tfe`
+**In the editor.** `?lab=tfe`. Its code: `labs/sheets.js`.
 
 ## 50. Projective and affine invariants as ratios of area determinants, demonstrated (*the ownership rule, shown*)
 
@@ -992,7 +1022,7 @@ The explanation in the code: a projective map sends a determinant [abc] to det(M
 
 **Ours.** Nothing beyond the classical result; the lab is a demonstration.
 
-**In the editor.** `?lab=own`
+**In the editor.** `?lab=own`. Its code: `labs/ownership-rule-shown.js`.
 
 ## 51. Projective and affine invariants as ratios of area determinants, tested at random (*ownership tests*)
 
@@ -1010,19 +1040,19 @@ This is the randomised version of the previous lab. Eight random points are subj
 
 **Ours.** Nothing beyond the classical result; the lab is a check.
 
-**In the editor.** `?lab=owt`
+**In the editor.** `?lab=owt`. Its code: `labs/ownership-tests.js`.
 
 ## 52. Emoji sheet
 
 The lab renders the system emoji font's glyphs to a raster and traces each outline into a closed curve on 256 leaves. It drops code points the font lacks by matching each glyph against a reference missing-glyph ("tofu") box, then lays the results on a grid. This run: 398 glyphs, 398 contours, 101,888 leaves; 2 were not in the font (11.1 s). It is a corpus generator for test shapes, not an experiment.
 
-**In the editor.** `?lab=emj`
+**In the editor.** `?lab=emj`. Its code: `labs/emoji-sheet.js`.
 
 ## 53. Keyboard sheet
 
 The lab traces the 94 printable ASCII characters in a chosen font into closed curves of 256 leaves each and lays them on a grid. This run (system-ui): 94 glyphs, 134 contours, 34,304 leaves (1.8 s). It is a corpus generator, not an experiment.
 
-**In the editor.** `?lab=kbd`
+**In the editor.** `?lab=kbd`. Its code: `labs/keyboard-sheet.js`.
 
 ## 54. Conformance tests for the interpolation decoder (*decoder test vectors*)
 
@@ -1047,4 +1077,18 @@ The second lab (`exa`) repeats all of this exactly. Every lattice angle is repre
 
 **Ours.** The closed form (2/N)Σcot(θ_k/2), with its maximum at the midpoint, is probably classical (to check). The exact cyclotomic reference decoder is an engineering contribution, not a mathematical one. The labs are conformance checks.
 
-**In the editor.** `?lab=vec` · `?lab=exa`
+**In the editor.** `?lab=vec` · `?lab=exa`. Its code: `labs/decoder-test-vectors.js`.
+
+---
+
+## The seven, searched for
+
+On 28 October 2026 each of the seven items above was searched for in print. Every source here was seen as a search result or a snippet, not read in full, unless it says otherwise; a paywalled text could not be seen at all. None of the seven was found as stated.
+
+1. **A curve from winding numbers alone** (§7). *Parts in print, the combination not found.* The winding number as an inside–outside field, evaluated hierarchically: Jacobson, Kavan and Sorkine-Hornung 2013, "Robust inside-outside segmentation using generalized winding numbers", ACM TOG 32(4) (it segments a mesh by graph cut, not a quadtree on integer corners). Octrees refined where the signs at cell corners change: dual contouring (Ju, Losasso, Schaefer and Warren 2002), which needs normals. Quadtrees with a topology guarantee: Plantinga and Vegter 2004, driven by interval arithmetic on a smooth function. The step limit behind δ* is phase unwrapping's |Δφ| < π (Itoh 1982, from the lab's own text). The formula δ* = (s/2)·tan(π/2C), fixing the stopping scale in advance from the ring's count, was not found.
+2. **A one-bit ring silent outside** (§6). *Classical.* Silent exactly when a line through the point misses the curve, the separating line; winding numbers from quadrant changes are Hormann and Agathos 2001, "The point in polygon problem for arbitrary polygons", Computational Geometry 20(3). To be restated in those terms rather than claimed.
+3. **The near field's own size** (§10). *The base formula classical, the corollaries not found.* f(d) = (1/2π)∮R²/(R² + d²)dθ is the configuration factor from a parallel element to a planar region (Hamilton and Morgan 1952, NACA TN 2836; Howell's catalogue of configuration factors; Sparrow 1963's contour integrals); the far limit, area over d², is textbook. The near coefficient ⟨R⁻²⟩, the size D = (⟨R²⟩/⟨R⁻²⟩)^¼ and the symmetry f(D²/d) = 1 − f(d) holding only for the circle were not found. They are easy corollaries, so Howell and Sparrow and Cess should be checked in print.
+4. **A straight edge for an instrument** (§37). *Close prior work.* Reference-free linearity testing is classical in radiometry: flux addition (Sanders 1972, "Accurate measurements of and corrections for nonlinearities in radiometers", J. Res. NBS 76A(5)) and the double aperture (Mielenz and Eckerle 1972). They test additivity, plain linearity, not the linear-fractional class, and use no cross ratio. Cross ratios of pixel values to fit a camera's response (Figueroa and Li 2019) are of another kind. The ladder's (1 + r)²/(1 + r + r²) as a certificate of a Möbius response was not found; flux addition should be cited beside it.
+5. **Corners in the arc element; smooth recovery** (§§39, 40). *The branch switching classical, the inverse problem not found.* Where r′ = ±√(f² − r²) a solution may change branch on the envelope r = f, where the right side is not Lipschitz: the singular solutions of implicit first-order equations (Ince, *Ordinary Differential Equations*, ch. 7, not searched). No paper on recovering a closed polar curve from its arc element was found. A caution: a smooth solution can also change branch smoothly where it touches r = f to high enough order, so the uniqueness conjecture probably needs a hypothesis such as r < f except at isolated points. Since √(r² + r′²) = |d(re^{iθ})/dθ|, the problem is recovering a curve from the modulus of its derivative, its argument known: a constrained phase retrieval, a term to search under.
+6. **An address error flat in the landmarks' spread** (§49). *Close prior work to read.* The cross ratio's distribution and error: Åström and Morin 1992, "Random cross ratios"; Maybank 1995, IJCV 16; Liu and Chuang 2002, "A geometry-based error estimation for cross-ratios", Pattern Recognition. Closest: Chuang et al. 2007, "Practical error analysis of cross-ratio-based planar localization", which uses the linearised error to choose reference points and may contain the separation dependence; it could not be fetched and must be read before the cancellation is claimed.
+7. **A coordinate read from a shape's own outline** (§13). *A construction; nothing contrary found.* tan(θ/2) from a point on a circle is the stereographic chart; dilations tan(θ_a/2) = a·tan(θ/2) on that chart give spherical wavelets (Antoine and Vandergheynst; Wiaux et al. 2005, "Correspondence principle between spherical and Euclidean wavelets"), the nearest analogue to levels on it; multilevel interpolation on dyadic partitions is classical (Mallat 1989). The reading from a point on the shape's own outline, with each dyadic interval remapped to a whole quarter turn, was not found.

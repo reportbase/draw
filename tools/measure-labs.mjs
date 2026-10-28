@@ -1,4 +1,4 @@
-// Measure how much of draw.html is the labs', and what the labs use of the editor.
+// Measure how much of draw.html is the labs', and what the labs use of the editor, and what labs/ already holds.
 //
 //   node tools/measure-labs.mjs [--json out.json]
 //
@@ -13,7 +13,7 @@
 // Reading names is lexical, not a parse: a name in a comment or a string is not counted, a property name is
 // not, and a local that shadows a top-level name is counted as a mention (so the shared set is generous).
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -173,8 +173,15 @@ export async function measureLabs() {
     const sum = ks => ks.reduce((a, k) => a + pieces[k].to - pieces[k].from + 1, 0);
     // the drawer's markup: the lines holding a lab button
     const markupLines = labs.length;
+    // the labs already moved out (THE LABS THAT LIVE IN labs/): their files, and what each holds
+    const labDir = [];
+    for (const f of (await readdir(ROOT + 'labs').catch(() => [])).filter(f => f.endsWith('.js')).sort()) {
+        const t = await readFile(ROOT + 'labs/' + f, 'utf8');
+        labDir.push({ file: f, lines: t.split('\n').length });
+    }
     const out = {
         file: { lines: lines.length, script: close - open },
+        labsDir: { files: labDir.length, lines: labDir.reduce((a, f) => a + f.lines, 0), each: labDir },
         labs: labs.length,
         pieces: pieces.length,
         rootsWiringLabs: labRoots.length,
@@ -203,6 +210,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const i = process.argv.indexOf('--json');
     if (i > 0) await writeFile(process.argv[i + 1], JSON.stringify(r, null, 1));
     console.log(`draw.html: ${r.file.lines} lines, the main script ${r.file.script}`);
+    console.log(`labs/: ${r.labsDir.files} files, ${r.labsDir.lines} lines, loaded only when asked`);
     console.log(`${r.labs} labs; ${r.pieces} top-level pieces; ${r.rootsWiringLabs} wire a lab (${r.rootsAlsoWireEditor} of them wire editor controls too)`);
     console.log(`lines only the labs reach: ${r.linesLabOnly}; reached by both: ${r.linesShared}; reached by neither: ${r.linesUnreached}`);
     console.log(`the editor names the labs' own code uses: ${r.interface.length}`);

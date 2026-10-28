@@ -83,28 +83,52 @@
             return rows;
         }
 
+        // JUDGED AGAINST THE FIGURE'S OWN FLOOR (28 Oct 2026). The verdict was a fixed 15% band,
+        // and a power law of 1.7, which is not linear-fractional, passed it on both figures
+        // (14.8%, 6.8%). The departure that quantisation alone gives is the figure's own, the
+        // instrument as held: a front is held under 1.5 times that floor, broken over 3 times it,
+        // and between the two this statistic cannot tell a Möbius front from a mild power law
+        // (graze200's pinhole reads 2.1 floors, wedge's power law 2.2), so it says so. The two
+        // ratios were set after seeing these numbers; papers/labs.md, §38, records both runs.
+        const CF_HELD = 1.5,
+            CF_BROKE = 3;
+        function cfFloors(rows) {
+            const floor = {};
+            for (const r of rows)
+                if (r.front === 'as held' && r.usable)
+                    floor[r.key] = r.dev;
+            return floor;
+        }
+        const cfJudge = (r, floor) => !r.usable || !(floor[r.key] > 0) ? 1
+        : r.dev < CF_HELD * floor[r.key] ? 2 : r.dev > CF_BROKE * floor[r.key] ? 0 : 1;
         function showFrontEnd(rows) {
+            const floor = cfFloors(rows);
             const out = labLadder({
                 rows,
                 name: 'the uncharacterised front end',
                 suffix: 'one quantity, read through instruments nobody measured',
-                verdict: r => !r.usable ? 1 : (r.dev < 0.15 ? 2 : 0),
+                verdict: r => cfJudge(r, floor),
                 caption: r => r.key + ' \u00b7 ' + r.front + '\n'
                 + (r.lf ? 'linear-fractional' : 'NOT linear-fractional') + '\n'
                 + (!r.usable ? 'no four readings far enough apart:\n the reader refuses'
                 : 'departs ' + (100 * r.dev).toFixed(1) + '% \u00b7 '
+                + (floor[r.key] > 0 ? (r.dev / floor[r.key]).toFixed(1) + ' floors \u00b7 ' : '')
                 + r.usable + ' usable quadruples'),
             });
             if (!out)
                 return;
             const {drawn, ms} = out;
             const refused = drawn.filter(r => !r.usable).length;
-            const held = drawn.filter(r => r.usable && r.dev < 0.15).length;
-            const broke = drawn.filter(r => r.usable && !(r.dev < 0.15)).length;
+            const judged = drawn.filter(r => r.usable && r.front !== 'as held');
+            const held = judged.filter(r => cfJudge(r, floor) === 2).length;
+            const broke = judged.filter(r => cfJudge(r, floor) === 0).length;
+            const unsure = judged.filter(r => cfJudge(r, floor) === 1).length;
             flashStatus('the uncharacterised front end \u00b7 one figure is read through instruments'
             + ' nobody calibrated \u2014 an unknown gain, a ratiometric bridge, a pinhole\u2019s view,'
             + ' an amplifier out of headroom \u2014 and the same four-reading quantity is formed from'
-            + ' each \u00b7 ' + held + ' came through inside the grain, ' + broke + ' did not, and '
+            + ' each, judged against what the instrument as held departs by \u00b7 ' + held + ' came through'
+            + ' within 1.5 floors, ' + broke + ' broke past 3, ' + unsure + ' fell between, where this'
+            + ' quantity cannot tell a linear-fractional front from a mild power law, and '
             + refused + ' were REFUSED by the reader itself. THE QUANTITY SURVIVES ANY'
             + ' LINEAR-FRACTIONAL FRONT END, which is what a bridge, a feedback amplifier and a'
             + ' pinhole all are, and it does not survive one that saturates. AND IT NEEDS THE FOUR'

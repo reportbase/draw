@@ -131,26 +131,64 @@
                 // ── 5. the string's own drift, and the mark that ends it ─────────────
                 // The claim is about a reader of the STRING, not the writer of it: the writer
                 // re-reads the arrival each time and cannot drift. Corrupt one tick and every
-                // address after it is wrong — until a mark, which does not lean on the count
-                // and re-anchors the reconstruction.
-                const corrupt = base.addr.slice();
-                let bad = 0;
-                for (let k = 0; k < corrupt.length; k++) {
-                    if (k > m0) {
-                        bad = k;
-                        break;
+                // address after it is wrong, until a mark, which does not lean on the count:
+                // the reader decodes the string as it is written, counting ticks, and at every
+                // mark after the first sets its count back to what it held at the first (the
+                // mark is equality with the reference, whatever the count says). One tick is
+                // then dropped from the string and the same reader decodes it again.
+                // (28 Oct 2026: this check used to add one to every address and set the drift
+                // after the mark to zero by hand, so it could not fail; papers/labs.md, §24.)
+                const decode = sym => {
+                    const out = [];
+                    let acc = 0, anchor = null, i = 0;
+                    while (i < sym.length) {
+                        const c = sym[i];
+                        if (c === '.') i++;
+                        else if (c === '+' || c === '-') {
+                            while (sym[i] === c) {
+                                acc += c === '+' ? 1 : -1;
+                                i++;
+                            }
+                        } else {
+                            i++;
+                            continue;
+                        }
+                        out.push(acc);
+                        if (sym[i] === 'O') {
+                            i++;
+                            if (anchor === null) anchor = acc;
+                            else out[out.length - 1] = acc = anchor;
+                        }
                     }
+                    return out;
+                };
+                const clean = decode(base.sym);
+                // the first tick written after the first mark, and the sample it belongs to
+                let cut = -1, bad = 0;
+                for (let k = 0, i = 0; i < base.sym.length; k++) {
+                    const c = base.sym[i];
+                    if (c === '+' || c === '-') {
+                        if (k > m0 && cut < 0) {
+                            cut = i;
+                            bad = k;
+                        }
+                        while (base.sym[i] === c) i++;
+                    } else i++;
+                    if (base.sym[i] === 'O') i++;
                 }
                 let driftBefore = 0,
                     driftAfter = 0;
-                if (bad) {
-                    const nextMark = base.marks.find(m => m > bad);
-                    for (let k = bad; k < corrupt.length; k++) {
-                        const wrong = Math.abs((corrupt[k] + 1) - base.addr[k]); // one tick lost
+                if (cut >= 0) {
+                    // a lost tick, not a lost sample: a sample whose only tick goes reads as silence
+                    const single = base.sym[cut + 1] !== base.sym[cut];
+                    const lost = decode(base.sym.slice(0, cut) + (single ? '.' : '') + base.sym.slice(cut + 1));
+                    const nextMark = base.marks.find(m => m >= bad);
+                    for (let k = bad; k < clean.length; k++) {
+                        const wrong = Math.abs(lost[k] - clean[k]);
                         if (nextMark === undefined || k < nextMark)
                             driftBefore = Math.max(driftBefore, wrong);
                         else
-                            driftAfter = Math.max(driftAfter, 0); // re-anchored at the mark
+                            driftAfter = Math.max(driftAfter, wrong);
                     }
                 }
                 const driftOK = driftBefore > 0; // the count does lean on its history

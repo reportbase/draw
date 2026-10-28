@@ -15,7 +15,7 @@
             const rnd = (() => {
                 let s = 90210;
                 return () => {
-                    s = (s * 1103515245 + 12345) & 0x7fffffff;
+                    s = (Math.imul(s, 1103515245) + 12345) & 0x7fffffff; // exactly, in 32-bit integers (see makeRng)
                     return s / 0x7fffffff;
                 };
             })();
