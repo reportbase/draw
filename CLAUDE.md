@@ -43,6 +43,12 @@ publishes.
   `npm run examples -- id …` writes some): after changing an example, the scene link or the `.tvfs` writer, run it,
   or `npm test` fails. The smoke test checks the player poses gallery scenes as the editor does
   (`__box.morphPoses(t)`) to the keys' rounding, and that those files are what the editor writes now.
+  The format is specified in `papers/tvf.md` §2.10 (version 1; the player refuses another `v` and ignores fields it
+  does not know). The player reconstructs leaves by `TVF_CORE.reconstructFFT` when their count is a power of two
+  and keeps each still's outline as a Path2D, rebuilt only when its sample count changes; `npm run measure`
+  (`tools/measure-player.mjs`) times every example on an emulated phone (390 × 844 at DPR 3, CPU 1×, 4×, 6×),
+  and `player/MEASURED.md` records the numbers before and after (grow 170 ms to 2.5 ms a frame at 1×; all under
+  16.7 ms at 4×).
 - `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
   specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
   and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and
@@ -294,8 +300,22 @@ publishes.
     with its clock set by the reading (`seek(t)` on every scroll: how far the reading line, a little above the middle
     of the window or just under the picture on a phone, is through the beat). A beat's **play this step** plays its
     stretch and waits at its stop; scrolling again takes the clock back. It loads the player beside it, like
-    `played`, and carries `tvf.js`. Hook `window.__explained`. A new explainer page would be another scene with
-    stops and its own beats of text.
+    `played`, and carries `tvf.js`. Hook `window.__explained`. With `?src=<a .tvfs>` or `?preview=1` (the scene
+    the editor's beats panel left in localStorage, `tvf-explainer-preview`) it is that scene's explainer instead,
+    a beat for each stretch between its stops, titled and worded by the scene's `beats`.
+    AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
+    `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
+    than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI
+    vocabulary), ▶ to stand at its start, **frame** to key the camera to the view at its end, × to drop its stop;
+    **+ beat here** splits the beat at the clock (`morphAddStop`), **preview** opens the explainer page on it.
+    Hook `__box.beats()`.
+    TEXT IN A SCENE (28 Oct 2026): a scene link's (or a made scene's) `<text>` is traced into glyph rings
+    (`sceneTextOut`, `sceneTextRings`) and comes in as exact shapes, one per outer ring with its holes, yet counts
+    as one shape number (`sceneLabelsIn`: its other parts go after the last shape); a morph on it is made once a
+    part, a draw-on clip staggered across them, a camera fit taking them all (`sceneLabelMorphs`). HOLES THAT
+    RIDE A STILL: a one-key exact morph keeps its key's holes (`run.holes`), carried to each pose by the affine
+    map that best takes the key's corners to the pose's (`morphAffineOf`, `morphHolesAt`); saved, in the `.tvfs`
+    (`holes`), drawn by the player, and written in the SVG export as keyhole bridges under `fill-rule="evenodd"`.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
     a page means updating it, and the "N of 30" crumbs and "next" links in each page.
 

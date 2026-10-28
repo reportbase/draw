@@ -3417,6 +3417,70 @@ await step('the scrolling explainer', async () => {
   if (sw > 390) throw new Error('on a phone the page is ' + sw + ' px wide');
 });
 
+/* TEXT IN A SCENE, AND AN EXPLAINER'S BEATS. A scene link's <text> comes in as exact shapes, one a part of each
+   glyph, holes kept (the 8's counters); a draw-on clip on the label is staggered across its parts; the SVG export
+   writes the holes with evenodd. The beats panel (the timeline's beats…) shows one beat a stretch between stops,
+   a title typed there is kept, a beat added at the clock adds a stop, undo takes it back; the .tvfs carries the
+   beats; preview opens the explainer page built from them; ?src= does the same from a file; and a scene of a
+   version the player does not read is refused. */
+await step('text in a scene, and beats', async () => {
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const bp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  bp.on('pageerror', e => failures.push(`[beats] ${e.message}`));
+  await bp.route(/fonts\.g/, r => r.abort());
+  try {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"><rect x="20" y="20" width="80" height="80" fill="#4f8fd6"/>'
+      + '<text x="150" y="80" font-size="48" font-family="sans-serif" fill="#222">Hi 8</text></svg>';
+    await bp.goto(scene({ name: 'labelled', svg, play: false, stops: [0.5], beats: [{ title: 'one', text: 'a **b**' }, { title: 'two', text: '' }],
+      morphs: [{ keys: [0], clip: { start: 0, len: 0.5 }, show: 'draw' }, { keys: [1], clip: { start: 0.5, len: 0.5 }, show: 'draw' }] }), { waitUntil: 'load' });
+    await bp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await bp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box.morph(), null, { timeout: 15000 });
+    await bp.waitForTimeout(800);
+    const m = await bp.evaluate(() => window.__box.morph());
+    if (!(m.runs.length >= 5)) throw new Error('the label came in as ' + (m.runs.length - 1) + ' parts, not one a glyph part');
+    const holes = await bp.evaluate(() => (window.__box.morphSvg({}) || '').split('evenodd').length - 1);
+    if (holes < 1) throw new Error('the 8 lost its counters in the SVG export');
+    let b = await bp.evaluate(() => window.__box.beats());
+    if (b.beats.map(x => x.title).join() !== 'one,two' || b.tvfs.length !== 2) throw new Error('the scene link\'s beats: ' + JSON.stringify(b));
+    await bp.click('#bMorphTimeline');
+    await bp.waitForTimeout(300);
+    await bp.click('#tlBeats');
+    await bp.waitForTimeout(300);
+    if (await bp.evaluate(() => document.querySelectorAll('#btList .bt-beat').length) !== 2) throw new Error('the beats panel does not show two beats');
+    await bp.fill('#btList .bt-beat[data-i="1"] input[data-f="title"]', 'second');
+    await bp.waitForTimeout(1500);
+    await bp.evaluate(() => { document.activeElement.blur(); const e = document.getElementById('morphT'); e.value = 250; e.dispatchEvent(new Event('input')); });
+    await bp.click('#btAdd');
+    await bp.waitForTimeout(400);
+    b = await bp.evaluate(() => window.__box.beats());
+    if (b.stops.join() !== '0.25,0.5' || b.beats.map(x => x.title).join() !== 'one,,second') throw new Error('a beat added at 0.25: ' + JSON.stringify(b));
+    const [pp] = await Promise.all([bp.context().waitForEvent('page'), bp.click('#btPreview')]);
+    pp.on('pageerror', e => failures.push(`[beats preview] ${e.message}`));
+    await pp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
+    const pv = await pp.evaluate(() => [window.__explained.beats, window.__explained.titles.slice(0, 3).join()]);
+    if (pv[0] !== 4 || pv[1] !== 'one,Step 2,second') throw new Error('the preview\'s beats: ' + JSON.stringify(pv));
+    const refused = await pp.evaluate(() => { try { TVFPlayer.load({ format: 'tvf-scene', v: 2, items: [], morphs: [] }); return false; } catch (e) { return /version 2/.test(e.message); } });
+    if (!refused) throw new Error('the player read a version 2 scene');
+    await pp.close();
+    await bp.bringToFront();
+    await bp.click('#bUndo');
+    await bp.waitForTimeout(500);
+    b = await bp.evaluate(() => window.__box.beats());
+    if (b.stops.join() !== '0.5' || b.beats.map(x => x.title).join() !== 'one,second') throw new Error('undo after adding a beat: ' + JSON.stringify(b));
+  } finally {
+    await bp.close();
+  }
+  const sp = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+  sp.on('pageerror', e => failures.push(`[explained ?src] ${e.message}`));
+  await sp.route(/fonts\.g/, r => r.abort());
+  await sp.goto(new URL('gallery/explained.html?src=../player/examples/explainer.tvfs', base).href, { waitUntil: 'load' });
+  await sp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
+  const n = await sp.evaluate(() => [window.__explained.beats, window.__explained.ctl.scene.stops.length]);
+  await sp.close();
+  if (n[0] !== n[1] + 2) throw new Error('?src= built ' + n[0] + ' beats for ' + n[1] + ' stops');
+});
+
 if (!QUICK) await step('labs.html matches the drawer', async () => {
   const { readLabs, render } = await import('../tools/build-labs.mjs');
   const want = render(await readLabs(base));

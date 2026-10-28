@@ -20,13 +20,18 @@
 //   TVFPlayer.draw(ctx, scene, t, w, h)
 //   <canvas data-tvfs="scene.tvfs">    played when the page loads (TVFPlayer.attach() does it again)
 
-const PLAYER_VERSION = 1;
+const PLAYER_VERSION = 1,
+    PLAYER_SCENE_VERSION = 1; // the .tvfs version it reads (papers/tvf.md §2.10)
 const num = (v, d) => Number.isFinite(+v) ? +v : d;
 const arrOf = v => typeof v === 'string' ? Float64Array.from(_b64f32(v) || []) : Float64Array.from(v || []);
 
 function loadScene(d) {
     if (!d || d.format !== 'tvf-scene')
         throw new Error('not a tvf scene');
+    // THE VERSION (papers/tvf.md §2.10): a version this player does not know is refused, not guessed at;
+    // fields it does not know within version 1 are ignored
+    if (d.v != null && +d.v !== PLAYER_SCENE_VERSION)
+        throw new Error('a version ' + d.v + ' scene: this player reads version ' + PLAYER_SCENE_VERSION);
     const S = {
         d,
         loop: Math.max(0.1, num(d.loop, 4)),
@@ -37,6 +42,7 @@ function loadScene(d) {
         trail: d.trail && MORPH_TRAILS.includes(d.trail.kind) ? { kind: d.trail.kind, len: Math.max(0, Math.min(1, num(d.trail.len, 0.5))) } : { kind: '', len: 0.5 },
         camera: morphCameraOk(d.camera), // A CAMERA, AND STOPS
         stops: morphStopsOk(d.stops),
+        beats: Array.isArray(d.beats) ? d.beats.map(b => ({ title: String((b && b.title) || ''), text: String((b && b.text) || '') })) : null, // the words beside each stretch between stops, for a page to show
         path: null,
         runs: [],
         items: [],
@@ -66,6 +72,7 @@ function loadScene(d) {
             keys,
             exact,
             open: exact && !!m.open, // DRAWING A LINE ON: a line
+            holes: exact && keys.length === 1 ? morphHolesLoad(m.holes) : null, // a label's counters, carried by its pose
             curved: exact ? morphExactCurved(keys) : undefined,
             sp: { fill: m.fill || null, stroke: m.stroke || null, lineWidth: num(m.width, 0), strokeOpacity: num(m.strokeOpacity, 1) },
             inPlace: m.inPlace !== false,
@@ -181,6 +188,20 @@ function rgba(fill, fade) {
     const v = parseInt(m[1], 16);
     return 'rgba(' + (v >> 16) + ',' + ((v >> 8) & 255) + ',' + (v & 255) + ',' + a.toFixed(4) + ')';
 }
+// the curve through leaves X, Y sampled at about M points: by the FFT (§21.1 of the format's companion) when
+// the leaf count is a power of two, which every drawing tool shape's is, with M rounded up to one too; else by the
+// kernel sum. The FFT gives the same samples, and on a phone it is what keeps a 2,048-leaf shape under a frame:
+// the sum is N·M multiplications a channel (measured, tools/measure-player.mjs: 170 ms a frame against 1.6)
+function curveOf(X, Y, M) {
+    const N = X.length;
+    if (TVF_CORE.reconstructFFT && TVF_CORE.isPow2 && TVF_CORE.isPow2(N)) {
+        let m = 32;
+        while (m < M)
+            m *= 2;
+        return { x: TVF_CORE.reconstructFFT(X, m), y: TVF_CORE.reconstructFFT(Y, m) };
+    }
+    return { x: tvf.reconstruct(X, M), y: tvf.reconstruct(Y, M) };
+}
 // a leaf outline traced at the canvas's resolution: the kernel's curve through the leaves, sampled about
 // every two pixels along it (the leaves are the shape; the samples are only how finely it is drawn)
 function traceLeaves(ctx, V, X, Y) {
@@ -188,9 +209,10 @@ function traceLeaves(ctx, V, X, Y) {
     let per = 0;
     for (let i = 0; i < N; i++)
         per += Math.hypot(X[(i + 1) % N] - X[i], Y[(i + 1) % N] - Y[i]);
-    const M = Math.max(32, Math.min(4096, Math.ceil(per * V.k / 2)));
-    const cx = tvf.reconstruct(X, M),
-        cy = tvf.reconstruct(Y, M);
+    const C = curveOf(X, Y, Math.max(32, Math.min(4096, Math.ceil(per * V.k / 2)))),
+        M = C.x.length,
+        cx = C.x,
+        cy = C.y;
     ctx.moveTo(V.px(cx[0]), V.py(cy[0]));
     for (let i = 1; i < M; i++)
         ctx.lineTo(V.px(cx[i]), V.py(cy[i]));
@@ -220,9 +242,9 @@ function drawOn(ctx, V, run, P, f, fade, fill) {
         let per = 0;
         for (let i = 0; i < N; i++)
             per += Math.hypot(P.x[(i + 1) % N] - P.x[i], P.y[(i + 1) % N] - P.y[i]);
-        const M = Math.max(32, Math.min(4096, Math.ceil(per * V.k / 2)));
-        X = tvf.reconstruct(P.x, M);
-        Y = tvf.reconstruct(P.y, M);
+        const C = curveOf(P.x, P.y, Math.max(32, Math.min(4096, Math.ceil(per * V.k / 2))));
+        X = C.x;
+        Y = C.y;
     }
     const n = X.length,
         pts = [];
@@ -245,6 +267,9 @@ function drawOn(ctx, V, run, P, f, fade, fill) {
         for (let i = 1; i < n; i++)
             ctx.lineTo(pts[i].x, pts[i].y);
         ctx.closePath();
+        if (run.exact)
+            for (const h of morphHolesAt(run, P) || [])
+                traceRing(ctx, V, { x: h.x, y: h.y, r: null, smooth: h.smooth, ctrl: h.ctrl }, false);
         ctx.fillStyle = rgba(fillCol, fade * ff);
         ctx.fill('evenodd');
     }
@@ -381,6 +406,66 @@ function drawTrails(ctx, S, V, t) {
     ctx.restore();
     morphLive.t = t;
 }
+// A STILL never changes, so its outline is made once as a Path2D in page units (a leaf shape's again only when
+// the zoom asks for twice or half the samples) and drawn under the view's transform, its line set in pixels.
+// Measured on the orrery, 24 stills: 5.7 ms a frame to 2.6 at 3× pixels (tools/measure-player.mjs).
+function drawStill(ctx, V, st) {
+    let P = st._p2;
+    if (st.exact) {
+        if (!P) {
+            P = new Path2D();
+            const ring = (q, open) => {
+                const D = exactDense(q.x, q.y, q.r, open, q.smooth, q.ctrl);
+                P.moveTo(D.x[0], D.y[0]);
+                for (let i = 1; i < D.x.length; i++)
+                    P.lineTo(D.x[i], D.y[i]);
+                if (!open)
+                    P.closePath();
+            };
+            ring(st.exact, st.open);
+            for (const hole of st.holes)
+                ring(hole, false);
+            st._p2 = P;
+        }
+    } else {
+        const X = st.leaves.x,
+            Y = st.leaves.y,
+            N = X.length;
+        if (st._per == null) {
+            let per = 0;
+            for (let i = 0; i < N; i++)
+                per += Math.hypot(X[(i + 1) % N] - X[i], Y[(i + 1) % N] - Y[i]);
+            st._per = per;
+        }
+        let want = 32;
+        while (want < Math.min(4096, st._per * V.k / 2))
+            want *= 2;
+        if (!P || st._p2M !== want) {
+            const C = curveOf(X, Y, want);
+            P = new Path2D();
+            P.moveTo(C.x[0], C.y[0]);
+            for (let i = 1; i < C.x.length; i++)
+                P.lineTo(C.x[i], C.y[i]);
+            P.closePath();
+            st._p2 = P;
+            st._p2M = want;
+        }
+    }
+    ctx.save();
+    ctx.transform(V.k, 0, 0, -V.k, V.px(0), V.py(0));
+    const f = !st.open && rgba(st.fill, 1);
+    if (f) {
+        ctx.fillStyle = f;
+        ctx.fill(P, 'evenodd');
+    }
+    if (st.stroke && st.width > 0) {
+        ctx.strokeStyle = rgba({ color: st.stroke, opacity: st.strokeOpacity }, 1) || st.stroke;
+        ctx.lineWidth = st.width / V.k;
+        ctx.lineJoin = 'round';
+        ctx.stroke(P);
+    }
+    ctx.restore();
+}
 function drawScene(ctx, S, t, w, h) {
     const V = viewOf(S, w, h, t);
     use(S);
@@ -389,14 +474,7 @@ function drawScene(ctx, S, t, w, h) {
     for (const it of S.items) {
         ctx.beginPath();
         if (it.still) {
-            const st = it.still;
-            if (st.exact) {
-                traceRing(ctx, V, st.exact, st.open);
-                for (const hole of st.holes)
-                    traceRing(ctx, V, hole, false);
-            } else
-                traceLeaves(ctx, V, st.leaves.x, st.leaves.y);
-            paint(ctx, st.fill, st.stroke, st.width, st.strokeOpacity, 1, st.open);
+            drawStill(ctx, V, it.still);
             continue;
         }
         const run = it.run,
@@ -411,9 +489,11 @@ function drawScene(ctx, S, t, w, h) {
             drawOn(ctx, V, run, P, f, fade, fill);
             continue;
         }
-        if (run.exact)
+        if (run.exact) {
             traceExactPose(ctx, V, P, run.open);
-        else
+            for (const h of morphHolesAt(run, P) || []) // HOLES THAT RIDE A STILL
+                traceRing(ctx, V, { x: h.x, y: h.y, r: null, smooth: h.smooth, ctrl: h.ctrl }, false);
+        } else
             traceLeaves(ctx, V, P.x, P.y);
         paint(ctx, fill, run.sp.stroke, run.sp.lineWidth, run.sp.strokeOpacity, fade, run.open);
     }
