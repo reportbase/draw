@@ -1512,7 +1512,7 @@
             gap: 4px;
         }/* The close X: only in edit mode, pinned to the top right corner of the page, above
            the number line strip so it is never buried by it. *//* The close button lives in the edit bar now, not pinned to the top corner:
-           the top of the page belongs to the atom strip, and the footer is where the
+           the top of the page belongs to the triangle strip, and the footer is where the
            mode's other controls already are. Same gold accent, edit-bar sizing. */
 
         #bCancelEdit {
@@ -2530,7 +2530,7 @@
                        treatment as the edit bar, for the same reason: taking a layout row would resize the
                        canvas and move the artwork. pointer-events:none so panning through it still works. */
                     #editHead { display: none; }
-                    /* The atom strip is GONE — readout text, ladder, defect walk, sparkline and the
+                    /* The triangle strip is GONE — readout text, ladder, defect walk, sparkline and the
                        joint-alphabet block all came off the edit view. The canvas element stays in the
                        markup so the export path and the resize path keep a node to address, but it is
                        never displayed, in edit mode or out of it. */
@@ -2671,17 +2671,17 @@
                     #checksumPanel .cks-note { font-size: 10px; opacity: 0.8; }
                     #checksumPanel .ok { color: rgb(90,210,180); }
                     #checksumPanel .warn { color: rgb(212,160,82); }
-                    /* ── The four-atoms panel ──
+                    /* ── The four-quarters panel ──
                        Same fixture as the checksum panel (one edit panel at a time — setEditPanel),
                        same corner. The OVERLAY is gated by state.fourAtoms.on, not by this panel:
                        close the options and the colours stay up. */
-                    /* The four-atoms options panel was REMOVED (Tom, Aug 30) — every option is
+                    /* The four-quarters options panel was REMOVED (Tom, Aug 30) — every option is
                        permanently true and the button is the whole control, so its markup, wiring
                        and styles are all gone. */
                     .topbar.editing { display: none; }
                     @media (pointer: coarse) { body.editing #editHead { height: 112px; } }
-                    /* THE ATOM GLYPH NO LONGER GROWS THE STRIP — Tom's ruling (Aug 29): one header height
-                       for every glyph. The atom is drawn uniformly scaled into the same box as the dome
+                    /* THE TRIANGLE GLYPH NO LONGER GROWS THE STRIP — Tom's ruling (Aug 29): one header height
+                       for every glyph. The triangle is drawn uniformly scaled into the same box as the dome
                        (see drawHeadAtom), so the 138px overrides that lived here are gone. */
                     /* ── THE SUB-HEADER ─────────────────────────────────────────────────────────
                        Tom's ruling (Aug 29): the register strip is the SUB-HEADER, its own strip 15px
@@ -2782,7 +2782,7 @@
                     body.no-browser .shape-scroller { display: none; }
                     /* No shape browser in EDIT VIEW: the mode isolates one shape, so a strip for
                        getting around the scene is navigation the mode has deliberately taken away
-                       — and the atom strip now lives where the tiles sat. */
+                       — and the triangle strip now lives where the tiles sat. */
                     body.editing .shape-scroller { display: none; }
                     /* The edit footer, hidden by the canvas long-press. Edit mode is where the drawing wants
                        the whole window — you are inside one shape, working close — and the footer is the
@@ -3425,6 +3425,13 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="3" y="3.5" width="12" height="10" rx="3"/>
                     <path d="M17.5 10.5l1.4 3.2 3.4.3-2.6 2.2.8 3.3-3-1.8-3 1.8.8-3.3-2.6-2.2 3.4-.3z"/>
+                </svg>
+            </button>
+            <button id="bPlot" class="icon-btn" title="plot a formula: a shape whose outline is computed (r = … for a polar curve, x = … and y = … for a curve in t, y = … for a graph), with functions of your own and sums; select a plotted shape and open this to change its formula">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14.5 4.5c-2.2-.6-3.4.6-3.9 3.2L8.9 17c-.5 2.6-1.7 3.6-3.9 3"/>
+                    <path d="M7 10.5h8"/>
+                    <path d="M15 14l5 5M20 14l-5 5"/>
                 </svg>
             </button>
             <button id="bText" class="icon-btn" title="add text as outlined shapes — one signal per glyph contour, arriving as a single group">
@@ -4158,7 +4165,7 @@
                 <option value="dial:quadrant">dial · bearing</option>
                 <option value="twodial">two dials</option>
                 <option value="dome">dome · square</option>
-                <option value="atom">atom · v:h</option>
+                <option value="atom">triangle · v:h</option>
             </select>
         </label>
         <label class="toggle" style="display:flex;align-items:center;gap:6px;" title="Five readings of the same dots, in increasing distance from the drawing: what the contour is doing there, where the leaf sits, where it is headed, what the observer said about it, and what all that saying adds up to. Only the COLOUR changes — the leaves, their positions and their hit-testing are untouched, so a reading can be left on while sculpting.
@@ -4208,7 +4215,7 @@
             <input type="checkbox" id="tHContour" checked>
              └ observer's contour (Λ_N)
         </label>
-        <label class="toggle" style="display:flex;align-items:center;gap:6px;" title="Draw the base rule's holding in the observer's OWN chart — the Cauchy lens. Radii are compressed by v → 2h₀·(2/π)·atan(v/h₀), with h₀ the shape's median radius (an order statistic, the atom's own centre). The whole infinite plane then fits inside a drawable rim at 2h₀ — the HORIZON, drawn faint — and the shape's balance locus v = h₀ lands at exactly half-field: the CORNER ring, dotted, the visual field's 45°. True contour thin amber, held contour dashed amber. What changes under the lens: the register's uniform log-cells become view bands that are widest at the corner and vanish at home and rim — the base rule and the Cauchy chart are conjugate, and the register spends its view-space resolution exactly at the self-certified radius. Costs O(N) per shape; drawn for the same targets as the observer's contour.">
+        <label class="toggle" style="display:flex;align-items:center;gap:6px;" title="Draw the base rule's holding in the observer's OWN chart — the Cauchy lens. Radii are compressed by v → 2h₀·(2/π)·atan(v/h₀), with h₀ the shape's median radius (an order statistic, the reader's own centre). The whole infinite plane then fits inside a drawable rim at 2h₀ — the HORIZON, drawn faint — and the shape's balance locus v = h₀ lands at exactly half-field: the CORNER ring, dotted, the visual field's 45°. True contour thin amber, held contour dashed amber. What changes under the lens: the register's uniform log-cells become view bands that are widest at the corner and vanish at home and rim — the base rule and the Cauchy chart are conjugate, and the register spends its view-space resolution exactly at the self-certified radius. Costs O(N) per shape; drawn for the same targets as the observer's contour.">
             <input type="checkbox" id="tHCauchy">
              └ cauchy chart (rim &amp; corner)
         </label>
@@ -4402,7 +4409,7 @@
     <!-- THE SCENE'S TIMELINE: every live morph a row of its keys on the shared clock -->
     <div id="morphTimeline" role="region" aria-label="every live morph's keys on the shared clock">
         <div class="tl-grid tl-top"><span class="tl-title">timeline</span><div class="tl-ruler" id="tlRuler" title="drag to scrub"><span class="tl-play" id="tlPlay"></span></div><button type="button" id="tlClose" title="put the timeline away">×</button></div>
-        <div class="tl-tools"><button type="button" id="tlTurn" title="A SEQUENCE: the selected morphs (or every one, with none selected) each play once, one after another, in their order, sharing the loop">in turn</button><button type="button" id="tlLoops" title="the selected morphs (or every one) loop again">all loop</button><label class="tl-showlab" title="A CLIP SEEN ONLY WHEN IT PLAYS: how the selected morphs that play once (or every one that does) are seen outside their bars">shows <select id="tlShow"><option value="">always</option><option value="during">only in its bar</option><option value="fade">fading in and out</option><option value="in">from its bar on</option><option value="out">until its bar ends</option><option value="draw">drawn on in its bar</option></select></label><button type="button" id="tlStop" title="STOPS: a stop where the clock stands — played through, the scene waits there until told to go on (an explainer's beat). Drag a stop on the ruler to move it, double-click it to take it away">+ stop</button><label title="stop at the stops while playing here too (an embed always does)"><input type="checkbox" id="tlStopsOn">stops</label><button type="button" id="tlCamKey" title="A CAMERA: the view as it is now (or the selected shapes, framed) becomes the camera's key where the clock stands; played or scrubbed, the view goes from key to key. Drag a key to retime it, double-click it to take it away">+ view</button><label title="the view follows the camera's keys while the scene plays or is scrubbed"><input type="checkbox" id="tlCamOn">camera</label><button type="button" id="tlBeats" title="AN EXPLAINER'S BEATS: the stretches between the stops, each with a title and a few lines of text; frame each one, and preview it all as a scrolling explainer page">beats…</button><span class="tl-hint">a row's ↻ / 1× plays it looping or once; drag a once-bar to move it, its ends to stretch it</span></div>
+        <div class="tl-tools"><button type="button" id="tlTurn" title="A SEQUENCE: the selected morphs (or every one, with none selected) each play once, one after another, in their order, sharing the loop">in turn</button><button type="button" id="tlLoops" title="the selected morphs (or every one) loop again">all loop</button><label class="tl-showlab" title="A CLIP SEEN ONLY WHEN IT PLAYS: how the selected morphs that play once (or every one that does) are seen outside their bars">shows <select id="tlShow"><option value="">always</option><option value="during">only in its bar</option><option value="fade">fading in and out</option><option value="in">from its bar on</option><option value="out">until its bar ends</option><option value="draw">drawn on in its bar</option><option value="draw-fade">drawn on, then fades</option><option value="draw-undraw">drawn on, then taken back</option><option value="fade-in-out">fades in and out quickly</option><option value="custom" disabled>its own in and out</option></select></label><button type="button" id="tlStop" title="STOPS: a stop where the clock stands — played through, the scene waits there until told to go on (an explainer's beat). Drag a stop on the ruler to move it, double-click it to take it away">+ stop</button><label title="stop at the stops while playing here too (an embed always does)"><input type="checkbox" id="tlStopsOn">stops</label><button type="button" id="tlCamKey" title="A CAMERA: the view as it is now (or the selected shapes, framed) becomes the camera's key where the clock stands; played or scrubbed, the view goes from key to key. Drag a key to retime it, double-click it to take it away">+ view</button><label title="the view follows the camera's keys while the scene plays or is scrubbed"><input type="checkbox" id="tlCamOn">camera</label><button type="button" id="tlBeats" title="AN EXPLAINER'S BEATS: the stretches between the stops, each with a title and a few lines of text; frame each one, and preview it all as a scrolling explainer page">beats…</button><span class="tl-hint">a row's ↻ / 1× plays it looping or once; drag a once-bar to move it, its ends to stretch it</span></div>
         <div class="tl-rows" id="tlRows"></div>
         <div class="tl-row tl-camrow" id="tlCamRow"><span class="tl-lab">camera</span><div class="tl-track" id="tlCamTrack" title="the camera's keys: drag to retime, double-click to remove, click the track to scrub"></div><span></span></div>
     </div>
@@ -4503,6 +4510,33 @@
             <span class="val" id="vTextSize" style="color:var(--gold);min-width:34px;text-align:right;font-size:11px;">30%</span>
         </div>
         <div id="textPopPreview" style="margin-top:8px;height:40px;display:flex;align-items:center;justify-content:center;color:var(--fg);font-size:26px;line-height:1;overflow:hidden;border:1px solid var(--line2);border-radius:5px;background:var(--bg);">Ag</div>
+    </div>
+
+    <!-- A SHAPE FROM A FORMULA (28 Oct 2026): the plot popover. The program in the box, its range of t and its
+         samples; add drops it on the page, or, opened on a plotted shape, update redraws that shape. -->
+    <div class="pop" id="plotPop" role="dialog" aria-label="plot a formula">
+        <div class="pop-title">plot a formula</div>
+        <textarea id="plotSrc" spellcheck="false" rows="5" style="width:100%;box-sizing:border-box;font-family:var(--mono, ui-monospace, monospace);font-size:12px;min-height:96px;" placeholder="r = 1 + 0.3cos(5t)"></textarea>
+        <div class="pop-row" style="margin-top:6px;gap:6px;flex-wrap:wrap;">
+            <label class="row-label" style="font-size:10px;color:var(--fg-muted);">t FROM</label>
+            <input type="text" id="plotT0" value="0" style="width:56px;" title="where t starts: a number or a formula of constants (0, -π, 1/2)">
+            <label class="row-label" style="font-size:10px;color:var(--fg-muted);">TO</label>
+            <input type="text" id="plotT1" value="" placeholder="2π" style="width:56px;" title="where t ends; empty: a whole turn for r, 1 for a curve, 10 for a graph">
+            <label class="row-label" style="font-size:10px;color:var(--fg-muted);">SAMPLES</label>
+            <input type="number" id="plotN" value="128" min="8" max="2048" step="8" style="width:64px;" title="how many points the curve is laid through; its edges are cubics between them, so 128 is already smooth">
+        </div>
+        <div class="pop-row" style="margin-top:6px;">
+            <select id="plotEx" class="pop-act" style="flex:1;min-width:0;" title="start from an example">
+                <option value="">examples…</option>
+                <option value="rose">a rose: r = cos(4t)</option>
+                <option value="blob">a blob: waves on a circle</option>
+                <option value="heart">a heart, as a curve in t</option>
+                <option value="wave">a graph: y = sin x</option>
+                <option value="bridge">eight readings and their kernel sum</option>
+            </select>
+            <button class="pop-act" id="plotAdd" title="drop the plot on the page (or redraw the plotted shape this was opened on)">add</button>
+        </div>
+        <div id="plotStatus" style="margin-top:6px;font-size:11px;min-height:15px;color:var(--fg-muted);"></div>
     </div>
 
     <!-- AI generate popover. The everyday face is prompt → generate; the key and
@@ -4882,7 +4916,7 @@
                     <b>C&nbsp;=&nbsp;2</b>
                      — a single held bit, the cell a half-turn. The winding survives to the last rung (a ring cannot rail, even one bit wide), and silence becomes the default: a mark the sweep does not enclose is 
                     <b>dead silent</b>
-                     — zero cells over the whole sweep, not a cancelling wobble — unless the journey genuinely wound and unwound, which reads as net&nbsp;0 with its turns named. The area atom runs at one bit too, where quantization performs the calibration: κ&nbsp;=&nbsp;0 and the raw sum 
+                     — zero cells over the whole sweep, not a cancelling wobble — unless the journey genuinely wound and unwound, which reads as net&nbsp;0 with its turns named. The area reader runs at one bit too, where quantization performs the calibration: κ&nbsp;=&nbsp;0 and the raw sum 
                     <em>is</em>
                      the Magnus integer — at 
                     <em>this</em>
@@ -4890,7 +4924,7 @@
                     <b>letter-maker</b>
                      spells the sweep: each full turn around a mark is two cells, an accumulator per ring emits a letter at ±C, and the word appears under the class line — segmentation dissolved by coarseness.
                 </div>
-                <label class="toggle" style="display:flex;align-items:center;gap:6px;margin-top:6px;" title="run every mark's ray ring — and the area atom — at C = 2, one held bit per mark, and spell the sweep's word from the rings' own streams.">
+                <label class="toggle" style="display:flex;align-items:center;gap:6px;margin-top:6px;" title="run every mark's ray ring — and the area reader — at C = 2, one held bit per mark, and spell the sweep's word from the rings' own streams.">
                     <input type="checkbox" id="tOneBit">
                      one-bit rings (C = 2) + letter-maker
                 </label>
@@ -4917,9 +4951,9 @@
                     <button id="bWalkerSurvey" data-code="wsv" class="res-btn" title="the homology handoff (R5): once tags exist, the walker walks egocentric closed journeys — a fixed turn per step — and reads each tag's SURVEYOR BEARING, arg(tag − odometer), through a one-bit ring. Composing two held values is the corpus's one deliberate P2 break, performed here at the exact operation. One journey around each tag, then one around them all; windings land in the ledger.">survey</button>
                     <button id="bWalkerCourse" data-code="wco" class="res-btn" title="the course: seven worlds, the target always at the centre. First walk the shape — the circle, corners, the star, the double arrow — then the same walking with the obstructions thickening: a pebble ring, a wall with one way in, and the gauntlet of nested walls with opposed gaps. Each level is walked until the target is certified or the look budget runs out; the scene is replaced level by level (undo steps back through them). Results land in the ledger.">walk the course</button>
                     <button id="bWalkerMaze" data-code="wmz" class="res-btn" title="a maze, every press a new one: corridors whose walls TOUCH (the hug follows the union boundary), a target disk in the far cell, and one solid island in the central plaza. The border wall tree can never be lapped at any curl — only the islands certify, so the final tag list is the maze's b₁, read by contact. Solving is certifying the target; the price prints in looks. The scene is replaced (one undo brings the old page back).">the maze</button>
-                    <button id="bWalkerRound" data-code="wrd" class="res-btn" title="the ROUND maze: start and exit taken as opposite sides of a circle — and identified, so the maze closes into an annulus and the solution becomes a CLASS, not a place. A solid core with a free corridor around it, three rings of baffles between the walker and that corridor, every wall hanging from the border. The world's one certifiable body is the core, so the first w = +1 certificate IS the solution — winding 1, the maze's generator, walked and certified by the walker's own four clauses with no describer verdict anywhere. Cost stays metric; proof is topological. And the EXIT IS THE CORNER: the winning lap is priced by the observation atom, and the door opens only when its sentence sits at the corner cell — closure holding, the radial stream mostly the free symbol. Not 'you are at the exit' — 'your journey reads as the cheapest closed sentence'. The shortest distance between home and exit is π, not the straight line: the chord runs through the one body that cannot be crossed, only wound — and the exit does not exist until it has been. The whole journey is a recursion whose test is the corner: descend while the register speaks; certify at silence; return.">the round maze</button>
+                    <button id="bWalkerRound" data-code="wrd" class="res-btn" title="the ROUND maze: start and exit taken as opposite sides of a circle — and identified, so the maze closes into an annulus and the solution becomes a CLASS, not a place. A solid core with a free corridor around it, three rings of baffles between the walker and that corridor, every wall hanging from the border. The world's one certifiable body is the core, so the first w = +1 certificate IS the solution — winding 1, the maze's generator, walked and certified by the walker's own four clauses with no describer verdict anywhere. Cost stays metric; proof is topological. And the EXIT IS THE CORNER: the winning lap is priced by the reader of The Observation Atom, and the door opens only when its sentence sits at the corner cell — closure holding, the radial stream mostly the free symbol. Not 'you are at the exit' — 'your journey reads as the cheapest closed sentence'. The shortest distance between home and exit is π, not the straight line: the chord runs through the one body that cannot be crossed, only wound — and the exit does not exist until it has been. The whole journey is a recursion whose test is the corner: descend while the register speaks; certify at silence; return.">the round maze</button>
                     <button id="bWalkerSpiral" data-code="wsp" class="res-btn" title="the SPIRAL: the world where the entrance and the exit are a pebble-toss apart and the distance between them is set by the mason. One band coils three times from a central chamber to the rim; the target disk waits in the chamber. Every point of the corridor is one pitch from a point a full turn of walking away. Where the round maze's sweep was luck (7 laps on one world, 244 on another), the spiral's is the world's constant: 2πN by construction — the mason's meter, kept in the true frame, verifies that whoever reaches the centre paid it exactly. The scene is replaced (one undo brings the old page back).">the spiral</button>
-                    <button id="bWalkerJourney" data-code="wjr" class="res-btn" title="the journey as a shape: the latest certified lap — a closed contour in the odometer's frame — becomes the scene's one shape, with a mark placed on every tag the walk earned, and the editor opens on it in edit mode. The whole tower then reads the route: the base rule its radial sentence, the tangent ring its turning, the ray rings its class about the marks (the wound body at +1, the rooms as spectators), the area atom its order. One undo brings the maze back.">import the journey</button>
+                    <button id="bWalkerJourney" data-code="wjr" class="res-btn" title="the journey as a shape: the latest certified lap — a closed contour in the odometer's frame — becomes the scene's one shape, with a mark placed on every tag the walk earned, and the editor opens on it in edit mode. The whole tower then reads the route: the base rule its radial sentence, the tangent ring its turning, the ray rings its class about the marks (the wound body at +1, the rooms as spectators), the area reader its order. One undo brings the maze back.">import the journey</button>
                     <select id="selWalkerPace" class="bar-select" style="flex:0 0 auto;" title="looks per frame. watch: slow enough to see the hug happen. brisk: a lap every second or two. full: the ledger fills as fast as the frame allows.">
                         <option value="watch">watch</option>
                         <option value="brisk" selected>brisk</option>
@@ -4978,11 +5012,11 @@
             </div>
 
             <div class="group">
-                <div class="menu-title">two-atom tests</div>
+                <div class="menu-title">two-reader tests</div>
                 <div class="menu-note sub">
                     The Two-Atom Observer's checks, on this library. Each representable primitive is swept by 
-                    <b>both atoms</b>
-                    : the radial floor rule, whose checksum Σ(i−c) must read 0 on a closed contour, and the angular atom — a direction held on a 
+                    <b>both readers</b>
+                    : the radial floor rule, whose checksum Σ(i−c) must read 0 on a closed contour, and the angular reader — a direction held on a 
                     <b>ring of 64 cells</b>
                     , whose cells must sum to exactly one circumference (winding 1, an integer by format). Reported per shape: both checksums, each register's bits per look, and the largest single cell count — a ring cannot rail, so a sharp corner arrives as one big count and costs nothing. The two economies run in opposite directions: the radial register charges for corners, the angular for roundness — the circle's angular spend H(64/512) = 0.544 is the 
                     <em>convex ceiling</em>
@@ -4997,18 +5031,18 @@
                      where it misses. The aggregate is in the status line. This one replaces the page, in a single history frame: one undo brings your work back.
                 </div>
                 <div class="group row" style="margin-top:6px;gap:8px;">
-                    <button id="bTwoAtomTests" data-code="two" class="res-btn" title="sweep every representable primitive with both atoms; sweep every representable primitive with both atoms and lay the corpus out as a ladder — one cell per shape, both checksums and both rates under it. Replaces the current page in one history frame.">run the tests</button>
+                    <button id="bTwoAtomTests" data-code="two" class="res-btn" title="sweep every representable primitive with both readers; sweep every representable primitive with both readers and lay the corpus out as a ladder — one cell per shape, both checksums and both rates under it. Replaces the current page in one history frame.">run the tests</button>
                 </div>
             </div>
 
             <div class="group">
-                <div class="menu-title">three-atom tests</div>
+                <div class="menu-title">three-reader tests</div>
                 <div class="menu-note sub">
                     The Three-Atom Observer's library run, with The Acquisitive Observer's one-bit column riding along. Each representable primitive is placed about the 
                     <b>first mark</b>
                      (its own centroid); a 
                     <b>second mark</b>
-                     sits at distance 2.5 in shape units — the corpus separation. Three atoms read the sweep: the radial floor rule (checksum 0, the closing arrival handed), and one ring per mark on the 
+                     sits at distance 2.5 in shape units — the corpus separation. Three readers read the sweep: the radial floor rule (checksum 0, the closing arrival handed), and one ring per mark on the 
                     <b>bearing</b>
                      of that mark — rays read residues; chords read Hopf. The windings must be integer-exact — (1,&nbsp;0), the homology class — at C&nbsp;=&nbsp;64 and again at 
                     <b>C&nbsp;=&nbsp;2</b>
@@ -5027,7 +5061,7 @@
                      where it fails. The aggregate is in the status line. This one replaces the page, in a single history frame: one undo brings your work back.
                 </div>
                 <div class="group row" style="margin-top:6px;gap:8px;">
-                    <button id="bThreeAtomTests" data-code="tri" class="res-btn" title="sweep every representable primitive with the radial atom and two bearing rings (C = 64 and C = 2); sweep every representable primitive with the radial atom and two bearing rings (C = 64 and C = 2) and lay the corpus out as a ladder — one cell per shape, the residue pair and the one-bit column under it. Replaces the current page in one history frame.">run the tests</button>
+                    <button id="bThreeAtomTests" data-code="tri" class="res-btn" title="sweep every representable primitive with the radial reader and two bearing rings (C = 64 and C = 2); sweep every representable primitive with the radial reader and two bearing rings (C = 64 and C = 2) and lay the corpus out as a ladder — one cell per shape, the residue pair and the one-bit column under it. Replaces the current page in one history frame.">run the tests</button>
                 </div>
             </div>
 
@@ -6188,7 +6222,7 @@
                 <div class="menu-title">repair</div>
                 <div class="menu-note sub">The two repairs for a shape the current rung cannot hold: add resolution, or cut out the content that will not settle at any rung.</div>
                 <div class="group row" style="margin-top:6px;gap:8px;">
-                    <button id="bRefine2" data-code="rfn" class="res-btn" title="Double the active shape's leaf count by evaluating the current reconstruction at the interleaved finer lattice — lossless for band content (the bands nest; the atoms interleave). The alias flags should visibly calm where the content was resolvable.">refine ×2</button>
+                    <button id="bRefine2" data-code="rfn" class="res-btn" title="Double the active shape's leaf count by evaluating the current reconstruction at the interleaved finer lattice — lossless for band content (the bands nest; the leaves interleave). The alias flags should visibly calm where the content was resolvable.">refine ×2</button>
                     <label class="res-btn res-toggle" id="lRing" data-code="rng" title="highlight in red where the contour is Gibbs-ringing — the near-discontinuities the kernel cannot represent. This is what excise cuts, so leave it on while you excise.">
                         <input type="checkbox" id="tRing">
                          ringing
@@ -6208,7 +6242,7 @@
                      spectral reconstruction (FFT)
                 </label>
                 <div class="menu-note sub" style="margin-top:9px;">The window the aperture reads through is chosen per shape. A shape's own spectrum says how much of its band it is using; if it is using all of it — which is what the rung solver produces, since its job is to find the smallest sufficient rung — the tapered cardinal kernel is used. If it has a real guard band (a circle held at 512 leaves, anything refined past what it needs) the Fessler–Sutton min-max weights are used instead, which are optimal inside a band and need one to exist. Measured over 14 primitives: 3 qualify, 13× mean improvement, no shape made worse. The threshold is strict on purpose — relaxing it from 1e-6 to 1e-4 of the peak mode qualifies 13 of 14 and makes every one of them worse.</div>
-                <div class="menu-note sub" style="margin-top:9px;">The bridge is exact at its atoms and may ring at a corner — that is the Dirichlet horn, and it is what the ringing overlay finds. Fejér is the other horn (§22): the same leaf readings under a triangular window, giving a positive kernel with operator norm exactly 1, which cannot ring for ANY continuous shape. It pays for that by no longer passing through its own leaves — the dots sit just off the line, approaching at O(1/N). A presentation only: the solve, the thumbnails and the export keep reading the bridge itself.</div>
+                <div class="menu-note sub" style="margin-top:9px;">The bridge is exact at its leaves and may ring at a corner — that is the Dirichlet horn, and it is what the ringing overlay finds. Fejér is the other horn (§22): the same leaf readings under a triangular window, giving a positive kernel with operator norm exactly 1, which cannot ring for ANY continuous shape. It pays for that by no longer passing through its own leaves — the dots sit just off the line, approaching at O(1/N). A presentation only: the solve, the thumbnails and the export keep reading the bridge itself.</div>
                 <label class="toggle" style="display:flex;align-items:center;gap:6px;margin-top:6px;" title="present the shapes through the positive Fejér kernel instead of the interpolating bridge. No ringing at any corner, at the cost of exactness at the leaves (R1/R2 surrendered, R4 secured).">
                     <input type="checkbox" id="tFejer">
                      Fejér presentation (never rings)
@@ -6424,7 +6458,7 @@
                 <b id="cksExtraV">—</b>
             </div>
         </div>
-        <!-- THE FOUR ATOMS. The switchboard for the sweep overlay, which is drawn on the
+        <!-- THE FOUR QUARTERS. The switchboard for the sweep overlay, which is drawn on the
                CANVAS — this panel holds the options plus the two numbers the overlay is
                claiming: the sweep, and the entry count. One caveat is load-bearing and lives
                in the note below: the phase here is read off the COMPLETED shape. This is the
@@ -6563,15 +6597,15 @@
                         <path d="M17.5 4.5H7l5.6 7.5L7 19.5h10.5"/>
                     </svg>
                 </button>
-                <!-- THE FOUR ATOMS. Only in edit mode, the serial strip's and checksum's rule: the
+                <!-- THE FOUR QUARTERS. Only in edit mode, the serial strip's and checksum's rule: the
                          sweep reads ONE shape about ONE counterpart, and edit mode is the only place
                          there is exactly one of each. The button opens the OPTIONS; the overlay is a
                          state of the view and survives the panel closing. The icon is the claim: four
                          arcs about a counterpart, the gaps where the landmarks fall. -->
-                <button id="b4AtomsEdit" class="icon-btn" title="the four atoms — sweep the LINE OF SIGHT to the counterpart (the last mark, or the shape's own centre) once around the contour and colour each quarter-turn of that relation as one atom: I azure, II ember, III indigo, IV rose, with home and horizon pinned where the relation crosses them. Enclosed, the sweep is exactly 2π — four atoms; not enclosed, exactly 0 — none. Colours, landmarks, corners and the ray are all on.">
+                <button id="b4AtomsEdit" class="icon-btn" title="the four quarters — sweep the LINE OF SIGHT to the counterpart (the last mark, or the shape's own centre) once around the contour and colour each quarter-turn of that relation as one quarter: I azure, II ember, III indigo, IV rose, with home and horizon pinned where the relation crosses them. Enclosed, the sweep is exactly 2π — four quarters; not enclosed, exactly 0 — none. Colours, landmarks, corners and the ray are all on.">
                     <!-- The icon stays MONOCHROME (Tom's ruling, Aug 30) — it takes the bar's own
                                currentColor like every other button, and lights gold when active. The four
-                               colours belong to the atoms on the artwork and to the leg bar that reports them,
+                               colours belong to the quarters on the artwork and to the leg bar that reports them,
                                not to the switch that turns them on. -->
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
                         <path d="M20.67 10.47 A8.8 8.8 0 0 0 13.53 3.33"/>
@@ -6636,9 +6670,9 @@
                         <circle cx="20" cy="12" r="1.8"/>
                     </svg>
                 </button>
-                <!-- THE STANDPOINT. The mark placer came off the bar with the atom strip; it is back
+                <!-- THE STANDPOINT. The mark placer came off the bar with the triangle strip; it is back
                          because a mark is now where a reader stands — the census, the rays, the walk and
-                         the four-atoms sweep all read from the last mark. In mark mode a click on open
+                         the four-quarters sweep all read from the last mark. In mark mode a click on open
                          canvas drops a mark, a press-and-drag moves one, a press-and-release lifts it.
                          Two marks: two readers. -->
                 <button id="bMarkEdit" class="icon-btn" title="readers: A is the selected leaf — the cursor. In mark mode a click on the outline places reader B (a mark on the nearest leaf), another places C; tap a mark to swap it with A; drag slides it along the outline; Shift+tap lifts it; Alt+tap makes it lie (readings 15% long).">
@@ -6673,7 +6707,7 @@
                    same place it holds in the top toolbar, so the one control that decides what a
                    drag means is in the same corner in both views instead of drifting past on a
                    ring that spins. Same flag, same handler, same gold corner-button chip. -->
-            <button id="bLockEdit" class="icon-btn" title="lock the shape so dragging pans the view instead of sculpting — hover still reads the atom (L)">
+            <button id="bLockEdit" class="icon-btn" title="lock the shape so dragging pans the view instead of sculpting — hover still reads the triangle (L)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="4.5" y="10.5" width="15" height="10" rx="2"/>
                     <path class="shackle" d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
@@ -6803,6 +6837,23 @@
         const TAU = Math.PI * 2;
         const PI = Math.PI;
         const $ = id => document.getElementById(id);
+        // THE LABS' SEEDED STREAM (28 Oct 2026). The labs draw their noise from makeRng and makeRngCentered, and since
+        // the curve library moved out to tvf-core.js (9 Oct) those two have lived inside its closure, where this script
+        // cannot see them: twenty labs have stopped with "makeRng is not defined" ever since. They are written again
+        // here, the same stream exactly (multiplier, increment and mask, the seed used raw on the first step), so every
+        // number a lab pins is what it was. Not taken from TVF_CORE: that block is copied verbatim into 3d and games,
+        // and this editor's labs are no reason to change what they carry.
+        function makeRng(seed) {
+            let s = seed;
+            return () => {
+                s = (s * 1103515245 + 12345) & 0x7fffffff;
+                return s / 0x7fffffff;
+            };
+        }
+        function makeRngCentered(seed) {
+            const r = makeRng(seed);
+            return () => r() - 0.5;
+        }
 
         // ── THE LAB SWITCH ──────────────────────────────────────────────────────────
         // The default page is the DRAWING. The lab pane and the edit view are the two
@@ -7043,14 +7094,14 @@
 
             marks: [],
             // placed PUNCTURES (world coords): one ray ring per mark in the edit header; empty → the origin stands in as m2
-            // ── The four-atoms overlay: the line-of-sight sweep's quarter-turns, coloured ──
+            // ── The four-quarters overlay: the line-of-sight sweep's quarter-turns, coloured ──
             // Session state only, deliberately NOT persisted: the overlay is an instrument
             // pointed at a question, not a property of the document, and a saved file that
             // reopens mid-lesson startles. `startU` is the first observation as a FRACTION of
             // the sweep — leaf (k+0.5)/N — so it survives a rung change. NULL means the
             // reference is the TOP (the default): the legs stand at 90° from twelve o'clock
             // rather than from whichever leaf the path was stored first.
-            // ⚠ NO PANEL — Tom's ruling (Aug 30): "remove the four atoms panel. All the options of
+            // ⚠ NO PANEL — Tom's ruling (Aug 30): "remove the four quarters panel. All the options of
             // the current panel should just be set to true. No panel is needed." Every option is
             // ON and stays on; the BUTTON is the whole control, toggling `on`. startU stays a
             // field (null = the top) because the reset is doctrine, not an option — 'start here'
@@ -8920,7 +8971,7 @@
         // What the window is actually required to be, which is less than it looks:
         //   w(0) = 1     keeps (R2). At a node the window centre lands on that leaf and K
         //                is cardinal there, so the normalized sum returns the leaf value
-        //                exactly — for ANY w with w(0) = 1. Exactness at the atoms does
+        //                exactly — for ANY w with w(0) = 1. Exactness at the leaves does
         //                not depend on the window's shape at all.
         //   w(±1) = 0    leaves enter and leave at zero weight: no membership jump.
         //   w'(±1) = 0   and they do it smoothly. A bare parabola fails this; Hann does not.
@@ -14608,6 +14659,11 @@
         // Call it AFTER any drawAll() (which rewrites the status) so it wins.
         let _flashTimer = null;
         function flashStatus(msg) {
+            // the last few flashed lines, kept for a reader outside the page (tools/run-labs.mjs reads what each
+            // lab said when it ran); a line is kept whether or not the status bar is there to show it
+            (window.__flashLog || (window.__flashLog = [])).push(String(msg));
+            if (window.__flashLog.length > 40)
+                window.__flashLog.shift();
             const el = $('status');
             if (!el)
                 return;
@@ -18350,7 +18406,7 @@
                 state.headGlyph = k;
                 flashStatus(k === 'dome' ? 'dome — the pointing on the arc, with the rung ladder as the inscribed square'
                 : k === 'twodial' ? 'two dials — the fold kept, the sign given back: left lobe negative, right positive, joined at home ≡ horizon'
-                : 'atom — the rise/run triangle at the line’s own scale: v ÷ h is the number, the ±1 corners are the balance');
+                : 'triangle — the rise/run triangle at the line’s own scale: v ÷ h is the number, the ±1 corners are the balance');
             }
             syncHeadGlyph();
             drawAll();
@@ -18363,7 +18419,7 @@
 
 
         }
-        // The glyph-atom body class and its refit are gone with the taller strip (Tom's
+        // The glyph-triangle body class and its refit are gone with the taller strip (Tom's
         // ruling, Aug 29: one header height for every glyph) — the strip is 112px whichever
         // glyph is up, so switching glyphs no longer changes the room the shape has.
         // Kept as the ruler-only entry point: the lab's dial sheets and the keyboard still ask
@@ -18425,7 +18481,7 @@
             state.checksumPanel = (which === 'checksum');
             state.bucketPanel = (which === 'bucket');
             state.cascadePanel = (which === 'cascade');
-            state.atomsPanel = false; // the atoms panel is gone; never opens
+            state.atomsPanel = false; // the quarters panel is gone; never opens
             if (typeof window.__syncCascadeBtn === 'function')
                 window.__syncCascadeBtn();
             if (typeof window.__syncSerialBtn === 'function')
@@ -30234,6 +30290,7 @@
                         N: sp.build.N,
                         v: Object.assign({}, sp.build.v)
                     } : null,
+                    plot: sp.plot ? Object.assign({}, sp.plot) : null, // A SHAPE FROM A FORMULA
                     // so an undo that put the shapes back and left the captions standing would be
                     // undoing half of what it had done.
                     tag: sp.tag || null,
@@ -30280,6 +30337,7 @@
                     N: sp.build.N,
                     v: Object.assign({}, sp.build.v)
                 } : null,
+                plot: sp.plot ? Object.assign({}, sp.plot) : null, // A SHAPE FROM A FORMULA
             }));
             // Keep the active selection valid against the restored subpath count.
             if (state.activeSp >= state.subpaths.length)
@@ -30969,7 +31027,7 @@
             let hInfo = '';
             // The base rule readout obeys its display toggle IN EVERY VIEW. Edit mode used
             // to force it on; it now respects the same option the default view does —
-            // the atom strip at the foot of the edit view carries the always-on reading.
+            // the triangle strip at the foot of the edit view carries the always-on reading.
             if (state.showHLeaves) {
                 let sp = null,
                     idx = -1;
@@ -33556,7 +33614,7 @@
             g.stroke();
             // A SECOND READING ON THE SAME DIAL. Nothing feeds this now — the base rule's marker
             // came off the edit view with the rest of its picture — but the hook is kept because
-            // it costs one branch and it is the correct place for any second atom that wants the
+            // it costs one branch and it is the correct place for any second reader that wants the
             // same landmarks. opts.mark2 is a pair (A, B): the dial's
             // question — "how do these two compare?" — is the same question the register asks,
             // so both readings can be shown against one set of landmarks. Gold, smaller, no
@@ -33565,7 +33623,7 @@
             // What it buys: agreement stops being a word in a caption. h = v puts this marker
             // exactly on the gold corner at the bottom, every leaf of a circle, and a railed
             // leaf throws it round toward the seam — the same seam the tangent's marker uses
-            // when the run goes to zero. One picture, two atoms, the same corner.
+            // when the run goes to zero. One picture, two readers, the same corner.
             if (o.mark2 && !o.noMarker) {
                 const a2 = Math.abs(o.mark2.A),
                     b2 = Math.abs(o.mark2.B);
@@ -33719,18 +33777,18 @@
             }
         }
 
-        /* ═══ THE ATOM — THE RISE/RUN TRIANGLE ══════════════════════════════════════
-           Ported from tns.html's atom top glyph (drawAtomTriangle).
+        /* ═══ THE TRIANGLE GLYPH — RISE OVER RUN ══════════════════════════════════════
+           Ported from tns.html's triangle top glyph (drawAtomTriangle).
 
            THIS ONE IS NOT A PICTURE OF THE READING; IT IS THE READING — but no longer at the
            number line's own scale. Tom's ruling (Aug 29): the header is the same height for
-           every glyph, the atom included, so the atom is drawn at the SAME BOX the other
+           every glyph, the triangle included, so the triangle is drawn at the SAME BOX the other
            glyphs hang in (the caller passes 2·dialR as its unit rather than the line's R).
            The scaling is UNIFORM, so everything internal to the triangle survives it exactly:
-           the run leg h is one unit of the ATOM measured downward from the chord, the rise
+           the run leg h is one unit of the TRIANGLE measured downward from the chord, the rise
            leg v runs along the chord out to the ball, v/h is still tan θ read straight off
            the two legs, and the hypotenuse is still the pointing. What is given up is the
-           correspondence to the line's ticks: the two gold dots mark the ATOM'S ±1 corners
+           correspondence to the line's ticks: the two gold dots mark the TRIANGLE'S ±1 corners
            (|rise| = |run|), which now sit a little inside the line's own ±1 ticks.
 
            THE BALL IS CLAMPED TO THE CANVAS, not to the value. A leaf on a near-vertical stretch
@@ -34280,9 +34338,9 @@
                 // ── AUTO STARTS AT HOME, AND HOME IS THE TOP ─────────────────────────────
                 // Tom's ruling (Aug 30): "home is the top. the top becomes the current leaf.
                 // select the top leaf every time auto starts." HOME IS A READING, not a station of
-                // the atoms: (V, H) = (0, 1) — no rise, all run — which is the flat tangent at the
+                // the quarters: (V, H) = (0, 1) — no rise, all run — which is the flat tangent at the
                 // top of the shape, exactly as the header's own doctrine has it. ⚠ An earlier pass
-                // used the ATOMS' reference (ψ = 0, straight up FROM THE COUNTERPART) and that is a
+                // used the QUARTERS' reference (ψ = 0, straight up FROM THE COUNTERPART) and that is a
                 // different point whenever the counterpart is not the centre — a placed mark moved
                 // "home" onto the side of the shape. The top is read off the artwork instead: the
                 // highest leaf, ties broken by the flattest tangent, which on any smooth contour is
@@ -34535,26 +34593,26 @@
             return Math.floor(((h % TAU) + TAU) % TAU / (PI / 2)) % 4;
         }
 
-        /* ═══ THE FOUR ATOMS — the sweep of the line of sight, coloured ═══════════════
+        /* ═══ THE FOUR QUARTERS — the sweep of the line of sight, coloured ═══════════════
 
            The relation is the LINE OF SIGHT from the counterpart to the contour — not the
            tangent, which the header reads. A straight edge holds its tangent still while
            its line of sight turns the whole way; this overlay is the instrument that shows
            the difference. Swept once around the contour, the relation turns through exactly
-           2π when the counterpart is enclosed — four quarter-turns, four atoms — and through
-           exactly 0 when it is not: no atoms at all, not small ones. The pins alternate
-           home / horizon, two of each; the corner of each atom is its 45°.
+           2π when the counterpart is enclosed — four quarter-turns, four quarters — and through
+           exactly 0 when it is not: no quarters at all, not small ones. The pins alternate
+           home / horizon, two of each; the corner of each quarter is its 45°.
 
            STATED ONCE, WHERE THE CODE DOES IT: the phase here is read off the COMPLETED
-           shape. The drawn shape has no atoms of its own, and the serial stream cannot
+           shape. The drawn shape has no quarters of its own, and the serial stream cannot
            recover this colouring (same shape, different schedules, different streams). The
            overlay is honest scaffolding for the discovery, not a reading the observer could
            make — the withdrawn triangle test made from outside on purpose.
 
-           THE PALETTE. Odd atoms depart from homes, even atoms from horizons, so the four
+           THE PALETTE. Odd quarters depart from homes, even quarters from horizons, so the four
            run cool / warm / cool / warm — and the pins keep the app's own vocabulary (home
            cyan, horizon red, corner gold), so each landmark hands its temperature to the
-           atom that leaves it. Atoms I and III are the same passage with the facing
+           quarter that leaves it. Quarters I and III are the same passage with the facing
            reversed (the double cover), so the two cools pair, and so do the two warms. */
         const ATOM_RGB = ['88,176,255', '255,160,92', '125,111,240', '255,111,145']; // I azure · II ember · III indigo · IV rose
         const ATOM_NAMES = ['I', 'II', 'III', 'IV'];
@@ -34606,7 +34664,7 @@
         }
 
         // The read. Everything the overlay and the panel report comes out of this one pass:
-        // per-sample atom index, landmark and corner crossings (interpolated on the frame's
+        // per-sample quarter index, landmark and corner crossings (interpolated on the frame's
         // own polyline), the total sweep, and the entry count per boundary. It reads the
         // draw loop's OWN cached contour rather than calling shapeContour with a private M —
         // a second M would evict that cache every frame and pay two reconstructions.
@@ -34649,16 +34707,16 @@
             // rung change); reset returns to the top.
             const startU = state.fourAtoms ? state.fourAtoms.startU : null;
             const i0 = (M && startU != null) ? (Math.max(0, Math.round(startU * M)) % M) : 0;
-            // THE ATOMS ARE RELATIVE TO THE SELECTED LEAF (Tom, Sep 7). The reference direction —
-            // where atom I begins — is the line of sight from the counterpart to the leaf the
+            // THE QUARTERS ARE RELATIVE TO THE SELECTED LEAF (Tom, Sep 7). The reference direction —
+            // where quarter I begins — is the line of sight from the counterpart to the leaf the
             // reader stands on, so the four quarter-turns start at the cursor and turn with it as
             // the arrow keys walk it. Only with no leaf selected does the old absolute reference
             // (straight up) stand in.
             let phi0 = (startU == null) ? Math.PI / 2 : phi[i0];
             {
                 // THE SELECTED LEAF WINS over any remembered start (a saved scene may still carry a
-                // startU from the retired panel, which left the white line inside one atom instead of
-                // on the boundary between the two front atoms — Tom, Sep 7).
+                // startU from the retired panel, which left the white line inside one quarter instead of
+                // on the boundary between the two front quarters — Tom, Sep 7).
                 const S0 = state.subpaths[spi];
                 const kf = (S0 && S0.leafX && typeof focusLeafOf === 'function') ? focusLeafOf(S0) : null;
                 if (kf != null)
@@ -34669,12 +34727,12 @@
                 u -= Math.floor(u);
                 return u;
             };
-            // ψ AND THE ATOM AT AN ARBITRARY POINT, by the same rule as the array above. The
+            // ψ AND THE QUARTER AT AN ARBITRARY POINT, by the same rule as the array above. The
             // overlay colours the CONTOUR CACHE (the smoothed curve, M points) while the sub-
             // header walks LEAVES (N of them), and the two parameterisations do not line up — so
-            // indexing atomAt by a rescaled leaf number named the wrong atom near every boundary
-            // (Tom: "the leg colors don't match between the sub-header and the 4 atoms"). Asking
-            // for the atom AT THE LEAF'S OWN POSITION cannot drift: same counterpart, same
+            // indexing atomAt by a rescaled leaf number named the wrong quarter near every boundary
+            // (Tom: "the leg colors don't match between the sub-header and the 4 quarters"). Asking
+            // for the quarter AT THE LEAF'S OWN POSITION cannot drift: same counterpart, same
             // reference, same winding, evaluated where the reading actually is.
             const psiOfPoint = (x, y) => {
                 let u = s * (Math.atan2(y - P.y, x - P.x) - phi0) / TAU;
@@ -35017,9 +35075,9 @@
             ctx.save();
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
-            // ── the contour, in atom colours ─────────────────────────────────────────
+            // ── the contour, in quarter colours ─────────────────────────────────────────
             if (fa.colours && R.enclosed) {
-                // Runs of one atom, wrap-merged, each stroked once with one extra point so
+                // Runs of one quarter, wrap-merged, each stroked once with one extra point so
                 // adjacent colours meet without a gap. A shape whose counterpart sees the whole
                 // boundary has four runs; re-entries add more, which is the honest picture.
                 const runs = [];
@@ -35112,13 +35170,13 @@
                     const pP = px(R.P.x, R.P.y),
                         pL = px(lx, ly);
                     let col = '160,160,172',
-                        lbl = 'no atom';
+                        lbl = 'no quarter';
                     if (R.enclosed) {
                         let u = R.s * (Math.atan2(ly - R.P.y, lx - R.P.x) - R.phi0) / TAU;
                         u -= Math.floor(u);
                         const a = Math.min(3, Math.floor(u * 4));
                         col = ATOM_RGB[a];
-                        lbl = 'atom ' + ATOM_NAMES[a];
+                        lbl = 'quarter ' + ATOM_NAMES[a];
                     }
                     ctx.strokeStyle = 'rgba(' + col + ',0.85)';
                     ctx.lineWidth = 1.5;
@@ -35273,7 +35331,7 @@
             return checksumColor(e.run[k]);
         }
 
-        // ── THE ANGULAR ATOM (§21.1): the second observer, on its ring ────────────
+        // ── THE ANGULAR READER (§21.1): the second observer, on its ring ────────────
         // It holds a DIRECTION. Tangent-direction changes are quantised on a 64-cell
         // ring WITH FEEDBACK — the reference is the reconstructed direction, and
         // without that feedback the reading dies (turning.py T1-T5: 18 of 56 close
@@ -35408,7 +35466,7 @@
             }; // a nonzero leftover: the sweep ended mid-letter
         }
 
-        // ── The area atom (The Fourth Atom §2) ──────────────────────────────────────
+        // ── The area reader (The Fourth Atom §2) ──────────────────────────────────────
         // A register that reads a register: ring A's RUNNING winding Q₁ is held, and
         // each time ring B advances a cell the held count is deposited once —
         // Z ← Z + Q₁·q₂, pre-update (Chen's ordering), then Q₁ ← Q₁ + q₁. Two held
@@ -35422,7 +35480,7 @@
         // WHAT THAT AUDIT IS WORTH, corrected against the paper's second edition
         // (The Fourth Atom §2.1, August 2026). This comment used to call it "the
         // checksum on the checksum", which over-states it, and the paper now says so in
-        // those words: the identity is algebraic in WHATEVER STREAMS the atom is handed.
+        // those words: the identity is algebraic in WHATEVER STREAMS the reader is handed.
         // It passes a 2-tap reading that has lost the class entirely, and it passed six
         // of seven injected aliasing faults while the register certified a WRONG Magnus
         // integer — residual exactly zero every time. So: it audits the register's
@@ -35434,7 +35492,7 @@
         // stated in the papers' second editions:
         //   · the FLOOR RULE (Three-Atom §4.1, Fourth §2.1) — angularRead below uses it
         //     ("h becomes the value just read"). On a 2-tap reference every ray ring reads
-        //     (0,0) and the area atom collapses with it: ab against ba separates by
+        //     (0,0) and the area reader collapses with it: ab against ba separates by
         //     0.0000. The class, and this whole tower, are made of that one rule.
         //   · the NEAR-MISS RADIUS δ* = (s/2)·tan(π/2C) (Three-Atom §2.1) — a sweep passing
         //     nearer a mark than δ* can misread a whole turn. At level 1 that costs one
@@ -35579,7 +35637,7 @@
 
             // THE ORIGINAL INSTRUMENT, restored: the number line and the dial, reading
             // the hovered leaf's TANGENT slope (the contour's dy/dx at that leaf).
-            // The atom read lived here for a while; it now has its own strip at the
+            // The triangle read lived here for a while; it now has its own strip at the
             // foot of the page (drawEditFoot), so both readings are on screen at once —
             // the line answers "which direction does this leaf point", the ladder
             // answers "what did the observer just say about it".
@@ -35606,9 +35664,9 @@
             // WHICH GLYPH, on the same reading. ALL of them hang in the same box now —
             // chord_y … chord_y + 2·dialR — so switching between them moves nothing else in the
             // strip; only their HALF-WIDTHS differ, and the V/H numbers flank whatever is there.
-            // The atom used to be the exception (drawn at the line's own unit R, with a taller
+            // The triangle used to be the exception (drawn at the line's own unit R, with a taller
             // strip from the CSS); Tom's ruling (Aug 29) made the header one height for every
-            // glyph, so the atom takes the dome's box and scales uniformly (see drawHeadAtom).
+            // glyph, so the triangle takes the dome's box and scales uniformly (see drawHeadAtom).
             const gl = state.headGlyph || 'dial';
             const gV = read ? read.V : 0,
                 gH = read ? read.H : 0;
@@ -35707,7 +35765,7 @@
         //
         // ── AUDIT NOTE, August 2026: THE PAPERS CITE A GAUGE THIS STRIP NO LONGER DRAWS.
         // The Fourth Atom §8 and its `lab` appendix row credit this application with
-        // holding the area atom as a LIVE gauge — "S₁₂, S₂₁ and the shuffle audit drawn
+        // holding the area reader as a LIVE gauge — "S₁₂, S₂₁ and the shuffle audit drawn
         // under the class line, computed each frame from the placed marks' actual ring
         // streams", with the honesty colour ("the line turns teal only at w = (0,0),
         // where no correction is owed and the raw read IS the class") and the reported
@@ -35715,7 +35773,7 @@
         //
         // As the file stands, areaAtomRead is defined, exported on window.__lab, and
         // called by NOTHING in the draw path: the class line and the ray-ring pair went
-        // when this strip was stripped, and the area line went with them. The three-atom
+        // when this strip was stripped, and the area line went with them. The three-reader
         // LAB RUN is intact and still supports the papers' other library claims (49 of
         // 49, ring 1 at H(64/512) on every shape, ring 2 median 0.2319, the one-bit
         // column). The per-frame gauge is what is missing, and the citation was ahead of
@@ -35725,8 +35783,8 @@
         // afterwards taken off the panel. The reader (areaAtomRead) stays, exported and
         // callable from the lab; what does not exist is a frame that draws it.
 
-        // ── The atom strip, at the foot of the page — REMOVED ──────────────────────
-        // The strip carried the atom readout sentence, the register ladder, the defect
+        // ── The triangle strip, at the foot of the page — REMOVED ──────────────────────
+        // The strip carried the triangle readout sentence, the register ladder, the defect
         // walk, the e/sigma sparkline and the joint-alphabet block. All of it was readout
         // and chart, and the edit view is now the number line, its dial, the shape and
         // the footer. The function is kept as a no-op rather than deleted because it is
@@ -37802,16 +37860,16 @@
             // progress and the leg, computed BEFORE anything is drawn: the trail, the dot and
             // the bar all colour themselves from the leg, so it cannot be worked out later.
             const prog = fracOf(k);
-            // ⚠ THE LEG IS THE ATOM, not a parallel count — Tom's ruling (Aug 30): "the current
+            // ⚠ THE LEG IS THE QUARTER, not a parallel count — Tom's ruling (Aug 30): "the current
             // leg should be the same color in both the shape and the leg." The two were different
-            // quantities: the overlay's atoms are quarters of the LINE-OF-SIGHT turn about the
+            // quantities: the overlay's quarters are those of the LINE-OF-SIGHT turn about the
             // counterpart, while this bar's legs were quarters of the TANGENT-BEARING turn. On a
             // circle they agree; on anything else they drift, so the strip could say ember while
             // the shape under it was drawn indigo. The leg is now READ FROM THE OVERLAY'S OWN
             // COMPUTATION (fourAtomRead's atomAt, the same array that colours the contour), and
             // the two cannot disagree. The phase still drives the DOT and the progress — that is
             // the pacing, and it is this instrument's own — but the NAME and the COLOUR come from
-            // the atoms. Where the counterpart is not enclosed there are no atoms at all, and the
+            // the quarters. Where the counterpart is not enclosed there are no quarters at all, and the
             // bar falls back to quarters of the phase.
             let legNow = Math.min(4, Math.floor(prog * 4) + 1),
                 legFromAtoms = false;
@@ -37881,7 +37939,7 @@
             const closure = Math.pow(10, lUp + lDown);
             const atSeam = k === 0;
 
-            // the dot wears the ATOM's colour when there are atoms — the same colour the contour
+            // the dot wears the QUARTER's colour when there are quarters — the same colour the contour
             // under it is drawn in — and falls back to the rung palette when there are none.
             const v = sweepSlopeAt(src, k, N);
             g.fillStyle = legFromAtoms ? 'rgba(' + ATOM_RGB[legNow - 1] + ',0.95)'
@@ -37936,16 +37994,16 @@
                 // leg. You dont start from the middle. NEVER start from anywhere other than the 0
                 // position, the left position." Slot 0 is the FIRST quarter walked, slot 3 the last —
                 // the fill is simply how far round the lap the walk has got, drawn left to right.
-                // What each slot CARRIES is the atom that was being walked while that quarter was
-                // walked, recorded as the walk passes through it, so the colours are the atoms' own
+                // What each slot CARRIES is the quarter of the sweep that was being walked while that part of the bar was
+                // walked, recorded as the walk passes through it, so the colours are the quarters' own
                 // and still arrive in the order the walk met them (I,II,III,IV one way round,
-                // IV,III,II,I the other). The previous version gave each slot to a fixed atom, which
+                // IV,III,II,I the other). The previous version gave each slot to a fixed quarter, which
                 // filled the bar right-to-left on a backward winding — the fault being corrected.
-                // ⚠ A SLOT IS AN ATOM, TAKEN IN VISIT ORDER. Cutting the bar at quarters of the
+                // ⚠ A SLOT IS A QUARTER, TAKEN IN VISIT ORDER. Cutting the bar at quarters of the
                 // WALKED PHASE gave ragged colours (a lap ending I,I,II,IV): the phase is the
-                // tangent-bearing turn while the atoms are quarters of the LINE-OF-SIGHT sweep, and
+                // tangent-bearing turn while the quarters are those of the LINE-OF-SIGHT sweep, and
                 // the two sets of boundaries do not coincide. The bar now advances a slot when the
-                // WALK ENTERS A NEW ATOM, so slot 0 is the first atom met, slot 3 the last — filled
+                // WALK ENTERS A NEW QUARTER, so slot 0 is the first quarter met, slot 3 the last — filled
                 // left to right, always, whichever way the winding runs. A minimum spend before a
                 // slot may advance keeps a leaf sitting on a boundary from flickering through slots.
                 if (!SD.legAtom) {
@@ -37967,7 +38025,7 @@
                 if (SD.walked >= 0.999) {
                     // ⚠ THE FINISHED LAP KEEPS ITS COLOURS — Tom's ruling (Aug 30): "don't change a
                     // previous color when drawing a new leg." Clearing legAtom here while the bar was
-                    // still drawn full made every slot fall back to whatever atom was current, so the
+                    // still drawn full made every slot fall back to whatever quarter was current, so the
                     // completed bar came up monochrome and legs that had already been drawn changed
                     // colour. The lap's colours are kept in legDone for the closed display, and the
                     // working slots are cleared only when the NEXT lap actually starts.
@@ -37997,16 +38055,16 @@
             // A leg's colour is fixed the moment it is first drawn and never revisited: the
             // walking bar reads legAtom, the closed bar reads the lap it just finished. Null means
             // the leg has not been walked, and an unwalked leg is not drawn at all — so nothing
-            // ever falls back to "whatever atom is current", which is what used to repaint a leg.
+            // ever falls back to "whatever quarter is current", which is what used to repaint a leg.
             const legColour = q => {
                 const a = closing ? (SD.legDone && SD.legDone[q]) : (SD.legAtom && SD.legAtom[q]);
                 return a == null ? null : ATOM_RGB[a & 3];
             };
-            // THE LEG BAR WEARS THE FOUR ATOMS' COLOURS — Tom's ruling (Aug 30). The four legs
-            // of a lap ARE the four atoms (I azure, II ember, III indigo, IV rose), so the bar is
+            // THE LEG BAR WEARS THE FOUR QUARTERS' COLOURS — Tom's ruling (Aug 30). The four legs
+            // of a lap ARE the four quarters (I azure, II ember, III indigo, IV rose), so the bar is
             // drawn as four quarters in ATOM_RGB, dim until walked and full once the leg is under
             // way, and the leg's name is said in its own colour. One palette across the overlay
-            // and the strip: a leg here is the same object the four-atoms overlay colours there.
+            // and the strip: a leg here is the same object the four-quarters overlay colours there.
             // AT COMPLETION THE BAR SHOWS ALL FOUR — Tom's ruling. A lap that finishes used to
             // wrap the progress to nothing and blank the bar in the same frame, so the completed
             // state was never seen: the one moment worth showing showed least. At the seam every
@@ -38018,9 +38076,9 @@
             g.lineWidth = 2;
             // ⚠ THE UNWALKED TRACK IS NEUTRAL — Tom's ruling (Aug 30): "invert the leg. closure
             // should mean all four colors are shown on the leg." The track used to be pre-tinted
-            // in all four atom colours at low alpha, so every colour was already on screen before
+            // in all four quarter colours at low alpha, so every colour was already on screen before
             // a single leg had been walked and the fill only brightened what was there. A colour
-            // now APPEARS as its leg is earned: an empty bar carries no atom colour at all, and
+            // now APPEARS as its leg is earned: an empty bar carries no quarter colour at all, and
             // four colours on the bar means four legs walked — which is what closure is.
             for (let q = 0; q < 4; q++) {
                 const qa = barX0 + q * barW / 4,
@@ -38033,7 +38091,7 @@
                 g.lineTo(qb - 1, barY);
                 g.stroke();
                 if (done > 0 && rgb) {
-                    g.strokeStyle = 'rgba(' + rgb + ',0.95)'; // the walked leg: its atom
+                    g.strokeStyle = 'rgba(' + rgb + ',0.95)'; // the walked leg: its quarter
                     g.beginPath();
                     g.moveTo(qa + 1, barY);
                     g.lineTo(qa + 1 + done * (qb - qa - 2), barY);
@@ -38044,8 +38102,8 @@
             const legRGB = ATOM_RGB[Math.min(3, legNow - 1)];
             g.fillStyle = closing ? 'rgba(255,255,255,0.9)' : 'rgba(' + legRGB + ',0.95)';
             g.fillText(closing ? 'closed \u00b7 all four walked \u00b7 round again'
-            : (filled * 100).toFixed(1) + '% walked \u00b7 atom ' + ATOM_NAMES[Math.min(3, legNow - 1)]
-            + (legFromAtoms ? '' : ' (no atoms \u2014 quarters of the sweep)'),
+            : (filled * 100).toFixed(1) + '% walked \u00b7 quarter ' + ATOM_NAMES[Math.min(3, legNow - 1)]
+            + (legFromAtoms ? '' : ' (nothing enclosed \u2014 the legs are quarters of the turn)'),
             w / 2, h - 17);
             if (!state.autoWalk) {
                 g.fillStyle = 'rgba(214,206,192,0.35)';
@@ -38331,7 +38389,7 @@
         //     turned through exactly 360°.
         //
         // That is the turning number, and it is the same integer the closure defect and the
-        // angular atom's winding are about elsewhere in this file. Here it is a thing you do
+        // angular reader's winding are about elsewhere in this file. Here it is a thing you do
         // with your hand: circle the artwork with a pan and watch the bail come back to where
         // it started, once, having gone round once. The accumulated figure under the vessel is
         // UNWRAPPED, so a full circuit reads +360° rather than falling back to 0 — a wrapped
@@ -38517,7 +38575,7 @@
             _bucketRAF = 0;
             if (!state.bucketPanel || !state.editMode)
                 return;
-            // In the atom row the easing happens inside bucketAtomTrack, one register at a time —
+            // In the reader row the easing happens inside bucketAtomTrack, one register at a time —
             // the tick's only job there is to keep asking for frames until they have all arrived.
             if ((state.bucketRule || 'radius') !== 'atoms') {
                 const target = state.bucketTarget;
@@ -38588,12 +38646,12 @@
             state.bucketTurn += step;
         }
 
-        // ── THE ROW OF ATOMS ────────────────────────────────────────────────────────
-        // ONE VESSEL PER INSTRUMENT, NOT PER SHAPE. The single bucket reads the radial atom and
+        // ── THE ROW OF READERS ────────────────────────────────────────────────────────
+        // ONE VESSEL PER INSTRUMENT, NOT PER SHAPE. The single bucket reads the radial reader and
         // nothing else, which is the one reading that cannot tell a 3:1 ellipse from a 3:1
         // rectangle — it charges for how far the boundary is from the centre, and those two do
         // the same thing with that quantity. The row puts the other three registers beside it,
-        // and the point of the row is the DISAGREEMENT: each atom is blind exactly where its
+        // and the point of the row is the DISAGREEMENT: each reader is blind exactly where its
         // neighbours see, so a shape is not any one vessel but the pattern across four.
         //
         //   radial   the held radius        fills with distance from the centre
@@ -38628,7 +38686,7 @@
                 resetBucketAtoms();
             return state.bucketAtoms;
         }
-        // The same unwrapping updateBucketTurn does, per atom: accumulate the SHORTEST step
+        // The same unwrapping updateBucketTurn does, per reader: accumulate the SHORTEST step
         // between successive bearings so the total passes through ±180° without a seam and a
         // second lap reads 720° rather than 0°.
         function bucketAtomStep(a, bearing) {
@@ -38705,7 +38763,7 @@
                 bucketAtomStep(aRad, bear.radial);
             bucketAtomStep(aAng, bear.angular);
             const dRay = bucketAtomStep(aRay, bear.ray);
-            // THE FOURTH ATOM, IN ITS CONTINUOUS FORM. Ring A's running winding is held and
+            // THE AREA READER (The Fourth Atom), IN ITS CONTINUOUS FORM. Ring A's running winding is held and
             // deposited once per advance of ring B — Chen's ordering, the held value read BEFORE
             // it is updated, which is the whole reason the quantity separates A-then-B from
             // B-then-A. Kept in turns² so the reference below is a number about laps.
@@ -38803,7 +38861,7 @@
         // below was the body of drawBucketPanel and is unchanged apart from taking its centre
         // and its scale from `box` instead of from the canvas.
         //
-        // THE READING, AND NOTHING ELSE. The level is what the atom holds and the facing is its
+        // THE READING, AND NOTHING ELSE. The level is what the reader holds and the facing is its
         // bearing; the hand's only say over the vessel is how big it is and where it sits. The
         // manual level and facing offsets that briefly lived here are gone — a gauge you can
         // set by hand is not reading anything. Screen y runs downward and so does the near side
@@ -39751,7 +39809,7 @@
                 ctx.restore();
             }
 
-            // ── The four atoms: the line-of-sight sweep, coloured. Suppressed while a
+            // ── The four quarters: the line-of-sight sweep, coloured. Suppressed while a
             // motion plays — the overlay reads the resting geometry through the contour
             // cache, and a playing pose is not the cached one. ──────────────────────────
             if (CHROME && state.editMode && !isPlaying() && typeof drawSeenShape === 'function')
@@ -39769,7 +39827,7 @@
             }
             if (CHROME && state.cauchyView >= 2)
                 drawCauchyAddresses(w, h);
-            // (the four-atoms panel is gone — its options are permanently true)
+            // (the four-quarters panel is gone — its options are permanently true)
 
             // ── The tangent at the leaf the header is reading ───────────────────────
             // The number line's value is this line's slope, and V and H beside the dial
@@ -41180,11 +41238,11 @@
                     }
 
                     // ── THE PREVIOUS TANGENT, through the same point ─────────────────
-                    // The SECOND atom (§21.1): the one that holds a DIRECTION rather than
+                    // The SECOND reader (§21.1): the one that holds a DIRECTION rather than
                     // an extent, whose corner is "no turn since the last look" and whose
                     // register is a ring. Drawn through this point rather than through the
                     // previous leaf, so the wedge between the two lines is the turn itself.
-                    // Deliberately not called h: h is the radial atom's held reading, and
+                    // Deliberately not called h: h is the radial reader's held reading, and
                     // this is the angular one. Two different registers, two different
                     // corners, and conflating them is exactly the mistake the V/H readout
                     // made two revisions ago.
@@ -46438,7 +46496,7 @@
             // whatever the scene view happened to be showing — the footer switch is the ask,
             // and it starts unlit so the mode opens on the artwork and nothing else.
             state.showProps = false;
-            // The puncture placer and the whole atom strip came off the edit view, so neither
+            // The puncture placer and the whole triangle strip came off the edit view, so neither
             // mode is reachable any more. A session autosaved before that change can still
             // be carrying them, and the foot strip they belong to is gone entirely — so both
             // are normalised here rather than trusted to whatever the session restored.
@@ -46717,7 +46775,7 @@
                 if (state.editMode)
                     exitEditMode();
             });
-        // The atom strip's ladder/defect-walk toggle came off the edit bar with the strip
+        // The triangle strip's ladder/defect-walk toggle came off the edit bar with the strip
         // itself — a button whose only job is switching between two charts that no longer
         // draw is worse than no button. footMode is pinned to 0 in enterEditMode so nothing
         // downstream ever sees a stale value from an autosaved session, and markMode is
@@ -50221,6 +50279,13 @@
                 o.after(drawn);
 
             state.svgName = o.name + (o.suffix ? ' · ' + o.suffix : '');
+            // what the sheet says, for a reader outside the page (tools/run-labs.mjs): its name and each cell's caption
+            // and verdict (0 fails, 1 marginal, 2 holds, as the contour's colour says)
+            window.__lastLadder = {
+                name: o.name,
+                suffix: o.suffix || '',
+                rows: drawn.map(r => ({ caption: state.subpaths[r._idx] ? String(state.subpaths[r._idx].tag || '') : '', verdict: o.verdict ? o.verdict(r) : null }))
+            };
             state.lastLoadInfo = {
                 totalElements: state.subpaths.length,
                 multiSubpath: true,
@@ -50812,7 +50877,7 @@
         // reconstructs a contour — so the loop closes, t = 1 arrives back at t = 0 with no
         // seam, and the interpolation between keys is the same operator the whole file is about
         // rather than a second, unrelated easing curve bolted on. A morph of a shape sequence
-        // is a bridge whose atoms are shapes.
+        // is a bridge whose leaves are shapes.
         //
         // IN PLACE, and that is the default. The first version of this took the whole page: it
         // stashed state.subpaths, put one shape on an empty canvas and gave it the slider. That
@@ -53667,30 +53732,110 @@
         const MORPH_SHOWS = ['during', 'fade', 'in', 'out', 'draw'],
             MORPH_FADE = 1 / 6,
             MORPH_DRAW_FILL = 0.3; // the last share of a 'draw' window, over which the fill comes in
-        function morphShowFactor(run, t) {
-            const c = run.clip;
-            if (!c || !MORPH_SHOWS.includes(c.show))
-                return undefined;
-            const p = (t - c.start) / Math.max(1e-6, c.len),
-                up = Math.max(0, Math.min(1, p / MORPH_FADE)),
-                down = Math.max(0, Math.min(1, (1 - p) / MORPH_FADE));
-            if (c.show === 'during')
-                return p >= 0 && p <= 1 ? 1 : 0;
-            if (c.show === 'fade')
-                return p < 0 || p > 1 ? 0 : Math.min(up, down);
-            if (c.show === 'in')
-                return p < 0 ? 0 : up;
-            if (c.show === 'draw')
-                return p < 0 ? 0 : 1;
-            return p > 1 ? 0 : down; // 'out'
+        // IN AND OUT, EACH ITS OWN (28 Oct 2026, Tom: "1,2,3": a line drawn on could never go again, and a fade took a
+        // sixth of its window whatever the window). A clip may say how it comes and how it goes, apart:
+        //   in:  {kind: 'fade' | 'draw' | 'cut', len}   unseen before its start; fading in, drawn on like a pen, or
+        //                                               there at once, over len from the start
+        //   out: {kind: 'fade' | 'undraw' | 'cut', len} gone after its end; fading out, the pen going back, or gone at
+        //                                               once, over len up to the end
+        // len a share of the loop, as start and len are. Without an in the shape is there from the loop's start;
+        // without an out it stays after. A clip with either is read by them, not by show; the five shows are the
+        // same thing named (morphClipIO), so every clip is read one way.
+        const MORPH_IN = ['fade', 'draw', 'cut'],
+            MORPH_OUT = ['fade', 'undraw', 'cut'];
+        function morphClipEdge(e, kinds, len) {
+            if (!e || !kinds.includes(e.kind))
+                return null;
+            const L = +e.len;
+            return { kind: e.kind, len: Number.isFinite(L) ? Math.max(0, Math.min(len, L)) : (e.kind === 'cut' ? 0 : e.kind === 'fade' ? len * MORPH_FADE : len) };
         }
-        // DRAWING A LINE ON: how much of its outline a clip shown 'draw' has drawn at t (0 to 1), or
-        // undefined when it is not drawn on
-        function morphDrawFactor(run, t) {
-            const c = run.clip;
-            if (!c || c.show !== 'draw')
+        // a clip as it is kept: start, len and show, and in and out when it has them
+        function morphClipNorm(c) {
+            if (!morphClipOk(c))
+                return null;
+            const o = { start: +c.start, len: +c.len, show: MORPH_SHOWS.includes(c.show) ? c.show : '' },
+                a = morphClipEdge(c.in, MORPH_IN, o.len),
+                b = morphClipEdge(c.out, MORPH_OUT, o.len);
+            if (a)
+                o.in = a;
+            if (b)
+                o.out = b;
+            return o;
+        }
+        // how a clip comes and goes: { i, iL, o, oL } (kinds and lengths, '' where it has none), or null when it is
+        // seen the whole loop
+        function morphClipIO(c) {
+            if (!c)
+                return null;
+            const L = +c.len;
+            if (c.in || c.out)
+                return { i: c.in ? c.in.kind : '', iL: c.in ? +c.in.len : 0, o: c.out ? c.out.kind : '', oL: c.out ? +c.out.len : 0 };
+            switch (c.show) {
+            case 'during': return { i: 'cut', iL: 0, o: 'cut', oL: 0 };
+            case 'fade': return { i: 'fade', iL: L * MORPH_FADE, o: 'fade', oL: L * MORPH_FADE };
+            case 'in': return { i: 'fade', iL: L * MORPH_FADE, o: '', oL: 0 };
+            case 'out': return { i: '', iL: 0, o: 'fade', oL: L * MORPH_FADE };
+            case 'draw': return { i: 'draw', iL: L, o: '', oL: 0 };
+            }
+            return null;
+        }
+        // the timeline's shows that are an in and an out: the kinds and their lengths as shares of the bar
+        const MORPH_CLIP_PRESETS = {
+            'draw-fade': { in: ['draw', 0.45], out: ['fade', 0.2] },
+            'draw-undraw': { in: ['draw', 0.4], out: ['undraw', 0.3] },
+            'fade-in-out': { in: ['fade', 0.06], out: ['fade', 0.06] }
+        };
+        // which of the shows select's entries a clip is
+        function morphClipPresetOf(c) {
+            if (!c)
+                return '';
+            if (!c.in && !c.out)
+                return c.show || '';
+            for (const [k, P] of Object.entries(MORPH_CLIP_PRESETS))
+                if (c.in && c.out && c.in.kind === P.in[0] && c.out.kind === P.out[0] && Math.abs(c.in.len - P.in[1] * c.len) < 1e-6 && Math.abs(c.out.len - P.out[1] * c.len) < 1e-6)
+                    return k;
+            return 'custom';
+        }
+        // a clip written out (the autosave, a scene link): its numbers through f, its in and out when it has them
+        function morphClipOut(c, f) {
+            const o = { start: f(+c.start), len: f(+c.len), show: c.show || '' };
+            if (c.in)
+                o.in = { kind: c.in.kind, len: f(+c.in.len) };
+            if (c.out)
+                o.out = { kind: c.out.kind, len: f(+c.out.len) };
+            return o;
+        }
+        function morphShowFactor(run, t) {
+            const c = run.clip,
+                io = morphClipIO(c);
+            if (!io)
                 return undefined;
-            return Math.max(0, Math.min(1, (t - c.start) / Math.max(1e-6, c.len)));
+            const s = +c.start,
+                e = s + +c.len;
+            if ((io.i && t < s) || (io.o && t > e))
+                return 0;
+            let f = 1;
+            if (io.i === 'fade' && io.iL > 0)
+                f = Math.min(f, Math.max(0, Math.min(1, (t - s) / io.iL)));
+            if (io.o === 'fade' && io.oL > 0)
+                f = Math.min(f, Math.max(0, Math.min(1, (e - t) / io.oL)));
+            return f;
+        }
+        // DRAWING A LINE ON: how much of its outline a clip drawn on (or going back) has drawn at t (0 to 1), or
+        // undefined when it is not drawn
+        function morphDrawFactor(run, t) {
+            const c = run.clip,
+                io = morphClipIO(c);
+            if (!io || (io.i !== 'draw' && io.o !== 'undraw'))
+                return undefined;
+            const s = +c.start,
+                e = s + +c.len;
+            let f = 1;
+            if (io.i === 'draw')
+                f = Math.min(f, Math.max(0, Math.min(1, (t - s) / Math.max(1e-6, io.iL))));
+            if (io.o === 'undraw')
+                f = Math.min(f, Math.max(0, Math.min(1, (e - t) / Math.max(1e-6, io.oL))));
+            return f;
         }
         // …and how far its fill has come in, from that share: none until the window's last part
         function morphDrawFill(f) {
@@ -55443,13 +55588,13 @@
                 if (r && r.clip) {
                     el.style.left = pct(r.clip.start);
                     el.style.width = pct(r.clip.len);
-                    el.classList.toggle('faded', MORPH_SHOWS.includes(r.clip.show));
+                    el.classList.toggle('faded', !!morphClipIO(r.clip));
                 }
             }
             const tsel = $('tlShow'); // the shows select tells the first selected (or first clipped) morph's
             if (tsel && document.activeElement !== tsel) {
                 const r0 = (morphRunToolRuns().find(r => r.clip)) || morphRuns.find(r => r.clip);
-                tsel.value = r0 && r0.clip.show ? r0.clip.show : '';
+                tsel.value = r0 ? morphClipPresetOf(r0.clip) : '';
             }
             // A CAMERA, AND STOPS: the camera's keys on their row, the stops on the ruler
             const C = state.morphCamera || [],
@@ -55519,11 +55664,20 @@
                 morphTimelineChanged();
                 flashStatus(runs.length + ' morphs in turn, each once, a ' + (runs.length > 1 ? (1 / runs.length * 100).toFixed(0) + '%' : 'whole') + ' share of the loop');
             });
-            $('tlShow').addEventListener('change', e => { // A CLIP SEEN ONLY WHEN IT PLAYS
-                const v = MORPH_SHOWS.includes(e.target.value) ? e.target.value : '';
+            $('tlShow').addEventListener('change', e => { // A CLIP SEEN ONLY WHEN IT PLAYS, and IN AND OUT
+                const v = e.target.value;
                 const runs = pick().filter(r => r.clip);
-                for (const r of runs)
-                    r.clip = Object.assign({}, r.clip, { show: v });
+                for (const r of runs) {
+                    const c = Object.assign({}, r.clip, { show: MORPH_SHOWS.includes(v) ? v : '' });
+                    delete c.in;
+                    delete c.out;
+                    const P = MORPH_CLIP_PRESETS[v];
+                    if (P) {
+                        c.in = { kind: P.in[0], len: P.in[1] * c.len };
+                        c.out = { kind: P.out[0], len: P.out[1] * c.len };
+                    }
+                    r.clip = morphClipNorm(c);
+                }
                 morphTimelineChanged();
                 if (!runs.length)
                     flashStatus('shows: none of those morphs plays once; press its ↻ (or in turn) first');
@@ -55743,7 +55897,7 @@
                         st = Math.max(0, Math.min(end0 - MIN, t));
                     else
                         en = Math.min(1, Math.max(c0.start + MIN, t));
-                    run.clip = { start: st, len: en - st, show: run.clip.show || '' };
+                    run.clip = Object.assign({}, run.clip, { start: st, len: en - st });
                     drag.c0 = c0;
                     drag.moved = true;
                     run._centres = null;
@@ -56997,9 +57151,9 @@
             return drawn;
         }
 
-        // ── TWO-ATOM TESTS ────────────────────────────────────────────────────────
+        // ── TWO-READER TESTS ────────────────────────────────────────────────────────
         // The Two-Atom Observer's library run: both checksums per primitive. The
-        // angular atom holds a direction on a ring of C cells with sigma-delta
+        // angular reader holds a direction on a ring of C cells with sigma-delta
         // feedback; the chord list wraps because these contours close — the closing
         // chord is real, not invented.
         function taEntropy(arr) {
@@ -57100,13 +57254,13 @@
         }
         function showTwoAtomReport(res) {
             const {rows, total, L, C} = res;
-            // The two atoms get a line each, and the winding gets the verdict — it is the claim
+            // The two readers get a line each, and the winding gets the verdict — it is the claim
             // with an integer answer. "64/64" rather than the ratio, because the thing being
             // asserted is that the ring's cells SUM to one circumference, and a count against a
             // count says that; 1.0000 is the same fact rounded until it cannot be wrong.
             const out = labLadder({
                 rows,
-                name: 'two-atom tests',
+                name: 'two-reader tests',
                 suffix: 'C=' + C,
                 // Exact means both: the radial checksum on zero and the winding on the nose. Gold
                 // is the tolerance the old table shaded — the radial within ±2, the ring within two
@@ -57127,7 +57281,7 @@
             const sorted = [...drawn].sort((a, b) => a.angBits - b.angBits);
             const cheap = sorted[0],
                 dear = sorted[sorted.length - 1];
-            flashStatus('two-atom tests · ' + drawn.length + ' of ' + total + ' primitives representable'
+            flashStatus('two-reader tests · ' + drawn.length + ' of ' + total + ' primitives representable'
             + ' · ring C=' + C + ' L=' + L
             + ' — radial checksum 0 (±2) in ' + radOk + '/' + drawn.length
             + ' · winding exactly one circumference in ' + windExact + '/' + drawn.length
@@ -57140,11 +57294,11 @@
             + ' · largest single cell ' + Math.max(...drawn.map(r => r.mx)) + ', the ring did not rail'
             + (ms ? ' · ' + ms + ' ms' : ''));
         }
-        // ── THREE-ATOM TESTS ──────────────────────────────────────────────────────
+        // ── THREE-READER TESTS ──────────────────────────────────────────────────────
         // The Three-Atom Observer's library run, with The Acquisitive Observer's
         // one-bit column riding along. Each representable primitive is placed about
         // the first mark (its own centroid); a second mark sits at distance 2.5 in
-        // shape units — the corpus separation. Three atoms read the sweep: the
+        // shape units — the corpus separation. Three readers read the sweep: the
         // radial floor rule (checksum 0), and one ring per mark on the BEARING of
         // that mark (not the chord: rays read residues, chords read Hopf). The
         // windings must be integer-exact — (1, 0), the homology class of a loop
@@ -57253,7 +57407,7 @@
             const onebit = r => r.ob1 === 1 && r.ob2 === 0 && r.obCells2 === 0;
             const out = labLadder({
                 rows,
-                name: 'three-atom tests',
+                name: 'three-reader tests',
                 suffix: 'C=' + C + ' d=' + D2,
                 verdict: r => (triple(r) && onebit(r)) ? 2 : (triple(r) ? 1 : 0),
                 caption: r => r.key + '\n'
@@ -57268,7 +57422,7 @@
             const exact = drawn.filter(triple).length;
             const obExact = drawn.filter(r => r.ob1 === 1 && r.ob2 === 0).length;
             const silent = drawn.filter(r => r.obCells2 === 0).length;
-            flashStatus('three-atom tests · ' + drawn.length + ' of ' + total + ' primitives representable'
+            flashStatus('three-reader tests · ' + drawn.length + ' of ' + total + ' primitives representable'
             + ' · second mark at ' + D2 + ' shape units, rings on bearings C=' + C + ' and C=2'
             + ' — triple exact (radial 0, windings 1/0 to the cell) in ' + exact + '/' + drawn.length
             + ' · one-bit windings exact in ' + obExact + '/' + drawn.length
@@ -69037,11 +69191,11 @@
                         try {
                             const res = runThreeAtomTests();
                             if (!res.rows.length)
-                                flashStatus('three-atom tests: no representable primitives');
+                                flashStatus('three-reader tests: no representable primitives');
                             else
                                 showThreeAtomReport(res);
                         } catch (e) {
-                            flashStatus('three-atom tests failed: ' + e.message);
+                            flashStatus('three-reader tests failed: ' + e.message);
                         }
                         finally {
                             b3.disabled = false;
@@ -69341,11 +69495,11 @@
                         try {
                             const res = runTwoAtomTests();
                             if (!res.rows.length)
-                                flashStatus('two-atom tests: no representable primitives');
+                                flashStatus('two-reader tests: no representable primitives');
                             else
                                 showTwoAtomReport(res);
                         } catch (e) {
-                            flashStatus('two-atom tests failed: ' + e.message);
+                            flashStatus('two-reader tests failed: ' + e.message);
                         }
                         finally {
                             bA.disabled = false;
@@ -69657,7 +69811,7 @@
             }
             // Interleaved finer lattice: the NEW leaves of the doubled grid, evaluated
             // from the current reconstruction with the aperture OPEN (exact for band
-            // content — the bands nest, the atoms interleave; C-1).
+            // content — the bands nest, the leaves interleave; C-1).
             const N2 = 2 * N,
                 phis = new Float64Array(N2);
             for (let k = 0; k < N2; k++)
@@ -72354,8 +72508,9 @@
                 const fillAnim = run.cols ? anim('fill', (G ? G.ts : tsR(ri)).map(t => morphColourAt(run, t).color).join(';')) : '';
                 // A CLIP SEEN ONLY WHEN IT PLAYS: its opacity on the same schedule (in steps for 'during')
                 const showTs = G ? G.ts : tsR(ri),
-                    fadeAnim = run.clip && MORPH_SHOWS.includes(run.clip.show)
-                    ? `<animate attributeName="opacity" calcMode="${run.clip.show === 'during' || run.clip.show === 'draw' ? 'discrete' : 'linear'}" dur="${dur.toFixed(2)}s" repeatCount="indefinite"${begin} values="${showTs.map(t => +morphShowFactor(run, t).toFixed(3)).join(';')}"/>` : '';
+                    io = morphClipIO(run.clip),
+                    fadeAnim = io
+                    ? `<animate attributeName="opacity" calcMode="${io.i !== 'fade' && io.o !== 'fade' ? 'discrete' : 'linear'}" dur="${dur.toFixed(2)}s" repeatCount="indefinite"${begin} values="${showTs.map(t => +morphShowFactor(run, t).toFixed(3)).join(';')}"/>` : '';
                 // DRAWING A LINE ON: the outline as a dash as long as the share drawn (pathLength 1), the fill
                 // coming in at the end, and an outline the shape has not got of its own drawn in its fill's
                 // colour and going as the fill comes, as the editor draws it
@@ -73682,7 +73837,7 @@
             pop.style.left = left + 'px';
             pop.style.top = top + 'px';
         }
-        const POP_IDS = ['playPop', 'textPop', 'alignPop', 'orderPop', 'arrangePop', 'morphPop', 'toolsPop', 'stylePop', 'linePop', 'gridPop', 'descPop', 'readPop', 'shapePop', 'buildPop', 'aiPop', 'exactHelpPop'];
+        const POP_IDS = ['playPop', 'textPop', 'plotPop', 'alignPop', 'orderPop', 'arrangePop', 'morphPop', 'toolsPop', 'stylePop', 'linePop', 'gridPop', 'descPop', 'readPop', 'shapePop', 'buildPop', 'aiPop', 'exactHelpPop'];
         function closeAllPops() {
             for (const id of POP_IDS) {
                 const el = $(id);
@@ -73721,7 +73876,7 @@
             // cases and the canvas hit-test this used to need is gone. A press on an opener must
             // fall through untouched: dismissing here would close the popover a moment before the
             // button's own click reopens it, and the toggle would look like nothing happened.
-            if (e.target.closest && e.target.closest('#bText, #bShapes, #bBuild, #bAi, #bAlign, #bOrder, #bArrangeOpen, #bMorphOpen, #bTools, #bStyle, #bLine, #bGrid, #bDesc, #bRead, #bReadEdit, #bPlayShape'))
+            if (e.target.closest && e.target.closest('#bText, #bPlot, #bShapes, #bBuild, #bAi, #bAlign, #bOrder, #bArrangeOpen, #bMorphOpen, #bTools, #bStyle, #bLine, #bGrid, #bDesc, #bRead, #bReadEdit, #bPlayShape'))
                 return;
             closeAllPops();
         }, true);
@@ -75259,6 +75414,8 @@
                 redraw();
                 flashStatus(state.bucketRule === 'quadrant'
                 ? 'bucket: quadrant — drains and fills twice a lap, whatever the shape'
+                : state.bucketRule === 'atoms'
+                ? 'bucket: readers — one vessel a reader, each blind where another sees'
                 : 'bucket: radius — the leaf’s distance from the centre');
             });
         })();
@@ -75283,7 +75440,7 @@
         //     sum drifts off zero. That is the honest cost of the extra register.
         //   · HOW MANY LEAVES. Closure is an integer identity, not a limit, so it should hold
         //     at 32 leaves and at 512 alike — and where it stops holding is worth seeing.
-        // ── THE FOUR-ATOMS PANEL: the switchboard for drawFourAtoms ─────────────────
+        // ── THE FOUR-QUARTERS PANEL: the switchboard for drawFourAtoms ─────────────────
         // The button opens the OPTIONS (setEditPanel — one panel at a time); the overlay
         // itself is state.fourAtoms.on and survives the panel closing. Opening turns the
         // overlay on if it was off, because a panel of options about an invisible thing is
@@ -75421,8 +75578,8 @@
                     sync();
                     drawAll();
                     flashStatus(state.fourAtoms.on
-                    ? 'the four atoms — the line of sight about ' + (state.marks && state.marks.length ? 'm' + (state.marks.length + 1) : 'the shape\'s centre') + ', one colour per quarter-turn'
-                    : 'four atoms off');
+                    ? 'the four quarters — the line of sight about ' + (state.marks && state.marks.length ? 'm' + (state.marks.length + 1) : 'the shape\'s centre') + ', one colour per quarter-turn'
+                    : 'four quarters off');
                 });
                 sync();
                 window.__syncAtomsBtn = sync;
@@ -77495,6 +77652,168 @@
         // builder's own readout was removed by ruling. If it is ever wanted back, it belongs
         // wherever that one lands.
 
+        // --- plot popover (A SHAPE FROM A FORMULA) ---
+        // The geometry of a plot in page units: its samples under the map it was laid with (sp.plot.m, from its own
+        // units, y up, to the page's), each edge the cubic through them
+        function plotGeometry(spec) {
+            const { pts, closed } = plotSample(spec),
+                m = spec.m || [1, 0, 0, 1, 0, 0],
+                X = pts.map(q => m[0] * q[0] + m[2] * q[1] + m[4]),
+                Y = pts.map(q => m[1] * q[0] + m[3] * q[1] + m[5]);
+            return { X, Y, ctrl: plotCtrl(X, Y, closed), closed };
+        }
+        // a plotted shape's outline made again from its spec; the map is first found again from where the shape is
+        // now (its corners against its old samples), so a plot moved, turned or sized since keeps its place
+        function plotRelay(sp, spec) {
+            const lz = sp._lazy;
+            let m = sp.plot && sp.plot.m;
+            try {
+                if (lz && sp.plot) {
+                    const old = plotSample(sp.plot).pts;
+                    if (old.length === lz.x.length)
+                        m = morphAffineOf({ x: old.map(q => q[0]), y: old.map(q => q[1]) }, { x: lz.x, y: lz.y });
+                }
+            } catch (_) {}
+            const next = Object.assign({}, plotSpecOk(spec), { m: m || [1, 0, 0, 1, 0, 0] }),
+                g = plotGeometry(next);
+            makeLazy(sp, Float64Array.from(g.X), Float64Array.from(g.Y), 0, null, { exact: true, open: !g.closed, ctrl: g.ctrl });
+            sp.source = g.closed ? 'polygon' : 'line';
+            sp.plot = next;
+            return sp;
+        }
+        // a new plotted shape on the page: its own units laid so the plot is about a third of the view across,
+        // in the middle of it
+        function plotAddShape(spec) {
+            const S = plotSpecOk(spec),
+                { pts } = plotSample(S),
+                V = morphViewBox(),
+                ext = Math.max(1e-9, ...pts.map(q => Math.max(Math.abs(q[0]), Math.abs(q[1])))),
+                xs = pts.map(q => q[0]), ys = pts.map(q => q[1]),
+                mx = (Math.min(...xs) + Math.max(...xs)) / 2, my = (Math.min(...ys) + Math.max(...ys)) / 2,
+                k = 0.33 * Math.min(V[2] - V[0], V[3] - V[1]) / ext;
+            const next = Object.assign({}, S, { m: [k, 0, 0, k, (V[0] + V[2]) / 2 - k * mx, (V[1] + V[3]) / 2 - k * my] }),
+                g = plotGeometry(next),
+                sp = { refLength: 0, source: g.closed ? 'polygon' : 'line', dirty: false };
+            makeLazy(sp, Float64Array.from(g.X), Float64Array.from(g.Y), 0, null, { exact: true, open: !g.closed, ctrl: g.ctrl });
+            sp.plot = next;
+            sp.gname = 'plot';
+            if (!g.closed)
+                sp.fill = null;
+            state.subpaths.push(sp);
+            state.svgName = (state.svgName ? state.svgName + ' + ' : '') + 'plot';
+            state.selected.clear();
+            rebuildSignalSelect();
+            applyShapeSelection(new Set([state.subpaths.length - 1]));
+            updateStatus();
+            drawAll();
+            pushHistory();
+            return sp;
+        }
+        window.__plot = {
+            compile: src => plotCompile(src),
+            sample: spec => plotSample(spec),
+            add: spec => state.subpaths.indexOf(plotAddShape(spec)),
+            relay: (i, spec) => {
+                const sp = state.subpaths[i];
+                if (!sp || !sp.plot) return false;
+                plotRelay(sp, spec);
+                drawAll();
+                pushHistory();
+                return true;
+            },
+            of: i => state.subpaths[i] && state.subpaths[i].plot ? JSON.parse(JSON.stringify(state.subpaths[i].plot)) : null
+        }; // for the smoke test
+        (function() {
+            const pop = $('plotPop'), btn = $('bPlot'), src = $('plotSrc'), t0 = $('plotT0'), t1 = $('plotT1'),
+                nEl = $('plotN'), add = $('plotAdd'), status = $('plotStatus'), ex = $('plotEx');
+            if (!pop || !btn)
+                return;
+            const EX = {
+                rose: { src: 'r = cos(4t)', t1: '2π' },
+                blob: { src: 'r = 1 + 0.12cos(3t) + 0.08sin(5t + 1) + 0.05cos(9t)', t1: '2π' },
+                heart: { src: 'x = 16 sin(t)^3\ny = 13cos t - 5cos 2t - 2cos 3t - cos 4t', t1: '2π' },
+                wave: { src: 'y = sin x', t0: '-2π', t1: '2π' },
+                bridge: {
+                    src: '# a curve read at eight leaves, and the sum of the kernel at each, weighted by the readings\n'
+                        + 'F(t) = 95 + 16cos(3t - 0.4) + 12cos(5t + 0.9) + 7cos(9t + 0.3)\n'
+                        + 'K(p, N) = sin(N p/2) cos(p/2) / (N sin(p/2))\n'
+                        + 'a(j) = (2j + 1)π/8\n'
+                        + 'r = sum(j, 0, 7, F(a(j)) K(t - a(j), 8))', t1: '2π'
+                }
+            };
+            let editing = null; // the plotted shape the popover was opened on
+            function specNow() {
+                return { src: src.value, t0: t0.value, t1: t1.value, n: +nEl.value || 128 };
+            }
+            function check() {
+                try {
+                    const S = plotSample(specNow());
+                    status.style.color = '';
+                    status.textContent = (S.mode === 'polar' ? 'polar, r of t' : S.mode === 'graph' ? 'a graph, y of x' : 'a curve, x and y of t')
+                        + ' · ' + S.pts.length + ' samples · ' + (S.closed ? 'closed' : 'open');
+                    add.disabled = false;
+                    return true;
+                } catch (e) {
+                    status.style.color = '#e2563f';
+                    status.textContent = e.message;
+                    add.disabled = true;
+                    return false;
+                }
+            }
+            function openPop() {
+                closeAllPops();
+                const sel = selectedIndices(),
+                    sp = sel.length === 1 ? state.subpaths[sel[0]] : null;
+                editing = sp && sp.plot ? sp : null;
+                if (editing) {
+                    src.value = editing.plot.src;
+                    t0.value = editing.plot.t0;
+                    t1.value = editing.plot.t1;
+                    nEl.value = editing.plot.n;
+                } else if (!src.value.trim())
+                    src.value = EX.blob.src;
+                add.textContent = editing ? 'update' : 'add';
+                pop.querySelector('.pop-title').textContent = editing ? 'change the formula' : 'plot a formula';
+                check();
+                placePop(pop, btn);
+                src.focus();
+            }
+            btn.addEventListener('click', () => {
+                if (pop.classList.contains('open')) {
+                    closeAllPops();
+                    return;
+                }
+                openPop();
+            });
+            src.addEventListener('input', check);
+            for (const el of [t0, t1, nEl])
+                el.addEventListener('input', check);
+            ex.addEventListener('change', () => {
+                const e = EX[ex.value];
+                ex.value = '';
+                if (!e)
+                    return;
+                src.value = e.src;
+                t0.value = e.t0 || '0';
+                t1.value = e.t1 || '';
+                check();
+            });
+            add.addEventListener('click', () => {
+                if (!check())
+                    return;
+                if (editing && state.subpaths.indexOf(editing) >= 0) {
+                    plotRelay(editing, specNow());
+                    drawAll();
+                    pushHistory();
+                    flashStatus('plot redrawn');
+                } else {
+                    plotAddShape(specNow());
+                    flashStatus('plot added: select it and open ƒ again to change its formula');
+                }
+                closeAllPops();
+            });
+        })();
+
         // --- text popover ---
         (function() {
             const pop = $('textPop'),
@@ -78412,7 +78731,7 @@
                 '- the scene may also set "stops": [t, …], places on the clock (0–1) where playing waits for the viewer to click on: the beats of an explainer (put one at the end of each step\'s clips); "beats": [{"title", "text"}, …], one more than the stops, the words read beside each stretch between them (an explainer page shows them, **bold** allowed); and "camera": [{"t": 0–1, "fit": [shape numbers] or "all", "pad": 0.12}, …], the view framing those shapes at that time, moving smoothly from one key to the next (zoom in on a detail, then back out), holding before the first and after the last.',
                 '- emit: {"count": 2–200 (12), "spread": [across, up] in the shape\'s own heights (where copies are scattered, round where it is drawn), "vary": 0–1 (how much each copy\'s size, turn and motion differ, 0.5), "seed": a number} makes the morph many times over, each copy with its own phase: confetti, rain, snow, a flock of bubbles. Draw the one shape; emit does the rest.',
                 '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out", "anticipate" (draws back first, then goes), "overshoot" (goes past the next key and settles back), "elastic" (goes past and rings to rest) or null; the scene\'s "ease" takes the same names. Two keys with "anticipate" or "overshoot" give a simple morph the cartoon feel: use them for a thing that jumps, pops, snaps or lands. "straight": true blends each stretch from its two keys only, so a key repeated holds still (hold, move, hold: an explainer\'s steps); without it three keys or more flow smoothly through one another.',
-                '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out" | "draw"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), there until it plays then gone ("out"), or DRAWN ON over the window, its outline traced from its start like a pen and its fill coming in at the end, then staying ("draw"). A line (an open path: an arrow, an underline, a bracket) drawn on is a morph with one key and a "draw" clip. Clips one after another make a sequence.',
+                '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out" | "draw"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), there until it plays then gone ("out"), or DRAWN ON over the window, its outline traced from its start like a pen and its fill coming in at the end, then staying ("draw"). A line (an open path: an arrow, an underline, a bracket) drawn on is a morph with one key and a "draw" clip. Clips one after another make a sequence. A clip may instead say how it comes and goes apart, each over its own length (a share of the loop, like start and len): "in": {"kind": "fade" | "draw" | "cut", "len"} (unseen before the window, then fading in, drawn on, or there at once) and "out": {"kind": "fade" | "undraw" | "cut", "len"} (gone after the window, fading out, the pen going back, or gone at once); with no "in" it is there from the loop\'s start, with no "out" it stays. So a line can be drawn on and later fade: {"start": 0.2, "len": 0.5, "in": {"kind": "draw", "len": 0.1}, "out": {"kind": "fade", "len": 0.05}}.',
                 '- trail: {"kind": "echoes" | "ribbon", "len": 0–1}. fx: {"kind": "shimmer" | "grow" | "boil", "amount": 0–1}: a living outline, for flames, water, a heartbeat.',
                 '- lag: 0–0.9, the outline\'s parts arriving one after another (a flag, a jelly). follow: {"kind": "lag" | "spring", "amount": 0–1}, with parent: how loosely it is carried.',
                 '- parent: a MORPH number whose every move and turn carries this one (a moon on its planet, a rider on a horse). look: a morph number it keeps turning to face.',
@@ -78461,7 +78780,8 @@
                 'THE DRAWING (the importer silently drops anything else):',
                 '- Root: <svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 1000 1000\'>; x right, y DOWN.',
                 '- Only path, circle, ellipse, rect, polygon, polyline, line and text. No image, use, defs, style, group transforms, filters, masks or gradients.',
-                '- TEXT: <text x y font-size font-family font-weight fill text-anchor>words</text> is a label, ONE shape in the numbering, made into outlined letters when it opens. As a morph key with a clip it can be written on letter by letter ("show": "draw"), fade in ("in"), and be framed by the camera. Use it for titles, labels and short captions; one line each.',
+                '- TEXT: <text x y font-size font-family font-weight fill text-anchor>words</text> is a label, ONE shape in the numbering, made into outlined letters when it opens. As a morph key with a clip it can be written on letter by letter ("show": "draw"), fade in ("in"), and be framed by the camera. Use it for titles, labels and short captions; one line each. x_1, x^2, x_{max} and e^{iπ} are written lower and higher, smaller. A morph whose keys are DIFFERENT labels ("N = 8", then "N = 16") crossfades from one to the next at each key\'s time (its times, or evenly over its clip), the first coming in and the last going out as its clip says.',
+                '- PLOTS: any element with data-plot="…" is drawn by a formula, exactly: "r = 1 + 0.3cos(5t)" (polar, closed over a whole turn, y up), "x = …; y = …" (a curve in t) or "y = sin x" (a graph). Lines separated by ";" may define functions first ("F(t) = 95 + 16cos(3t); r = F(t)"); sum(j, 0, 7, …) adds terms; π, e, sin cos tan exp ln sqrt abs min max atan2. data-t0 and data-t1 its range ("2π"), data-n its samples (128), data-cx and data-cy where its origin is in the svg, data-scale svg units per unit (1). Give it stroke and fill like any shape. Use plots for anything mathematical: curves, graphs, waves, spirals, roses.',
                 '- Plain hex colours in fill and stroke attributes. Opacity only as fill-opacity, and only where something is really see-through.',
                 '- ONE CLOSED OUTLINE PER ELEMENT: each element is one shape, numbered by its order in the svg (0, 1, 2 …). A hole (a ring, a window in a wall) is a second subpath in the same path; never put two separate outlines in one path.',
                 '- Back to front: a full-bleed backdrop first (sky, wall, water), then the middle, then the things in front. Poster art, confident simplified forms, 10 to 60 elements, curves (C, Q) over many tiny segments.',
@@ -78558,7 +78878,7 @@
                     if (run.straight)
                         o.straight = true;
                     if (run.clip)
-                        o.clip = { start: r4(run.clip.start), len: r4(run.clip.len), show: run.clip.show || '' };
+                        o.clip = morphClipOut(run.clip, r4);
                     if (run.trail && run.trail.kind)
                         o.trail = { kind: run.trail.kind, len: r4(run.trail.len) };
                     if (run.fx && run.fx.kind)
@@ -81842,8 +82162,8 @@
                     const a = worldToPx(ax, ay, w, h);
                     if (hit) {
                         const p = worldToPx(hit.x + dx0, hit.y + dy0, w, h);
-                        // THE ATOMS AS THE READER RECEIVES THEM (Tom, Sep 7): with the four atoms on, each
-                        // ray takes the colour of the atom it lands in, so the half-turn shows the near
+                        // THE QUARTERS AS THE READER RECEIVES THEM (Tom, Sep 7): with the four quarters on, each
+                        // ray takes the colour of the quarter it lands in, so the half-turn shows the near
                         // two (I and IV, the reader's own neighbours) squeezed to its edges at the
                         // horizon and the far two (II and III) filling the middle of its view.
                         let rayCol = 'rgba(212,160,82,0.75)';
@@ -83276,6 +83596,7 @@
                 // the saved file, and cannot be" — which was true only because nothing wrote
                 // them. A reloaded globe is no longer adopted; it is the globe those numbers make.
                 build: sp.build || null,
+                plot: sp.plot || null, // A SHAPE FROM A FORMULA: the program and the map it was laid with
                 // motion / leafMotion are no longer persisted: the animation feature is
                 // removed, and saving its structs would smuggle it back in through restore.
                 leafColor: sp.leafColor || null,
@@ -83392,6 +83713,7 @@
                 note: sp.note || null,
                 tag: sp.tag || null,
                 build: sp.build || null,
+                plot: sp.plot || null, // A SHAPE FROM A FORMULA
                 // saves from before the builder have none
                 // Saves from before the animation feature was removed may carry motion
                 // structs; they are deliberately dropped so nothing ever animates again.
@@ -83412,6 +83734,356 @@
         // (morphSaveOwn); the bar's ease, hold, gravity and wind, the loop's length and the path every morph
         // without its own shares. The player runs the editor's engine on it (tools/build-player.mjs), so it
         // plays as it plays here, and draws the curves at whatever size it is shown.
+        // ── A SHAPE FROM A FORMULA (28 Oct 2026, Tom: "1,2,3", after the Tangent Bridge explainer had to be
+        // written as code because its curves are formulas) ─────────────────────────────────────────────────────
+        // A plot is a shape whose outline is computed: a few lines of a small language, read here and nowhere
+        // else (never eval), sampled over a range of t and laid as an exact shape whose edges are cubics through
+        // the samples (Catmull–Rom), so 128 samples already draw a smooth curve. The program is a list of
+        // definitions, one a line or separated by ';':
+        //     F(t) = 95 + 16cos(3t - 0.4) + 12cos(5t + 0.9)       a function of its own
+        //     a(j) = (2j + 1)π/8                                   another
+        //     r = sum(j, 0, 7, F(a(j)) * K(t - a(j), 8))           what is drawn
+        // and what is drawn is r (polar: the point at angle t, distance r, y up, closed over a whole turn), or x and
+        // y (a curve in t), or y alone (a graph: x runs over the range, y up). Numbers, + − × ÷ ^ (right to
+        // left), brackets, juxtaposition as multiplication (16cos(3t), 2π; cos 2t is cos(2t), cos t/2 is cos(t)/2), the constants π (pi), τ (tau) and e,
+        // the usual functions (sin cos tan asin acos atan atan2 sinh cosh tanh exp ln log sqrt abs floor ceil
+        // round min max pow hypot sign mod), and sum(j, from, to, expression) with j a whole number. θ is t.
+        // The program and its range ride on the shape (sp.plot), through undo and the autosave, so the plot
+        // panel can open on a plot and change it; a scene's svg may carry one (scenePlotOut).
+        const PLOT_FNS = {
+            sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan,
+            atan2: Math.atan2, sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh, exp: Math.exp, ln: Math.log,
+            log: Math.log10, sqrt: Math.sqrt, abs: Math.abs, floor: Math.floor, ceil: Math.ceil, round: Math.round,
+            min: Math.min, max: Math.max, pow: Math.pow, hypot: Math.hypot, sign: Math.sign,
+            mod: (a, b) => a - b * Math.floor(a / b)
+        };
+        const PLOT_CONSTS = { pi: Math.PI, 'π': Math.PI, tau: 2 * Math.PI, 'τ': 2 * Math.PI, e: Math.E };
+        function plotTokens(src) {
+            const T = [],
+                s = String(src).replace(/[−–]/g, '-').replace(/[×·⋅]/g, '*').replace(/÷/g, '/');
+            let i = 0;
+            while (i < s.length) {
+                const c = s[i];
+                if (c === '\n' || c === ';') {
+                    T.push({ k: ';', at: i++ });
+                    continue;
+                }
+                if (/\s/.test(c)) {
+                    i++;
+                    continue;
+                }
+                if (c === '#') { // a comment to the end of the line
+                    while (i < s.length && s[i] !== '\n')
+                        i++;
+                    continue;
+                }
+                const num = /^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(s.slice(i));
+                if (num) {
+                    T.push({ k: 'n', v: +num[0], at: i });
+                    i += num[0].length;
+                    continue;
+                }
+                const nm = /^[\p{L}_][\p{L}\p{N}_]*/u.exec(s.slice(i));
+                if (nm) {
+                    // a run of letters is one name, but πt or 2πr reads as π times t: split a leading π or τ off
+                    let w = nm[0];
+                    if (w.length > 1 && /^[πτ]/.test(w)) w = w[0];
+                    T.push({ k: 'id', v: w, at: i });
+                    i += w.length;
+                    continue;
+                }
+                if ('+-*/^(),='.includes(c)) {
+                    T.push({ k: c, at: i++ });
+                    continue;
+                }
+                throw new Error('“' + c + '” is not part of a formula (at ' + (i + 1) + ')');
+            }
+            return T;
+        }
+        // the program read: { fns: name → {params, body}, vars: name → body }, each body a function of a scope
+        function plotCompile(src) {
+            const T = plotTokens(src),
+                stmts = [];
+            let cur = [];
+            for (const t of T)
+                if (t.k === ';') {
+                    if (cur.length) stmts.push(cur);
+                    cur = [];
+                } else cur.push(t);
+            if (cur.length) stmts.push(cur);
+            // the names that are functions, the program's own as well as the built-in ones, so f(x) is a call and
+            // t(1 + t) is t times (1 + t)
+            const own = new Set();
+            for (const st of stmts)
+                if (st[0] && st[0].k === 'id' && st[1] && st[1].k === '(')
+                    own.add(st[0].v);
+            const fns = {}, vars = {};
+            for (const st of stmts) {
+                let p = 0;
+                const peek = () => st[p], next = () => st[p++],
+                    want = k => {
+                        const t = next();
+                        if (!t || t.k !== k)
+                            throw new Error('expected “' + k + '”' + (t ? ' at ' + (t.at + 1) : ' at the end of a line'));
+                        return t;
+                    };
+                const head = want('id');
+                let params = null;
+                if (peek() && peek().k === '(') {
+                    next();
+                    params = [];
+                    while (peek() && peek().k !== ')') {
+                        params.push(want('id').v);
+                        if (peek() && peek().k === ',') next();
+                    }
+                    want(')');
+                }
+                want('=');
+                const isFn = n => own.has(n) || n in PLOT_FNS || n === 'sum';
+                // expression := term (('+'|'-') term)*; term := unary (('*'|'/'|juxtaposed) unary)*;
+                // unary := '-' unary | power; power := atom ('^' unary)?
+                function expr() {
+                    let a = term();
+                    for (;;) {
+                        const t = peek();
+                        if (t && (t.k === '+' || t.k === '-')) {
+                            next();
+                            const b = term(), x = a;
+                            a = t.k === '+' ? s => x(s) + b(s) : s => x(s) - b(s);
+                        } else return a;
+                    }
+                }
+                function term() {
+                    let a = unary();
+                    for (;;) {
+                        const t = peek();
+                        if (t && (t.k === '*' || t.k === '/')) {
+                            next();
+                            const b = unary(), x = a;
+                            a = t.k === '*' ? s => x(s) * b(s) : s => x(s) / b(s);
+                        } else if (t && (t.k === 'n' || t.k === 'id' || t.k === '(')) { // 2π, 16cos(3t), (a)(b)
+                            const b = power(), x = a;
+                            a = s => x(s) * b(s);
+                        } else return a;
+                    }
+                }
+                function unary() {
+                    if (peek() && peek().k === '-') {
+                        next();
+                        const a = unary();
+                        return s => -a(s);
+                    }
+                    if (peek() && peek().k === '+') {
+                        next();
+                        return unary();
+                    }
+                    return power();
+                }
+                function power() {
+                    const a = atom();
+                    if (peek() && peek().k === '^') {
+                        next();
+                        const b = unary();
+                        return s => Math.pow(a(s), b(s));
+                    }
+                    return a;
+                }
+                function args() {
+                    want('(');
+                    const out = [];
+                    if (peek() && peek().k === ')') {
+                        next();
+                        return out;
+                    }
+                    for (;;) {
+                        out.push(expr());
+                        const t = next();
+                        if (t && t.k === ')') return out;
+                        if (!t || t.k !== ',') throw new Error('expected “,” or “)”' + (t ? ' at ' + (t.at + 1) : ''));
+                    }
+                }
+                function atom() {
+                    const t = next();
+                    if (!t) throw new Error('a line ends where a number or a name was expected');
+                    if (t.k === 'n') {
+                        const v = t.v;
+                        return () => v;
+                    }
+                    if (t.k === '(') {
+                        const a = expr();
+                        want(')');
+                        return a;
+                    }
+                    if (t.k !== 'id') throw new Error('“' + t.k + '” at ' + (t.at + 1) + ' where a number or a name was expected');
+                    const n = t.v === 'θ' || t.v === 'theta' ? 't' : t.v;
+                    if (n === 'sum' && peek() && peek().k === '(') { // sum(j, from, to, expression)
+                        next();
+                        const j = want('id').v;
+                        want(',');
+                        const lo = expr();
+                        want(',');
+                        const hi = expr();
+                        want(',');
+                        const body = expr();
+                        want(')');
+                        return s => {
+                            const a = Math.round(lo(s)), b = Math.round(hi(s));
+                            if (!(b - a < 100000)) throw new Error('a sum of more than 100,000 terms');
+                            const inner = Object.create(s);
+                            let acc = 0;
+                            for (let k = a; k <= b; k++) {
+                                inner[j] = k;
+                                acc += body(inner);
+                            }
+                            return acc;
+                        };
+                    }
+                    if (isFn(n) && peek() && peek().k === '(') {
+                        const A = args();
+                        if (own.has(n))
+                            return s => {
+                                const f = fns[n];
+                                if (f.params.length !== A.length) throw new Error(n + ' takes ' + f.params.length + ' value' + (f.params.length === 1 ? '' : 's'));
+                                if ((s.$depth || 0) > 200) throw new Error(n + ' calls itself without end');
+                                const inner = Object.create(s.$root);
+                                inner.$depth = (s.$depth || 0) + 1;
+                                f.params.forEach((q, i) => { inner[q] = A[i](s); });
+                                return f.body(inner);
+                            };
+                        const f = PLOT_FNS[n];
+                        return s => f(...A.map(a => a(s)));
+                    }
+                    if (n in PLOT_FNS && peek() && (peek().k === 'n' || peek().k === 'id')) { // cos t, sin 2t: the
+                        const f = PLOT_FNS[n]; //                       juxtaposed product after it, up to an operator
+                        let a = power();
+                        while (peek() && (peek().k === 'n' || peek().k === 'id')) {
+                            const x = a, b = power();
+                            a = s => x(s) * b(s);
+                        }
+                        return s => f(a(s));
+                    }
+                    if (n in PLOT_CONSTS) {
+                        const v = PLOT_CONSTS[n];
+                        return () => v;
+                    }
+                    return s => {
+                        const v = s[n];
+                        if (typeof v === 'number') return v;
+                        if (typeof v === 'function') return v(s);
+                        throw new Error('“' + n + '” is not defined');
+                    };
+                }
+                const body = expr();
+                if (p < st.length) throw new Error('“' + (st[p].v != null ? st[p].v : st[p].k) + '” at ' + (st[p].at + 1) + ' was not expected');
+                if (params) fns[head.v] = { params, body };
+                else vars[head.v === 'θ' || head.v === 'theta' ? 't' : head.v] = body;
+            }
+            const mode = vars.r ? 'polar' : vars.x && vars.y ? 'curve' : vars.y ? 'graph' : null;
+            if (!mode) throw new Error('nothing to draw: define r (polar), x and y (a curve in t), or y (a graph in x)');
+            return { fns, vars, mode };
+        }
+        // one point of a compiled plot at t, in the plot's own units (y up)
+        function plotPointAt(P, t) {
+            const root = { t };
+            root.$root = root;
+            if (P.mode === 'graph') root.x = t;
+            const memo = {};
+            for (const [n, f] of Object.entries(P.vars))
+                if (n !== 't' && !(P.mode === 'graph' && n === 'x'))
+                    Object.defineProperty(root, n, {
+                        get() {
+                            if (n in memo) {
+                                if (memo[n] === undefined) throw new Error(n + ' is defined by itself');
+                                return memo[n];
+                            }
+                            memo[n] = undefined;
+                            return (memo[n] = f(root));
+                        }, configurable: true
+                    });
+            if (P.mode === 'polar') {
+                const r = root.r;
+                return [r * Math.cos(t), r * Math.sin(t)];
+            }
+            if (P.mode === 'graph') return [t, root.y];
+            return [root.x, root.y];
+        }
+        // a value given as a formula of constants alone ("2π", "-1/2"), or the fallback
+        function plotConst(v, dflt) {
+            if (v == null || v === '') return dflt;
+            if (typeof v === 'number') return v;
+            try {
+                const P = plotCompile('y = ' + v);
+                const out = P.vars.y({ $root: null });
+                return Number.isFinite(out) ? out : dflt;
+            } catch (_) {
+                return dflt;
+            }
+        }
+        // the spec made whole: { src, t0, t1, n } (the range as written, so "2π" stays 2π)
+        function plotSpecOk(o) {
+            if (!o || typeof o.src !== 'string' || !o.src.trim()) return null;
+            const n = Math.round(plotConst(o.n, 128));
+            return {
+                src: o.src.slice(0, 8000),
+                t0: o.t0 != null && o.t0 !== '' ? String(o.t0) : '0',
+                t1: o.t1 != null && o.t1 !== '' ? String(o.t1) : '',
+                n: Math.max(8, Math.min(2048, Number.isFinite(n) ? n : 128))
+            };
+        }
+        // the samples of a plot, in its own units: { pts: [[x, y]…], closed } (a polar plot over a whole turn,
+        // or a curve that comes back to its start, is closed; its last sample, the first again, is dropped).
+        // Throws with a reader's message when the program does not read or a point is not a number.
+        function plotSample(spec) {
+            const S = plotSpecOk(spec);
+            if (!S) throw new Error('no formula');
+            const P = plotCompile(S.src),
+                t0 = plotConst(S.t0, 0),
+                t1 = plotConst(S.t1, P.mode === 'polar' ? 2 * Math.PI : P.mode === 'graph' ? 10 : 1);
+            if (!(t1 > t0)) throw new Error('the range runs from ' + t0 + ' to ' + t1 + ': it must go up');
+            const pts = [];
+            const ok = q => Number.isFinite(q[0]) && Number.isFinite(q[1]);
+            for (let i = 0; i <= S.n; i++) {
+                const t = t0 + (t1 - t0) * i / S.n;
+                let q = plotPointAt(P, t);
+                if (!ok(q)) { // 0/0 where a formula has a hole it fills (sin x / x at 0): the limit, from both sides
+                    const h = 1e-7 * (t1 - t0), a = plotPointAt(P, t - h), b = plotPointAt(P, t + h);
+                    if (ok(a) && ok(b)) q = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+                }
+                if (!ok(q))
+                    throw new Error('at t = ' + (+(t0 + (t1 - t0) * i / S.n).toPrecision(4)) + ' the formula gives no number');
+                pts.push(q);
+            }
+            const span = Math.max(1e-12, ...pts.map(q => Math.abs(q[0])), ...pts.map(q => Math.abs(q[1])));
+            const closed = (P.mode === 'polar' && Math.abs(t1 - t0 - 2 * Math.PI) < 1e-9)
+                || (P.mode === 'curve' && Math.hypot(pts[0][0] - pts[S.n][0], pts[0][1] - pts[S.n][1]) < 1e-9 * span);
+            if (closed) pts.pop();
+            return { pts, closed, mode: P.mode };
+        }
+        // the cubic of each edge through the samples (Catmull–Rom, a sixth of the neighbours' chord): per edge
+        // [c1x, c1y, c2x, c2y], the curve-edge record exact shapes keep (CURVE EDGES)
+        function plotCtrl(X, Y, closed) {
+            const n = X.length, C = [], at = i => closed ? (i + n) % n : Math.max(0, Math.min(n - 1, i));
+            for (let i = 0; i < (closed ? n : n - 1); i++) {
+                const a = at(i - 1), b = at(i), c = at(i + 1), d = at(i + 2);
+                C.push([X[b] + (X[c] - X[a]) / 6, Y[b] + (Y[c] - Y[a]) / 6, X[c] - (X[d] - X[b]) / 6, Y[c] - (Y[d] - Y[b]) / 6]);
+            }
+            if (!closed) C.push(null);
+            return C;
+        }
+        // the svg path of a plot: its samples under (x, y) ↦ (cx + s·x, cy − s·y), edges as cubics
+        function plotPathD(spec, cx, cy, s) {
+            const { pts, closed } = plotSample(spec),
+                f = v => +v.toFixed(3),
+                X = pts.map(q => cx + s * q[0]), Y = pts.map(q => cy - s * q[1]),
+                C = plotCtrl(X, Y, closed);
+            let d = 'M' + f(X[0]) + ' ' + f(Y[0]);
+            for (let i = 0; i < C.length; i++)
+                if (C[i]) {
+                    const k = (i + 1) % X.length;
+                    d += 'C' + f(C[i][0]) + ' ' + f(C[i][1]) + ' ' + f(C[i][2]) + ' ' + f(C[i][3]) + ' ' + f(X[k]) + ' ' + f(Y[k]);
+                }
+            return d + (closed ? 'Z' : '');
+        }
         function morphTvfScene() {
             const runOf = new Map(morphRuns.map((r, i) => [r.sp, i])),
                 fillOf = f => state.showFills !== false && f && f.color ? { color: f.color, opacity: f.opacity != null ? +f.opacity : 1 } : null,
@@ -83493,7 +84165,7 @@
                 laps: r.laps || 1,
                 start: r.at != null ? +r.at : null,
                 times: r.times ? r.times.map(Number) : null, // KEYS AT CHOSEN TIMES
-                clip: r.clip ? { start: +r.clip.start, len: +r.clip.len, show: r.clip.show || '' } : null, // A MORPH THAT PLAYS ONCE
+                clip: r.clip ? morphClipOut(r.clip, v => v) : null, // A MORPH THAT PLAYS ONCE (with its in and out)
                 eases: r.eases ? r.eases.slice() : null,
                 straight: !!r.straight, // STRAIGHT FROM KEY TO KEY
                 trail: r.trail ? { kind: r.trail.kind || '', len: r.trail.len != null ? +r.trail.len : 0.5 } : null,
@@ -83523,7 +84195,7 @@
             run.at = o.start != null ? +o.start : null;
             run.follow = o.follow && MORPH_FOLLOW.includes(o.follow.kind) ? { kind: o.follow.kind, amount: Math.max(0, Math.min(1, +o.follow.amount || 0)) } : null;
             run.times = morphTimesOk(o.times, run.keys.length) ? o.times.map(Number) : null; // KEYS AT CHOSEN TIMES
-            run.clip = morphClipOk(o.clip) ? { start: +o.clip.start, len: +o.clip.len, show: MORPH_SHOWS.includes(o.clip.show) ? o.clip.show : '' } : null; // A MORPH THAT PLAYS ONCE
+            run.clip = morphClipNorm(o.clip); // A MORPH THAT PLAYS ONCE, and IN AND OUT
             run.eases = morphEasesOk(o.eases, run.keys.length) ? o.eases.slice() : null;
             run.straight = !!o.straight; // STRAIGHT FROM KEY TO KEY
             run.trail = o.trail ? { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: +o.trail.len } : null;
@@ -85478,9 +86150,9 @@
         // ── THE EXIT IS THE CORNER ──────────────────────────────────────────────────
         // The last identification. The round maze removed the exit as a PLACE (start
         // and finish identified — the goal became a class); this removes it as an
-        // EVENT. The certified lap is handed to the observation atom — the same
+        // EVENT. The certified lap is handed to the reader of The Observation Atom — the same
         // base rule that prices every contour in the editor — and the DOOR is a cell of
-        // that atom's alphabet: the free symbol, the corner of the ladder, where the
+        // that reader's alphabet: the free symbol, the corner of the ladder, where the
         // register is silent and the circle lives. The walker leaves the labyrinth
         // when its journey's sentence sits at the corner: closure holds (defect ~ 0)
         // and the radial stream is mostly the unchanged symbol. Not "you are at the
@@ -85947,7 +86619,7 @@
         // and the whole tower reads the route: the base rule prices its radial
         // sentence, the tangent ring counts its turning, the ray rings read its
         // class about the marks (the wound core at +1, the rooms as spectators),
-        // the area atom its order. The walk becomes a shape; the shape was always
+        // the area reader its order. The walk becomes a shape; the shape was always
         // a walk.
         function walkerImportJourney() {
             const cand = _walk.tags.filter(t => t.lapPath);
@@ -86204,7 +86876,7 @@
                 runs: morphRuns.map(r => ({ K: r.keys.length, exact: !!r.exact, phase: +r.phase || 0, rate: r.rate || 1, spin: +r.spin || 0,
                     parent: r.parent ? morphRuns.indexOf(r.parent) : -1, at: r.at, follow: r.follow ? r.follow.kind : null, look: r.look ? morphRuns.indexOf(r.look) : -1,
                     turn: r.exact ? (r.pose ? Math.atan2(r.pose.y[0] - exactCentre(r.pose).y, r.pose.x[0] - exactCentre(r.pose).x) : null) : null, fx: r.fx ? r.fx.kind : null,
-                    laps: r.laps || 1, path: !!r.path, times: morphKeyTimes(r).slice(), clip: r.clip ? { start: r.clip.start, len: r.clip.len, show: r.clip.show || '' } : null, fade: r.sp && r.sp._fade != null ? r.sp._fade : 1, eases: r.eases ? r.eases.slice() : null, trail: r.trail ? r.trail.kind : null, fill: r.sp && r.sp.fill ? r.sp.fill.color : null,
+                    laps: r.laps || 1, path: !!r.path, times: morphKeyTimes(r).slice(), clip: r.clip ? morphClipOut(r.clip, v => v) : null, fade: r.sp && r.sp._fade != null ? r.sp._fade : 1, eases: r.eases ? r.eases.slice() : null, trail: r.trail ? r.trail.kind : null, fill: r.sp && r.sp.fill ? r.sp.fill.color : null,
                     cx: r.exact ? (r.pose ? exactCentre(r.pose).x : null) : (r.sp.leafX ? r.sp.leafX.reduce((a, b) => a + b) / r.sp.leafX.length : null),
                     cy: r.exact ? (r.pose ? exactCentre(r.pose).y : null) : (r.sp.leafY ? r.sp.leafY.reduce((a, b) => a + b) / r.sp.leafY.length : null),
                     x0: r.exact ? (r.pose ? r.pose.x[0] : null) : r.sp.leafX[0], y0: r.exact ? (r.pose ? r.pose.y[0] : null) : r.sp.leafY[0],
@@ -87788,9 +88460,128 @@
                 });
                 return { svg: new XMLSerializer().serializeToString(root), labels };
             }
+            // A SHAPE FROM A FORMULA in a scene (28 Oct 2026, Tom: "1,2,3"): any element of the svg with a data-plot
+            // attribute (the program, A SHAPE FROM A FORMULA) is drawn by it: data-t0 and data-t1 its range (formulas of
+            // constants, "2π"), data-n its samples (128), data-cx and data-cy where its origin sits in the svg (0, 0)
+            // and data-scale how many svg units one of its own is (1). It is written in its place as a path of cubics
+            // through the samples, keeping the element's paint, and the shape it becomes keeps its program (sp.plot),
+            // so the plot panel can open on it in the editor.
+            function scenePlotOut(svgText) {
+                if (!/data-plot\s*=/.test(svgText))
+                    return { svg: svgText, plots: [] };
+                let doc;
+                try {
+                    doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+                } catch (_) {
+                    return { svg: svgText, plots: [] };
+                }
+                const root = doc.documentElement,
+                    els = root && root.querySelectorAll ? [...root.querySelectorAll('[data-plot]')] : [],
+                    plots = [];
+                els.forEach((el, j) => {
+                    const g = k => el.getAttribute('data-' + k),
+                        spec = plotSpecOk({ src: g('plot'), t0: g('t0'), t1: g('t1'), n: g('n') }),
+                        cx = plotConst(g('cx'), 0), cy = plotConst(g('cy'), 0), sc = plotConst(g('scale'), 1);
+                    let d = 'M0 0Z';
+                    try {
+                        if (spec)
+                            d = plotPathD(spec, cx, cy, sc);
+                    } catch (e) {
+                        console.warn('a plot in the scene does not draw: ' + e.message);
+                    }
+                    const path = doc.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    for (const a of el.attributes)
+                        if (!/^(data-.*|d|points|x|y|width|height|cx|cy|r|rx|ry|x1|y1|x2|y2)$/.test(a.name))
+                            path.setAttribute(a.name, a.value);
+                    path.setAttribute('id', 'tvf-plot-' + j);
+                    path.setAttribute('d', d);
+                    el.parentNode.replaceChild(path, el);
+                    if (spec)
+                        plots.push({ id: 'tvf-plot-' + j, spec, cx, cy, sc });
+                });
+                return { svg: new XMLSerializer().serializeToString(root), plots };
+            }
+            // …and the shapes they became given their programs back, with the map from the plot's own units (y up) to
+            // the page's: found from the samples against the corners the svg reader laid
+            function scenePlotsIn(S, P) {
+                if (!P || !P.plots.length)
+                    return;
+                const byId = new Map(P.plots.map(q => [q.id, q]));
+                for (const sp of S) {
+                    const q = sp && byId.get(sp.gname);
+                    if (!q)
+                        continue;
+                    sp.gname = 'plot';
+                    const lz = sp._lazy;
+                    try {
+                        const pts = plotSample(q.spec).pts;
+                        if (lz && lz.x.length === pts.length) {
+                            sp.plot = Object.assign({}, q.spec, { m: morphAffineOf({ x: pts.map(v => v[0]), y: pts.map(v => v[1]) }, { x: lz.x, y: lz.y }) });
+                            plotRelay(sp, sp.plot); // its corners exactly the formula's, not the svg's rounded ones
+                        }
+                    } catch (_) {}
+                }
+            }
+            // SIMPLE MATHS IN A LABEL (28 Oct 2026, Tom: "1,2,3"): x_1 and x^2 (one character) or x_{max} and e^{iπ}
+            // (braced) are written lower and higher, at seven tenths of the size; the rest as it is. The runs of a
+            // label: [{str, k: size factor, dy: baseline shift in sizes, down}]
+            function sceneTextRuns(str) {
+                const out = [];
+                let i = 0, plain = '';
+                const flush = () => {
+                    if (plain) out.push({ str: plain, k: 1, dy: 0 });
+                    plain = '';
+                };
+                while (i < str.length) {
+                    const c = str[i];
+                    if ((c === '_' || c === '^') && i + 1 < str.length) {
+                        let body;
+                        if (str[i + 1] === '{') {
+                            const j = str.indexOf('}', i + 2);
+                            if (j < 0) {
+                                plain += c;
+                                i++;
+                                continue;
+                            }
+                            body = str.slice(i + 2, j);
+                            i = j + 1;
+                        } else {
+                            body = [...str.slice(i + 1)][0];
+                            i += 1 + body.length;
+                        }
+                        flush();
+                        if (body)
+                            out.push({ str: body, k: 0.7, dy: c === '_' ? 0.22 : -0.38 });
+                        continue;
+                    }
+                    plain += c;
+                    i++;
+                }
+                flush();
+                return out;
+            }
             // a text's rings in the svg's units, its baseline at (x, y): each outer ring followed by its holes, outer
-            // rings left to right (so a label drawn on is written left to right)
+            // rings left to right (so a label drawn on is written left to right), its runs set one after another
             function sceneTextRings(str, size, family, sw, anchor, x, y) {
+                const runs = sceneTextRuns(str);
+                if (runs.length === 1 && runs[0].k === 1)
+                    return sceneTextRun(str, size, family, sw, anchor, x, y);
+                const probe = document.createElement('canvas').getContext('2d'),
+                    W = runs.map(r => {
+                        probe.font = sw + 512 + 'px ' + family;
+                        return probe.measureText(r.str).width * size * r.k / 512;
+                    }),
+                    total = W.reduce((a, b) => a + b, 0);
+                let ox = x - (anchor === 'middle' ? total / 2 : anchor === 'end' ? total : 0);
+                const out = [];
+                runs.forEach((r, i) => {
+                    out.push(...sceneTextRun(r.str, size * r.k, family, sw, 'start', ox, y + r.dy * size));
+                    ox += W[i];
+                });
+                return out;
+            }
+            // one run of a text, traced
+            function sceneTextRun(str, size, family, sw, anchor, x, y) {
                 const fontPx = 512,
                     probe = document.createElement('canvas').getContext('2d');
                 probe.font = sw + fontPx + 'px ' + family;
@@ -87873,20 +88664,71 @@
             // a morph naming a label made once a part: every key a label with as many parts (or one key), each copy
             // taking the next part of each; drawn on, the parts take the window in turn, left to right
             window.__sceneLabelMorphs = (d, L) => sceneLabelMorphs(d, L);
+            window.__sceneTextBox = str => { // the vertical extent of a label's rings at 40 px, baseline 100 (the smoke test)
+                let y0 = Infinity, y1 = -Infinity;
+                for (const r of sceneTextRings(str, 40, 'sans-serif', '', 'start', 0, 100))
+                    for (const m of r.matchAll(/[ML]([-\d.]+) ([-\d.]+)/g)) {
+                        y0 = Math.min(y0, +m[2]);
+                        y1 = Math.max(y1, +m[2]);
+                    }
+                return [y0, y1];
+            };
             function sceneLabelMorphs(d, L) {
                 const labelAt = new Map(L.num.map((n, j) => [n, j]).filter(([n]) => n >= 0));
                 if (!labelAt.size || !Array.isArray(d.morphs))
                     return d;
                 const out = JSON.parse(JSON.stringify(d)),
-                    add = [];
-                out.morphs.forEach(e => {
+                    add = [],
+                    drop = new Set();
+                out.morphs.forEach((e, ei) => {
                     const keys = Array.isArray(e) ? e : e && e.keys;
                     if (!Array.isArray(keys) || !keys.length || !keys.every(k => labelAt.has(k)))
                         return;
+                    // LABELS INTO LABELS (28 Oct 2026, Tom: "1,2,3"): a morph between different labels ("N = 8", then
+                    // "N = 16") is a crossfade, each label seen from its key's time to the next's, the two overlapping
+                    // as one fades into the other; the first comes in and the last goes out as the entry's clip says.
+                    // Letters have no outline to morph between ("8" and "16" are not one shape twice), and a reader
+                    // follows a number that turns into another.
+                    if (keys.length > 1 && new Set(keys).size > 1) {
+                        const c = !Array.isArray(e) && morphClipOk(e.clip) ? e.clip : null,
+                            cs = c ? +c.start : 0,
+                            cl = c ? +c.len : 1,
+                            n = keys.length,
+                            T = !Array.isArray(e) && Array.isArray(e.times) && e.times.length === n
+                                ? e.times.map(t => cs + cl * Math.max(0, Math.min(1, +t)))
+                                : keys.map((_, k) => cs + cl * k / n),
+                            end = cs + cl;
+                        drop.add(ei);
+                        // the crossfade at each key after the first: a thirtieth of the loop, or a quarter of the
+                        // shorter stretch beside it
+                        const span = k => (k + 1 < n ? T[k + 1] : end) - T[k],
+                            X = keys.map((_, k) => k ? Math.min(0.03, span(k - 1) / 4, span(k) / 4) : 0);
+                        keys.forEach((k, i) => {
+                            const s0 = i ? Math.max(0, T[i] - X[i] / 2) : cs,
+                                s1 = i + 1 < n ? Math.min(1, T[i + 1] + X[i + 1] / 2) : end;
+                            if (!(s1 > s0))
+                                return;
+                            const clip = { start: +s0.toFixed(6), len: +(s1 - s0).toFixed(6) };
+                            if (i)
+                                clip.in = { kind: 'fade', len: X[i] };
+                            else if (c && (c.in || ['in', 'fade', 'draw', 'during'].includes(c.show)))
+                                clip.in = c.in || { kind: c.show === 'draw' ? 'draw' : c.show === 'during' ? 'cut' : 'fade', len: c.show === 'draw' ? (T[1] - cs) / 2 : c.show === 'during' ? 0 : cl * MORPH_FADE };
+                            if (i + 1 < n)
+                                clip.out = { kind: 'fade', len: X[i + 1] };
+                            else if (c && (c.out || ['out', 'fade', 'during'].includes(c.show)))
+                                clip.out = c.out || { kind: c.show === 'during' ? 'cut' : 'fade', len: c.show === 'during' ? 0 : cl * MORPH_FADE };
+                            const j = labelAt.get(k);
+                            for (const part of [k].concat(L.extra[j]))
+                                add.push({ keys: [part], clip: JSON.parse(JSON.stringify(clip)) });
+                        });
+                        return;
+                    }
                     const P = L.parts[labelAt.get(keys[0])].length;
                     if (P < 2 || !keys.every(k => L.parts[labelAt.get(k)].length === P))
                         return;
-                    const c = !Array.isArray(e) && e.clip && e.clip.show === 'draw' ? e.clip : null;
+                    const c = !Array.isArray(e) && e.clip && e.clip.show === 'draw' && !e.clip.in ? e.clip : null,
+                        ci = !Array.isArray(e) && morphClipOk(e.clip) && e.clip.in && e.clip.in.kind === 'draw' ? e.clip : null,
+                        inL = ci ? Math.max(1e-4, Math.min(+ci.len, +ci.in.len || +ci.len)) : 0;
                     for (let g = 1; g < P; g++) {
                         const k2 = keys.map(k => L.extra[labelAt.get(k)][g - 1]);
                         if (Array.isArray(e))
@@ -87896,13 +88738,17 @@
                             copy.keys = k2;
                             if (c)
                                 copy.clip = { start: +c.start + g * c.len / P, len: c.len / P, show: 'draw' };
+                            else if (ci) // IN AND OUT: each part drawn on in turn over the in, all going together at the end
+                                copy.clip = Object.assign({}, ci, { start: +ci.start + g * inL / P, len: +ci.len - g * inL / P, in: { kind: 'draw', len: inL / P } });
                             add.push(copy);
                         }
                     }
                     if (c)
                         e.clip = { start: +c.start, len: c.len / P, show: 'draw' };
+                    else if (ci)
+                        e.clip = Object.assign({}, ci, { in: { kind: 'draw', len: inL / P } });
                 });
-                out.morphs = out.morphs.concat(add);
+                out.morphs = out.morphs.filter((_, i) => !drop.has(i)).concat(add);
                 if (Array.isArray(out.camera)) // a camera framing a label frames all of it
                     for (const k of out.camera)
                         if (k && Array.isArray(k.fit))
@@ -88117,7 +88963,7 @@
                 if (has('straight')) // STRAIGHT FROM KEY TO KEY
                     run.straight = !!o.straight;
                 if (has('clip'))
-                    run.clip = morphClipOk(o.clip) ? { start: +o.clip.start, len: +o.clip.len, show: MORPH_SHOWS.includes(o.clip.show) ? o.clip.show : '' } : null; // A MORPH THAT PLAYS ONCE
+                    run.clip = morphClipNorm(o.clip); // A MORPH THAT PLAYS ONCE, and IN AND OUT
                 if (o.trail)
                     run.trail = { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: clamp(o.trail.len, 0, 1, 0.5) };
                 if (o.path != null && S[o.path])
@@ -88145,13 +88991,15 @@
                     morphAbandon();
                 const keepExact = state.svgExact;
                 state.svgExact = d.exact !== false;
-                const T = sceneTextOut(d.svg); // TEXT IN A SCENE: labels as shapes
+                const PL = scenePlotOut(d.svg), // A SHAPE FROM A FORMULA: plots drawn by their programs
+                    T = sceneTextOut(PL.svg); // TEXT IN A SCENE: labels as shapes
                 try {
                     loadSvg(T.svg, name, false, true);
                 } finally {
                     state.svgExact = keepExact;
                 }
                 let S = state.subpaths.slice();
+                scenePlotsIn(S, PL);
                 window.__sceneLabelsLast = null;
                 window.__sceneSvgLast = T.svg; // the svg as opened, its text made paths
                 if (T.labels.length) {
@@ -88390,7 +89238,7 @@
                     if (run.straight)
                         o.straight = true;
                     if (run.clip)
-                        o.clip = { start: r4(run.clip.start), len: r4(run.clip.len), show: run.clip.show || '' };
+                        o.clip = morphClipOut(run.clip, r4);
                     if (run.trail)
                         o.trail = { kind: run.trail.kind || '', len: r4(run.trail.len) };
                     o.fx = run.fx && run.fx.kind ? { kind: run.fx.kind, amount: r4(run.fx.amount) } : { kind: '', amount: 0.5 };
@@ -88585,7 +89433,7 @@
                 // places (a maple that turns into a star across the page) stays in the frame the whole loop
                 const LEAVE = ['anticipate', 'overshoot', 'elastic'];
                 for (const r of morphRuns)
-                    if (!r.clip || !r.clip.show)
+                    if (!morphClipIO(r.clip))
                         for (const [k, K] of r.keys.entries()) {
                             take(K.x, K.y);
                             // ANTICIPATION AND OVERSHOOT: a pose goes up to about a sixth past a key, either way

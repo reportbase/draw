@@ -2898,21 +2898,21 @@ const COMPOSE = (function () {
 // tvf.compose.js — bridges driving bridges
 // ============================================================================
 //
-// §12.5. A bridge reconstructs a bounded curve from N atom readings. Nothing in
+// §12.5. A bridge reconstructs a bounded curve from N leaf readings. Nothing in
 // that statement requires the readings to be CONSTANTS. Point them at the
 // output of another bridge and the readings become bounded periodic signals —
 // which is exactly what the second bridge guarantees they are.
 //
 //     P(θ, t) = Ψ[ ℓ + δ_O(t) + Σ_k w_k · δ_C(t) ](θ)
 //
-//   ℓ        the rest atoms: where the shape sits when nothing is driving it
-//   δ_O(t)   a GLOBAL driver — displaces every spatial atom alike
-//   w_k      a WINDOW over the spatial leaves — which atoms a local driver owns
+//   ℓ        the rest leaves: where the shape sits when nothing is driving it
+//   δ_O(t)   a GLOBAL driver — displaces every spatial leaf alike
+//   w_k      a WINDOW over the spatial leaves — which leaves a local driver owns
 //   δ_C(t)   a LOCAL driver — displaces only that neighbourhood
 //
 // Three things about this are worth more than the formula.
 //
-// IT IS NOT THE TENSOR PRODUCT. A full (θ, t) surface costs N_S · N_O atoms and
+// IT IS NOT THE TENSOR PRODUCT. A full (θ, t) surface costs N_S · N_O leaves and
 // buys you every wobble of every leaf independently. This costs N_S + N_O and
 // buys you the articulated subclass: a shape with joints. Almost everything
 // anyone actually animates lives in the subclass, and the subclass is where the
@@ -3091,14 +3091,14 @@ function mean(x, y) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// WINDOWS — which atoms a local driver owns
+// WINDOWS — which leaves a local driver owns
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
  * Weights over the NS spatial leaves: 1 at the centre, tapering to 0 at the
  * edge of a support of `width` turns.
  *
- * The taper is not cosmetic. A box window is a discontinuity in the atom
+ * The taper is not cosmetic. A box window is a discontinuity in the leaf
  * weights, and §15.3 measures what that costs: an out-of-band window
  * SELF-INFLATES its own mass by the Gibbs factor (≈1.13 pointwise), so the
  * amplification you pay is larger than the one you designed. A raised cosine
@@ -3200,7 +3200,7 @@ function compose(o) {
   };
   P.rest = rest; P.NS = NS; P.globals = globals; P.locals = locals; P.radial = radial;
   P.driverCount = globals.length + locals.length + radial.length;
-  /** Atoms actually spent, against the product grid this is NOT. */
+  /** Leaves actually spent, against the product grid this is NOT. */
   P.cost = () => {
     const drivers = globals.concat(locals, radial).map(g => g.driver.N);
     return { sum: NS + drivers.reduce((a, c) => a + c, 0),
@@ -3274,11 +3274,11 @@ function probe(P, o = {}) {
     const th = i / M, phi = th * TAU;
     for (let j = 0; j < M; j += 4) {
       const t = j / M;
-      // extremal rest atoms: sign of K_NS(θ − θ_k)
+      // extremal rest leaves: sign of K_NS(θ − θ_k)
       const rx = new Float64Array(NS), ry = new Float64Array(NS);
       for (let k = 0; k < NS; k++) { rx[k] = Math.sign(kernel(phi - (k + 0.5) * TAU / NS, NS)) || 1; ry[k] = 0; }
       const rest = new Shape(rx, ry);
-      // extremal driver atoms: sign of K_ND(t − t_j), signed by the window mass
+      // extremal driver leaves: sign of K_ND(t − t_j), signed by the window mass
       const gs = [], ls = [];
       for (const g of drivers) {
         const N = g.driver.N, dx = new Float64Array(N), dy = new Float64Array(N);
@@ -5313,7 +5313,7 @@ const SECTIONS = [
         'every leaf, measured in units of its own radius, is <em>the same neighbourhood</em>. An observer holding ' +
         'ratios holds a constant, forever. Nothing in its readings could tell it how far it has walked, whether it ' +
         'has come round, or whether there is anything to come round to. ' +
-        '<a class="paper" href="../papers.html#tb_classical:6.5-r5-inside-boundedness">theorem §6.5, R5</a>',
+        '<a class="paper" href="../papers.html#tb_classical:6.5-r5-situatedness">theorem §6.5, R5</a>',
   entries: [
     { name: 'every leaf looks like every other leaf', tall: true,
       note: 'The neighbourhood of leaf k, rotated so leaf k is on the +x axis and divided by its own radius. Drag ' +
@@ -5622,7 +5622,7 @@ const SECTIONS = [
 {
   id: 'ladder', title: 'The observer\'s own logarithm', kicker: 'the amplification law is a spiral',
   note: 'The logarithm was in this framework before any spiral was drawn. The Lebesgue constant — the factor by ' +
-        'which a bounded error in the atoms can be amplified in the reconstruction — grows as <b>Λ<sub>N</sub> ≈ ' +
+        'which a bounded error in the leaves can be amplified in the reconstruction — grows as <b>Λ<sub>N</sub> ≈ ' +
         'ψ₁·ln N</b>, so it rises by ψ₁·ln 2 = 0.4413 <em>per doubling</em>: the same cost at every rung. Draw the ' +
         'resolution ladder as a spiral with one turn per octave and that constant becomes a constant angular ' +
         'sector, which is the same statement in a shape.',

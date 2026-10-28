@@ -6,7 +6,7 @@
 
 *Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8). Revised 7 October 2026: the drawing tool's saved depth files now enter octaves only where needed, at τ = 10⁻⁶; and what the recursion found, stated (§2.8). Later the same day, the walls: scored over the whole range rather than only where level 3 is reached, every depth file so far missed by up to 15% in bands at the walls between octaves. The cause is that a sweep is flat at its walls. A writer whose rows leave flat residuals at their children's walls holds the whole range to 10⁻⁵, and the saved files now use it (§2.8). And the one result the statement of the recursion quoted from an earlier run, the nested reader against one sweep at a distance, re-measured: it holds (§2.8). And depth against breadth, re-scored over the whole range: depth still wins on the library, 24 of 24, but on a smooth formula with its detail away from the reader one sweep wins. The gallery's *Depth* page shows both (§2.8). Revised 9 October 2026: "what the recursion found" reworded as the levels, after the ruling of 8 October that recursion is rejected for level of detail; and the library circle's sweeps traced to the reader's standpoint (§2.8).*
 
-*Revised 28 October 2026: scenes (§2.10). The drawing tool's `.tvfs`, a drawing and how it moves (keys, timing, motions, a camera and stops) without frames, specified as version 1, with what a reader must refuse and what it may ignore.*
+*Revised 28 October 2026: scenes (§2.10). The drawing tool's `.tvfs`, a drawing and how it moves (keys, timing, motions, a camera and stops) without frames, specified as version 1, with what a reader must refuse and what it may ignore. A clip's own `in` and `out` added to version 1 the same day: older readers ignore them and show the clip by its `show`.*
 
 *Revised 24 October 2026: structure (§2.9). A drawn shape's corners, radii, smooth corners, cubic edges and holes, carried in `#meta` tags beside its leaves since 23 October by the drawing tool and now specified, with which layer wins, and the leaves' check (`leafsum`), so that leaves edited elsewhere win over a structure that no longer describes them.*
 
@@ -733,7 +733,7 @@ Where the keys' colours differ they blend in linear light.
 |---|---|
 | `rate`, `phase` | the morph plays `rate` (a whole number) times a loop, `phase` (0–1) ahead |
 | `times`, `eases`, `straight` | a time per key (increasing; under 1 for three keys or more), an ease per stretch, and whether stretches are blended pair by pair |
-| `clip` | `{start, len, show}`: the morph plays once, first key to last, in that window of the loop, holding either side. `show`: `""` always seen; `during` only in its window; `fade` fading in and out over the window's first and last sixth; `in` from its window on; `out` until its window ends; `draw` drawn on over its window (below) |
+| `clip` | `{start, len, show}`: the morph plays once, first key to last, in that window of the loop, holding either side. `show`: `""` always seen; `during` only in its window; `fade` fading in and out over the window's first and last sixth; `in` from its window on; `out` until its window ends; `draw` drawn on over its window (below). Optional `in: {kind, len}` and `out: {kind, len}` say how it comes and goes apart, each over its own length (a share of the loop): `in` is `fade`, `draw` or `cut` (unseen before the window), `out` is `fade`, `undraw` or `cut` (gone after it); with either, `show` is not read. With no `in` the morph is there from the loop's start; with no `out` it stays |
 | `spin` | whole turns a loop |
 | `path`, `laps`, `start` | its own path (below), ridden `laps` times a loop from `start` (0–1) |
 | `motion` | a computed motion: `{kind, amount, …}` with `kind` one of `bounce`, `fall`, `swing`, `spring`, `roll`, `throw`, `sway`, `pop`, `drift`, or `chain` with `steps` |
@@ -763,6 +763,8 @@ A reader that cannot wait (an animated picture) plays through.
 from its start for the share of its length the window has run, in its own line
 or, without one, in its fill's colour; its fill comes in over the window's last
 30%, and a line that is not its own goes as the fill comes.
+An `in` of kind `draw` draws on over its own `len`; an `out` of kind
+`undraw` takes the line back the same way over its `len`, the fill going first.
 
 **What a scene does not hold.** The tool's editing state (selection,
 guides, handles), frames, fonts (text in a scene is shapes: §2.10 is

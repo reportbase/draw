@@ -351,7 +351,7 @@
   },
   "bridge": {
    "name": "the Tangent Bridge",
-   "note": "The theorem behind the format in six beats: a curve read at eight atoms, one kernel turned to each, their sum through every atom exactly, a close look at the gap between two atoms, then sixteen atoms and thirty-two, the sum closing on the curve. Every curve is computed from the paper's formulas. The scene of the explainer page's second explainer.",
+   "note": "The theorem behind the format in six beats: a curve read at eight leaves, one kernel turned to each, their sum through every leaf exactly, a close look at the gap between two leaves, then sixteen leaves and thirty-two, the sum closing on the curve. Every curve is computed from the paper's formulas. The scene of the explainer page's second explainer.",
    "tags": [
     "draw on",
     "camera",
@@ -517,6 +517,6 @@
   "lag": 17194,
   "explainer": 3611,
   "leaves": 33573,
-  "bridge": 191491
+  "bridge": 203030
  }
 }

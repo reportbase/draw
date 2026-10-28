@@ -1805,23 +1805,29 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
 }
 // 15. THE TANGENT BRIDGE (28 Oct 2026, Tom: "lets create a polished explainer", the Tangent Bridge chosen): the
 // theorem of papers/tb_classical.md in six beats, the scene of explained.html#bridge. A curve F, a distance for
-// every direction from its middle; read at the eight odd multiples of π/8 (the atoms); one kernel K₈ turned to
-// each, 1 at its own atom and 0 at the others; their sum weighted by the readings, through every atom exactly
-// (R1, R2); the camera in on the widest gap between two atoms (R3); sixteen atoms, then thirty-two, the sum
+// every direction from its middle; read at the eight odd multiples of π/8 (the leaves); one kernel K₈ turned to
+// each, 1 at its own leaf and 0 at the others; their sum weighted by the readings, through every leaf exactly
+// (R1, R2); the camera in on the widest gap between two leaves (R3); sixteen leaves, then thirty-two, the sum
 // closing on F and equal to it at thirty-two, since F has no wave finer than nine to a turn (R4). Every curve is
-// computed here from the paper's own formulas: the readings F(θ_k), the kernel sin(Nφ/2)/(N·tan(φ/2)) in its
-// product form, and their sum. The atoms of sixteen are not the eight and eight more between: odd multiples of
-// π/16 never land on an odd multiple of π/8, so each lattice comes in as the last one goes.
+// written as the paper's own formulas and plotted by the editor (A SHAPE FROM A FORMULA: each curve's svg element
+// carries its program in data-plot): F, the kernel sin(Nφ/2)·cos(φ/2)/(N·sin(φ/2)) (the product form of
+// sin(Nφ/2)/(N·tan(φ/2))), and their sum over the readings F(θ_k). The leaves of sixteen are not the eight and eight
+// more between: odd multiples of π/16 never land on an odd multiple of π/8, so the eight slide half a step. The
+// rays are drawn on and fade (a clip's own in and out), and N = 8 turns into 16 and 32 (labels into labels).
 {
-  const cx = 200, cy = 150, M = 256, TAU = 2 * Math.PI,
+  const cx = 200, cy = 150, TAU = 2 * Math.PI,
     F = th => 95 + 16 * Math.cos(3 * th - 0.4) + 12 * Math.cos(5 * th + 0.9) + 7 * Math.cos(9 * th + 0.3),
-    atom = (j, N) => (2 * j + 1) * Math.PI / N,
+    leaf = (j, N) => (2 * j + 1) * Math.PI / N,
     K = (phi, N) => { const s = Math.sin(phi / 2); return Math.abs(s) < 1e-12 ? 1 : Math.sin(N * phi / 2) * Math.cos(phi / 2) / (N * s); },
-    sumOf = N => { const c = Array.from({ length: N }, (_, j) => F(atom(j, N))); return th => c.reduce((a, v, j) => a + v * K(th - atom(j, N), N), 0); },
+    sumOf = N => { const c = Array.from({ length: N }, (_, j) => F(leaf(j, N))); return th => c.reduce((a, v, j) => a + v * K(th - leaf(j, N), N), 0); },
     f1 = v => +v.toFixed(2),
     pt = (th, r) => [cx + r * Math.cos(th), cy - r * Math.sin(th)], // y up, as the paper draws its angles
-    polar = r => { let d = ''; for (let i = 0; i < M; i++) { const q = pt(i * TAU / M, r(i * TAU / M)); d += (i ? 'L' : 'M') + f1(q[0]) + ' ' + f1(q[1]); } return d + 'Z'; },
     line = (d, stroke, w) => `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    // a curve as its formula, laid round the scene's middle, y up
+    FDEF = 'F(t) = 95 + 16cos(3t - 0.4) + 12cos(5t + 0.9) + 7cos(9t + 0.3)',
+    KDEF = 'K(p, N) = sin(N p/2) cos(p/2) / (N sin(p/2))',
+    plotted = (prog, stroke, w) => `<path data-plot="${prog}" data-t1="2π" data-n="96" data-cx="${cx}" data-cy="${cy}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    sumProg = N => `${FDEF}; ${KDEF}; a(j) = (2j + 1)π/${N}; r = sum(j, 0, ${N - 1}, F(a(j)) K(t - a(j), ${N}))`,
     dot = (th, r, fill) => { const q = pt(th, F(th)); return `<circle cx="${f1(q[0])}" cy="${f1(q[1])}" r="${r}" fill="${fill}"/>`; },
     ray = th => { const a = pt(th, 20), b = pt(th, 145); return line(`M${f1(a[0])} ${f1(a[1])} L${f1(b[0])} ${f1(b[1])}`, '#b9b2a6', 1.4); },
     label = (x, y, s, fill) => `<text x="${x}" y="${y}" font-size="17" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
@@ -1831,38 +1837,38 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
   const BRIDGE_BEATS = [
     { title: 'A curve is a function on the circle',
       text: 'Seen from its middle, a closed shape is one distance for every direction: a function *F* on the circle. This one has a little detail in it, waves of three, five and nine to a turn.\n\nThe theorem asks two questions about it. What do you have to keep of *F*, and what do you get back?' },
-    { title: 'Read it at the atoms',
-      text: 'Read *F* in eight directions, evenly spaced, at the odd multiples of π/8. **Eight numbers are kept, and nothing else.**\n\nEach reading is taken on its own, in a fixed amount of work. None of them needs to know how many others there are, or what lies between. In the paper these directions are the *atoms*; in a .tvf file they are the leaves. [The forward map, §3](../papers.html#tb_classical:3.1-definition)' },
-    { title: 'One kernel, turned to every atom',
-      text: 'To give the readings back as a curve, each one carries the same shape: the kernel K₈(φ) = sin 4φ ⁄ (8 tan ½φ).\n\nIt is **1 at its own atom and 0 at every other**. Here the bright petal touches the base circle exactly where the other seven rays cross it. The faint ones are the same kernel, turned to the other atoms. [The kernel, §4.2](../papers.html#tb_classical:4.2-kernel-properties)' },
-    { title: 'Their sum passes through every atom',
-      text: 'Weight each kernel by its reading and add them up. The result is the violet curve.\n\nAt an atom only that atom\'s kernel is nonzero, so the sum there **is the reading, exactly**. Read the curve back in the eight directions and you get the eight numbers you started with, to the last digit. These are (R1) and (R2) of the theorem. [The statement, §5.1](../papers.html#tb_classical:5.1-statement)' },
-    { title: 'Between the atoms: close, and bounded',
-      text: 'Between two atoms the curve is the kernels\' best guess. Eight readings cannot hold waves of five and nine to a turn, so those come back as slower waves, and here, at the widest gap, the curve misses *F* by about 28 on a radius near 100.\n\nThe miss is never unbounded. It is at most a constant, times log *N*, times how far *F* itself moves within one atom\'s spacing (R3). A smooth *F* is missed by little, a rough one by more. [Bounded between, §6.3](../papers.html#tb_classical:6.3-r3-bounded-between)' },
-    { title: 'Double the atoms, and the curve closes in',
-      text: 'With sixteen atoms, each of the eight slides half a step and eight more come in between them; with thirty-two, sixteen more. The lattice doubles, and the doubling map θ ↦ 2θ carries each lattice onto the one before.\n\nThe violet curve closes in on *F*. Thirty-two atoms hold every wave of fewer than sixteen to a turn, and the finest wave of *F* is nine, so at thirty-two **the curve is *F* exactly**. For any *F* smooth enough the curve converges as the atoms double (R4). At no step did the reading or the sum use anything but the readings themselves (R5). [Convergence, §6.4](../papers.html#tb_classical:6.4-r4-convergence-and-the-necessity-of-the-class)' }
+    { title: 'Read it at the leaves',
+      text: 'Read *F* in eight directions, evenly spaced, at the odd multiples of π/8. **Eight numbers are kept, and nothing else.**\n\nEach reading is taken on its own, in a fixed amount of work. None of them needs to know how many others there are, or what lies between. These eight directions are the *leaves*: in a .tvf file they are all a shape keeps. [The forward map, §3](../papers.html#tb_classical:3.1-definition)' },
+    { title: 'One kernel, turned to every leaf',
+      text: 'To give the readings back as a curve, each one carries the same shape: the kernel K₈(φ) = sin 4φ ⁄ (8 tan ½φ).\n\nIt is **1 at its own leaf and 0 at every other**. Here the bright petal touches the base circle exactly where the other seven rays cross it. The faint ones are the same kernel, turned to the other leaves. [The kernel, §4.2](../papers.html#tb_classical:4.2-kernel-properties)' },
+    { title: 'Their sum passes through every leaf',
+      text: 'Weight each kernel by its reading and add them up. The result is the violet curve.\n\nAt a leaf only that leaf\'s kernel is nonzero, so the sum there **is the reading, exactly**. Read the curve back in the eight directions and you get the eight numbers you started with, to the last digit. These are (R1) and (R2) of the theorem. [The statement, §5.1](../papers.html#tb_classical:5.1-statement)' },
+    { title: 'Between the leaves: close, and bounded',
+      text: 'Between two leaves the curve is the kernels\' best guess. Eight readings cannot hold waves of five and nine to a turn, so those come back as slower waves, and here, at the widest gap, the curve misses *F* by about 28 on a radius near 100.\n\nThe miss is never unbounded. It is at most a constant, times log *N*, times how far *F* itself moves within one leaf\'s spacing (R3). A smooth *F* is missed by little, a rough one by more. [Bounded between, §6.3](../papers.html#tb_classical:6.3-r3-bounded-between)' },
+    { title: 'Double the leaves, and the curve closes in',
+      text: 'With sixteen leaves, each of the eight slides half a step and eight more come in between them; with thirty-two, sixteen more. The lattice doubles, and the doubling map θ ↦ 2θ carries each lattice onto the one before.\n\nThe violet curve closes in on *F*. Thirty-two leaves hold every wave of fewer than sixteen to a turn, and the finest wave of *F* is nine, so at thirty-two **the curve is *F* exactly**. For any *F* smooth enough the curve converges as the leaves double (R4). At no step did the reading or the sum use anything but the readings themselves (R5). [Convergence, §6.4](../papers.html#tb_classical:6.4-r4-convergence-and-the-necessity-of-the-class)' }
   ];
   const S = { 8: sumOf(8), 16: sumOf(16), 32: sumOf(32) },
-    R0 = 50, kernel = j => polar(th => R0 + 42 * K(th - atom(j, 8), 8));
-  // shapes, in order: 0 the paper; 1 the kernels' base circle; 2 F; 3–10 the eight rays; 11–18 the eight atoms;
-  // 19 the first kernel, 20–26 the other seven; 27–29 the sums of 8, 16 and 32; 30–45 sixteen's atoms; 46–77
+    R0 = 50, kernel = j => `${KDEF}; r = ${R0} + 42K(t - ${2 * j + 1}π/8, 8)`;
+  // shapes, in order: 0 the paper; 1 the kernels' base circle; 2 F; 3–10 the eight rays; 11–18 the eight leaves;
+  // 19 the first kernel, 20–26 the other seven; 27–29 the sums of 8, 16 and 32; 30–45 sixteen's leaves; 46–77
   // thirty-two's; 78–80 the labels N = 8, 16, 32; 81 F's; 82 the kernel's
   const body = rectP(-400, -300, 1200, 900, '#f4f1ea')
-    + line(polar(() => R0), '#d9cfc0', 1.4) + line(polar(F), INK, 3)
-    + seq(8).map(j => ray(atom(j, 8))).join('') + seq(8).map(j => dot(atom(j, 8), 6, GOLD)).join('')
-    + line(kernel(0), RED, 2.6) + seq(7).map(j => line(kernel(j + 1), '#f2c9bf', 1.3)).join('')
-    + line(polar(S[8]), VIOLET, 3) + line(polar(S[16]), VIOLET, 3) + line(polar(S[32]), VIOLET, 3)
-    + seq(16).map(j => dot(atom(j, 16), 4.5, '#2f9e8f')).join('') + seq(32).map(j => dot(atom(j, 32), 3.4, '#4f8fd6')).join('')
+    + plotted(`r = ${R0}`, '#d9cfc0', 1.4) + plotted(`${FDEF}; r = F(t)`, INK, 3)
+    + seq(8).map(j => ray(leaf(j, 8))).join('') + seq(8).map(j => dot(leaf(j, 8), 6, GOLD)).join('')
+    + plotted(kernel(0), RED, 2.6) + seq(7).map(j => plotted(kernel(j + 1), '#f2c9bf', 1.3)).join('')
+    + plotted(sumProg(8), VIOLET, 3) + plotted(sumProg(16), VIOLET, 3) + plotted(sumProg(32), VIOLET, 3)
+    + seq(16).map(j => dot(leaf(j, 16), 4.5, '#2f9e8f')).join('') + seq(32).map(j => dot(leaf(j, 32), 3.4, '#4f8fd6')).join('')
     + label(48, 42, 'N = 8', INK) + label(48, 42, 'N = 16', INK) + label(48, 42, 'N = 32', INK)
-    + label(294, 74, 'F', INK) + label(298, 114, 'K', RED);
-  // the widest gap between two of the eight atoms, where the camera goes in
+    + label(294, 74, 'F', INK) + label(298, 114, 'K_8', RED);
+  // the widest gap between two of the eight leaves, where the camera goes in
   let gap = 0, worst = 0;
   for (let j = 0; j < 8; j++) { const th = (j + 1) * TAU / 8, e = Math.abs(S[8](th) - F(th)); if (e > worst) { worst = e; gap = j; } }
   const rel = (a, b, T) => T.map(t => +(0.99 * (t - a) / (b - a)).toFixed(4)),
     clip = (start, end, show) => ({ start, len: +(end - start).toFixed(4), show });
   SHOWPIECES.push({
     id: 'bridge', name: 'the Tangent Bridge', section: 'explainers', tags: ['draw on', 'camera', 'stops', 'theorem'],
-    note: 'The theorem behind the format in six beats: a curve read at eight atoms, one kernel turned to each, their sum through every atom exactly, a close look at the gap between two atoms, then sixteen atoms and thirty-two, the sum closing on the curve. Every curve is computed from the paper\'s formulas. The scene of the explainer page\'s second explainer.',
+    note: 'The theorem behind the format in six beats: a curve read at eight leaves, one kernel turned to each, their sum through every leaf exactly, a close look at the gap between two leaves, then sixteen leaves and thirty-two, the sum closing on the curve. Every curve is computed from the paper\'s formulas. The scene of the explainer page\'s second explainer.',
     svg: svg(400, 300, body),
     scene: {
       loop: 30, ease: 'inout', stops: [0.14, 0.3, 0.48, 0.62, 0.76],
@@ -1872,18 +1878,17 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
       morphs: [
         { keys: [2], clip: clip(0.02, 0.12, 'draw') },
         { keys: [81], clip: clip(0.08, 0.99, 'in') },
-        ...seq(8).map(j => ({ keys: [3 + j], clip: clip(+(0.15 + 0.008 * j).toFixed(3), 0.62, 'fade') })),
-        // each atom of eight slides half a step to one of sixteen's, then of thirty-two's; the rest come in between
+        ...seq(8).map(j => { const a = +(0.15 + 0.008 * j).toFixed(3); return { keys: [3 + j], clip: { start: a, len: +(0.62 - a).toFixed(3), in: { kind: 'draw', len: 0.04 }, out: { kind: 'fade', len: 0.04 } } }; }),
+        // each leaf of eight slides half a step to one of sixteen's, then of thirty-two's; the rest come in between
         ...seq(8).map(j => { const a = +(0.19 + 0.008 * j).toFixed(3); return { keys: [11 + j, 11 + j, 30 + 2 * j, 30 + 2 * j, 46 + 4 * j], times: rel(a, 0.99, [a, 0.79, 0.82, 0.9, 0.93]), straight: true, clip: clip(a, 0.99, 'in') }; }),
         ...seq(8).map(j => { const k = 2 * j + 1, a = +(0.82 + 0.002 * j).toFixed(3); return { keys: [30 + k, 30 + k, 46 + 2 * k], times: rel(a, 0.99, [a, 0.9, 0.93]), straight: true, clip: clip(a, 0.99, 'in') }; }),
         ...seq(16).map(j => { const a = +(0.93 + 0.001 * j).toFixed(3); return { keys: [46 + 2 * j + 1], clip: clip(a, 0.99, 'in') }; }),
-        { keys: [78], clip: clip(0.17, 0.8, 'during') },
-        { keys: [79], clip: clip(0.8, 0.93, 'during') },
-        { keys: [80], clip: clip(0.93, 0.99, 'in') },
-        { keys: [1], clip: clip(0.31, 0.5, 'fade') },
-        { keys: [19], clip: clip(0.31, 0.5, 'fade') },
-        { keys: [82], clip: clip(0.32, 0.5, 'fade') },
-        ...seq(7).map(j => ({ keys: [20 + j], clip: clip(+(0.36 + 0.008 * j).toFixed(3), 0.5, 'fade') })),
+        // N = 8, then 16, then 32: one label turning into the next as the leaves do
+        { keys: [78, 79, 80], times: rel(0.17, 0.99, [0.17, 0.8, 0.93]).map(v => +(v / 0.99).toFixed(4)), clip: { start: 0.17, len: 0.82, in: { kind: 'fade', len: 0.03 } } },
+        { keys: [1], clip: { start: 0.31, len: 0.19, in: { kind: 'fade', len: 0.02 }, out: { kind: 'fade', len: 0.02 } } },
+        { keys: [19], clip: { start: 0.31, len: 0.19, in: { kind: 'draw', len: 0.04 }, out: { kind: 'fade', len: 0.02 } } },
+        { keys: [82], clip: { start: 0.33, len: 0.17, in: { kind: 'fade', len: 0.02 }, out: { kind: 'fade', len: 0.02 } } },
+        ...seq(7).map(j => { const a = +(0.36 + 0.008 * j).toFixed(3); return { keys: [20 + j], clip: { start: a, len: +(0.5 - a).toFixed(3), in: { kind: 'draw', len: 0.03 }, out: { kind: 'fade', len: 0.02 } } }; }),
         { keys: [27, 27, 28, 28, 29], times: rel(0.49, 0.99, [0.49, 0.84, 0.88, 0.95, 0.98]), straight: true, clip: clip(0.49, 0.99, 'in') }
       ]
     }

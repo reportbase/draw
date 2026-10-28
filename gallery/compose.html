@@ -20,7 +20,7 @@
   <nav class="crumbs"><a href="index.html">← all galleries</a> · 17 of 30</nav>
   <h1>tvf <em>composed</em> <span class="pill">tvf.compose.js</span></h1>
   <p class="lede">
-    A bridge reconstructs a bounded curve from N atom readings. Nothing in that sentence says the
+    A bridge reconstructs a bounded curve from N leaf readings. Nothing in that sentence says the
     readings have to be <em>constants</em>. Point them at the output of another bridge and they
     become bounded periodic signals — which is exactly what the second bridge guarantees they are.
     <b>Bridges driving bridges.</b> Every shape on this page is several signals at once, and the
@@ -28,9 +28,9 @@
   </p>
   <p class="sub">
     P(θ, t) = Ψ[ ℓ + δ<sub>O</sub>(t) + Σ<sub>k</sub> w<sub>k</sub>·δ<sub>C</sub>(t) ](θ) &nbsp;—&nbsp;
-    rest atoms ℓ, a <b>global</b> driver displacing every atom alike, <b>local</b> drivers owning a
+    rest leaves ℓ, a <b>global</b> driver displacing every leaf alike, <b>local</b> drivers owning a
     windowed neighbourhood. This is not the tensor product: the (θ,t) surface costs N<sub>S</sub>·N<sub>O</sub>
-    atoms, this costs N<sub>S</sub> + N<sub>O</sub>, and it buys the articulated subclass — a shape with joints,
+    leaves, this costs N<sub>S</sub> + N<sub>O</sub>, and it buys the articulated subclass — a shape with joints,
     which is nearly everything anyone actually animates. The bill for that is at the bottom, both
     derived and measured.
   </p>
@@ -55,7 +55,7 @@
   <b>tvf.compose.js</b> is the paper's §12.5 with nothing between it and the screen. <code>Driver</code>
   is a two-channel signal read against its own mean — the DC part decides where a joint <em>sits</em>,
   the AC part decides how it <em>travels</em>, and without that split every driver you add shoves the
-  shape somewhere else. <code>window()</code> decides which atoms a driver owns.
+  shape somewhere else. <code>window()</code> decides which leaves a driver owns.
   <code>compose()</code> adds them at the leaf level, before any reconstruction happens, which is why
   the output is an ordinary closed curve and the <b>.tvf</b> button on every tile works.<br>
   The one number worth taking away: <b>amplification adds, it does not compound</b>. A global driver
@@ -2890,21 +2890,21 @@ const COMPOSE = (function () {
 // tvf.compose.js — bridges driving bridges
 // ============================================================================
 //
-// §12.5. A bridge reconstructs a bounded curve from N atom readings. Nothing in
+// §12.5. A bridge reconstructs a bounded curve from N leaf readings. Nothing in
 // that statement requires the readings to be CONSTANTS. Point them at the
 // output of another bridge and the readings become bounded periodic signals —
 // which is exactly what the second bridge guarantees they are.
 //
 //     P(θ, t) = Ψ[ ℓ + δ_O(t) + Σ_k w_k · δ_C(t) ](θ)
 //
-//   ℓ        the rest atoms: where the shape sits when nothing is driving it
-//   δ_O(t)   a GLOBAL driver — displaces every spatial atom alike
-//   w_k      a WINDOW over the spatial leaves — which atoms a local driver owns
+//   ℓ        the rest leaves: where the shape sits when nothing is driving it
+//   δ_O(t)   a GLOBAL driver — displaces every spatial leaf alike
+//   w_k      a WINDOW over the spatial leaves — which leaves a local driver owns
 //   δ_C(t)   a LOCAL driver — displaces only that neighbourhood
 //
 // Three things about this are worth more than the formula.
 //
-// IT IS NOT THE TENSOR PRODUCT. A full (θ, t) surface costs N_S · N_O atoms and
+// IT IS NOT THE TENSOR PRODUCT. A full (θ, t) surface costs N_S · N_O leaves and
 // buys you every wobble of every leaf independently. This costs N_S + N_O and
 // buys you the articulated subclass: a shape with joints. Almost everything
 // anyone actually animates lives in the subclass, and the subclass is where the
@@ -3083,14 +3083,14 @@ function mean(x, y) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// WINDOWS — which atoms a local driver owns
+// WINDOWS — which leaves a local driver owns
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
  * Weights over the NS spatial leaves: 1 at the centre, tapering to 0 at the
  * edge of a support of `width` turns.
  *
- * The taper is not cosmetic. A box window is a discontinuity in the atom
+ * The taper is not cosmetic. A box window is a discontinuity in the leaf
  * weights, and §15.3 measures what that costs: an out-of-band window
  * SELF-INFLATES its own mass by the Gibbs factor (≈1.13 pointwise), so the
  * amplification you pay is larger than the one you designed. A raised cosine
@@ -3192,7 +3192,7 @@ function compose(o) {
   };
   P.rest = rest; P.NS = NS; P.globals = globals; P.locals = locals; P.radial = radial;
   P.driverCount = globals.length + locals.length + radial.length;
-  /** Atoms actually spent, against the product grid this is NOT. */
+  /** Leaves actually spent, against the product grid this is NOT. */
   P.cost = () => {
     const drivers = globals.concat(locals, radial).map(g => g.driver.N);
     return { sum: NS + drivers.reduce((a, c) => a + c, 0),
@@ -3266,11 +3266,11 @@ function probe(P, o = {}) {
     const th = i / M, phi = th * TAU;
     for (let j = 0; j < M; j += 4) {
       const t = j / M;
-      // extremal rest atoms: sign of K_NS(θ − θ_k)
+      // extremal rest leaves: sign of K_NS(θ − θ_k)
       const rx = new Float64Array(NS), ry = new Float64Array(NS);
       for (let k = 0; k < NS; k++) { rx[k] = Math.sign(kernel(phi - (k + 0.5) * TAU / NS, NS)) || 1; ry[k] = 0; }
       const rest = new Shape(rx, ry);
-      // extremal driver atoms: sign of K_ND(t − t_j), signed by the window mass
+      // extremal driver leaves: sign of K_ND(t − t_j), signed by the window mass
       const gs = [], ls = [];
       for (const g of drivers) {
         const N = g.driver.N, dx = new Float64Array(N), dy = new Float64Array(N);
@@ -3502,14 +3502,14 @@ const ghost = s => { s.meta.tone = 0.16; s.meta.dash = true; return s; };
 const SECTIONS = [
 {
   id: 'joints', title: 'Joints',
-  note: 'A driver is a closed curve read on the time circle. A <b>global</b> driver displaces every spatial atom ' +
-        'alike; a <b>local</b> driver displaces only the atoms its window owns. The window is drawn under each tile ' +
+  note: 'A driver is a closed curve read on the time circle. A <b>global</b> driver displaces every spatial leaf ' +
+        'alike; a <b>local</b> driver displaces only the leaves its window owns. The window is drawn under each tile ' +
         'as the bridge actually sees it — <b>R(θ) = Σ w<sub>k</sub>K(θ−θ<sub>k</sub>)</b>, reconstructed, not as the ' +
         'weights you typed. That curve is also the factor the driver contributes to the amplification, which is why ' +
         'it is worth looking at.',
   entries: [
     { name: 'one global driver', kind: 'shape',
-      note: 'The plainest case. One orbit displaces every atom by the same vector, so the shape travels and does not deform. ' +
+      note: 'The plainest case. One orbit displaces every leaf by the same vector, so the shape travels and does not deform. ' +
             'It is read as <b>δ(t) = Ψ(t) − a</b> against its own mean, which is why the loop is centred on the rest shape ' +
             'rather than parked off to one side of it.',
       params: [ p('N_O', 5, 48, 1, 16), p('rx', 0, 120, 2, 62), p('ry', 0, 120, 2, 26), p('h', 1, 4, 1, 1) ],
@@ -3534,7 +3534,7 @@ const SECTIONS = [
 
     { name: 'three joints, one body', kind: 'shape',
       note: 'Three local drivers at three places, each with its own leaf count and its own phase. They are added at the ' +
-            'atom level before anything is reconstructed, so the result is one closed curve with one leaf set — not three ' +
+            'leaf level before anything is reconstructed, so the result is one closed curve with one leaf set — not three ' +
             'shapes overlaid, and not a rig that has to be baked.',
       params: [ p('reach', 0, 90, 2, 52), p('width', .08, .5, .01, .26), p('spin', 0, 1, 1, 0), p('seed', 1, 30, 1, 7) ],
       code: v => `locals: [0.15, 0.48, 0.81].map((at, i) =>\n  ({ driver: Driver.noise(18 + 3*i, { seed: i+1 }), w: window(96, { at, width: ${v.width} }) }))`,
@@ -3566,7 +3566,7 @@ const SECTIONS = [
         P.window = w; return withPath(P, 0); } },
 
     { name: 'a bulge, not a shove', kind: 'shape',
-      note: 'A <b>radial</b> driver pushes each owned atom along its own outward direction instead of in a fixed one. ' +
+      note: 'A <b>radial</b> driver pushes each owned leaf along its own outward direction instead of in a fixed one. ' +
             'Same rule, different basis — and the difference on screen is between a limb that swings and a lung that breathes.',
       params: [ p('at', 0, 1, .01, .5), p('width', .08, .8, .01, .38), p('amp', 0, 90, 2, 58), p('N_C', 4, 32, 1, 12) ],
       code: v => `radial: [{ driver: Driver.orbit(${v['N_C']}, { rx: ${v.amp} }),\n           w: window(96, { at: ${v.at}, width: ${v.width} }) }]`,
@@ -3621,7 +3621,7 @@ const SECTIONS = [
 
     { name: 'a body and its surface', kind: 'shape',
       note: 'The low band is driven by a joint; the high band is a fixed texture riding on top of it. They occupy ' +
-            'different harmonics of the same 128 atoms, so the texture does not smear when the body moves and the body ' +
+            'different harmonics of the same 128 leaves, so the texture does not smear when the body moves and the body ' +
             'does not lose its shape when the texture is loud.',
       params: [ p('joint', 0, 80, 2, 46), p('texture', 0, 12, .5, 5), p('h', 12, 40, 1, 23), p('width', .1, .9, .02, .44) ],
       code: v => `rest = circle(128).radius += stack(128, [{ h: ${v.h}, amp: ${v.texture} }])\nlocals: [{ driver: Driver.orbit(20, { rx: ${v.joint} }), w: window(128, { width: ${v.width} }) }]`,
@@ -3637,7 +3637,7 @@ const SECTIONS = [
 
     { name: 'many bodies, one clock', kind: 'shape', wide: true,
       note: 'A ring of composed shapes sharing a single global driver and each carrying its own local one, phase-rolled ' +
-            'around the ring. One clock, one global signal, N local signals — the total atom count is a sum over all of it.',
+            'around the ring. One clock, one global signal, N local signals — the total leaf count is a sum over all of it.',
       params: [ p('count', 3, 14, 1, 8), p('r', 90, 240, 5, 165), p('reach', 0, 60, 2, 34), p('breathe', 0, 40, 2, 18) ],
       code: v => `const O = Driver.orbit(16, { rx: ${v.breathe} });          // shared\nring.map((_, i) => compose({ rest, globals: [{ driver: O }],\n  locals: [{ driver: C.roll(i / ${v.count}), w }] }))`,
       build: v => {
@@ -3701,7 +3701,7 @@ const SECTIONS = [
                       SH.heart(96, { r: 96 }), star(96, { r: 96, points: 6, inner: .55 })][v.which];
         const P = (t) => {
           const s = warp(base, u => Math.sin(v.h * TAU * u + t * TAU) / TAU, v.amp);
-          s.meta.dots = true;                     // the outline is stationary; the atoms are not
+          s.meta.dots = true;                     // the outline is stationary; the leaves are not
           P.last = s; return [s];
         };
         P.base = base; P.NS = 96; return P; } },
@@ -3988,14 +3988,14 @@ function theLayers(host) {
   // and the same thing after a product has folded into the grid
   const tight = modulate(stack(24, [{ h: 5, amp: 1 }]), stack(24, [{ h: 9, amp: 1 }]));
   host.innerHTML =
-    `<p>Three bands summed onto 128 atoms, then pulled back out one at a time. The recovery is not
+    `<p>Three bands summed onto 128 leaves, then pulled back out one at a time. The recovery is not
       approximate — disjoint harmonics do not interact, so the sum carries all three at once and each
       is exactly where it was put.</p>
      <table><thead><tr><th>layer</th><th>amplitude</th><th>recovered, sup error</th></tr></thead><tbody>` +
     rows.map(r => `<tr><td>h = ${r.h}</td><td>${r.amp}</td><td class="ok">${r.err.toExponential(1)}</td></tr>`).join('') +
     `</tbody></table>
      <p style="margin-top:10px"><b>And what it looks like when the room runs out.</b> h=5 times h=9 needs
-      h=${tight.needs}. On 24 atoms Nyquist is ${tight.nyquist}, so the product cannot be represented and the excess does not
+      h=${tight.needs}. On 24 leaves Nyquist is ${tight.nyquist}, so the product cannot be represented and the excess does not
       vanish — it folds to |${tight.needs} − 2·${tight.nyquist}| = <span style="color:#f6d68a">h = ${bandOf(tight)}</span>, which is the band actually
       measured in the result. Aliasing is not noise; it is the arithmetic being honest about a grid that
       was too coarse for the operation asked of it.</p>
@@ -4021,8 +4021,8 @@ function theBill(host) {
   const fmt = x => x.toFixed(4);
 
   host.innerHTML =
-    `<p><b>The cost is a sum.</b> One 96-atom body, a 16-atom global driver and two local drivers of 24 and 20.
-      Composition spends <span style="color:var(--ok)">${cost.parts.join(' + ')} = ${cost.sum}</span> atoms.
+    `<p><b>The cost is a sum.</b> One 96-leaf body, a 16-leaf global driver and two local drivers of 24 and 20.
+      Composition spends <span style="color:var(--ok)">${cost.parts.join(' + ')} = ${cost.sum}</span> leaves.
       The (θ,t) product grid that would hold the same articulation independently costs
       <span style="color:#f6d68a">${cost.parts.join(' × ')} = ${cost.product.toLocaleString()}</span> —
       ${Math.round(cost.product / cost.sum).toLocaleString()}× more, for a generality nobody asked for.</p>
