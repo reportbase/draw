@@ -14642,6 +14642,11 @@
         // Call it AFTER any drawAll() (which rewrites the status) so it wins.
         let _flashTimer = null;
         function flashStatus(msg) {
+            // the last few flashed lines, kept for a reader outside the page (tools/run-labs.mjs reads what each
+            // lab said when it ran); a line is kept whether or not the status bar is there to show it
+            (window.__flashLog || (window.__flashLog = [])).push(String(msg));
+            if (window.__flashLog.length > 40)
+                window.__flashLog.shift();
             const el = $('status');
             if (!el)
                 return;
@@ -50257,6 +50262,13 @@
                 o.after(drawn);
 
             state.svgName = o.name + (o.suffix ? ' · ' + o.suffix : '');
+            // what the sheet says, for a reader outside the page (tools/run-labs.mjs): its name and each cell's caption
+            // and verdict (0 fails, 1 marginal, 2 holds, as the contour's colour says)
+            window.__lastLadder = {
+                name: o.name,
+                suffix: o.suffix || '',
+                rows: drawn.map(r => ({ caption: state.subpaths[r._idx] ? String(state.subpaths[r._idx].tag || '') : '', verdict: o.verdict ? o.verdict(r) : null }))
+            };
             state.lastLoadInfo = {
                 totalElements: state.subpaths.length,
                 multiSubpath: true,
