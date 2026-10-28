@@ -11,7 +11,10 @@
 // it plays; colours blended in linear light; a clip faded as it comes and goes; trails (echoes of earlier
 // poses, or a ribbon along the way the centre came) drawn under the shapes, as the editor draws them.
 //
-//   TVFPlayer.play(canvas, scene or url, { loop, background, autoplay })  → { play(), pause(), seek(t), scene }
+//   TVFPlayer.play(canvas, scene or url, { background, autoplay, click })
+//                                      → { play(), pause(), seek(t), next(), prev(), scene, t, playing, stop }
+//   A scene with stops (an explainer) waits at each: next() goes on (a click on the canvas does too, unless
+//   click: false), prev() goes back a stop. Its camera, when it has one, is what the canvas frames.
 //   TVFPlayer.load(scene)              the scene made ready to pose and draw
 //   TVFPlayer.poses(scene, t)          each morph's pose at t: leaves { x, y } or corners { x, y, r, c }
 //   TVFPlayer.draw(ctx, scene, t, w, h)
@@ -32,6 +35,8 @@ function loadScene(d) {
         gravity: Math.max(1, Math.min(4, num(d.gravity, 1))),
         wind: Math.max(-1, Math.min(1, num(d.wind, 0))),
         trail: d.trail && MORPH_TRAILS.includes(d.trail.kind) ? { kind: d.trail.kind, len: Math.max(0, Math.min(1, num(d.trail.len, 0.5))) } : { kind: '', len: 0.5 },
+        camera: morphCameraOk(d.camera), // A CAMERA, AND STOPS
+        stops: morphStopsOk(d.stops),
         path: null,
         runs: [],
         items: [],
@@ -60,6 +65,7 @@ function loadScene(d) {
         const run = {
             keys,
             exact,
+            open: exact && !!m.open, // DRAWING A LINE ON: a line
             curved: exact ? morphExactCurved(keys) : undefined,
             sp: { fill: m.fill || null, stroke: m.stroke || null, lineWidth: num(m.width, 0), strokeOpacity: num(m.strokeOpacity, 1) },
             inPlace: m.inPlace !== false,
@@ -155,10 +161,12 @@ function frameOf(S) {
     const pad = 0.04 * Math.max(x1 - x0, y1 - y0, 1e-9);
     return { x0: x0 - pad, x1: x1 + pad, y0: y0 - pad, y1: y1 + pad };
 }
-// the page's units to the canvas's (y up becomes y down), the frame fitted and centred
-function viewOf(S, w, h) {
-    const F = S.frame,
-        k = Math.min(w / (F.x1 - F.x0), h / (F.y1 - F.y0));
+// the page's units to the canvas's (y up becomes y down), the frame fitted and centred: the camera's box at
+// t when the scene has a camera, else everything the loop draws
+function viewOf(S, w, h, t) {
+    const B = S.camera.length ? morphCameraAt(S.camera, t || 0) : null,
+        F = B ? { x0: B[0], y0: B[1], x1: B[2], y1: B[3] } : S.frame,
+        k = Math.min(w / Math.max(1e-12, F.x1 - F.x0), h / Math.max(1e-12, F.y1 - F.y0));
     const ox = w / 2 - k * (F.x0 + F.x1) / 2,
         oy = h / 2 + k * (F.y0 + F.y1) / 2;
     return { k, px: x => ox + k * x, py: y => oy - k * y };
@@ -188,12 +196,81 @@ function traceLeaves(ctx, V, X, Y) {
         ctx.lineTo(V.px(cx[i]), V.py(cy[i]));
     ctx.closePath();
 }
-function traceExactPose(ctx, V, P) {
-    const pts = morphExactCubics(P);
+function traceExactPose(ctx, V, P, open) {
+    const pts = morphExactCubics(P, open);
     ctx.moveTo(V.px(pts[0].x), V.py(pts[0].y));
     for (let i = 1; i + 2 < pts.length; i += 3)
         ctx.bezierCurveTo(V.px(pts[i].x), V.py(pts[i].y), V.px(pts[i + 1].x), V.py(pts[i + 1].y), V.px(pts[i + 2].x), V.py(pts[i + 2].y));
-    ctx.closePath();
+    if (!open)
+        ctx.closePath();
+}
+// DRAWING A LINE ON, as the editor's drawShapeDrawingOn: the outline stroked from its start for share f of
+// its length, in its own line or its fill's colour, the fill coming in over the window's last part and a
+// line it has not got of its own going as the fill comes
+function drawOn(ctx, V, run, P, f, fade, fill) {
+    const open = !!run.open,
+        sp = run.sp;
+    let X, Y;
+    if (run.exact) {
+        const D = exactDense(P.x, P.y, hasRound(P.r) ? P.r : null, open, null, hasCtrl(P.c) ? P.c : null);
+        X = D.x;
+        Y = D.y;
+    } else {
+        const N = P.x.length;
+        let per = 0;
+        for (let i = 0; i < N; i++)
+            per += Math.hypot(P.x[(i + 1) % N] - P.x[i], P.y[(i + 1) % N] - P.y[i]);
+        const M = Math.max(32, Math.min(4096, Math.ceil(per * V.k / 2)));
+        X = tvf.reconstruct(P.x, M);
+        Y = tvf.reconstruct(P.y, M);
+    }
+    const n = X.length,
+        pts = [];
+    for (let i = 0; i < n; i++)
+        pts.push({ x: V.px(X[i]), y: V.py(Y[i]) });
+    if (!open)
+        pts.push(pts[0]);
+    let L = 0;
+    for (let i = 1; i < pts.length; i++)
+        L += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    const fillCol = !open && fill && fill.color ? fill : null,
+        ff = morphDrawFill(f),
+        hasLine = sp.lineWidth > 0 && (!!sp.stroke || !fillCol),
+        lw = hasLine ? sp.lineWidth : 2,
+        col = (hasLine && sp.stroke) || (fillCol && fillCol.color) || sp.stroke || 'rgba(212,160,82,1)';
+    ctx.save();
+    if (fillCol && ff > 0) {
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < n; i++)
+            ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.closePath();
+        ctx.fillStyle = rgba(fillCol, fade * ff);
+        ctx.fill('evenodd');
+    }
+    const a = fade * (sp.strokeOpacity != null ? sp.strokeOpacity : 1) * (hasLine ? 1 : 1 - ff);
+    if (a > 0 && L > 0) {
+        ctx.strokeStyle = rgba({ color: col, opacity: 1 }, a) || col;
+        ctx.lineWidth = lw;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        let left = f * L;
+        for (let i = 1; i < pts.length && left > 0; i++) {
+            const d = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+            if (d <= left) {
+                ctx.lineTo(pts[i].x, pts[i].y);
+                left -= d;
+            } else {
+                const u = left / d;
+                ctx.lineTo(pts[i - 1].x + u * (pts[i].x - pts[i - 1].x), pts[i - 1].y + u * (pts[i].y - pts[i - 1].y));
+                left = 0;
+            }
+        }
+        ctx.stroke();
+    }
+    ctx.restore();
 }
 function traceRing(ctx, V, q, open) {
     const D = exactDense(q.x, q.y, q.r, open, q.smooth, q.ctrl);
@@ -245,7 +322,7 @@ function drawTrails(ctx, S, V, t) {
                 const P = poseOf(run, u);
                 ctx.beginPath();
                 if (run.exact)
-                    traceExactPose(ctx, V, P);
+                    traceExactPose(ctx, V, P, run.open);
                 else
                     traceLeaves(ctx, V, P.x, P.y);
                 if (fillCol) {
@@ -305,7 +382,7 @@ function drawTrails(ctx, S, V, t) {
     morphLive.t = t;
 }
 function drawScene(ctx, S, t, w, h) {
-    const V = viewOf(S, w, h);
+    const V = viewOf(S, w, h, t);
     use(S);
     morphLive.t = t;
     drawTrails(ctx, S, V, t);
@@ -327,13 +404,18 @@ function drawScene(ctx, S, t, w, h) {
             fade = sf == null ? 1 : sf;
         if (!(fade > 0))
             continue;
-        const P = poseOf(run, t);
+        const P = poseOf(run, t),
+            fill = run.cols ? morphColourAt(run, t) : run.sp.fill,
+            f = morphDrawFactor(run, t);
+        if (f != null && f < 1) { // DRAWING A LINE ON
+            drawOn(ctx, V, run, P, f, fade, fill);
+            continue;
+        }
         if (run.exact)
-            traceExactPose(ctx, V, P);
+            traceExactPose(ctx, V, P, run.open);
         else
             traceLeaves(ctx, V, P.x, P.y);
-        const fill = run.cols ? morphColourAt(run, t) : run.sp.fill;
-        paint(ctx, fill, run.sp.stroke, run.sp.lineWidth, run.sp.strokeOpacity, fade, false);
+        paint(ctx, fill, run.sp.stroke, run.sp.lineWidth, run.sp.strokeOpacity, fade, run.open);
     }
 }
 function playOn(canvas, src, opts) {
@@ -345,8 +427,18 @@ function playOn(canvas, src, opts) {
         if (!ctl.scene)
             return;
         if (ctl.playing) {
-            if (ctl.last)
-                ctl.t = (ctl.t + (now - ctl.last) / 1000 / ctl.scene.loop) % 1;
+            if (ctl.last) {
+                const t1 = ctl.t + (now - ctl.last) / 1000 / ctl.scene.loop,
+                    s = morphStopCrossed(ctl.scene.stops, ctl.t, t1); // STOPS: wait here
+                if (s != null) {
+                    ctl.t = s >= 1 ? 1 - 1e-9 : s;
+                    ctl.playing = false;
+                    ctl.stop = s >= 1 ? ctl.scene.stops.length : ctl.scene.stops.indexOf(s);
+                    if (typeof opts.onstop === 'function')
+                        opts.onstop(ctl);
+                } else
+                    ctl.t = t1 % 1;
+            }
             ctl.last = now;
         }
         const r = canvas.getBoundingClientRect(),
@@ -371,9 +463,25 @@ function playOn(canvas, src, opts) {
         if (!ctl.raf)
             ctl.raf = requestAnimationFrame(frame);
     };
-    ctl.play = () => { ctl.playing = true; ctl.last = 0; kick(); };
+    ctl.play = () => { ctl.playing = true; ctl.last = 0; ctl.stop = -1; kick(); };
     ctl.pause = () => { ctl.playing = false; };
     ctl.seek = t => { ctl.t = ((num(t, 0) % 1) + 1) % 1; kick(); };
+    // STOPS: go on from one (from the end, start again), or back to the one before and wait there
+    ctl.next = () => {
+        if (ctl.t >= 1 - 1e-6)
+            ctl.t = 0;
+        ctl.play();
+    };
+    ctl.prev = () => {
+        ctl.pause();
+        ctl.seek(ctl.scene ? morphStopBefore(ctl.scene.stops, ctl.t) : 0);
+    };
+    ctl.stop = -1;
+    if (opts.click !== false)
+        canvas.addEventListener('click', () => {
+            if (ctl.scene && ctl.scene.stops.length && !ctl.playing)
+                ctl.next();
+        });
     const ready = d => { ctl.scene = loadScene(d); kick(); return ctl; };
     ctl.ready = typeof src === 'string' ? fetch(src).then(r => r.json()).then(ready) : Promise.resolve(ready(src));
     return ctl;

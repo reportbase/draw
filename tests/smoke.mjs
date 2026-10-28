@@ -3163,6 +3163,90 @@ await step('playground', async () => {
    player pose every morph as the editor does at six times through the loop, to the stored keys' rounding: leaves
    with a detail effect and with a lag, exact corners with physics and a chain, a path with parents, an emitter;
    and player.html plays a scene from a file, drawing it at two sizes. */
+/* EXPLAINERS (draw.html: DRAWING A LINE ON; A CAMERA, AND STOPS). A scene of a line drawn on (an open exact line
+   gone live as a line), a circle drawn on and filled, a box that fades, a camera that frames the line and then
+   everything, and two stops. Drawn on: the share drawn follows the clip's window. The camera: scrubbing frames
+   the line, then the whole. The embed waits at each stop and a click goes on. The scene link and the .tvfs
+   carry it all, the player waits at the stops too, the SVG export moves its viewBox and draws its lines on, and
+   a stop added on the timeline is one undo step. */
+await step('explainers: drawn on, a camera, stops', async () => {
+  const zlib = await import('node:zlib');
+  const sc = { v: 1, name: 'explain', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><path d="M40 250 L120 120 L200 200" fill="none" stroke="#f2c14e" stroke-width="4"/><circle cx="300" cy="150" r="50" fill="#7c5cff"/><rect x="250" y="40" width="100" height="40" fill="#e05a6a"/></svg>',
+    loop: 6, stops: [0.33, 0.66], play: false, t: 0,
+    camera: [{ t: 0, fit: [0] }, { t: 0.3, fit: [0] }, { t: 0.45, fit: 'all' }],
+    morphs: [{ keys: [0], clip: { start: 0, len: 0.3, show: 'draw' } }, { keys: [1], clip: { start: 0.35, len: 0.3, show: 'draw' } }, { keys: [2], clip: { start: 0.7, len: 0.25, show: 'fade' } }] };
+  const link = new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(sc))).toString('base64url');
+  const ep = await browser.newPage({ viewport: { width: 1000, height: 700 } });
+  ep.on('pageerror', e => failures.push(`[explainers] ${e.message}`));
+  await ep.route(/fonts\.g/, r => r.abort());
+  await ep.goto(link, { waitUntil: 'load' });
+  await ep.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
+  await ep.waitForTimeout(300);
+  const diag = await ep.evaluate(() => window.__box.morphDiag());
+  if (diag.length !== 3 || !diag.every(r => r.exact && r.lazy)) throw new Error('the three did not go live as exact shapes: ' + JSON.stringify(diag));
+  const at = t => ep.evaluate(t => { window.__box.seek(t); return { drawn: window.__box.drawn(), box: window.__box.viewBox() }; }, t);
+  const a = await at(0.15), b = await at(0.5), c = await at(0.8);
+  if (Math.abs(a.drawn[0] - 0.5) > 1e-9 || a.drawn[1] !== 0 || Math.abs(b.drawn[1] - 0.5) > 1e-9 || c.drawn[0] !== 1 || c.drawn[1] !== 1 || c.drawn[2] != null)
+    throw new Error('drawn on: ' + JSON.stringify([a.drawn, b.drawn, c.drawn]));
+  const wid = B => B[2] - B[0];
+  if (!(wid(c.box) > 1.5 * wid(a.box))) throw new Error('the camera did not pull out from the line to everything: ' + JSON.stringify([a.box, c.box]));
+  const d = await ep.evaluate(() => window.__box.tvfScene());
+  if (d.camera.length !== 3 || d.stops.join() !== '0.33,0.66' || !d.morphs[0].open || d.morphs[1].open) throw new Error('the .tvfs: ' + JSON.stringify({ camera: d.camera.length, stops: d.stops, open: d.morphs.map(m => m.open) }));
+  const svg = await ep.evaluate(() => window.__box.morphSvg({}));
+  if (!/attributeName="viewBox"/.test(svg) || (svg.match(/attributeName="stroke-dashoffset"/g) || []).length !== 2) throw new Error('the svg export does not move its camera or draw its lines on');
+  // the link round trip keeps the camera and the stops
+  const back = await ep.evaluate(async () => (await window.__sceneShare()).link);
+  const E1 = await ep.evaluate(() => window.__box.explain());
+  const rp = await browser.newPage({ viewport: { width: 1000, height: 700 } });
+  rp.on('pageerror', e => failures.push(`[explainers: link back] ${e.message}`));
+  await rp.route(/fonts\.g/, r => r.abort());
+  await rp.goto(back, { waitUntil: 'load' });
+  await rp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
+  const E2 = await rp.evaluate(() => window.__box.explain());
+  await rp.close();
+  const same = E1.stops.join() === E2.stops.join() && E1.camera.length === E2.camera.length && E1.camera.every((k, i) => Math.abs(k.t - E2.camera[i].t) < 1e-3
+    && k.box.every((v, j) => Math.abs(v - E2.camera[i].box[j]) < 2e-3 * wid(k.box)));
+  if (!same) throw new Error('the link back gave ' + JSON.stringify(E2) + ', not ' + JSON.stringify(E1));
+  // a stop added on the timeline is one undo step
+  await ep.evaluate(() => { window.__box.seek(0.5); });
+  await ep.click('#bMorphTimeline');
+  await ep.click('#tlStop');
+  const n1 = (await ep.evaluate(() => window.__box.explain())).stops.length;
+  await ep.evaluate(() => document.getElementById('bUndo').click());
+  await ep.waitForTimeout(250);
+  const n2 = (await ep.evaluate(() => window.__box.explain())).stops.length;
+  if (n1 !== 3 || n2 !== 2) throw new Error('a stop added and undone: ' + n1 + ' then ' + n2);
+  await ep.close();
+  // the embed waits at each stop, and a click goes on
+  const em = await browser.newPage({ viewport: { width: 600, height: 400 } });
+  em.on('pageerror', e => failures.push(`[explainers: embed] ${e.message}`));
+  await em.route(/fonts\.g/, r => r.abort());
+  await em.goto(link.replace('draw.html#', 'draw.html?embed=1#'), { waitUntil: 'load' });
+  await em.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
+  await em.evaluate(() => window.__box.seek(0.3));
+  await em.keyboard.press('ArrowRight');
+  await em.waitForFunction(() => { const m = window.__box.morph(); return !m.play && Math.abs(m.t - 0.33) < 1e-9; }, null, { timeout: 10000 });
+  await em.mouse.click(300, 200);
+  await em.waitForFunction(() => { const m = window.__box.morph(); return !m.play && Math.abs(m.t - 0.66) < 1e-9; }, null, { timeout: 15000 });
+  await em.close();
+  // the player waits at the stops as well
+  const pl = await browser.newPage();
+  pl.on('pageerror', e => failures.push(`[explainers: player] ${e.message}`));
+  await pl.goto(new URL('player/player.html', base).href, { waitUntil: 'load' });
+  const r = await pl.evaluate(async d => {
+    const ctl = TVFPlayer.play(document.getElementById('cv'), d, {});
+    await ctl.ready;
+    ctl.seek(0.3);
+    await new Promise(r => setTimeout(r, 900));
+    const one = { t: ctl.t, playing: ctl.playing, stop: ctl.stop };
+    ctl.next();
+    await new Promise(r => setTimeout(r, 200));
+    return { one, two: { t: ctl.t, playing: ctl.playing } };
+  }, d);
+  await pl.close();
+  if (r.one.t !== 0.33 || r.one.playing || r.one.stop !== 0 || !r.two.playing || !(r.two.t > 0.33)) throw new Error('the player at its stops: ' + JSON.stringify(r));
+});
+
 await step('the tvf player', async () => {
   const { buildPlayer } = await import('../tools/build-player.mjs');
   const { out } = await buildPlayer();
@@ -3171,7 +3255,7 @@ await step('the tvf player', async () => {
   await gp.route(/fonts\.g/, r => r.abort());
   await gp.goto(new URL('gallery/animated.html', base).href, { waitUntil: 'load' });
   await gp.waitForFunction(() => typeof EXAMPLES !== 'undefined' && typeof sceneCode === 'function');
-  const ids = ['grow', 'lag', 'one-after', 'kite', 'orrery', 'snow', 'house'];
+  const ids = ['grow', 'lag', 'one-after', 'kite', 'orrery', 'snow', 'house', 'explainer'];
   const codes = await gp.evaluate(async ids => { const o = {}; for (const e of EXAMPLES.filter(e => ids.includes(e.id))) o[e.id] = await sceneCode(e); return o; }, ids);
   await gp.close();
   const pl = await browser.newPage({ viewport: { width: 800, height: 500 } });

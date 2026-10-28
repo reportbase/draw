@@ -26,7 +26,8 @@ const ROOTS = ['morphPoseInto', 'morphPoseExact', 'morphExactCubics', 'morphColo
     'morphMotionOk', 'morphExactCurved', 'morphSetParent', 'exactDense', 'exactCentre', '_b64f32', 'morphKeyPhases', 'morphTimesOk',
     'morphEasesOk', 'morphClipOk', 'MORPH_SHOWS', 'MORPH_TRAILS', 'MORPH_FOLLOW', 'MORPH_FX', 'MORPH_LAG_MAX', 'hasRound', 'hasCtrl',
     'morphRestoreOwn', 'MORPH_EASES', 'morphTrailOf', 'morphTrailSpan', 'morphTrailTime', 'morphCentreAt', 'MORPH_ECHOES',
-    'exactDenseOf'];
+    'exactDenseOf', 'morphDrawFactor', 'morphDrawFill', 'morphCameraOk', 'morphCameraAt', 'morphStopsOk',
+    'morphStopCrossed', 'morphStopBefore'];
 
 // names the player provides itself (the shim), so they are never taken from the editor
 const SHIM = new Set(['state', 'morphLive', 'morphRuns', 'TAU']);

@@ -1320,7 +1320,7 @@ return { Shape, mix, alignTo, primitives, kernelMatrix, kernelSlope, slopeDiff, 
 <script>
 // ── THE PLAYED GALLERY ─────────────────────────────────────────────────────────────────────────────
 // Every tile is one canvas and one controller of the player's (TVFPlayer.play), started the first time the
-// tile comes into view and paused whenever it leaves, so a page of thirty-seven scenes draws only the few you
+// tile comes into view and paused whenever it leaves, so a page of thirty-eight scenes draws only the few you
 // can see. The list (sections, names, notes, sizes) is player/examples/index.json, written with the files.
 const EX = new URL('../player/examples/', location.href);
 const PUBLIC = 'https://reportbase.github.io/draw/';
@@ -1348,6 +1348,11 @@ player.play();
 player.t;                  // where it is, 0 to 1
 player.scene.loop;         // the loop's length in seconds
 
+// an explainer (a scene with stops) waits at each one
+player.next();             // go on (a click on the canvas does too)
+player.prev();             // back to the stop before
+player.stop;               // the stop it waits at, or -1
+
 // or your own loop, any 2D context, any time
 const scene = TVFPlayer.load(await (await fetch('scene.tvfs')).json());
 TVFPlayer.draw(ctx, scene, 0.5, ctx.canvas.width, ctx.canvas.height);
@@ -1357,13 +1362,15 @@ document.getElementById('format').textContent =
   "loop": 4,                       // seconds
   "ease": "", "hold": 0, "gravity": 1, "wind": 0,
   "trail": null, "path": null,     // the bar's, for morphs with none of their own
+  "camera": [ { "t": 0, "box": [x0, y0, x1, y1] }, … ],   // what the canvas frames, keyed
+  "stops": [ 0.3, 0.6 ],           // where playing waits for a click
   "items": [                       // the drawing's order, back to front
     { "morph": 0 },                // a live morph, posed as it plays
     { "leaves": { "x": "…", "y": "…" }, "fill": {…}, "stroke": "#…", "width": 2 },
     { "exact": { "x": […], "y": […], "r": […], "smooth": […], "ctrl": […], "holes": [] }, … }
   ],
   "morphs": [
-    { "keys": [ { "x": "…", "y": "…" }, … ], "exact": false,
+    { "keys": [ { "x": "…", "y": "…" }, … ], "exact": false, "open": false,
       "fill": {…}, "inPlace": true, "lag": 0, "fx": null,
       "own": { "rate": 1, "phase": 0, "path": …, "motion": …, "clip": …, … } }
   ] }`;

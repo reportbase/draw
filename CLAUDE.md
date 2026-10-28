@@ -29,13 +29,15 @@ publishes.
   two pixels, exact poses as their cubics, stills through `exactDense`). Names the engine mentions that belong to
   the editor's page are in its `STUBS`; an unknown one fails the build. After changing the morph engine in
   draw.html, run it, or `npm test` fails. A `.tvfs` (`{format: 'tvf-scene', v: 1, name, loop, ease, hold,
-  gravity, wind, trail, path, items, morphs}`) is written by the morph bar's **tvfs** button (`morphTvfScene`, hook
+  gravity, wind, trail, camera, stops, path, items, morphs}`) is written by the morph bar's **tvfs** button (`morphTvfScene`, hook
   `__box.tvfScene()`): `items` the drawing order (`{morph: i}`, or a still's `leaves` as float32 base64 or its
   `exact` corners, roundings, smooth corners, handles and holes, with fill and stroke), `morphs` each as its keys
   (leaves, or exact corners with `r` and `c`) plus `own`, the autosave's `morphSaveOwn` record, restored by
-  `morphRestoreOwn`. Trails (echoes, ribbons) are drawn by the runtime as the editor's `drawMorphTrails` does,
+  `morphRestoreOwn`, and `open` for a live line. Trails (echoes, ribbons) are drawn by the runtime as the editor's `drawMorphTrails` does,
   under the shapes, from the engine's `morphTrailSpan`, `morphTrailTime` and `morphCentreAt`. `player.html` opens one
-  (button, drop, `?src=`). `examples/` holds every example on `gallery/animated.html` as a `.tvfs`, and `index.json`
+  (button, drop, `?src=`). A scene's camera frames the canvas (`viewOf` at t), its lines draw on (`drawOn`), and its
+  stops wait: the controller's `next()` (a click on the canvas, unless `click: false`) goes on and `prev()` goes back a
+  stop, `ctl.stop` says which it waits at, `opts.onstop` is told. `examples/` holds every example on `gallery/animated.html` as a `.tvfs`, and `index.json`
   (its sections, each example's name, note and tags, each file's size), **generated** by `npm run examples`
   (`tools/write-examples.mjs`: each example's scene link opened in a headless editor and `__box.tvfScene()` written;
   `npm run examples -- id …` writes some): after changing an example, the scene link or the `.tvfs` writer, run it,
@@ -217,6 +219,25 @@ publishes.
     sliders, saved, the scene link's `gravity` and `wind`, the AI vocabulary): gravity has hops, falls and throws
     over in 1/√g of their cycle and then rest, and swings round(√g) times (lighter than 1 would need more than a
     loop); wind leans sways and swings its way and carries drifts. The snow and tree tiles have some wind.
+    EXPLAINERS (28 Oct 2026, Tom: "can you do explainers with this animation tool?", then "1-3"). DRAWING A LINE ON: a
+    clip's `show: 'draw'` (`morphDrawFactor`, `morphDrawFill`) leaves it unseen before its window, draws its outline from
+    its start over the window like a pen and brings its fill in over the last 30%, an outline it has not got of its own
+    (a filled shape with no stroke) drawn in its fill's colour and going as the fill comes (`drawShapeDrawingOn`, called
+    from the shape loop while `sp._draw` < 1); the SVG export writes it as `pathLength="1"` and a `stroke-dashoffset`
+    animation. Open exact lines now go live as lines (`run.open`, all keys open with the same corner count, no corner
+    pairing; `morphExactCubics(P, open)`, `cubicsToPathD(…, open)`), so an arrow drawn on is a one-key morph. A CAMERA:
+    `state.morphCamera = [{t, box: [x0, y0, x1, y1]}]` in page units (`morphCameraOk`, `morphCameraAt`: eased between
+    keys, centre straight, size by a constant ratio, held outside), followed while playing or scrubbing
+    (`morphCameraFollow`, `morphViewOfBox`; the timeline's **camera** switch, `state.morphCamFollow`), keyed from the
+    view as it is (**+ view**, `morphViewBox`), a row of keys on the timeline (drag, double-click to remove); the SVG
+    export animates its `viewBox`. STOPS: `state.morphStops` (`morphStopsOk`), red flags on the timeline's ruler (**+
+    stop**, drag, double-click); played through (an embed always, the editor when the timeline's **stops** is on,
+    `state.morphStopsOn`) the clock waits at each and at the loop's end (`morphStopCrossed` in `morphTick`), and
+    `morphStopGo(±1)` goes on or back; in an embed a click, space, → or Enter goes on and ← back. Both are saved
+    (`morphStateSave`, so undo too), new each time a first morph starts, in the scene link as `camera: [{t, fit:
+    [shape numbers] | 'all', pad} | {t, box: [x0, y0, x1, y1] in the svg's units, y down}]` (`sceneCameraIn`, through
+    `window.__sceneBoxOf`; the editor writes boxes) and `stops: [t…]`, in the AI vocabulary and in the `.tvfs`. The
+    gallery's **explainers** section has one (`explainer`). Hooks `__box.seek(t)`, `drawn()`, `viewBox()`, `explain()`.
     The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
     what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
     in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted
@@ -240,7 +261,7 @@ publishes.
     0°), and keep a corner smooth in every pose where any key has it smooth (SMOOTH WHERE ANY KEY IS SMOOTH).
     The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
     come first, then the **sequences** (a house builds itself, a seed: morphs that play once, in turn, seen from when they
-    play), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), **chains, contact and emitters** (one thing after another, onto the table, snow, confetti), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
+    play), the **explainers** (a square drawn on, a camera to its corner, a stop after each beat), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), **chains, contact and emitters** (one thing after another, onto the table, snow, confetti), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
   - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your

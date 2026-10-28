@@ -26,6 +26,14 @@
    ]
   },
   {
+   "id": "explainers",
+   "title": "explainers",
+   "note": "Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown \"draw\"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile's picture plays straight through; live, and in the TVF player, it waits.",
+   "ids": [
+    "explainer"
+   ]
+  },
+  {
    "id": "physics",
    "title": "physical motions",
    "note": "Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity's or a spring's own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.",
@@ -320,6 +328,15 @@
     "colour"
    ]
   },
+  "explainer": {
+   "name": "an explainer",
+   "note": "Three beats. A square is drawn on, line first and then filled in; the camera goes in to its corner, where a ring and a pointer are drawn; then back out as the square turns into a circle of the same area. Played live it waits at the end of each beat for a click (or →), the way an explainer does.",
+   "tags": [
+    "draw on",
+    "camera",
+    "stops"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -439,42 +456,43 @@
   }
  },
  "bytes": {
-  "clockwork": 14372,
-  "orrery": 142977,
-  "murmuration": 27258,
-  "garden": 95997,
-  "kite": 12723,
-  "lava": 97092,
-  "ripple": 63228,
-  "metamorphosis": 5023,
-  "pendulum-wave": 33054,
-  "house": 8012,
-  "seed": 6904,
-  "bouncing-ball": 1184,
-  "dropped": 1892,
-  "lantern": 1152,
-  "jelly": 1364,
-  "wheel": 2495,
-  "toss": 1425,
-  "wind": 4157,
-  "pop": 2335,
-  "rider": 1687,
-  "one-after": 2204,
-  "onto": 3377,
-  "snow": 47169,
-  "confetti": 36747,
-  "square-star": 1285,
-  "shape-loop": 1890,
-  "heartbeat": 1479,
-  "snap": 2583,
-  "boing": 1613,
-  "orbit": 1589,
-  "pendulum": 1574,
-  "fish": 1179,
-  "procession": 2473,
-  "shimmer": 6021,
-  "grow": 22402,
-  "boil": 6017,
-  "lag": 17115
+  "clockwork": 14499,
+  "orrery": 143091,
+  "murmuration": 27437,
+  "garden": 96176,
+  "kite": 12850,
+  "lava": 97180,
+  "ripple": 63771,
+  "metamorphosis": 5059,
+  "pendulum-wave": 33272,
+  "house": 8165,
+  "seed": 7005,
+  "bouncing-ball": 1220,
+  "dropped": 1941,
+  "lantern": 1188,
+  "jelly": 1400,
+  "wheel": 2531,
+  "toss": 1461,
+  "wind": 4258,
+  "pop": 2397,
+  "rider": 1736,
+  "one-after": 2240,
+  "onto": 3439,
+  "snow": 47972,
+  "confetti": 37550,
+  "square-star": 1321,
+  "shape-loop": 1926,
+  "heartbeat": 1515,
+  "snap": 2645,
+  "boing": 1649,
+  "orbit": 1625,
+  "pendulum": 1610,
+  "fish": 1215,
+  "procession": 2535,
+  "shimmer": 6057,
+  "grow": 22438,
+  "boil": 6053,
+  "lag": 17151,
+  "explainer": 3478
  }
 }

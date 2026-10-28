@@ -3212,6 +3212,12 @@
         #morphTimeline .tl-mseg { position: absolute; bottom: 0; height: 4px; border-radius: 2px; background: rgba(122,168,255,0.3); pointer-events: none; }
         #morphTimeline .tl-mseg.odd { background: rgba(170,200,255,0.95); }
         #morphTimeline .tl-mcut { position: absolute; bottom: -2px; width: 6px; height: 9px; margin-left: -3px; border-radius: 2px; background: #7aa8ff; cursor: ew-resize; touch-action: none; z-index: 3; }
+        #morphTimeline .tl-stop { position: absolute; top: -1px; bottom: -3px; width: 7px; margin-left: -3px; cursor: ew-resize; touch-action: none; z-index: 3; }
+        #morphTimeline .tl-stop::after { content: ''; position: absolute; left: 3px; top: 0; bottom: 0; width: 2px; background: #e8566a; border-radius: 1px; }
+        #morphTimeline .tl-stop::before { content: ''; position: absolute; left: 0; top: 0; width: 8px; height: 6px; background: #e8566a; border-radius: 0 2px 2px 0; }
+        #morphTimeline .tl-cam { position: absolute; top: 2px; width: 12px; height: 12px; margin-left: -6px; border-radius: 3px; background: #7aa8ff; cursor: grab; z-index: 2; touch-action: none; }
+        #morphTimeline .tl-camrow .tl-lab { color: #7aa8ff; }
+        #morphTimeline .tl-tools label { color: var(--fg-muted); font-size: 10px; display: inline-flex; align-items: center; gap: 3px; }
         #morphTimeline .tl-clip { position: absolute; top: 1px; bottom: 1px; background: rgba(212,160,82,0.22); border: 1px solid rgba(212,160,82,0.75); border-radius: 4px; cursor: grab; touch-action: none; }
         /* THE EMBED: the canvas alone, nothing to press */
         html.embed body > *:not(#main), html.embed #main > *:not(#cv) { display: none !important; }
@@ -4375,8 +4381,9 @@
     <!-- THE SCENE'S TIMELINE: every live morph a row of its keys on the shared clock -->
     <div id="morphTimeline" role="region" aria-label="every live morph's keys on the shared clock">
         <div class="tl-grid tl-top"><span class="tl-title">timeline</span><div class="tl-ruler" id="tlRuler" title="drag to scrub"><span class="tl-play" id="tlPlay"></span></div><button type="button" id="tlClose" title="put the timeline away">×</button></div>
-        <div class="tl-tools"><button type="button" id="tlTurn" title="A SEQUENCE: the selected morphs (or every one, with none selected) each play once, one after another, in their order, sharing the loop">in turn</button><button type="button" id="tlLoops" title="the selected morphs (or every one) loop again">all loop</button><label class="tl-showlab" title="A CLIP SEEN ONLY WHEN IT PLAYS: how the selected morphs that play once (or every one that does) are seen outside their bars">shows <select id="tlShow"><option value="">always</option><option value="during">only in its bar</option><option value="fade">fading in and out</option><option value="in">from its bar on</option><option value="out">until its bar ends</option></select></label><span class="tl-hint">a row's ↻ / 1× plays it looping or once; drag a once-bar to move it, its ends to stretch it</span></div>
+        <div class="tl-tools"><button type="button" id="tlTurn" title="A SEQUENCE: the selected morphs (or every one, with none selected) each play once, one after another, in their order, sharing the loop">in turn</button><button type="button" id="tlLoops" title="the selected morphs (or every one) loop again">all loop</button><label class="tl-showlab" title="A CLIP SEEN ONLY WHEN IT PLAYS: how the selected morphs that play once (or every one that does) are seen outside their bars">shows <select id="tlShow"><option value="">always</option><option value="during">only in its bar</option><option value="fade">fading in and out</option><option value="in">from its bar on</option><option value="out">until its bar ends</option><option value="draw">drawn on in its bar</option></select></label><button type="button" id="tlStop" title="STOPS: a stop where the clock stands — played through, the scene waits there until told to go on (an explainer's beat). Drag a stop on the ruler to move it, double-click it to take it away">+ stop</button><label title="stop at the stops while playing here too (an embed always does)"><input type="checkbox" id="tlStopsOn">stops</label><button type="button" id="tlCamKey" title="A CAMERA: the view as it is now (or the selected shapes, framed) becomes the camera's key where the clock stands; played or scrubbed, the view goes from key to key. Drag a key to retime it, double-click it to take it away">+ view</button><label title="the view follows the camera's keys while the scene plays or is scrubbed"><input type="checkbox" id="tlCamOn">camera</label><span class="tl-hint">a row's ↻ / 1× plays it looping or once; drag a once-bar to move it, its ends to stretch it</span></div>
         <div class="tl-rows" id="tlRows"></div>
+        <div class="tl-row tl-camrow" id="tlCamRow"><span class="tl-lab">camera</span><div class="tl-track" id="tlCamTrack" title="the camera's keys: drag to retime, double-click to remove, click the track to scrub"></div><span></span></div>
     </div>
     <!-- A PICKED CORNER'S NUMBERS (EXACT SHAPES): shown beside a picked corner. World units,
          the grid's. -->
@@ -40304,6 +40311,12 @@
                 const _fd = sp._fade != null ? sp._fade : 1;
                 if (_fd <= 0)
                     continue;
+                // DRAWING A LINE ON: part drawn, its own way (whole, it is drawn as any shape)
+                if (sp._draw != null && sp._draw < 1 && sp._drawRun && morphRuns.includes(sp._drawRun)) {
+                    _setScreenTF();
+                    drawShapeDrawingOn(sp, sp._drawRun, sp._draw, _fd, w, h);
+                    continue;
+                }
                 ctx.globalAlpha = _fd;
                 // A shape still held as its import (CONVERT ON TOUCH) is drawn from its source
                 // outline: cull, the LOD dot, fill and stroke, as the Path2D fast path below does
@@ -51016,6 +51029,8 @@
                 if (run.cols)
                     sp.fill = morphColourAt(run, morphLive.t); // COLOUR THAT MORPHS
                 sp._fade = morphShowFactor(run, morphLive.t); // A MORPH THAT PLAYS ONCE: out of sight, or fading
+                sp._draw = morphDrawFactor(run, morphLive.t); // DRAWING A LINE ON
+                sp._drawRun = run;
                 morphNoteWritten(run, sp);
                 return;
             }
@@ -51026,6 +51041,8 @@
             if (run.cols)
                 sp.fill = morphColourAt(run, morphLive.t); // COLOUR THAT MORPHS
             sp._fade = morphShowFactor(run, morphLive.t); // A MORPH THAT PLAYS ONCE: out of sight, or fading
+            sp._draw = morphDrawFactor(run, morphLive.t); // DRAWING A LINE ON
+            sp._drawRun = run;
             // The reference follows the leaves. A morph is not a resample of some earlier curve —
             // each pose IS the shape, so a pose dropped by `keep` has to be its own origin or every
             // downstream reading would be taken against a curve that is not there.
@@ -51278,8 +51295,11 @@
         function morphAbandon(runs) {
             const drop = runs || morphRuns.slice();
             for (const r of drop) {
-                if (r.sp)
+                if (r.sp) {
                     delete r.sp._fade; // A MORPH THAT PLAYS ONCE: a shape left behind is drawn whole
+                    delete r.sp._draw; // DRAWING A LINE ON: and whole
+                    delete r.sp._drawRun;
+                }
                 const i = morphRuns.indexOf(r);
                 if (i >= 0)
                     morphRuns.splice(i, 1);
@@ -51465,11 +51485,77 @@
             }
             const dt = morphLive.last ? Math.min(0.1, (now - morphLive.last) / 1000) : 0;
             morphLive.last = now;
-            morphLive.t = (morphLive.t + dt * morphLive.speed) % 1;
+            const t1 = morphLive.t + dt * morphLive.speed,
+                stop = morphStopsPlayed() ? morphStopCrossed(state.morphStops, morphLive.t, t1) : null;
+            if (stop != null) { // STOPS: the clock waits here
+                morphLive.t = stop >= 1 ? 1 - 1e-9 : stop;
+                morphClockStop();
+                morphWrite();
+                morphCameraFollow();
+                morphBarSync();
+                drawAll();
+                const i = state.morphStops.indexOf(stop);
+                flashStatus(stop >= 1 ? 'the end' + (EMBED ? ' — click to start again' : ' — play starts it again')
+                    : 'stop ' + (i + 1) + ' of ' + state.morphStops.length + (EMBED ? ' — click, or →, to go on' : ' — play goes on'));
+                return;
+            }
+            morphLive.t = t1 % 1;
             morphWrite();
+            morphCameraFollow(); // A CAMERA
             morphBarSync();
             drawAll();
             morphLive.raf = requestAnimationFrame(morphTick);
+        }
+        // A CAMERA, AND STOPS, in the editor. The camera moves the view only while the scene is played or
+        // scrubbed, so a pan or a zoom of your own, paused, stays yours; the timeline's "camera" switch
+        // turns following off altogether. Stops are played through in an embed always, and in the editor
+        // when the timeline says so: while you build a scene its loop keeps coming round.
+        function morphStopsPlayed() {
+            return !!(state.morphStops && state.morphStops.length) && (EMBED || !!state.morphStopsOn);
+        }
+        function morphCameraFollow() {
+            if (!morphRuns.length || !state.morphCamera || !state.morphCamera.length || state.morphCamFollow === false)
+                return;
+            const B = morphCameraAt(state.morphCamera, morphLive.t);
+            if (B)
+                morphViewOfBox(B);
+        }
+        // the view that shows box B whole, centred in the canvas
+        function morphViewOfBox(B) {
+            const w = cv.clientWidth,
+                h = cv.clientHeight,
+                hR = state.hRun || 1;
+            if (!(w > 0 && h > 0))
+                return;
+            const bw = Math.max(1e-9, (B[2] - B[0]) / hR),
+                bh = Math.max(1e-9, (B[3] - B[1]) / hR);
+            state.view.panX = (B[0] + B[2]) / 2 / hR;
+            state.view.panY = (B[1] + B[3]) / 2 / hR;
+            state.view.zoom = Math.min(w / bw, h / bh) / (Math.min(w, h) * 0.40);
+        }
+        // what the canvas shows now, as a box in the page's units
+        function morphViewBox() {
+            const w = cv.clientWidth,
+                h = cv.clientHeight,
+                a = pxToWorld(0, h, w, h),
+                b = pxToWorld(w, 0, w, h);
+            return [a.x, a.y, b.x, b.y];
+        }
+        // go on from a stop (or from the end, start again); or back to the stop before
+        function morphStopGo(dir) {
+            if (!morphRuns.length)
+                return;
+            if (dir < 0) {
+                morphSetT(morphStopBefore(state.morphStops, morphLive.t));
+                return;
+            }
+            if (morphLive.t >= 1 - 1e-6)
+                morphLive.t = 0;
+            morphLive.play = true;
+            morphLive.last = 0;
+            morphBarSync();
+            if (!morphLive.raf)
+                morphLive.raf = requestAnimationFrame(morphTick);
         }
         function morphLiveStart(o) {
             o = o || {};
@@ -51488,10 +51574,19 @@
             // MORPHS THAT KEEP THEIR CORNERS: exact shapes (closed, no holes) morph as exact shapes, their
             // corners, radii and curve edges blended, unless the panel's switch says leaves. Asked
             // before anything reads their leaves, which would turn them into leaves.
-            const exactMode = state.morphCorners !== false && sel.every(i => {
+            // DRAWING A LINE ON (28 Oct 2026, Tom: "1-3", for explainers): open lines go live too, as lines,
+            // when every key is one with the same number of corners (an arrow drawn on is one key, a
+            // line bending into another is two). Nothing pairs or rolls their corners: a line's ends are
+            // its ends.
+            const openMode = state.morphCorners !== false && sel.length >= 1 && sel.every(i => {
+                const sp = state.subpaths[i];
+                return sp && sp._lazy && sp._lazy.exact && sp._lazy.open && sp._lazy.x.length >= 2
+                    && sp._lazy.x.length === state.subpaths[sel[0]]._lazy.x.length;
+            });
+            const exactMode = openMode || (state.morphCorners !== false && sel.every(i => {
                 const sp = state.subpaths[i];
                 return sp && sp._lazy && sp._lazy.exact && !sp._lazy.open && !sp._lazy.holes && sp._lazy.x.length >= 3;
-            });
+            }));
             const idx = exactMode ? sel.slice() : sel.filter(i => {
                 const sp = state.subpaths[i];
                 return sp && sp.leafX && sp.leafX.length >= 3;
@@ -51521,7 +51616,15 @@
                     members.push(sp);
             }
             let N, keys;
-            if (exactMode) {
+            if (openMode) {
+                keys = src.map(exactKeyOf);
+                if (!inPlace)
+                    for (const K of keys) {
+                        const c = exactCentre(K);
+                        exactMove(K, -c.x, -c.y);
+                    }
+                N = keys[0].x.length;
+            } else if (exactMode) {
                 keys = morphExactKeys(src, inPlace, align);
                 N = keys[0].x.length;
             } else {
@@ -51571,6 +51674,8 @@
                 dirty: false,
                 stroke: src[0].stroke || null,
                 lineWidth: src[0].lineWidth,
+                strokeOpacity: src[0].strokeOpacity,
+                lineStyle: src[0].lineStyle || null, // an arrow keeps its heads
                 fill: src[0].fill || null
             } : {
                 refX: new Float64Array(N),
@@ -51588,6 +51693,7 @@
             const run = {
                 keys,
                 exact: exactMode, // MORPHS THAT KEEP THEIR CORNERS
+                open: openMode, // DRAWING A LINE ON: a line
                 curved: exactMode ? morphExactCurved(keys) : null,
                 cols: morphColsOf(src.map(sp => sp.fill)), // COLOUR THAT MORPHS
                 sp: sp0,
@@ -51607,6 +51713,8 @@
             if (morphRuns.length === 1) {
                 morphLive.t = 0;
                 morphClockStop();
+                state.morphCamera = []; // A CAMERA, AND STOPS: a new scene's, not the last one's
+                state.morphStops = [];
             }
             state.selected.clear();
             state.activeSet = new Set();
@@ -51948,7 +52056,7 @@
                 c = new Array(n).fill(null);
             for (let k = 0; k < n; k++) {
                 r[k] = R0 && R0[k] > 0 && !(S && S[k]) ? R0[k] : 0;
-                const cc = edgeCtrl(X, Y, S, false, k, (k + 1) % n, C);
+                const cc = lz.open && k === n - 1 ? null : edgeCtrl(X, Y, S, !!lz.open, k, (k + 1) % n, C);
                 c[k] = cc ? [cc.c1x, cc.c1y, cc.c2x, cc.c2y] : null;
             }
             return { x: X, y: Y, r, c };
@@ -52407,18 +52515,20 @@
             // must not change it too (EDITING A KEY ON THE CANVAS measures the edit against it)
             makeLazy(sp, Float64Array.from(P.x), Float64Array.from(P.y), 0, null, {
                 exact: true,
+                open: !!run.open, // DRAWING A LINE ON: a line goes live as a line
                 round: hasRound(P.r) ? P.r : null,
                 ctrl: hasCtrl(P.c) ? P.c.map(e => e ? e.slice() : null) : null
             });
             run.pose = P;
         }
         // a pose as 2n cubics in a fixed order, for the animated svg: at each corner its rounding
-        // (an arc's cubic, or none, all four points at the corner), then the edge to the next
-        function morphExactCubics(P) {
+        // (an arc's cubic, or none, all four points at the corner), then the edge to the next. An open
+        // line (DRAWING A LINE ON) has n − 1 edges and no rounding at its two ends: 2(n − 1) cubics.
+        function morphExactCubics(P, open) {
             const n = P.x.length,
                 ends = [];
             for (let k = 0; k < n; k++) {
-                const g = P.r[k] > 0 && !P.c[k] && !P.c[(k - 1 + n) % n] ? cornerArc(P.x, P.y, k, false, P.r[k]) : null;
+                const g = P.r[k] > 0 && !(open && (k === 0 || k === n - 1)) && !P.c[k] && !P.c[(k - 1 + n) % n] ? cornerArc(P.x, P.y, k, false, P.r[k]) : null;
                 if (g) {
                     const h = (4 / 3) * Math.tan((Math.PI - g.phi) / 4) * g.r,
                         ux = (g.t1x - P.x[k]) / g.t,
@@ -52432,7 +52542,7 @@
                 }
             }
             const pts = [ends[0].b];
-            for (let k = 0; k < n; k++) {
+            for (let k = 0; k < (open ? n - 1 : n); k++) {
                 const A = ends[k].b,
                     B = ends[(k + 1) % n].a,
                     e = P.c[k];
@@ -52481,16 +52591,20 @@
                 d += ring(hl.x, hl.y, null, false, hl.smooth, hl.ctrl);
             return d;
         }
-        function cubicsToPathD(pts, dp) {
+        function cubicsToPathD(pts, dp, open) {
             const q = Math.pow(10, dp),
                 f = v => Math.round(v * q) / q;
             let d = 'M' + f(pts[0].x) + ' ' + f(pts[0].y);
             for (let i = 1; i + 2 < pts.length; i += 3)
                 d += 'C' + f(pts[i].x) + ' ' + f(pts[i].y) + ' ' + f(pts[i + 1].x) + ' ' + f(pts[i + 1].y) + ' ' + f(pts[i + 2].x) + ' ' + f(pts[i + 2].y);
-            return d + 'Z';
+            return d + (open ? '' : 'Z');
         }
         // a run's drawn outline at time u, as points (an exact pose's, or the leaves' curve)
         function morphOutlineAt(run, u) {
+            if (run.exact && run.open) { // a line, not a ring
+                const K = morphPoseExact(run, u);
+                return exactDense(K.x, K.y, hasRound(K.r) ? K.r : null, true, null, hasCtrl(K.c) ? K.c : null);
+            }
             if (run.exact)
                 return exactDenseOf(morphPoseExact(run, u));
             const sp = morphTargetOf(run);
@@ -52499,6 +52613,71 @@
             const B = morphTrailBuf(sp.leafX.length);
             morphPoseInto(run, u, B.x, B.y);
             return new tvf.Shape(B.x, B.y).sample(256);
+        }
+
+        // DRAWING A LINE ON: a live shape whose clip is shown 'draw', part way through its window. Its outline
+        // (the pose's own, a line's open, a ring's closed) is stroked from its start for share f of its
+        // length, in its own line, or in its fill's colour when it has none; its fill comes in over the
+        // window's last part, and an outline it does not have of its own goes out as the fill comes in,
+        // so the end of the window is the shape exactly as it is drawn whole. An arrow's heads come with
+        // the last of its line.
+        function drawShapeDrawingOn(sp, run, f, fd, w, h) {
+            const O = morphOutlineAt(run, morphLive.t);
+            if (!O || O.x.length < 2)
+                return;
+            const open = !!run.open,
+                n = O.x.length,
+                P = new Array(n);
+            for (let i = 0; i < n; i++)
+                P[i] = worldToPx(O.x[i], O.y[i], w, h);
+            if (!open)
+                P.push(P[0]);
+            let L = 0;
+            for (let i = 1; i < P.length; i++)
+                L += Math.hypot(P[i].x - P[i - 1].x, P[i].y - P[i - 1].y);
+            const fillCol = state.showFills && !open && sp.fill && sp.fill.color ? sp.fill.color : null,
+                fillA = sp.fill && sp.fill.opacity != null ? sp.fill.opacity : 1,
+                ff = morphDrawFill(f),
+                own = sp.lineWidth == null ? state.lineWidth : sp.lineWidth,
+                hasLine = own > 0 && (!!sp.stroke || !fillCol),
+                lw = hasLine ? own : Math.max(1.5, state.lineWidth || 2),
+                col = (hasLine && sp.stroke) || fillCol || sp.stroke || 'rgba(212,160,82,1)',
+                so = sp.strokeOpacity != null ? sp.strokeOpacity : 1;
+            ctx.save();
+            if (fillCol && ff > 0) {
+                ctx.beginPath();
+                ctx.moveTo(P[0].x, P[0].y);
+                for (let i = 1; i < n; i++)
+                    ctx.lineTo(P[i].x, P[i].y);
+                ctx.closePath();
+                ctx.globalAlpha = fd * fillA * ff;
+                ctx.fillStyle = fillCol;
+                ctx.fill('evenodd');
+            }
+            const a = fd * so * (hasLine ? 1 : 1 - ff);
+            if (a > 0 && L > 0) {
+                ctx.globalAlpha = a;
+                ctx.strokeStyle = col;
+                ctx.lineWidth = lw;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(P[0].x, P[0].y);
+                let left = f * L;
+                for (let i = 1; i < P.length && left > 0; i++) {
+                    const d = Math.hypot(P[i].x - P[i - 1].x, P[i].y - P[i - 1].y);
+                    if (d <= left) {
+                        ctx.lineTo(P[i].x, P[i].y);
+                        left -= d;
+                    } else {
+                        const u = left / d;
+                        ctx.lineTo(P[i - 1].x + u * (P[i].x - P[i - 1].x), P[i - 1].y + u * (P[i].y - P[i - 1].y));
+                        left = 0;
+                    }
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
         }
 
         // ── MOTION ALONG A PATH (25 Oct 2026, Tom: "1,3") ───────────────────────────────
@@ -53346,8 +53525,14 @@
         // So a sequence can bring things on and take them off: a title, then a shape, then the next. It is
         // a factor on the drawing (sp._fade), never on the shape's own colours, so nothing of it is saved
         // in the drawing.
-        const MORPH_SHOWS = ['during', 'fade', 'in', 'out'],
-            MORPH_FADE = 1 / 6;
+        //   'draw'    DRAWING A LINE ON (28 Oct 2026, Tom: "1-3", for explainers): unseen before its window,
+        //             its outline drawn from its start to its end over the window (sp._draw, the share
+        //             drawn), its fill coming in over the window's last part; whole after. A line (an
+        //             arrow, an underline) is drawn on the way a pen would; a filled shape is outlined and
+        //             then filled.
+        const MORPH_SHOWS = ['during', 'fade', 'in', 'out', 'draw'],
+            MORPH_FADE = 1 / 6,
+            MORPH_DRAW_FILL = 0.3; // the last share of a 'draw' window, over which the fill comes in
         function morphShowFactor(run, t) {
             const c = run.clip;
             if (!c || !MORPH_SHOWS.includes(c.show))
@@ -53361,7 +53546,102 @@
                 return p < 0 || p > 1 ? 0 : Math.min(up, down);
             if (c.show === 'in')
                 return p < 0 ? 0 : up;
+            if (c.show === 'draw')
+                return p < 0 ? 0 : 1;
             return p > 1 ? 0 : down; // 'out'
+        }
+        // DRAWING A LINE ON: how much of its outline a clip shown 'draw' has drawn at t (0 to 1), or
+        // undefined when it is not drawn on
+        function morphDrawFactor(run, t) {
+            const c = run.clip;
+            if (!c || c.show !== 'draw')
+                return undefined;
+            return Math.max(0, Math.min(1, (t - c.start) / Math.max(1e-6, c.len)));
+        }
+        // …and how far its fill has come in, from that share: none until the window's last part
+        function morphDrawFill(f) {
+            const u = Math.max(0, Math.min(1, (f - (1 - MORPH_DRAW_FILL)) / MORPH_DRAW_FILL));
+            return u * u * (3 - 2 * u);
+        }
+        // ── A CAMERA, AND STOPS (28 Oct 2026, Tom: "1-3", for explainers) ─────────────────────────────
+        // THE CAMERA: what the scene shows, keyed on the shared clock like everything else. A key is
+        // {t, box: [x0, y0, x1, y1]}, a box in the page's units that the view is fitted to (the whole box
+        // seen, centred, whatever the window's shape). Between two keys the view goes from one box to
+        // the next eased in and out, its centre straight across and its size by a constant ratio a moment,
+        // so a zoom of a hundred times takes as long per doubling at both ends; before the first key and
+        // after the last it holds. No keys, no camera: the view is the viewer's.
+        function morphCameraOk(C) {
+            if (!Array.isArray(C))
+                return [];
+            const out = [];
+            for (const k of C) {
+                const b = k && k.box;
+                if (!k || !Number.isFinite(+k.t) || !Array.isArray(b) || b.length !== 4 || !b.every(v => Number.isFinite(+v)))
+                    continue;
+                const x0 = Math.min(+b[0], +b[2]),
+                    x1 = Math.max(+b[0], +b[2]),
+                    y0 = Math.min(+b[1], +b[3]),
+                    y1 = Math.max(+b[1], +b[3]);
+                if (!(x1 - x0 > 0 || y1 - y0 > 0))
+                    continue;
+                out.push({ t: Math.max(0, Math.min(1, +k.t)), box: [x0, y0, x1, y1] });
+            }
+            return out.sort((a, b) => a.t - b.t);
+        }
+        function morphCameraAt(C, t) {
+            if (!C || !C.length)
+                return null;
+            if (t <= C[0].t || C.length === 1)
+                return C[0].box.slice();
+            const L = C[C.length - 1];
+            if (t >= L.t)
+                return L.box.slice();
+            let i = 0;
+            while (i < C.length - 2 && C[i + 1].t <= t)
+                i++;
+            const A = C[i].box,
+                B = C[i + 1].box,
+                u0 = (t - C[i].t) / Math.max(1e-9, C[i + 1].t - C[i].t),
+                u = u0 * u0 * (3 - 2 * u0);
+            const cx = (A[0] + A[2]) / 2 + u * ((B[0] + B[2]) / 2 - (A[0] + A[2]) / 2),
+                cy = (A[1] + A[3]) / 2 + u * ((B[1] + B[3]) / 2 - (A[1] + A[3]) / 2),
+                lg = (a, b) => Math.exp(Math.log(Math.max(1e-12, a)) * (1 - u) + Math.log(Math.max(1e-12, b)) * u),
+                w = lg(A[2] - A[0], B[2] - B[0]),
+                h = lg(A[3] - A[1], B[3] - B[1]);
+            return [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2];
+        }
+        // STOPS: places on the clock where playing waits, the beats of an explainer. Played through them
+        // (a reader's page, the embed, the player; the editor when its timeline's "stops" is on), the clock
+        // stops on each and goes on when told to, and at the end of the loop it waits too rather than
+        // coming round, so the explainer ends where it ends; told to go on from there, it starts over.
+        function morphStopsOk(S) {
+            if (!Array.isArray(S))
+                return [];
+            const out = [];
+            for (const v of S) {
+                const t = +(v && typeof v === 'object' ? v.t : v);
+                if (Number.isFinite(t) && t > 0 && t < 1 && !out.some(q => Math.abs(q - t) < 1e-4))
+                    out.push(t);
+            }
+            return out.sort((a, b) => a - b);
+        }
+        // the first stop the clock passes going from a to b (b may run past 1): the stop, 1 for the end of
+        // the loop, or null. Standing on a stop is not passing it, so going on from one leaves it.
+        function morphStopCrossed(S, a, b) {
+            if (!S || !S.length)
+                return null;
+            for (const s of S)
+                if (a < s - 1e-9 && s <= b)
+                    return s;
+            return b >= 1 && a < 1 - 1e-6 ? 1 : null;
+        }
+        // the stop before t (or the start), where going back lands
+        function morphStopBefore(S, t) {
+            let q = 0;
+            for (const s of S || [])
+                if (s < t - 1e-3)
+                    q = s;
+            return q;
         }
         // the morph's own clock: `rate` times round a loop, `phase` ahead (0 to 1); the shared clock
         // when it has neither. A whole rate keeps the loop seamless.
@@ -54955,6 +55235,46 @@
                 const r0 = (morphRunToolRuns().find(r => r.clip)) || morphRuns.find(r => r.clip);
                 tsel.value = r0 && r0.clip.show ? r0.clip.show : '';
             }
+            // A CAMERA, AND STOPS: the camera's keys on their row, the stops on the ruler
+            const C = state.morphCamera || [],
+                SP = state.morphStops || [],
+                camT = $('tlCamTrack'),
+                ruler = $('tlRuler');
+            const camRow = $('tlCamRow');
+            if (camRow)
+                camRow.style.display = C.length ? '' : 'none';
+            if (camT) {
+                if (camT._n !== C.length) {
+                    camT._n = C.length;
+                    camT.innerHTML = C.map((k, i) => `<span class="tl-cam" data-c="${i}" title="camera key ${i + 1}: drag to retime, double-click to take it away, click to stand on it"></span>`).join('') + '<span class="tl-line"></span>';
+                }
+                for (const el of camT.querySelectorAll('.tl-cam')) {
+                    const k = C[+el.dataset.c];
+                    if (k)
+                        el.style.left = pct(k.t);
+                }
+                const ln = camT.querySelector('.tl-line');
+                if (ln)
+                    ln.style.left = pct(t);
+            }
+            if (ruler) {
+                let marks = ruler.querySelectorAll('.tl-stop');
+                if (marks.length !== SP.length) {
+                    for (const m of marks)
+                        m.remove();
+                    SP.forEach((_, i) => ruler.insertAdjacentHTML('beforeend', `<span class="tl-stop" data-s="${i}" title="stop ${i + 1}: played through, the scene waits here. Drag to move it, double-click to take it away"></span>`));
+                    marks = ruler.querySelectorAll('.tl-stop');
+                }
+                for (const m of marks)
+                    if (SP[+m.dataset.s] != null)
+                        m.style.left = pct(SP[+m.dataset.s]);
+            }
+            const co = $('tlCamOn'),
+                so = $('tlStopsOn');
+            if (co)
+                co.checked = state.morphCamFollow !== false;
+            if (so)
+                so.checked = !!state.morphStopsOn;
             const pl = $('tlPlay');
             if (pl)
                 pl.style.left = pct(t);
@@ -55006,7 +55326,57 @@
                 const rc = el.getBoundingClientRect();
                 return Math.max(0, Math.min(0.999, (e.clientX - rc.left) / rc.width));
             };
+            // A CAMERA, AND STOPS: the buttons, the switches
+            $('tlStop').addEventListener('click', () => {
+                const t = morphLive.t;
+                if (!(t > 0.001 && t < 0.999)) {
+                    flashStatus('stops: move the clock into the loop first; a stop at its very start or end is the start or the end');
+                    return;
+                }
+                state.morphStops = morphStopsOk((state.morphStops || []).concat([t]));
+                morphTimelineChanged();
+                flashStatus('a stop at ' + t.toFixed(3) + ' · ' + state.morphStops.length + ' in all' + (state.morphStopsOn ? '' : ' — tick "stops" to stop at them while playing here'));
+            });
+            $('tlCamKey').addEventListener('click', () => {
+                const t = morphLive.t,
+                    C = (state.morphCamera || []).filter(k => Math.abs(k.t - t) > 0.004);
+                C.push({ t, box: morphViewBox() });
+                state.morphCamera = morphCameraOk(C);
+                state.morphCamFollow = true;
+                morphTimelineChanged();
+                flashStatus('the camera sees this at ' + t.toFixed(3) + ' · ' + state.morphCamera.length + ' camera key' + (state.morphCamera.length === 1 ? '' : 's') + ' — pan or zoom, move the clock, and add the next');
+            });
+            $('tlCamOn').addEventListener('change', e => {
+                state.morphCamFollow = !!e.target.checked;
+                morphCameraFollow();
+                drawAll();
+                scheduleSave();
+            });
+            $('tlStopsOn').addEventListener('change', e => {
+                state.morphStopsOn = !!e.target.checked;
+                scheduleSave();
+            });
+            P.addEventListener('dblclick', e => {
+                const st = e.target.closest('.tl-stop'),
+                    ck = e.target.closest('.tl-cam');
+                if (st)
+                    state.morphStops = (state.morphStops || []).filter((_, i) => i !== +st.dataset.s);
+                else if (ck)
+                    state.morphCamera = (state.morphCamera || []).filter((_, i) => i !== +ck.dataset.c);
+                else
+                    return;
+                e.preventDefault();
+                morphTimelineChanged();
+            });
             P.addEventListener('pointerdown', e => {
+                const sm = e.target.closest('.tl-stop'), // A CAMERA, AND STOPS: a stop or a camera key picked up
+                    cm = !sm && e.target.closest('.tl-cam');
+                if (sm || cm) {
+                    e.preventDefault();
+                    drag = { kind: sm ? 'stop' : 'cam', i: +(sm ? sm.dataset.s : cm.dataset.c), id: e.pointerId, moved: false };
+                    (sm || cm).setPointerCapture(e.pointerId);
+                    return;
+                }
                 const mcut = e.target.closest('.tl-mcut'); // CHAINS ON THE TIMELINE: a border between two steps
                 if (mcut) {
                     e.preventDefault();
@@ -55035,7 +55405,7 @@
                     drag = { kind: 'key', r: +key.dataset.r, k: +key.dataset.k, m: +key.dataset.m, id: e.pointerId, moved: false };
                     key.setPointerCapture(e.pointerId);
                 } else {
-                    drag = { kind: 'scrub', ruler: track.classList.contains('tl-ruler'), r: +track.dataset.r, id: e.pointerId };
+                    drag = { kind: 'scrub', ruler: track.classList.contains('tl-ruler') || track.id === 'tlCamTrack', r: +track.dataset.r, id: e.pointerId };
                     track.setPointerCapture(e.pointerId);
                     morphSetT(tAt(e, track));
                 }
@@ -55044,10 +55414,23 @@
                 if (!drag || e.pointerId !== drag.id)
                     return;
                 // the row looked up afresh: should the rows be rebuilt mid-drag, a held element is gone
-                const el = drag.kind === 'scrub' && drag.ruler ? $('tlRuler') : P.querySelector(`.tl-track[data-r="${drag.r}"]`);
+                const el = (drag.kind === 'scrub' && drag.ruler) || drag.kind === 'stop' || drag.kind === 'cam' ? $('tlRuler') : P.querySelector(`.tl-track[data-r="${drag.r}"]`);
                 if (!el)
                     return;
                 const t = tAt(e, el);
+                if (drag.kind === 'stop' || drag.kind === 'cam') { // A CAMERA, AND STOPS: moved along the clock
+                    const L = drag.kind === 'stop' ? state.morphStops : state.morphCamera;
+                    if (!L || L[drag.i] == null)
+                        return;
+                    if (drag.kind === 'stop')
+                        L[drag.i] = Math.max(0.001, Math.min(0.999, t));
+                    else
+                        L[drag.i].t = t;
+                    drag.moved = true;
+                    morphBarSync();
+                    drawAll();
+                    return;
+                }
                 if (drag.kind === 'scrub') {
                     morphSetT(t);
                     return;
@@ -55109,7 +55492,14 @@
             const end = e => {
                 if (!drag || e.pointerId !== drag.id)
                     return;
-                const moved = (drag.kind === 'key' || drag.kind === 'clip' || drag.kind === 'mcut') && drag.moved;
+                const moved = (drag.kind === 'key' || drag.kind === 'clip' || drag.kind === 'mcut' || drag.kind === 'stop' || drag.kind === 'cam') && drag.moved;
+                if (drag.kind === 'stop' || drag.kind === 'cam') { // put back in order once let go
+                    const k = drag.kind === 'cam' && !drag.moved ? (state.morphCamera || [])[drag.i] : null;
+                    state.morphStops = morphStopsOk(state.morphStops);
+                    state.morphCamera = morphCameraOk(state.morphCamera);
+                    if (k)
+                        morphSetT(k.t); // a camera key clicked: stand on it
+                }
                 drag = null;
                 if (moved) {
                     _mrSig = '';
@@ -55545,6 +55935,7 @@
             morphClockStop();
             morphLive.t = Math.max(0, Math.min(1, t));
             morphWrite();
+            morphCameraFollow(); // A CAMERA: scrubbing moves it as playing does
             morphBarSync();
             drawAll();
             scheduleSave(); // THE TIMELINE IS SAVED
@@ -71404,13 +71795,13 @@
                     morphWriteRun(run);
                     const sp = morphTargetOf(run);
                     // MORPHS THAT KEEP THEIR CORNERS: the pose as its fixed run of cubics, corners sharp
-                    return sp ? (run.exact ? morphExactCubics(run.pose) : morphExportRing(sp, runS[ri])) : null;
+                    return sp ? (run.exact ? morphExactCubics(run.pose, run.open) : morphExportRing(sp, runS[ri])) : null;
                 });
                 P.bare = morphRuns.map((run, ri) => {
                     if (!split[ri] || !P[ri])
                         return null;
                     if (run.exact)
-                        return morphExactCubics(morphPoseExact(run, t, true));
+                        return morphExactCubics(morphPoseExact(run, t, true), run.open);
                     const B = bareBuf[ri];
                     if (!B)
                         return null;
@@ -71680,20 +72071,42 @@
                 // A CLIP SEEN ONLY WHEN IT PLAYS: its opacity on the same schedule (in steps for 'during')
                 const showTs = G ? G.ts : tsR(ri),
                     fadeAnim = run.clip && MORPH_SHOWS.includes(run.clip.show)
-                    ? `<animate attributeName="opacity" calcMode="${run.clip.show === 'during' ? 'discrete' : 'linear'}" dur="${dur.toFixed(2)}s" repeatCount="indefinite"${begin} values="${showTs.map(t => +morphShowFactor(run, t).toFixed(3)).join(';')}"/>` : '';
+                    ? `<animate attributeName="opacity" calcMode="${run.clip.show === 'during' || run.clip.show === 'draw' ? 'discrete' : 'linear'}" dur="${dur.toFixed(2)}s" repeatCount="indefinite"${begin} values="${showTs.map(t => +morphShowFactor(run, t).toFixed(3)).join(';')}"/>` : '';
+                // DRAWING A LINE ON: the outline as a dash as long as the share drawn (pathLength 1), the fill
+                // coming in at the end, and an outline the shape has not got of its own drawn in its fill's
+                // colour and going as the fill comes, as the editor draws it
+                let drawAnim = '';
+                if (run.open)
+                    style = style.replace(/fill="[^"]*"( fill-opacity="[^"]*")?/, 'fill="none"');
+                if (morphDrawFactor(run, 0) !== undefined) {
+                    const sp = run.sp,
+                        fs = showTs.map(t => morphDrawFactor(run, t)),
+                        fillCol = !run.open && sp.fill && sp.fill.color ? sp.fill.color : null,
+                        fillA = sp.fill && sp.fill.opacity != null ? sp.fill.opacity : 1,
+                        sw = lineWidthOf(sp),
+                        hasLine = sw > 0 && (!!sp.stroke || !fillCol);
+                    drawAnim = anim('stroke-dashoffset', fs.map(f => +(1 - f).toFixed(4)).join(';'));
+                    if (fillCol)
+                        drawAnim += anim('fill-opacity', fs.map(f => +(fillA * morphDrawFill(f)).toFixed(3)).join(';'));
+                    if (!hasLine) {
+                        style = style.replace(/ ?stroke="[^"]*"( stroke-width="[^"]*")?( stroke-opacity="[^"]*")?/, '') + ` stroke="${fillCol || '#d4a052'}" stroke-width="${Math.max(1.5, state.lineWidth || 2)}" stroke-linecap="round"`;
+                        drawAnim += anim('stroke-opacity', fs.map(f => +(1 - morphDrawFill(f)).toFixed(3)).join(';'));
+                    }
+                    style += ' pathLength="1" stroke-dasharray="1 1"';
+                }
                 if (G) {
-                    const pd = S => run.exact ? cubicsToPathD(S, DP) : ringToPathD(S, DP),
+                    const pd = S => run.exact ? cubicsToPathD(S, DP, run.open) : ringToPathD(S, DP),
                         d = pd(G.shapes[0]),
                         shapeAnim = G.shapes.length > 1 ? anim('d', G.shapes.map(pd).join(';')) : '';
                     const tr = (type, vals, add) => `<animateTransform attributeName="transform" type="${type}" calcMode="linear" dur="${dur.toFixed(2)}s" repeatCount="indefinite"${begin}${add ? ' additive="sum"' : ''} values="${vals}"/>`;
                     return `<g>${tr('translate', G.at.map(c => f1(c.x) + ' ' + f1(c.y)).join(';'))}`
                     + `${G.deg.some(v => Math.abs(v - G.deg[0]) > 1e-3) ? tr('rotate', G.deg.map(v => +v.toFixed(2)).join(';'), true) : ''}`
-                    + `<path d="${d}" ${style}>${inner || ''}${shapeAnim}${fillAnim}${fadeAnim}</path></g>`;
+                    + `<path d="${d}" ${style}>${inner || ''}${shapeAnim}${fillAnim}${fadeAnim}${drawAnim}</path></g>`;
                 }
-                const ds = seq[ri].map(r => r ? (run.exact ? cubicsToPathD(mapRing(r), DP) : ringToPathD(mapRing(r), DP)) : null).filter(Boolean);
+                const ds = seq[ri].map(r => r ? (run.exact ? cubicsToPathD(mapRing(r), DP, run.open) : ringToPathD(mapRing(r), DP)) : null).filter(Boolean);
                 if (ds.length < 2)
                     return '';
-                return `<path d="${ds[0]}" ${style}>${inner || ''}${anim('d', ds.join(';'))}${fillAnim}${fadeAnim}</path>`;
+                return `<path d="${ds[0]}" ${style}>${inner || ''}${anim('d', ds.join(';'))}${fillAnim}${fadeAnim}${drawAnim}</path>`;
             }
             const lagBegin = back => ` begin="${(-(dur - back * (bounce ? dur / 2 : dur))).toFixed(3)}s"`;
             const trails = [];
@@ -71767,8 +72180,36 @@
             + `     Every frame is the same number of cubics in the same order, so the values list\n`
             + `     interpolates component by component the way SMIL requires. Generated from a\n`
             + `     tangent-vector morph: the poses are point-matched by construction. -->`;
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" width="${VW}" height="${VH}">\n`
-            + note + '\n' + body.join('\n') + '\n</svg>\n';
+            // A CAMERA: the file's viewBox goes where the camera goes, each key's box in the file's units and
+            // widened to the file's own proportions, as many frames as the moves need (48 a loop)
+            const CAM = morphRuns.length ? morphCameraOk(state.morphCamera) : [];
+            let vb0 = `0 0 ${VW} ${VH}`,
+                camAnim = '';
+            if (CAM.length) {
+                const vbAt = t => {
+                    const B = morphCameraAt(CAM, t),
+                        x0 = hx + (B[0] - ox) * scale,
+                        x1 = hx + (B[2] - ox) * scale,
+                        y0 = hy - (B[3] - oy) * scale,
+                        y1 = hy - (B[1] - oy) * scale;
+                    let w = x1 - x0,
+                        h = y1 - y0;
+                    if (w / Math.max(1e-9, h) > VW / VH)
+                        h = w * VH / VW;
+                    else
+                        w = h * VW / VH;
+                    const cx = (x0 + x1) / 2,
+                        cy = (y0 + y1) / 2;
+                    return [cx - w / 2, cy - h / 2, w, h].map(v => +v.toFixed(2)).join(' ');
+                };
+                const n = CAM.length > 1 ? 49 : 1,
+                    vals = Array.from({ length: n }, (_, i) => vbAt(n > 1 ? i / (n - 1) : 0));
+                vb0 = vals[0];
+                if (n > 1)
+                    camAnim = `  <animate attributeName="viewBox" calcMode="linear" dur="${dur.toFixed(2)}s" repeatCount="indefinite" values="${vals.join(';')}"/>\n`;
+            }
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb0}" width="${VW}" height="${VH}">\n`
+            + camAnim + note + '\n' + body.join('\n') + '\n</svg>\n';
             if (o.noDownload) // the gallery's own playing tiles are written this way (tools/build-animated.mjs)
                 return { paths: body.length, frames: ts.length, bounce, bytes: svg.length, svg, trails: trails.length };
             downloadTextFile(svg, safeFileName((state.svgName || 'morph') + ' animated', 'svg'));
@@ -77682,9 +78123,10 @@
                 '  - contact: fall, bounce, throw and roll take "onto": a shape number, to drop onto it, hop on it, land on its top or roll up to it and back (a ball onto a table, a box onto a shelf, a ball rolling to a wall); the numbers are worked out for you.',
                 '  - in a row: {"kind": "chain", "steps": [motion, motion, …]} plays its steps one after another, each from where the last ended, each with "share" (its part of the cycle, 1 by default): thrown then bouncing to rest, popped in then swaying, dropped onto a table then rolling off it. In a chain a roll goes one way.',
                 '- the scene (beside "loop", "ease" and "hold") may set "gravity": 1–4 (1, the floatiest; more and hops, falls and throws are over sooner and rest, swings swing faster) and "wind": −1 (left) to 1 (right) (every sway leans that way, swings hang pushed, drifts are carried): one weather for every motion, so falling snow and a swaying tree agree.',
+                '- the scene may also set "stops": [t, …], places on the clock (0–1) where playing waits for the viewer to click on: the beats of an explainer (put one at the end of each step\'s clips); and "camera": [{"t": 0–1, "fit": [shape numbers] or "all", "pad": 0.12}, …], the view framing those shapes at that time, moving smoothly from one key to the next (zoom in on a detail, then back out), holding before the first and after the last.',
                 '- emit: {"count": 2–200 (12), "spread": [across, up] in the shape\'s own heights (where copies are scattered, round where it is drawn), "vary": 0–1 (how much each copy\'s size, turn and motion differ, 0.5), "seed": a number} makes the morph many times over, each copy with its own phase: confetti, rain, snow, a flock of bubbles. Draw the one shape; emit does the rest.',
                 '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out", "anticipate" (draws back first, then goes), "overshoot" (goes past the next key and settles back), "elastic" (goes past and rings to rest) or null; the scene\'s "ease" takes the same names. Two keys with "anticipate" or "overshoot" give a simple morph the cartoon feel: use them for a thing that jumps, pops, snaps or lands.',
-                '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), or there until it plays then gone ("out"). Clips one after another make a sequence.',
+                '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out" | "draw"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), there until it plays then gone ("out"), or DRAWN ON over the window, its outline traced from its start like a pen and its fill coming in at the end, then staying ("draw"). A line (an open path: an arrow, an underline, a bracket) drawn on is a morph with one key and a "draw" clip. Clips one after another make a sequence.',
                 '- trail: {"kind": "echoes" | "ribbon", "len": 0–1}. fx: {"kind": "shimmer" | "grow" | "boil", "amount": 0–1}: a living outline, for flames, water, a heartbeat.',
                 '- lag: 0–0.9, the outline\'s parts arriving one after another (a flag, a jelly). follow: {"kind": "lag" | "spring", "amount": 0–1}, with parent: how loosely it is carried.',
                 '- parent: a MORPH number whose every move and turn carries this one (a moon on its planet, a rider on a horse). look: a morph number it keeps turning to face.',
@@ -78120,6 +78562,8 @@
             // when the page holds your drawing), and its copies and morphs then land through animApply, in the box the
             // svg was drawn in: worked out from where its shapes landed, so a copy moved 300 up in the reply's box moves
             // 300 up in it here.
+            window.__sceneBoxOf = (t, S) => sceneBoxOf(t, S); // A CAMERA: a scene's boxes in its svg's units
+            window.__animOutline = sp => animOutline(sp);
             function sceneBoxOf(svgText, S) {
                 const ex = parseSvgExact(animBoxSvg(svgText));
                 if (!ex || !ex.shapes.length)
@@ -82479,6 +82923,11 @@
                 morphGravity: morphGravity(), // SCENE-WIDE GRAVITY AND WIND
                 morphWind: morphWind(),
                 morphFps: +state.morphFps || 30,
+                // A CAMERA, AND STOPS
+                morphCamera: morphRuns.length ? morphCameraOk(state.morphCamera).map(k => ({ t: +k.t.toFixed(6), box: k.box.map(v => +v.toPrecision(9)) })) : [],
+                morphCamFollow: state.morphCamFollow !== false,
+                morphStops: morphRuns.length ? morphStopsOk(state.morphStops) : [],
+                morphStopsOn: !!state.morphStopsOn,
             };
         }
         function spSaveable(sp) {
@@ -82696,6 +83145,7 @@
                     own.path.member = null;
                 return Object.assign({
                     exact: !!r.exact,
+                    open: !!r.open, // DRAWING A LINE ON: a line
                     keys: r.keys.map(k => r.exact ? { x: n9(k.x), y: n9(k.y), r: n9(k.r), c: k.c.map(e => e ? n9(e) : null) } : { x: _f32b64(k.x), y: _f32b64(k.y) }),
                     // blended colours are posed as it plays; the fill written is where the clock starts, so the
                     // file does not depend on when it was written
@@ -82717,6 +83167,8 @@
                 gravity: morphGravity(),
                 wind: morphWind(),
                 trail: state.morphTrail ? { kind: state.morphTrail, len: state.morphTrailLen != null ? +state.morphTrailLen : 0.5 } : null, // the bar's, for morphs with none of their own
+                camera: morphCameraOk(state.morphCamera).map(k => ({ t: +k.t.toFixed(6), box: k.box.map(v => +v.toPrecision(9)) })), // A CAMERA, AND STOPS
+                stops: morphStopsOk(state.morphStops),
                 path: P && P.src ? { x: _f32b64(P.src.x), y: _f32b64(P.src.y), closed: !!P.closed, turn: P.turn !== false, mode: P.mode, at: +P.at || 0 } : null,
                 items,
                 morphs
@@ -82798,6 +83250,10 @@
             state.morphHold = Math.max(0, Math.min(0.9, +d.morphHold || 0));
             state.morphGravity = Math.max(1, Math.min(4, +d.morphGravity || 1)); // SCENE-WIDE GRAVITY AND WIND
             state.morphWind = Math.max(-1, Math.min(1, +d.morphWind || 0));
+            state.morphCamera = morphCameraOk(d.morphCamera); // A CAMERA, AND STOPS
+            state.morphCamFollow = d.morphCamFollow !== false;
+            state.morphStops = morphStopsOk(d.morphStops);
+            state.morphStopsOn = !!d.morphStopsOn;
             if (!Array.isArray(d.morphs) || !d.morphs.length)
                 return;
             for (const m of d.morphs) {
@@ -82812,12 +83268,14 @@
                             r: Float64Array.from(k.r),
                             c: k.c.map(e => Array.isArray(e) && e.length === 4 ? e.map(Number) : null)
                         }));
-                        const n = keys[0].x.length;
-                        if (n < 3 || keys.some(k => k.x.length !== n || k.y.length !== n || k.r.length !== n || k.c.length !== n))
+                        const n = keys[0].x.length,
+                            open = !!sp._lazy.open; // DRAWING A LINE ON: a live line is saved as a line
+                        if (n < (open ? 2 : 3) || keys.some(k => k.x.length !== n || k.y.length !== n || k.r.length !== n || k.c.length !== n))
                             continue;
                         morphRuns.push({
                             keys,
                             exact: true,
+                            open,
                             curved: morphExactCurved(keys),
                             sp,
                             inPlace: m.inPlace !== false,
@@ -85459,6 +85917,11 @@
             smoothCorners: () => state.subpaths.map(sp => sp._lazy && sp._lazy.exact && sp._lazy.smooth ? Array.from(sp._lazy.smooth).filter(Boolean).length : 0),
             // THE TVF SCENE: the scene as the player reads it, and each morph's pose at t as the editor has it
             tvfScene: () => morphTvfScene(),
+            // EXPLAINERS: the clock set as the timeline sets it, each live morph's share drawn (DRAWING A LINE ON)
+            seek: t => { morphSetT(t); return morphLive.t; },
+            drawn: () => morphRuns.map(r => r.sp && r.sp._draw != null ? r.sp._draw : null),
+            viewBox: () => morphViewBox(), // A CAMERA: what the canvas shows, in page units
+            explain: () => ({ camera: morphCameraOk(state.morphCamera), stops: morphStopsOk(state.morphStops), follow: state.morphCamFollow !== false, stopsOn: !!state.morphStopsOn }),
             morphPoses: t => morphRuns.map(r => {
                 if (r.exact) {
                     const P = morphPoseExact(r, t);
@@ -86923,7 +87386,7 @@
         //                          path, laps, at, turn, mode, rate, phase, spin, fx, trail, lag,
         //                          inPlace, parent, follow: {kind: 'lag' | 'spring', amount}, look,
         //                          times, eases, pair: [per key, places to turn its corners],
-        //                          clip: {start, len, show: '' | 'during' | 'fade' | 'in' | 'out'}
+        //                          clip: {start, len, show: '' | 'during' | 'fade' | 'in' | 'out' | 'draw'}
         //                          (A MORPH THAT PLAYS ONCE; A CLIP SEEN ONLY WHEN IT PLAYS) } (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL; ONE
         //                          MORPH RIDING ANOTHER; FOLLOWING LOOSELY, AND FACING; KEYS AT
         //                          CHOSEN TIMES),
@@ -86962,6 +87425,50 @@
             // the scene link's own (openScene), and the AI's "animate it" (ANIMATE IT WITH AI), which
             // passes { partial, existing }. Returns the runs its entries made, in order (null where an
             // entry made none).
+            // A CAMERA, AND STOPS, from a scene: a key frames shapes of the scene by their number ("fit": a list,
+            // or "all"; "pad" the margin round them, a share of their size, 0.12 if not given), or gives a box
+            // in the scene's svg's own units ("box": [x0, y0, x1, y1], y down), which is how the editor writes
+            // one back (THE SCENE LINK, WRITTEN BY THE EDITOR)
+            function sceneCameraIn(d, S) {
+                const C = Array.isArray(d.camera) ? d.camera : [],
+                    out = [];
+                let R;
+                for (const k of C) {
+                    if (!k || !Number.isFinite(+k.t))
+                        continue;
+                    let box = null;
+                    if (k.fit != null && typeof window.__animOutline === 'function') {
+                        const ids = k.fit === 'all' ? S.map((_, i) => i) : [].concat(k.fit);
+                        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+                        for (const i of ids) {
+                            const O = S[i] ? window.__animOutline(S[i]) : null;
+                            if (O)
+                                for (let j = 0; j < O.x.length; j++) {
+                                    x0 = Math.min(x0, O.x[j]);
+                                    x1 = Math.max(x1, O.x[j]);
+                                    y0 = Math.min(y0, O.y[j]);
+                                    y1 = Math.max(y1, O.y[j]);
+                                }
+                        }
+                        if (isFinite(x0)) {
+                            const pad = clamp(k.pad, 0, 3, 0.12) * Math.max(x1 - x0, y1 - y0);
+                            box = [x0 - pad, y0 - pad, x1 + pad, y1 + pad];
+                        }
+                    } else if (Array.isArray(k.box) && k.box.length === 4 && k.box.every(v => Number.isFinite(+v))) {
+                        if (R === undefined)
+                            R = typeof window.__sceneBoxOf === 'function' ? window.__sceneBoxOf(d.svg, S) : null;
+                        if (R) {
+                            const q = 2 * R.half / 1000,
+                                mx = a => q * a + R.cx - 500 * q,
+                                my = b => -q * b + R.cy + 500 * q;
+                            box = [mx(+k.box[0]), my(+k.box[3]), mx(+k.box[2]), my(+k.box[1])];
+                        }
+                    }
+                    if (box)
+                        out.push({ t: +k.t, box });
+                }
+                return morphCameraOk(out);
+            }
             function applySceneMorphs(d, S, opts) {
                 // the look and the timing first: a morph takes its effect from these as it starts
                 // partial (the AI's "animate it" and "change it"): a setting the reply leaves out keeps
@@ -87070,6 +87577,12 @@
                     const P = d.path != null ? S[d.path] : null;
                     if (P && state.subpaths.indexOf(P) >= 0)
                         morphSetPath({ index: state.subpaths.indexOf(P) });
+                    if (has('stops')) // A CAMERA, AND STOPS
+                        state.morphStops = morphStopsOk(d.stops);
+                    if (has('camera')) {
+                        state.morphCamera = sceneCameraIn(d, S);
+                        state.morphCamFollow = true;
+                    }
                     if (has('t'))
                         morphLive.t = clamp(d.t, 0, 1, 0);
                     morphWrite();
@@ -87154,6 +87667,7 @@
                     if (sp && !sp.stroke && sp.fill && sp.fill.color)
                         sp.lineWidth = 0;
                 applySceneMorphs(d, S);
+                morphCameraFollow(); // A CAMERA: the view where the scene starts
                 state.svgName = name;
                 applyShapeSelection(new Set());
                 // one undo history, starting here: making each morph pushed a step of its own, so undoing past the
@@ -87421,6 +87935,13 @@
                     d.trail = { kind: state.morphTrail, len: r4(state.morphTrailLen) };
                 if (state.morphFx)
                     d.fx = { kind: state.morphFx, amount: r4(state.morphFxAmount) };
+                // A CAMERA, AND STOPS: the camera's boxes in the file's own units (y down), as the drawing is
+                const C = morphCameraOk(state.morphCamera);
+                if (C.length)
+                    d.camera = C.map(k => ({ t: r4(k.t), box: [M[0] * k.box[0] + M[4], M[3] * k.box[3] + M[5], M[0] * k.box[2] + M[4], M[3] * k.box[1] + M[5]].map(v => +v.toFixed(2)) }));
+                const SP = morphStopsOk(state.morphStops);
+                if (SP.length)
+                    d.stops = SP.map(r4);
                 return d;
             }
             async function encodeScene(d) {
@@ -87516,8 +88037,11 @@
                 }
                 try {
                     await openScene(d);
-                    if (EMBED)
+                    if (EMBED) {
                         embedFit();
+                        morphCameraFollow(); // A CAMERA: where it starts
+                        drawAll();
+                    }
                 } catch (e) {
                     flashStatus('example did not open — ' + (e.message || e));
                     console.warn('[scene link] open failed', e);
@@ -87593,7 +88117,35 @@
                 drawAll();
             }
             if (EMBED)
-                window.addEventListener('resize', () => setTimeout(embedFit, 50));
+                window.addEventListener('resize', () => setTimeout(() => {
+                    embedFit();
+                    morphCameraFollow(); // A CAMERA: the frame's new shape, the camera's box
+                    drawAll();
+                }, 50));
+            // STOPS IN THE EMBED: an explainer waits at each, and a click (or space, → or Enter) goes on, ← goes
+            // back a stop. Only a scene with stops is clicked through; any other plays as it did.
+            if (EMBED) {
+                // on the click, after the editor's own pointer handling has had the press (which may pause
+                // the clock to take an edit), so the click is the last word
+                window.addEventListener('click', e => { // the whole frame is the scene (the canvas sits under the page's layout)
+                    if (!morphRuns.length || !(state.morphStops && state.morphStops.length))
+                        return;
+                    e.preventDefault();
+                    if (!morphLive.play)
+                        morphStopGo(1);
+                });
+                window.addEventListener('keydown', e => {
+                    if (!morphRuns.length || !(state.morphStops && state.morphStops.length))
+                        return;
+                    if (e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        morphStopGo(-1);
+                    } else if ((e.key === ' ' || e.key === 'ArrowRight' || e.key === 'Enter') && !morphLive.play) {
+                        e.preventDefault();
+                        morphStopGo(1);
+                    }
+                }, true);
+            }
             // THE EMBED AS A CONVERTER (26 Oct 2026, Tom: "proceed with your recommendations": a light
             // player). A page of the same origin can hand an embed a scene and have its animated SVG
             // back: { type: 'tvf-scene-svg', id, code } in, { type: 'tvf-scene-svg', id, svg } out (svg null
