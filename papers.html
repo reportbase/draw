@@ -18,7 +18,7 @@
 <body class="page-papers">
 <header>
   <nav class="crumbs"><a href="draw.html">← the editor</a> · <a href="gallery/index.html">the galleries</a> · <a href="labs.html">the labs</a></nav>
-  <h1>tvf <em>papers</em> <span class="pill" id="pill">5 papers</span></h1>
+  <h1>tvf <em>papers</em> <span class="pill" id="pill">6 papers</span></h1>
   <p class="lede" id="lede">
     The writing behind the editor. One specification, of the <b>.tvf</b> format the editor reads and writes, and
     the theorem the format is an instance of, the <b>Tangent Bridge</b>: a closed curve held as N leaves and
@@ -98,10 +98,17 @@ const PAPERS = [
           'banded matrix of rational weights: the cheapest operator in the system rather than the dearest. With ' +
           'addenda to §18, §20 and §21 that the implementation forced, and its open questions.',
     shows: [] },
+  { id: 'labs', file: 'papers/labs.md', kind: 'record · 28 October 2026',
+    title: 'The Labs, Read Back',
+    sub: 'What each lab measured, what it found, and what in it looks new',
+    note: 'Every lab in the editor\'s drawer, run again and read back: what it does in standard terms, what it ' +
+          'reported, the classical results it checks, and, said narrowly, what we did not find elsewhere. Most of ' +
+          'it is classical; seven things look new and await a search. With the faults the run turned up.',
+    shows: [['labs', 'labs.html']] },
 ];
 
 // ── A SMALL MARKDOWN READER ────────────────────────────────────────────────
-// Written for these five files and no others. The one thing it must get right that
+// Written for these six files and no others. The one thing it must get right that
 // a general renderer usually gets wrong is the mathematics: TeX is lifted out
 // before anything else runs, so an underscore in a subscript is never emphasis and
 // a | inside \big| never splits a table cell, and put back afterwards as a span

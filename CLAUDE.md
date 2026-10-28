@@ -19,6 +19,18 @@ publishes.
   `draw.html?lab=CODE` link that runs it. **Generated** by `npm run labs`
   (`tools/build-labs.mjs` reads the lab buttons off the live editor); after adding, renaming
   or re-describing a lab in `draw.html`, run it, or `npm test` fails.
+  **The labs are leaving `draw.html`** (28 Oct 2026, Tom: "all the labs can ultimately be pulled from draw.html. its
+  already too big", then "agreed, proceed"): first measured, then written down (`papers/labs.md`), then moved to
+  `labs/*.js` loaded only when asked, a group at a time, each its own PR (not yet begun).
+  `tools/measure-labs.mjs` splits the main script into its top-level pieces and finds what only the labs reach
+  (by name, as `build-player.mjs` does; `window.__lab`, the `window.runX` exports and the lab deep link count as
+  the labs'): about 10,000 of 83,000 lines, 18,000 with the blocks that wire a lab and something else
+  (`MIXED=lab`), and the names a moved lab would need from the editor. `tools/run-labs.mjs out.json [codes…]` runs
+  every lab headless (`draw.html?lab=CODE`) and keeps what it reports: `window.__flashLog` (the last 40 status
+  lines, kept by `flashStatus`) and `window.__lastLadder` (the last sheet's name and each cell's caption and
+  verdict, kept by `labLadder`). The labs' seeded stream `makeRng`/`makeRngCentered` is defined in `draw.html`
+  (beside `$`): the library's copy is inside `tvf-core.js`'s closure, which 3d and games copy unchanged, and twenty
+  labs had stopped on it since 9 Oct.
 - `player/`: **the TVF player** (27 Oct 2026, Tom: "build the tvf-native player"). `tvf-player.js` plays a `.tvfs`
   scene on a canvas (`TVFPlayer.play(canvas, scene or url)`, or `<canvas data-tvfs="…">`; `load`, `poses`, `draw`), next
   to `tvf-core.js`. **Generated** by `npm run player` (`tools/build-player.mjs`): its engine is the editor's own code,
@@ -52,7 +64,9 @@ publishes.
 - `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
   specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
   and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and
-  `tb_spectral_notes.md` (§23, preliminary). Replace a file when the owner sends a new revision.
+  `tb_spectral_notes.md` (§23, preliminary), and `labs.md` (28 Oct 2026: every lab run again and read back, what
+  it found, its classical names, what looks new, the faults the run found; regenerate its numbers with
+  `tools/run-labs.mjs` when a lab changes). Replace a file when the owner sends a new revision.
   Claude may edit them too, in their voice: when a change here builds or measures something a
   paper lists as open, say so in the paper (its status section and a dated revision line).
   Their vocabulary is the current one (28 Oct 2026, Tom: "it uses terms like atom that have been long abandoned"):

@@ -6837,6 +6837,23 @@
         const TAU = Math.PI * 2;
         const PI = Math.PI;
         const $ = id => document.getElementById(id);
+        // THE LABS' SEEDED STREAM (28 Oct 2026). The labs draw their noise from makeRng and makeRngCentered, and since
+        // the curve library moved out to tvf-core.js (9 Oct) those two have lived inside its closure, where this script
+        // cannot see them: twenty labs have stopped with "makeRng is not defined" ever since. They are written again
+        // here, the same stream exactly (multiplier, increment and mask, the seed used raw on the first step), so every
+        // number a lab pins is what it was. Not taken from TVF_CORE: that block is copied verbatim into 3d and games,
+        // and this editor's labs are no reason to change what they carry.
+        function makeRng(seed) {
+            let s = seed;
+            return () => {
+                s = (s * 1103515245 + 12345) & 0x7fffffff;
+                return s / 0x7fffffff;
+            };
+        }
+        function makeRngCentered(seed) {
+            const r = makeRng(seed);
+            return () => r() - 0.5;
+        }
 
         // ── THE LAB SWITCH ──────────────────────────────────────────────────────────
         // The default page is the DRAWING. The lab pane and the edit view are the two

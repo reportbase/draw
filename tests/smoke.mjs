@@ -3633,7 +3633,8 @@ await step('papers', async () => {
     if (r.stray) throw new Error(f + ': a placeholder was left in the text');
     if (r.h2 < 5) throw new Error(f + `: only ${r.h2} sections rendered`);
     if (r.index) throw new Error(f + ': the index is still showing over the paper');
-    if (f !== 'tvf.md' && r.math < 100) throw new Error(f + `: only ${r.math} formulas found`);
+    // the theorems are written in TeX; the format and the labs' record in plain text
+    if (f !== 'tvf.md' && f !== 'labs.md' && r.math < 100) throw new Error(f + `: only ${r.math} formulas found`);
   }
   await pp.goto(new URL('papers.html#tb_spectral:17.3-numerical-verification', base).href, { waitUntil: 'load' });
   const top = await pp.waitForFunction(() => { const h = document.getElementById('17.3-numerical-verification');
