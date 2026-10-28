@@ -564,7 +564,12 @@ a.paper:hover{background:rgba(124,92,255,.22);color:#d9cfff}
 .page-explained .beat h2{font-size:22px;font-weight:650;margin:0 0 12px;letter-spacing:-.01em}
 .page-explained .beat p{font-size:15px;line-height:1.7;color:var(--ink-2);margin:0 0 16px}
 .page-explained .beat p b{color:var(--ink);font-weight:600}
-.page-explained .beat a{color:#a993ff}
+.page-explained .beat a:not(.paper){color:#a993ff}
+.page-explained .beat p em{font-style:italic;color:var(--ink)}
+.page-explained .beat p a.paper{margin-left:4px;vertical-align:1px}
+.page-explained nav.xs{font:12px var(--mono);color:var(--dim);margin-top:6px}
+.page-explained nav.xs a{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor}
+.page-explained nav.xs a.on{color:var(--ink);border-bottom:2px solid var(--curv)}
 .page-explained .beat .go{font-size:12px;padding:5px 12px}
 .page-explained .stage-wrap{position:sticky;top:7vh;height:86vh}
 .page-explained .stage{position:relative;height:100%;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden}

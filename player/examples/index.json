@@ -31,7 +31,8 @@
    "note": "Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown \"draw\"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile's picture plays straight through; live, and in the TVF player, it waits.",
    "ids": [
     "explainer",
-    "leaves"
+    "leaves",
+    "bridge"
    ]
   },
   {
@@ -348,6 +349,16 @@
     "leaves"
    ]
   },
+  "bridge": {
+   "name": "the Tangent Bridge",
+   "note": "The theorem behind the format in six beats: a curve read at eight atoms, one kernel turned to each, their sum through every atom exactly, a close look at the gap between two atoms, then sixteen atoms and thirty-two, the sum closing on the curve. Every curve is computed from the paper's formulas. The scene of the explainer page's second explainer.",
+   "tags": [
+    "draw on",
+    "camera",
+    "stops",
+    "theorem"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -505,6 +516,7 @@
   "boil": 6096,
   "lag": 17194,
   "explainer": 3611,
-  "leaves": 33573
+  "leaves": 33573,
+  "bridge": 191491
  }
 }

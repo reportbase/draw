@@ -268,7 +268,7 @@ publishes.
     The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
     come first, then the **sequences** (a house builds itself, a seed: morphs that play once, in turn, seen from when they
     play), the **explainers** (a square drawn on, a camera to its corner, a stop after each beat; how leaves become a
-    curve, the scene of `explained.html`, whose leaves hold and move by `straight`: STRAIGHT FROM KEY TO KEY, each
+    curve, the scene of `explained.html`; the Tangent Bridge, the scene of `explained.html?x=bridge`, whose curves are the paper's formulas; in how leaves become a curve the leaves hold and move by `straight`: STRAIGHT FROM KEY TO KEY, each
     stretch of a run's keys blended from its two keys only, so a key repeated holds; saved, in the scene link and the
     AI vocabulary, read by `morphWeightsOf`), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), **chains, contact and emitters** (one thing after another, onto the table, snow, confetti), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
@@ -303,6 +303,15 @@ publishes.
     `played`, and carries `tvf.js`. Hook `window.__explained`. With `?src=<a .tvfs>` or `?preview=1` (the scene
     the editor's beats panel left in localStorage, `tvf-explainer-preview`) it is that scene's explainer instead,
     a beat for each stretch between its stops, titled and worded by the scene's `beats`.
+    `?x=<id>` opens one of its `EXPLAINERS` (a scene in `player/examples/`, its beats the scene's own, with a lede, a
+    title and its paper), and a switcher under the lede goes between them: `?x=bridge` is THE TANGENT BRIDGE (28 Oct
+    2026, Tom: "lets create a polished explainer"), the theorem of `papers/tb_classical.md` in six beats, the animated
+    gallery's `bridge` tile, every curve computed there from the paper's formulas (the readings at the odd multiples of
+    π/N, the kernel in its product form, their sum): a curve F, eight atoms, one kernel turned to each, the sum through
+    every atom, the camera in on the widest gap, then sixteen and thirty-two atoms (each lattice the last one slid half
+    a step with new atoms between, since the atoms of 2N are not those of N), the sum equal to F at thirty-two. Beat
+    words take a blank line between paragraphs, `**bold**`, `*italic*` and `[a link](address)`, a link into
+    `papers.html` drawn as the paper pill.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
     `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
     than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI
