@@ -100,7 +100,7 @@
                 };
             let rng = 7;
             const rnd = () => {
-                rng = (rng * 1103515245 + 12345) & 0x7fffffff;
+                rng = (Math.imul(rng, 1103515245) + 12345) & 0x7fffffff; // exactly, in 32-bit integers (see makeRng)
                 return rng / 0x7fffffff;
             };
             for (const spec of PRIMITIVES) {

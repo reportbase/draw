@@ -21,7 +21,7 @@
                 const deps = [];
                 let rr = 20260827;
                 const rn2 = () => {
-                    rr = (rr * 1103515245 + 12345) & 0x7fffffff;
+                    rr = (Math.imul(rr, 1103515245) + 12345) & 0x7fffffff; // exactly, in 32-bit integers (see makeRng)
                     return rr / 0x7fffffff;
                 };
                 for (let i = 0; i < M; i++) {

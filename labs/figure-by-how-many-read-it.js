@@ -65,6 +65,8 @@
             let cur = maps[0],
                 joined = [parts[0]];
             for (let p = 1; p < NP; p++) {
+                // The seam from the two shared readers' own matrices, exactly: nothing read enters
+                // it, so no seam's error reaches the next (28 Oct 2026, papers/labs.md, §30).
                 const H = asmSeam([maps[p][0], maps[p][1]], [cur[1], cur[2]]);
                 joined.push(asmApply(H, parts[p]));
                 const Hi = asmInv3(H);
@@ -180,8 +182,11 @@
             + ' median point' : '')
             + ' \u00b7 and the share each reader gets falls from three hundred arrangements to twelve'
             + ' across this page WITHOUT THE ASSEMBLY MINDING: ninety-four seams, no stretch'
-            + ' overlapping any other, and the figure still comes back \u00b7 the swarm scales, which'
-            + ' was not the expected answer \u00b7 starvation is further out than this page reaches:'
+            + ' overlapping any other, and the figure still comes back \u00b7 BUT THE SEAMS ARE SOLVED'
+            + ' FROM THE READERS THEMSELVES, EXACTLY, not estimated from what they read, so no error can'
+            + ' pass from one seam to the next: that the chain does not drift is how it is built, not'
+            + ' something this run found; readers whose places are estimated would drift down the'
+            + ' chain \u00b7 starvation is further out than this page reaches:'
             + ' a triple needs seven arrangements to fix its own account, so on a figure of twelve'
             + ' hundred it would begin somewhere above a hundred and seventy readers \u00b7 what a'
             + ' larger swarm buys is not more sight but a thinner share each, AND THE THINNER SHARE'
