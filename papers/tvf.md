@@ -6,6 +6,8 @@
 
 *Revised 6 October 2026: the three canonical decoder test vectors of §8 are built and run against the drawing tool's decoder (§8, §9). Later the same day, the exact reference decoder too: in ℤ[ζ], ζ = e^{iπ/2N}, the vectors, R2 and the partition of unity are equalities of integers (§8). And a depth reader outside the drawing tool: the gallery's inspector reads depth files (§2.8). And entering octaves only where needed: at a tolerance of 10⁻⁶ of the departure, a quarter of the sweeps (§2.8). Revised 7 October 2026: the drawing tool's saved depth files now enter octaves only where needed, at τ = 10⁻⁶; and what the recursion found, stated (§2.8). Later the same day, the walls: scored over the whole range rather than only where level 3 is reached, every depth file so far missed by up to 15% in bands at the walls between octaves. The cause is that a sweep is flat at its walls. A writer whose rows leave flat residuals at their children's walls holds the whole range to 10⁻⁵, and the saved files now use it (§2.8). And the one result the statement of the recursion quoted from an earlier run, the nested reader against one sweep at a distance, re-measured: it holds (§2.8). And depth against breadth, re-scored over the whole range: depth still wins on the library, 24 of 24, but on a smooth formula with its detail away from the reader one sweep wins. The gallery's *Depth* page shows both (§2.8). Revised 9 October 2026: "what the recursion found" reworded as the levels, after the ruling of 8 October that recursion is rejected for level of detail; and the library circle's sweeps traced to the reader's standpoint (§2.8).*
 
+*Revised 28 October 2026: scenes (§2.10). The drawing tool's `.tvfs`, a drawing and how it moves (keys, timing, motions, a camera and stops) without frames, specified as version 1, with what a reader must refuse and what it may ignore.*
+
 *Revised 24 October 2026: structure (§2.9). A drawn shape's corners, radii, smooth corners, cubic edges and holes, carried in `#meta` tags beside its leaves since 23 October by the drawing tool and now specified, with which layer wins, and the leaves' check (`leafsum`), so that leaves edited elsewhere win over a structure that no longer describes them.*
 
 This is the tight specification. It supersedes the v22.x working document,
@@ -640,6 +642,132 @@ the two layers or say what changed. A reader that wants an edited shape's
 corners back fits them from the leaves (the drawing tool's leaves-to-exact fit
 does this), and gets corners that are fitted, not the ones drawn.
 
+### 2.10 Scenes: the `.tvfs` document
+
+A TVF document holds one signal. A **scene** holds a drawing and how it moves:
+its shapes in drawing order, and for each animated shape (a **morph**) its
+**keys** and its timing. It holds no frames. A reader poses each morph at the
+time it is asked for and draws the curves at the size it is drawing, so a
+scene is resolution-free in time as well as in space. The drawing tool writes
+scenes (its morph bar's **tvfs**) and its player plays them
+(`player/tvf-player.js`); the player poses a scene exactly as the tool does,
+to within 10⁻⁶ of the scene's size, because its engine is the tool's own code.
+
+A scene is one JSON object, UTF-8, extension `.tvfs`, media type
+`application/json`.
+
+**Versions.** `format` is `"tvf-scene"` and `v` is `1`. A reader:
+- refuses a document whose `v` it does not know (a larger `v` is a change a
+  version-1 reader would get wrong);
+- ignores fields it does not know (a writer may add fields within a version,
+  each one safe to ignore: everything not listed below is advisory);
+- takes an absent optional field as its default below.
+
+A writer raises `v` only when a version-1 reader would draw the scene wrongly
+by ignoring what is new.
+
+**The scene.**
+
+| Field | Value | Default |
+|---|---|---|
+| `format`, `v` | `"tvf-scene"`, `1` | required |
+| `name` | the scene's name | `"scene"` |
+| `loop` | the loop's length in seconds, > 0 | 4 |
+| `ease` | the ease between keys: `""` (linear), `inout`, `in`, `out`, `anticipate`, `overshoot`, `elastic` | `""` |
+| `hold` | the share of each stretch between keys spent holding its keys, 0 to 0.9 | 0 |
+| `gravity`, `wind` | the scene's weather for computed motions: 1 to 4, −1 to 1 | 1, 0 |
+| `trail` | `{kind: "echoes" | "ribbon", len: 0–1}` for morphs with none of their own, or null | null |
+| `camera` | keys `{t, box: [x0, y0, x1, y1]}` in page units: the view fits the box (below) | `[]` |
+| `stops` | times in (0, 1) where playing waits (below) | `[]` |
+| `beats` | one more than the stops: `{title, text}` for each stretch between them, the words an explainer page shows beside it (`**bold**` allowed, nothing else read as markup) | none |
+| `path` | a path every morph rides that has none of its own (below), or null | null |
+| `items` | the drawing, back to front | required |
+| `morphs` | the animated shapes | required |
+
+**Page units.** Every coordinate is in one frame, the page's: x to the right,
+y up. The units are the tool's and carry no physical size; a reader fits what
+it draws to its canvas (the camera's box at the time, or everything the loop
+draws).
+
+**Numbers in bulk.** A list of coordinates is either a JSON array of numbers
+or a string: the numbers as little-endian 32-bit floats, base64-encoded.
+Writers use the string for leaves and paths, arrays for exact corners.
+
+**Items.** Each item is one of:
+- `{morph: i}`: morph `i` drawn here in the order;
+- a still shape with `leaves: {x, y}` (the shape's leaves, §3: any N ≥ 3);
+- a still shape with `exact: {x, y, r, smooth, ctrl, holes}`, its structure as
+  §2.9 describes it: corners, a radius per corner (or null), smooth corners
+  (booleans, or null), a cubic per edge (`[x1, y1, x2, y2]` or null; or null
+  throughout), and holes as rings of the same form. `open: true` makes it a
+  line.
+
+A still has `fill: {color: "#rrggbb", opacity}` or null, `stroke` (a colour)
+or null, `width` (the line's width in screen pixels, 0 for none) and
+`strokeOpacity`.
+
+**Morphs.** Each morph has:
+
+| Field | Value |
+|---|---|
+| `keys` | at least one. Leaves `{x, y}`, all with one N; or, with `exact: true`, corners `{x, y, r, c}` (radius and cubic per corner and edge), all with one corner count |
+| `exact`, `open` | exact corners, not leaves; `open`: a line (exact only) |
+| `holes` | holes of a one-key exact morph: rings `{x, y, smooth, ctrl}` in the key's frame, moved with it |
+| `fill`, `stroke`, `width`, `strokeOpacity` | as for a still; `fill` is the colour at the loop's start when the keys' colours differ (`own.cols`) |
+| `inPlace` | the keys are where they are drawn (true), or centred on the shape's place |
+| `lag` | 0 to 0.9: the outline's detail arriving after its silhouette (leaves only) |
+| `fx` | `{kind: "shimmer" | "grow" | "boil", amount: 0–1}`: an effect on the leaves' detail, or null |
+| `own` | the rest of the morph's timing and motion (below) |
+
+A pose blends the keys. With one key the pose is the key. With two, the
+blend runs from the first to the second over the loop and back. With three or
+more it goes round the keys, each key's leaves weighted by the leaf kernel
+(§3) over the keys' times, so the pose passes through every key and on
+smoothly; with `straight` each stretch blends its two keys only. Leaves blend
+leaf by leaf, and exact keys corner by corner (radii and cubics with them).
+Where the keys' colours differ they blend in linear light.
+
+**A morph's own record** (`own`). Every field is optional.
+
+| Field | Value |
+|---|---|
+| `rate`, `phase` | the morph plays `rate` (a whole number) times a loop, `phase` (0–1) ahead |
+| `times`, `eases`, `straight` | a time per key (increasing; under 1 for three keys or more), an ease per stretch, and whether stretches are blended pair by pair |
+| `clip` | `{start, len, show}`: the morph plays once, first key to last, in that window of the loop, holding either side. `show`: `""` always seen; `during` only in its window; `fade` fading in and out over the window's first and last sixth; `in` from its window on; `out` until its window ends; `draw` drawn on over its window (below) |
+| `spin` | whole turns a loop |
+| `path`, `laps`, `start` | its own path (below), ridden `laps` times a loop from `start` (0–1) |
+| `motion` | a computed motion: `{kind, amount, …}` with `kind` one of `bounce`, `fall`, `swing`, `spring`, `roll`, `throw`, `sway`, `pop`, `drift`, or `chain` with `steps` |
+| `parent`, `parentAt`, `follow` | the morph whose moves and turns carry this one (an index into `morphs`, −1 for none), from the time `parentAt`, and how loosely (`{kind: "lag" | "spring", amount}`) |
+| `look`, `lookRef` | a morph it keeps turning to face, from the way it faced at `lookRef` |
+| `trail` | `{kind, len}`: echoes of earlier poses, or a ribbon along its centre's way |
+| `cols` | each key's colour in linear light, `{r, g, b, a}`, when they differ |
+
+The motions are the drawing tool's (`morphMotionXform`): a motion is an
+affine map of the pose, applied after its path and spin and before its parent.
+A reader that does not implement one may draw the morph without it, and
+should say so.
+
+**Paths.** `{x, y, closed, turn, mode, at}`: a polyline ridden at an even
+speed by the pose's centre (`turn`: turning with it; `mode`: `along` round, or
+`back` there and back).
+
+**The camera.** Between two keys the view's centre moves straight and its
+size by a constant ratio a moment, eased in and out; before the first key and
+after the last it holds. The view shows the whole box, centred.
+
+**Stops.** Playing straight through, a reader waits at each stop and at the
+loop's end, and goes on when the viewer asks; from the end it starts again.
+A reader that cannot wait (an animated picture) plays through.
+
+**Drawn on** (`clip.show: "draw"`). Over its window the outline is stroked
+from its start for the share of its length the window has run, in its own line
+or, without one, in its fill's colour; its fill comes in over the window's last
+30%, and a line that is not its own goes as the fill comes.
+
+**What a scene does not hold.** The tool's editing state (selection,
+guides, handles), frames, fonts (text in a scene is shapes: §2.10 is
+font-free), and any interactivity beyond stops.
+
 ---
 
 ## 3. Kernel and reconstruction
@@ -959,6 +1087,15 @@ inner wall).
   - leaves rewritten at 6 digits still pass the check;
   - one leaf moved by 0.05 fails it, and that shape comes back as its leaves.
 - **Not done:** other readers of structure (3d and games read the leaves only).
+
+**Scenes (§2.10), 28 Oct 2026:**
+- **Built:** the drawing tool writes `.tvfs` scenes, and its player reads them.
+- **Tested:** the smoke test checks that:
+  - the player poses every example as the tool does, within 10⁻⁶ of the scene's size;
+  - each example's file is what the tool writes now;
+  - camera, stops and drawing on play in the player as in the tool.
+- **Not done:** a reader other than the tool's own engine. The motions are
+  specified by the tool's code, not yet in this document.
 
 **Partially validated:** forward transform on *real* (non-synthetic) sensor
 output; multi-depth segmented encoder (30–33 dB on landscapes, tuning open);

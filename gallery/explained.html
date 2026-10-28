@@ -76,7 +76,7 @@
     </section>
   </div>
   <div class="stage-wrap"><div class="stage"><canvas id="cv" aria-label="the scene, following the text"></canvas>
-    <div class="clock"><span id="beatNo">1</span> / 5 · <span id="tNow">0.00</span></div></div></div>
+    <div class="clock"><span id="beatNo">1</span> / <span id="beatOf">5</span> · <span id="tNow">0.00</span></div></div></div>
 </main>
 
 <footer>
@@ -1294,12 +1294,56 @@ return { Shape, mix, alignTo, primitives, kernelMatrix, kernelSlope, slopeDiff, 
 // where the picture sits on top), and the clock is as far through the beat's stretch as that line is through the
 // beat. A beat's play button plays its stretch from the start and the scene waits at the stop that ends it, as it
 // does in the player anywhere; scrolling again takes the clock back.
+// ANY SCENE'S BEATS: with ?src=<a .tvfs> or ?preview=1 (the scene the editor's beats panel left in this browser's
+// storage) the page is that scene's explainer instead: one beat for each stretch between its stops, with the title
+// and words the scene's beats give it (TVF §2.10's beats; **bold** is bold, nothing else is read as markup).
+const Q = new URLSearchParams(location.search);
+let source = '../player/examples/leaves.tvfs';
+function beatsOf(scene) {
+  const st = (scene.stops || []).filter(t => t > 0 && t < 1).sort((a, b) => a - b),
+    edges = [0, ...st, 1],
+    B = scene.beats || [],
+    esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
+    words = v => esc(v).split(/\n\s*\n/).map(p => '<p>' + p.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') + '</p>').join('');
+  const host = document.getElementById('beats');
+  host.innerHTML = edges.slice(1).map((to, i) => {
+    const b = B[i] || {};
+    return `<section class="beat" data-from="${edges[i]}" data-to="${to}"><div class="num">${i + 1}</div>`
+      + `<h2>${esc(b.title || 'Step ' + (i + 1))}</h2>${b.text ? words(b.text) : ''}`
+      + `<button class="go" type="button">▶ play this step</button></section>`;
+  }).join('') + `<section class="beat last" data-from="1" data-to="1"><h2>${esc(scene.name || 'scene')}</h2>`
+    + `<p>A scene played by the <a href="played.html">TVF player</a>, its clock set by scrolling.</p></section>`;
+  const h1 = document.querySelector('header h1'), lede = document.querySelector('header .lede');
+  if (h1) h1.innerHTML = `tvf <em>explained</em> <span class="pill">${esc(scene.name || 'scene')}</span>`;
+  if (lede) lede.textContent = 'Scroll, and the picture follows.';
+  document.getElementById('beatOf').textContent = String(edges.length - 1);
+}
+if (Q.get('preview') === '1') {
+  try {
+    const sc = JSON.parse(localStorage.getItem('tvf-explainer-preview') || 'null');
+    if (sc && sc.format === 'tvf-scene') {
+      beatsOf(sc);
+      source = sc;
+    }
+  } catch (e) {}
+}
+if (Q.get('src'))
+  source = Q.get('src');
+start();
+async function start() {
+if (typeof source === 'string' && Q.get('src')) {
+  try {
+    const sc = await (await fetch(source)).json();
+    beatsOf(sc);
+    source = sc;
+  } catch (e) {}
+}
 const beats = [...document.querySelectorAll('.beat')],
   cv = document.getElementById('cv'),
   wrap = document.querySelector('.stage-wrap'),
   beatNo = document.getElementById('beatNo'),
   tNow = document.getElementById('tNow');
-const ctl = TVFPlayer.play(cv, '../player/examples/leaves.tvfs', { autoplay: false, click: false });
+const ctl = TVFPlayer.play(cv, source, { autoplay: false, click: false });
 let playing = false, last = -1;
 // where the reader is: the line a little above the middle of what the text has of the window
 function readLine() {
@@ -1354,14 +1398,15 @@ beats.forEach(b => {
 (function tick() {
   const t = ctl.t || 0, i = beatAt(t);
   beats.forEach((b, k) => b.classList.toggle('on', k === i));
-  beatNo.textContent = String(Math.min(5, i + 1));
+  beatNo.textContent = String(Math.min(beats.filter(b => !b.classList.contains('last')).length, i + 1));
   tNow.textContent = t.toFixed(2);
   if (playing && !ctl.playing)
     playing = false;
   requestAnimationFrame(tick);
 })();
 ctl.ready.then(follow);
-window.__explained = { ctl, tFromScroll, beats: beats.length, playing: () => playing }; // for the smoke test
+window.__explained = { ctl, tFromScroll, beats: beats.length, titles: beats.map(b => (b.querySelector('h2') || {}).textContent), playing: () => playing }; // for the smoke test
+}
 </script>
 </body>
 </html>
