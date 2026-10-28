@@ -2715,7 +2715,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html', 'played.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html', 'played.html', 'explained.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -3255,7 +3255,7 @@ await step('the tvf player', async () => {
   await gp.route(/fonts\.g/, r => r.abort());
   await gp.goto(new URL('gallery/animated.html', base).href, { waitUntil: 'load' });
   await gp.waitForFunction(() => typeof EXAMPLES !== 'undefined' && typeof sceneCode === 'function');
-  const ids = ['grow', 'lag', 'one-after', 'kite', 'orrery', 'snow', 'house', 'explainer'];
+  const ids = ['grow', 'lag', 'one-after', 'kite', 'orrery', 'snow', 'house', 'explainer', 'leaves'];
   const codes = await gp.evaluate(async ids => { const o = {}; for (const e of EXAMPLES.filter(e => ids.includes(e.id))) o[e.id] = await sceneCode(e); return o; }, ids);
   await gp.close();
   const pl = await browser.newPage({ viewport: { width: 800, height: 500 } });
@@ -3383,6 +3383,38 @@ await step('the played gallery', async () => {
     let n = 0; for (let i = 3; i < p.length; i += 4) if (p[i] > 8) n++; return { n, w: c.width }; });
   await xp.close();
   if (!(lit.w >= 480 && lit.n > 1000)) throw new Error('the embed code drew ' + JSON.stringify(lit));
+});
+
+/* THE SCROLLING EXPLAINER (gallery/explained.html): the scene's clock follows the reading. Scrolled down, the
+   clock only goes forward, through every beat's stretch; a beat's play button plays its stretch and waits at the
+   stop that ends it; and on a phone the page does not scroll sideways. */
+await step('the scrolling explainer', async () => {
+  const xp = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+  xp.on('pageerror', e => failures.push(`[explained] ${e.message}`));
+  await xp.route(/fonts\.g/, r => r.abort());
+  await xp.goto(new URL('gallery/explained.html', base).href, { waitUntil: 'load' });
+  await xp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
+  const ts = [];
+  for (let f = 0; f <= 1.0001; f += 0.05) {
+    await xp.evaluate(f => scrollTo({ top: f * (document.documentElement.scrollHeight - innerHeight), behavior: 'instant' }), f); // style.css scrolls smoothly
+    await xp.waitForTimeout(80);
+    ts.push(await xp.evaluate(() => window.__explained.ctl.t));
+  }
+  if (ts.some((t, i) => i && t < ts[i - 1] - 1e-9) || !(ts[0] < 0.1) || !(ts[ts.length - 1] > 0.99)) throw new Error('the clock against the scroll: ' + ts.map(t => t.toFixed(2)).join(' '));
+  // the second beat's play button: from 0.2 to its stop at 0.42
+  await xp.evaluate(() => document.querySelectorAll('.beat')[1].scrollIntoView({ behavior: 'instant' }));
+  await xp.waitForTimeout(300); // the scroll's own event first: a scroll after the press takes the clock back
+  await xp.evaluate(() => document.querySelectorAll('.beat .go')[1].click());
+  await xp.waitForFunction(() => !window.__explained.ctl.playing && Math.abs(window.__explained.ctl.t - 0.42) < 1e-6, null, { timeout: 15000 });
+  await xp.close();
+  const mp = await browser.newPage({ viewport: { width: 390, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[explained, a phone] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  await mp.goto(new URL('gallery/explained.html', base).href, { waitUntil: 'load' });
+  await mp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
+  const sw = await mp.evaluate(() => document.documentElement.scrollWidth);
+  await mp.close();
+  if (sw > 390) throw new Error('on a phone the page is ' + sw + ' px wide');
 });
 
 if (!QUICK) await step('labs.html matches the drawer', async () => {

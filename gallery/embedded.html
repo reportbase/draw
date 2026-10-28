@@ -12,7 +12,7 @@
 <body class="page-chart page-embedded">
 
 <header>
-  <nav class="crumbs"><a href="index.html">← all galleries</a> · 28 of 29</nav>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 28 of 30</nav>
   <h1>tvf <em>embedded</em> <span class="pill">draw.html?embed=1</span></h1>
   <p class="lede">
     The animations again, made to leave the editor. Every tile plays as <b>one SVG file</b>: the scene turned into
@@ -1754,6 +1754,55 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 14. HOW LEAVES BECOME A CURVE (28 Oct 2026, Tom: "build the scrolling explainer page"): the scene of
+// gallery/explained.html, in five beats with a stop after each. Eight leaves; the curve through them (the kernel's,
+// computed here with tvf.js, as the editor would draw it); one leaf moved and the curve following it, with the
+// first curve left as a ghost; the camera going in to the bump; and a morph, every leaf blended toward a star's.
+{
+  const N = 8, cx = 200, cy = 150, M = 128,
+    ang = k => (k + 0.5) * 2 * Math.PI / N,
+    at = (k, r) => [cx + r * Math.cos(ang(k)), cy + r * Math.sin(ang(k))],
+    ring = Array.from({ length: N }, (_, k) => at(k, 90)),
+    moved = ring.map((q, k) => k === 0 ? at(0, 140) : q),
+    starP = Array.from({ length: N }, (_, k) => at(k, k % 2 ? 58 : 118)),
+    f1 = v => +v.toFixed(2);
+  const curveD = P => {
+    const X = TVF.reconstruct(Float64Array.from(P, q => q[0]), M), Y = TVF.reconstruct(Float64Array.from(P, q => q[1]), M);
+    let d = 'M' + f1(X[0]) + ' ' + f1(Y[0]);
+    for (let i = 1; i < M; i++) d += 'L' + f1(X[i]) + ' ' + f1(Y[i]);
+    return d + 'Z';
+  };
+  const dot = (q, fill) => `<circle cx="${f1(q[0])}" cy="${f1(q[1])}" r="6" fill="${fill}"/>`,
+    line = (d, stroke, w) => `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`;
+  // shapes, in order: 0 the paper; 1–8 the leaves; 9 leaf 0 moved; 10–17 the star's leaves; 18 the first curve
+  // (left as a ghost); 19 the curve, 20 it bent by the moved leaf, 21 the star's curve
+  const body = rectP(-400, -300, 800, 600, '#f4f1ea')
+    + ring.map(q => dot(q, '#d4a052')).join('') + dot(moved[0], '#d4a052') + starP.map(q => dot(q, '#d4a052')).join('')
+    + line(curveD(ring), '#c9c1ec', 3) + line(curveD(ring), '#7c5cff', 3) + line(curveD(moved), '#7c5cff', 3) + line(curveD(starP), '#7c5cff', 3);
+  // a morph's keys at absolute times on the loop, within its clip [a, b]: the keys' own times, relative to the clip.
+  // Times of three keys or more stay under 1 (the last would be the first again, round the loop); in a clip the
+  // last key's time is the window's end, so scaling them all by 0.99 keeps every key where it falls on the loop
+  const rel = (a, b, T) => T.map(t => +(0.99 * (t - a) / (b - a)).toFixed(4));
+  const dots = Array.from({ length: N }, (_, k) => {
+    const a = 0.02 + 0.018 * k;
+    return k === 0
+      ? { keys: [1, 1, 9, 9, 10], times: rel(a, 0.95, [a, 0.47, 0.58, 0.78, 0.95]), straight: true, clip: { start: a, len: 0.95 - a, show: 'in' } }
+      : { keys: [1 + k, 1 + k, 10 + k], times: rel(a, 0.95, [a, 0.78, 0.95]), straight: true, clip: { start: a, len: 0.95 - a, show: 'in' } };
+  });
+  SHOWPIECES.push({
+    id: 'leaves', name: 'how leaves become a curve', section: 'explainers', tags: ['draw on', 'camera', 'stops', 'leaves'],
+    note: 'The format in five beats: eight leaves; the curve through every one of them; one leaf moved and the curve following it smoothly, the old curve left as a ghost; a closer look at the bump, which has no kink; and a morph, each leaf blended toward a star\'s and the curve coming with them. The scene of the scrolling explainer page.',
+    svg: svg(400, 300, body),
+    scene: {
+      loop: 14, ease: 'inout', stops: [0.2, 0.42, 0.62, 0.75],
+      camera: [{ t: 0, fit: [18], pad: 0.35 }, { t: 0.62, fit: [18], pad: 0.35 }, { t: 0.7, fit: [1, 9], pad: 0.9 }, { t: 0.75, fit: [1, 9], pad: 0.9 }, { t: 0.8, fit: [18], pad: 0.35 }],
+      morphs: dots.concat([
+        { keys: [18], clip: { start: 0.22, len: 0.17, show: 'draw' } },
+        { keys: [19, 19, 20, 20, 21], times: rel(0.44, 0.95, [0.44, 0.47, 0.58, 0.78, 0.95]), straight: true, clip: { start: 0.44, len: 0.51, show: 'in' } }
+      ])
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -1855,7 +1904,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },

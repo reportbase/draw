@@ -642,7 +642,7 @@ function morphStretchOf(run, t) {
 }
 function morphWeightsOf(t, K, run) {
     const W = morphWarpOf(t, K, run);
-    if (K > 2 && W.f != null && (W.f < 0 || W.f > 1)) {
+    if (K > 2 && W.f != null && ((run && run.straight) || W.f < 0 || W.f > 1)) {
         const w = new Float64Array(K);
         w[W.k] = 1 - W.f;
         w[(W.k + 1) % K] = W.f;
@@ -652,7 +652,7 @@ function morphWeightsOf(t, K, run) {
 }
 function morphWarpOf(t, K, run) {
     const hold = Math.max(0, Math.min(0.9, +state.morphHold || 0)),
-        own = run && (run.times || run.eases);
+        own = run && (run.times || run.eases || run.straight);
     if (K < 2 || (!own && !(hold > 0) && !MORPH_EASES.includes(state.morphEase)))
         return { t, f: null };
     let k, u;
@@ -1857,6 +1857,7 @@ function morphRestoreOwn(run, o) {
     run.times = morphTimesOk(o.times, run.keys.length) ? o.times.map(Number) : null; // KEYS AT CHOSEN TIMES
     run.clip = morphClipOk(o.clip) ? { start: +o.clip.start, len: +o.clip.len, show: MORPH_SHOWS.includes(o.clip.show) ? o.clip.show : '' } : null; // A MORPH THAT PLAYS ONCE
     run.eases = morphEasesOk(o.eases, run.keys.length) ? o.eases.slice() : null;
+    run.straight = !!o.straight; // STRAIGHT FROM KEY TO KEY
     run.trail = o.trail ? { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: +o.trail.len } : null;
     run.cols = Array.isArray(o.cols) && o.cols.length === run.keys.length ? o.cols.map(c => ({ r: +c.r, g: +c.g, b: +c.b, a: +c.a })) : null;
     if (o.path) {

@@ -51937,9 +51937,13 @@
         }
         // the keys' weights at t, warped; past a key (an ease that overshoots or draws back) the pose
         // goes on along the line from one key to the next, which meets the kernel exactly at the key
+        // STRAIGHT FROM KEY TO KEY (28 Oct 2026, for explainers): three keys or more are blended through the
+        // even kernel, which carries the pose smoothly through every key but lets each feel the others between
+        // them, so two keys alike do not hold still. A run marked `straight` blends each stretch from its two keys
+        // only, as an overshooting ease already does: a key repeated holds, and a move happens where it is put.
         function morphWeightsOf(t, K, run) {
             const W = morphWarpOf(t, K, run);
-            if (K > 2 && W.f != null && (W.f < 0 || W.f > 1)) {
+            if (K > 2 && W.f != null && ((run && run.straight) || W.f < 0 || W.f > 1)) {
                 const w = new Float64Array(K);
                 w[W.k] = 1 - W.f;
                 w[(W.k + 1) % K] = W.f;
@@ -51949,7 +51953,7 @@
         }
         function morphWarpOf(t, K, run) {
             const hold = Math.max(0, Math.min(0.9, +state.morphHold || 0)),
-                own = run && (run.times || run.eases);
+                own = run && (run.times || run.eases || run.straight);
             if (K < 2 || (!own && !(hold > 0) && !MORPH_EASES.includes(state.morphEase)))
                 return { t, f: null };
             let k, u;
@@ -78125,7 +78129,7 @@
                 '- the scene (beside "loop", "ease" and "hold") may set "gravity": 1–4 (1, the floatiest; more and hops, falls and throws are over sooner and rest, swings swing faster) and "wind": −1 (left) to 1 (right) (every sway leans that way, swings hang pushed, drifts are carried): one weather for every motion, so falling snow and a swaying tree agree.',
                 '- the scene may also set "stops": [t, …], places on the clock (0–1) where playing waits for the viewer to click on: the beats of an explainer (put one at the end of each step\'s clips); and "camera": [{"t": 0–1, "fit": [shape numbers] or "all", "pad": 0.12}, …], the view framing those shapes at that time, moving smoothly from one key to the next (zoom in on a detail, then back out), holding before the first and after the last.',
                 '- emit: {"count": 2–200 (12), "spread": [across, up] in the shape\'s own heights (where copies are scattered, round where it is drawn), "vary": 0–1 (how much each copy\'s size, turn and motion differ, 0.5), "seed": a number} makes the morph many times over, each copy with its own phase: confetti, rain, snow, a flock of bubbles. Draw the one shape; emit does the rest.',
-                '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out", "anticipate" (draws back first, then goes), "overshoot" (goes past the next key and settles back), "elastic" (goes past and rings to rest) or null; the scene\'s "ease" takes the same names. Two keys with "anticipate" or "overshoot" give a simple morph the cartoon feel: use them for a thing that jumps, pops, snaps or lands.',
+                '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out", "anticipate" (draws back first, then goes), "overshoot" (goes past the next key and settles back), "elastic" (goes past and rings to rest) or null; the scene\'s "ease" takes the same names. Two keys with "anticipate" or "overshoot" give a simple morph the cartoon feel: use them for a thing that jumps, pops, snaps or lands. "straight": true blends each stretch from its two keys only, so a key repeated holds still (hold, move, hold: an explainer\'s steps); without it three keys or more flow smoothly through one another.',
                 '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out" | "draw"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), there until it plays then gone ("out"), or DRAWN ON over the window, its outline traced from its start like a pen and its fill coming in at the end, then staying ("draw"). A line (an open path: an arrow, an underline, a bracket) drawn on is a morph with one key and a "draw" clip. Clips one after another make a sequence.',
                 '- trail: {"kind": "echoes" | "ribbon", "len": 0–1}. fx: {"kind": "shimmer" | "grow" | "boil", "amount": 0–1}: a living outline, for flames, water, a heartbeat.',
                 '- lag: 0–0.9, the outline\'s parts arriving one after another (a flag, a jelly). follow: {"kind": "lag" | "spring", "amount": 0–1}, with parent: how loosely it is carried.',
@@ -78268,6 +78272,8 @@
                         o.times = run.times.map(r4);
                     if (run.eases)
                         o.eases = run.eases.slice();
+                    if (run.straight)
+                        o.straight = true;
                     if (run.clip)
                         o.clip = { start: r4(run.clip.start), len: r4(run.clip.len), show: run.clip.show || '' };
                     if (run.trail && run.trail.kind)
@@ -83194,6 +83200,7 @@
                 times: r.times ? r.times.map(Number) : null, // KEYS AT CHOSEN TIMES
                 clip: r.clip ? { start: +r.clip.start, len: +r.clip.len, show: r.clip.show || '' } : null, // A MORPH THAT PLAYS ONCE
                 eases: r.eases ? r.eases.slice() : null,
+                straight: !!r.straight, // STRAIGHT FROM KEY TO KEY
                 trail: r.trail ? { kind: r.trail.kind || '', len: r.trail.len != null ? +r.trail.len : 0.5 } : null,
                 cols: r.cols ? r.cols.map(c => ({ r: +c.r.toPrecision(7), g: +c.g.toPrecision(7), b: +c.b.toPrecision(7), a: +c.a.toPrecision(7) })) : null,
                 path: P ? {
@@ -83223,6 +83230,7 @@
             run.times = morphTimesOk(o.times, run.keys.length) ? o.times.map(Number) : null; // KEYS AT CHOSEN TIMES
             run.clip = morphClipOk(o.clip) ? { start: +o.clip.start, len: +o.clip.len, show: MORPH_SHOWS.includes(o.clip.show) ? o.clip.show : '' } : null; // A MORPH THAT PLAYS ONCE
             run.eases = morphEasesOk(o.eases, run.keys.length) ? o.eases.slice() : null;
+            run.straight = !!o.straight; // STRAIGHT FROM KEY TO KEY
             run.trail = o.trail ? { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: +o.trail.len } : null;
             run.cols = Array.isArray(o.cols) && o.cols.length === run.keys.length ? o.cols.map(c => ({ r: +c.r, g: +c.g, b: +c.b, a: +c.a })) : null;
             if (o.path) {
@@ -87626,6 +87634,8 @@
                     run.times = morphTimesOk(o.times, run.keys.length) ? o.times.map(Number) : null;
                 if (has('eases'))
                     run.eases = morphEasesOk(o.eases, run.keys.length) ? o.eases.slice() : null;
+                if (has('straight')) // STRAIGHT FROM KEY TO KEY
+                    run.straight = !!o.straight;
                 if (has('clip'))
                     run.clip = morphClipOk(o.clip) ? { start: +o.clip.start, len: +o.clip.len, show: MORPH_SHOWS.includes(o.clip.show) ? o.clip.show : '' } : null; // A MORPH THAT PLAYS ONCE
                 if (o.trail)
@@ -87888,6 +87898,8 @@
                         o.times = run.times.map(r4);
                     if (run.eases)
                         o.eases = run.eases.slice();
+                    if (run.straight)
+                        o.straight = true;
                     if (run.clip)
                         o.clip = { start: r4(run.clip.start), len: r4(run.clip.len), show: run.clip.show || '' };
                     if (run.trail)
