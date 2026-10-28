@@ -6,7 +6,7 @@
 // uses (labLadder, flashStatus, $, …) is the editor's, as it was when the code sat there. Edit it as you would the
 // editor: the same voice, the same indent. Uses the editor's labLadder, flashStatus and $; declares nothing the
 // editor reads. Loaded the first time its button is pressed, or ?lab=num asks.
-(window.TVF_LABS = window.TVF_LABS || {})['number'] = function () {
+(window.TVF_LABS = window.TVF_LABS || {})['number-tests'] = function () {
         // ── NUMBER TESTS ─────────────────────────────────────────────────────────────
         // Numbers as outputs of the construction rather than inputs to it. Only two
         // operations are used below — the line through two points, and the point where

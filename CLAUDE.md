@@ -21,8 +21,8 @@ publishes.
   or re-describing a lab in `draw.html`, run it, or `npm test` fails.
   **The labs are leaving `draw.html`** (28 Oct 2026, Tom: "all the labs can ultimately be pulled from draw.html. its
   already too big", then "agreed, proceed"): first measured, then written down (`papers/labs.md`), then moved to
-  `labs/*.js` loaded only when asked, a group at a time, each its own PR. **`labs/`** (28 Oct 2026; the first,
-  `labs/number.js`, the number tests): a moved lab's code, line for line and in the editor's indent, inside one
+  `labs/*.js` loaded only when asked (Tom: "batch them"). **`labs/`** (28 Oct 2026): 28 of the drawer's groups, a
+  file each named for its heading (`number-tests.js`, `stream-bank.js`, …), about 5,900 lines: a moved lab's code, line for line and in the editor's indent, inside one
   function handed over as `(window.TVF_LABS = window.TVF_LABS || {})[name] = function () { … }`. The editor
   (THE LABS THAT LIVE IN labs/, beside `makeRng`) evaluates that function's text by a direct `eval` inside its own
   closure, so the code reads every editor name as it did in the page and wires its own buttons; a script tag, not a
@@ -30,9 +30,14 @@ publishes.
   button (the drawer's, or `?lab=`'s, which presses it too) is held by a capturing listener while the file loads
   and runs, then given back. Moving a lab: a line in `LAB_FILES`, its lines cut to `labs/<name>.js` with the
   header the first one has, and a pointer comment where they were. Code several labs share (`makeRng`, `labComb`)
-  stays in the editor. Hook `window.__labFiles` (`files`, `load(name)`, `state`). Of the drawer's groups, about
-  thirty are their own code reached from one button (the per-group run of `tools/measure-labs.mjs`'s closure);
-  the rest are wired from blocks shared with the editor's own controls, to split by hand when their turn comes.
+  stays in the editor. Hook `window.__labFiles` (`files`, `load(name)`, `state`). The ones moved are the groups
+  whose code is their own, reached from their own button and named nowhere else (a group's closure from its
+  button, less what the editor or another group reaches); each was run before and after (`tools/run-labs.mjs`) and
+  reports the same cells, verdicts and status lines. Still in the editor: the contact walker, the decoder vectors
+  and undoing the division (the editor or the tests name a function of theirs), and the groups wired from blocks
+  shared with the editor's own controls (the sheets, the two- and three-reader tests and their neighbours), to
+  split by hand. A cut takes a piece's comment block with it, and a free-standing comment after a piece's code
+  rides along too: check a moved file's tail.
   `tools/measure-labs.mjs` splits the main script into its top-level pieces and finds what only the labs reach
   (by name, as `build-player.mjs` does; `window.__lab`, the `window.runX` exports and the lab deep link count as
   the labs'): about 10,000 of 83,000 lines, 18,000 with the blocks that wire a lab and something else

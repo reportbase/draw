@@ -3499,7 +3499,7 @@ await step('text in a scene, and beats', async () => {
 });
 
 /* THE LABS THAT LIVE IN labs/. A moved lab is not in draw.html and loads only when asked: ?lab=num presses its
-   button, the press is held while labs/number.js loads and is evaluated in the editor's closure, and the lab
+   button, the press is held while labs/number-tests.js loads and is evaluated in the editor's closure, and the lab
    then runs as it did in the page (its sheet of five, its status line). Every file LAB_FILES names is there. */
 await step('a lab that lives in labs/', async () => {
   const src = await readFile(join(ROOT, 'draw.html'), 'utf8');
@@ -3511,12 +3511,21 @@ await step('a lab that lives in labs/', async () => {
     await pp.goto(new URL('draw.html?lab=num', base).href, { waitUntil: 'load' });
     const files = await pp.evaluate(() => Object.values(window.__labFiles.files));
     for (const f of new Set(files)) await readFile(join(ROOT, 'labs', f + '.js'), 'utf8');
-    await pp.waitForFunction(() => window.__labFiles.state.number === 'run' && window.__lastLadder
+    await pp.waitForFunction(() => window.__labFiles.state['number-tests'] === 'run' && window.__lastLadder
       && window.__lastLadder.name === 'number tests', null, { timeout: 30000 });
     const r = await pp.evaluate(() => ({ rows: window.__lastLadder.rows.length,
       flash: (window.__flashLog || []).filter(f => /^number tests/.test(f)).pop() || '' }));
     if (r.rows !== 5) throw new Error(`the number tests laid ${r.rows} cells, not 5`);
     if (!/integers on 11\/11/.test(r.flash)) throw new Error('the number tests said: ' + r.flash.slice(0, 160));
+    // every other file hands its code over and evaluates without a throw (its buttons wired, nothing run)
+    const loaded = await pp.evaluate(async () => {
+      const out = [];
+      for (const f of new Set(Object.values(window.__labFiles.files)))
+        try { await window.__labFiles.load(f); out.push(f + ' ' + window.__labFiles.state[f]); } catch (e) { out.push(f + ' ' + e.message); }
+      return out;
+    });
+    const bad = loaded.filter(l => !/ run$/.test(l));
+    if (bad.length) throw new Error('labs/ files that did not run: ' + bad.join('; '));
   } finally { await pp.close(); }
 });
 
