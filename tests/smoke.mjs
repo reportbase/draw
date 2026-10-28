@@ -3415,6 +3415,23 @@ await step('the scrolling explainer', async () => {
   const sw = await mp.evaluate(() => document.documentElement.scrollWidth);
   await mp.close();
   if (sw > 390) throw new Error('on a phone the page is ' + sw + ' px wide');
+  // the second explainer, the Tangent Bridge (?x=bridge): its six beats and a closing one, from the scene's own
+  // beats with the paper's pills, the switcher on it, and the clock following the reading to the end
+  const bp = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+  bp.on('pageerror', e => failures.push(`[explained ?x=bridge] ${e.message}`));
+  await bp.route(/fonts\.g/, r => r.abort());
+  await bp.goto(new URL('gallery/explained.html?x=bridge', base).href, { waitUntil: 'load' });
+  await bp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
+  const xb = await bp.evaluate(() => [window.__explained.beats, window.__explained.titles[0], document.querySelectorAll('.beat a.paper').length, document.querySelector('#xs a.on') && document.querySelector('#xs a.on').dataset.x]);
+  if (xb[0] !== 7 || xb[1] !== 'A curve is a function on the circle' || xb[2] < 6 || xb[3] !== 'bridge') throw new Error('the Tangent Bridge explainer: ' + JSON.stringify(xb));
+  const bt = [];
+  for (const f of [0.1, 0.4, 0.7, 1]) {
+    await bp.evaluate(f => scrollTo({ top: f * (document.documentElement.scrollHeight - innerHeight), behavior: 'instant' }), f);
+    await bp.waitForTimeout(120);
+    bt.push(await bp.evaluate(() => window.__explained.ctl.t));
+  }
+  await bp.close();
+  if (bt.some((t, i) => i && !(t > bt[i - 1])) || !(bt[3] > 0.99)) throw new Error('the Tangent Bridge clock against the scroll: ' + bt.join(' '));
 });
 
 /* TEXT IN A SCENE, AND AN EXPLAINER'S BEATS. A scene link's <text> comes in as exact shapes, one a part of each
