@@ -1,0 +1,510 @@
+{
+ "sections": [
+  {
+   "id": "showpieces",
+   "title": "showpieces",
+   "note": "What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.",
+   "ids": [
+    "clockwork",
+    "orrery",
+    "murmuration",
+    "garden",
+    "kite",
+    "lava",
+    "ripple",
+    "metamorphosis",
+    "pendulum-wave"
+   ]
+  },
+  {
+   "id": "sequences",
+   "title": "sequences",
+   "note": "Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.",
+   "ids": [
+    "house",
+    "seed"
+   ]
+  },
+  {
+   "id": "explainers",
+   "title": "explainers",
+   "note": "Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown \"draw\"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile's picture plays straight through; live, and in the TVF player, it waits.",
+   "ids": [
+    "explainer",
+    "leaves"
+   ]
+  },
+  {
+   "id": "physics",
+   "title": "physical motions",
+   "note": "Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity's or a spring's own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.",
+   "ids": [
+    "bouncing-ball",
+    "dropped",
+    "lantern",
+    "jelly",
+    "wheel",
+    "toss",
+    "wind",
+    "pop",
+    "rider"
+   ]
+  },
+  {
+   "id": "more",
+   "title": "chains, contact and emitters",
+   "note": "Motions one after another (a chain, each step from where the last ended), motions set onto other shapes (a table, a shelf, a wall), and one shape made many times over with its own phase and a little variation (emit), which is how rain, snow and confetti are drawn: one drop, one flake, one scrap.",
+   "ids": [
+    "one-after",
+    "onto",
+    "snow",
+    "confetti"
+   ]
+  },
+  {
+   "id": "corners",
+   "title": "first steps: corners kept",
+   "note": "Exact shapes morph as exact shapes: their corners, radii and curve edges blended, so a sharp corner stays sharp the whole way. A key with fewer corners is given more on its edges, which draws it the same.",
+   "ids": [
+    "square-star",
+    "shape-loop",
+    "heartbeat"
+   ]
+  },
+  {
+   "id": "feel",
+   "title": "first steps: anticipation and overshoot",
+   "note": "Three eases that leave the keys on the way, the cartoon's own: anticipate draws back before it goes, overshoot goes past and settles back, elastic goes past and rings to rest. Each still arrives exactly on its key, so a plain two-key morph gets weight and snap with nothing else changed.",
+   "ids": [
+    "snap",
+    "boing"
+   ]
+  },
+  {
+   "id": "paths",
+   "title": "first steps: paths and trails",
+   "note": "A line or a curve in the drawing becomes a path: every live shape rides it once a loop at an even speed, turning with it if asked, and leaves echoes or a ribbon behind. The path itself leaves the drawing while it is one.",
+   "ids": [
+    "orbit",
+    "pendulum",
+    "fish",
+    "procession"
+   ]
+  },
+  {
+   "id": "effects",
+   "title": "first steps: detail effects",
+   "note": "A shape's outline is its harmonics, so an effect can move the detail and leave the silhouette alone, and a lag can make the detail arrive after the silhouette. These examples come in as leaves.",
+   "ids": [
+    "shimmer",
+    "grow",
+    "boil",
+    "lag"
+   ]
+  }
+ ],
+ "examples": {
+  "square-star": {
+   "name": "square to star",
+   "note": "Two exact shapes blended corner by corner, so the square's corners stay sharp all the way to the star's points. The square is given six more corners on its edges to match the star's ten. It rests on each shape and eases between them.",
+   "tags": [
+    "corners kept",
+    "ease",
+    "hold"
+   ]
+  },
+  "shape-loop": {
+   "name": "four shapes round a loop",
+   "note": "A circle, a triangle, a square and a hexagon, four keys round a loop. In place, the pose travels between where each shape was drawn as it changes from one to the next. Onion skins show the key before and after.",
+   "tags": [
+    "corners kept",
+    "4 keys",
+    "onion"
+   ]
+  },
+  "heartbeat": {
+   "name": "heartbeat",
+   "note": "Three hearts of curve edges, the middle one larger: a loop of rest, beat, rest. Each curve edge's handles are blended, so the heart stays a heart.",
+   "tags": [
+    "corners kept",
+    "curves",
+    "3 keys"
+   ]
+  },
+  "snap": {
+   "name": "anticipate, overshoot, elastic",
+   "note": "The same square sliding right and back, three ways. The top one draws back before it goes, the middle one goes past where it stops and settles back, and the bottom one goes past and rings to rest. Each is two keys (the second used twice) and an ease on each stretch; nothing else is set.",
+   "tags": [
+    "eases",
+    "cartoon",
+    "2 keys"
+   ]
+  },
+  "boing": {
+   "name": "boing",
+   "note": "A star grows with an elastic ease, ringing past its size and settling, then shrinks back with an overshoot, dipping below its small size before it rests.",
+   "tags": [
+    "elastic",
+    "overshoot",
+    "in place"
+   ]
+  },
+  "orbit": {
+   "name": "orbit",
+   "note": "A star rides a circle once a loop, turning with it, and leaves a ribbon behind. The circle is the path: it leaves the drawing while it is one and shows as a dashed guide.",
+   "tags": [
+    "path",
+    "turn",
+    "ribbon"
+   ]
+  },
+  "pendulum": {
+   "name": "pendulum",
+   "note": "A drop swings along an arc, out and back once a loop and slowing at each end, with echoes of where it has been. It turns with the arc as it goes.",
+   "tags": [
+    "path",
+    "there & back",
+    "echoes"
+   ]
+  },
+  "fish": {
+   "name": "fish on a wave",
+   "note": "A fish swims along a wave from one end to the other, turning with it, and starts again. Its echoes trail behind and never streak back across the jump.",
+   "tags": [
+    "path",
+    "along",
+    "echoes"
+   ]
+  },
+  "procession": {
+   "name": "procession",
+   "note": "Three shapes, each live on its own, share one path, spread evenly along it, and go round together.",
+   "tags": [
+    "path",
+    "3 morphs",
+    "echoes"
+   ]
+  },
+  "shimmer": {
+   "name": "shimmering leaf",
+   "note": "One shape gone live as a still, with shimmer on its detail: the fine harmonics turn to and fro, so the edge ripples while the leaf stays put. Effects work on leaves, so this one comes in as leaves.",
+   "tags": [
+    "leaves",
+    "shimmer"
+   ]
+  },
+  "grow": {
+   "name": "growing snowflake",
+   "note": "The detail comes in octave by octave, from a plain round shape to the whole snowflake, and goes again, once a loop.",
+   "tags": [
+    "leaves",
+    "grow"
+   ]
+  },
+  "boil": {
+   "name": "boiling flower",
+   "note": "A calm flower whose fine harmonics swell and turn by uneven amounts: the outline seethes and the flower stays a flower.",
+   "tags": [
+    "leaves",
+    "boil"
+   ]
+  },
+  "lag": {
+   "name": "detail arriving late",
+   "note": "A star, a flower and a circle, blended as leaves with a detail lag: the silhouette moves first and the fine detail follows it an octave at a time.",
+   "tags": [
+    "leaves",
+    "detail lag",
+    "3 keys"
+   ]
+  },
+  "clockwork": {
+   "name": "clockwork",
+   "note": "Four gears, each spinning at its own rate in the ratio of their teeth (24, 12, 16 and 10), so each one advances exactly six teeth a loop and the loop closes without a seam. Each hub turns with its gear.",
+   "tags": [
+    "spin",
+    "ratios",
+    "8 morphs"
+   ]
+  },
+  "orrery": {
+   "name": "orrery",
+   "note": "Five planets, each on an orbit of its own, the inner ones lapping faster: five, four, three, two and one laps a loop, so all of them come back together and the loop closes. The earth has a moon on a little orbit of its own that follows the earth round the sun. Each leaves a ribbon; the sun seethes. Leaves, for the sun's effect.",
+   "tags": [
+    "own paths",
+    "laps",
+    "follows",
+    "ribbons",
+    "boil"
+   ]
+  },
+  "murmuration": {
+   "name": "murmuration",
+   "note": "Twelve birds of different sizes spread along one figure-of-eight, each flapping on its own clock, eight wingbeats a loop at its own phase, so the flock never beats in step. Wings up and wings down are the keys, each used twice round the loop.",
+   "tags": [
+    "shared path",
+    "rate",
+    "phase",
+    "12 morphs"
+   ]
+  },
+  "garden": {
+   "name": "garden",
+   "note": "Five flowers bloom in a wave: bud, bloom, bloom, bud as keys, each flower a little behind the last, its petals going from green to its own colour and its heart coming in yellow. A bee loops between them on a path of its own, leaving echoes; its wings follow its body, turning as it turns, and beat twelve times a loop.",
+   "tags": [
+    "colour",
+    "phase",
+    "own path",
+    "follows",
+    "12 morphs"
+   ]
+  },
+  "lava": {
+   "name": "lava lamp",
+   "note": "Five blobs of wax, each rising and falling on a tall loop of its own from its own start, seething all the while, and warming from deep red to orange and back twice a loop. Leaves, for the seethe.",
+   "tags": [
+    "own paths",
+    "boil",
+    "colour",
+    "leaves"
+   ]
+  },
+  "ripple": {
+   "name": "ripple",
+   "note": "Forty squares become circles and back in a wave that spreads from the middle: each cell's clock runs behind by its distance from the centre. Each half turns as it goes and shifts from its cool square colour to its warm circle colour, corner for corner.",
+   "tags": [
+    "phase",
+    "spin",
+    "colour",
+    "40 morphs"
+   ]
+  },
+  "metamorphosis": {
+   "name": "metamorphosis",
+   "note": "One shape through six icons, each in its own colour: a circle, a heart, a star, a lightning bolt, a drop and a crescent moon, corners where they have them and curves where they have those. It rests on each and leaves a faint smear as it changes. Solo, so the shape has the page to itself.",
+   "tags": [
+    "corners kept",
+    "colour",
+    "6 keys",
+    "solo"
+   ]
+  },
+  "pendulum-wave": {
+   "name": "pendulum wave",
+   "note": "Fifteen bobs, each swinging on an arc of its own: the first twenty times a loop and each next one once more, so they fall out of step into snakes and waves and all come back together as the loop closes. There and back slows each at the ends of its swing, as a pendulum does.",
+   "tags": [
+    "own paths",
+    "laps",
+    "there & back",
+    "15 morphs"
+   ]
+  },
+  "kite": {
+   "name": "kite",
+   "note": "A kite flies a figure-of-eight. Its tail is six bows, each following the one above it on a spring, so the tail trails behind, swings out on the turns and settles again; nothing in the tail is told where to go but to follow. A cat on the hill keeps its face to the kite all the way round.",
+   "tags": [
+    "own path",
+    "spring",
+    "follows",
+    "faces"
+   ]
+  },
+  "house": {
+   "name": "a house builds itself",
+   "note": "Ten morphs, each playing once, in its turn: the walls rise out of the ground, the chimney and the roof come down from above, the door and the windows open out of nothing, the sun comes up behind and smoke puffs from the chimney. Each piece is seen only from when it plays, so the house builds from an empty field every loop.",
+   "tags": [
+    "plays once",
+    "in turn",
+    "fades",
+    "10 clips"
+   ]
+  },
+  "seed": {
+   "name": "a seed",
+   "note": "A seed falls and sinks into the ground, a shoot comes up, two leaves open, and a green bud swells and opens into a pink flower with a yellow heart. Six morphs, each playing once in its turn; the seed fades out as it lands, and everything after it appears when it begins.",
+   "tags": [
+    "plays once",
+    "in turn",
+    "fades",
+    "colour"
+   ]
+  },
+  "explainer": {
+   "name": "an explainer",
+   "note": "Three beats. A square is drawn on, line first and then filled in; the camera goes in to its corner, where a ring and a pointer are drawn; then back out as the square turns into a circle of the same area. Played live it waits at the end of each beat for a click (or →), the way an explainer does.",
+   "tags": [
+    "draw on",
+    "camera",
+    "stops"
+   ]
+  },
+  "leaves": {
+   "name": "how leaves become a curve",
+   "note": "The format in five beats: eight leaves; the curve through every one of them; one leaf moved and the curve following it smoothly, the old curve left as a ghost; a closer look at the bump, which has no kink; and a morph, each leaf blended toward a star's and the curve coming with them. The scene of the scrolling explainer page.",
+   "tags": [
+    "draw on",
+    "camera",
+    "stops",
+    "leaves"
+   ]
+  },
+  "bouncing-ball": {
+   "name": "a bouncing ball",
+   "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
+   "tags": [
+    "bounce",
+    "squash",
+    "motion"
+   ]
+  },
+  "dropped": {
+   "name": "rubber and clay",
+   "note": "Two balls dropped from the same height: the rubber one keeps three quarters of its speed at each bounce and the clay one a third, so the clay settles while the rubber is still bouncing. Each bounce takes as long as gravity says.",
+   "tags": [
+    "fall",
+    "restitution",
+    "motion"
+   ]
+  },
+  "lantern": {
+   "name": "a hanging lantern",
+   "note": "A lantern on its cord swings from the top of the cord like a pendulum, fastest at the bottom of its swing and pausing at each end.",
+   "tags": [
+    "swing",
+    "pendulum",
+    "motion"
+   ]
+  },
+  "jelly": {
+   "name": "a jelly",
+   "note": "A jelly on its plate, tapped once a loop: it wobbles in and out from its base, each wobble smaller than the last, and comes to rest before the next tap.",
+   "tags": [
+    "spring",
+    "damped",
+    "motion"
+   ]
+  },
+  "wheel": {
+   "name": "a rolling wheel",
+   "note": "A cog rolls across the floor and back without skidding: it turns by the distance gone over its radius, so its teeth meet the floor and leave it where they touched, easing at each end.",
+   "tags": [
+    "roll",
+    "no skid",
+    "motion"
+   ]
+  },
+  "toss": {
+   "name": "into the basket",
+   "note": "A ball tossed from the left lands in the basket: gravity's parabola through where it starts and where it lands, its top two of its heights above the basket, played once and seen only while it flies.",
+   "tags": [
+    "throw",
+    "parabola",
+    "clip"
+   ]
+  },
+  "wind": {
+   "name": "a tree in the wind",
+   "note": "A tree and a few blades of grass bend from their roots in the wind, the foot still and the top moving most, a slow push with a quicker flutter on it; the grass bends further and a little later, blade by blade. The scene's wind, blowing to the right, leans them all its way.",
+   "tags": [
+    "sway",
+    "shear",
+    "phase"
+   ]
+  },
+  "pop": {
+   "name": "popping in",
+   "note": "Three bubbles pop in one after another, each growing from nothing past its size and settling back, the last the liveliest; then all three stay until the loop comes round.",
+   "tags": [
+    "pop",
+    "overshoot",
+    "sequence"
+   ]
+  },
+  "rider": {
+   "name": "a hat on a ball",
+   "note": "A hat riding a bouncing ball: the hat is a follower of the ball, so it goes up and down with it and squashes with it on the floor, with nothing of its own to set.",
+   "tags": [
+    "bounce",
+    "parent",
+    "carried"
+   ]
+  },
+  "one-after": {
+   "name": "one thing after another",
+   "note": "One ball and a chain of four motions: it pops in, is thrown onto the table, hops on it, and rolls along it. Each step starts where the last one left it; the throw and the hops know where the table is because they were set onto it.",
+   "tags": [
+    "chain",
+    "onto",
+    "pop"
+   ]
+  },
+  "onto": {
+   "name": "onto the table",
+   "note": "Set onto other shapes instead of by numbers: a box drops onto the shelf and settles, a ball rolls up to the wall and back, an apple is tossed into the bowl. Move the shelf, press onto again, and the motion follows.",
+   "tags": [
+    "onto",
+    "fall",
+    "roll"
+   ]
+  },
+  "snow": {
+   "name": "snow",
+   "note": "One flake, drifting down with a wobble, and emit: sixty of it, scattered across the sky, each a little bigger or smaller, each wobbling its own amount and starting at its own moment. Every flake grows in at the top and fades out at the bottom, so the loop has no seam, and a light wind carries them all a little to the right.",
+   "tags": [
+    "emit",
+    "drift",
+    "60 flakes"
+   ]
+  },
+  "confetti": {
+   "name": "confetti",
+   "note": "Three pieces of confetti, each emitted twenty times: drifting down and sideways, tumbling, each copy turned and sized a little differently, with its own phase.",
+   "tags": [
+    "emit",
+    "drift",
+    "spin"
+   ]
+  }
+ },
+ "bytes": {
+  "clockwork": 14635,
+  "orrery": 143210,
+  "murmuration": 27641,
+  "garden": 96380,
+  "kite": 12986,
+  "lava": 97265,
+  "ripple": 64451,
+  "metamorphosis": 5076,
+  "pendulum-wave": 33527,
+  "house": 8335,
+  "seed": 7107,
+  "bouncing-ball": 1237,
+  "dropped": 1975,
+  "lantern": 1205,
+  "jelly": 1417,
+  "wheel": 2548,
+  "toss": 1478,
+  "wind": 4360,
+  "pop": 2448,
+  "rider": 1770,
+  "one-after": 2257,
+  "onto": 3490,
+  "snow": 48992,
+  "confetti": 38570,
+  "square-star": 1338,
+  "shape-loop": 1943,
+  "heartbeat": 1532,
+  "snap": 2696,
+  "boing": 1666,
+  "orbit": 1642,
+  "pendulum": 1627,
+  "fish": 1232,
+  "procession": 2586,
+  "shimmer": 6074,
+  "grow": 22455,
+  "boil": 6070,
+  "lag": 17168,
+  "explainer": 3546,
+  "leaves": 33430
+ }
+}

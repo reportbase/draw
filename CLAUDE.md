@@ -19,6 +19,30 @@ publishes.
   `draw.html?lab=CODE` link that runs it. **Generated** by `npm run labs`
   (`tools/build-labs.mjs` reads the lab buttons off the live editor); after adding, renaming
   or re-describing a lab in `draw.html`, run it, or `npm test` fails.
+- `player/`: **the TVF player** (27 Oct 2026, Tom: "build the tvf-native player"). `tvf-player.js` plays a `.tvfs`
+  scene on a canvas (`TVFPlayer.play(canvas, scene or url)`, or `<canvas data-tvfs="…">`; `load`, `poses`, `draw`), next
+  to `tvf-core.js`. **Generated** by `npm run player` (`tools/build-player.mjs`): its engine is the editor's own code,
+  the functions and constants the player's entry points need taken from draw.html's main script by name with all
+  they use (the closure skips locals, object keys, regex literals and property names), unchanged and in the
+  editor's order, between a small shim (`state`'s ease, hold, gravity and wind, `morphLive`, `morphRuns`) and
+  `player/runtime.js` (loading, the clock, drawing: leaves reconstructed with the kernel at about one point every
+  two pixels, exact poses as their cubics, stills through `exactDense`). Names the engine mentions that belong to
+  the editor's page are in its `STUBS`; an unknown one fails the build. After changing the morph engine in
+  draw.html, run it, or `npm test` fails. A `.tvfs` (`{format: 'tvf-scene', v: 1, name, loop, ease, hold,
+  gravity, wind, trail, camera, stops, path, items, morphs}`) is written by the morph bar's **tvfs** button (`morphTvfScene`, hook
+  `__box.tvfScene()`): `items` the drawing order (`{morph: i}`, or a still's `leaves` as float32 base64 or its
+  `exact` corners, roundings, smooth corners, handles and holes, with fill and stroke), `morphs` each as its keys
+  (leaves, or exact corners with `r` and `c`) plus `own`, the autosave's `morphSaveOwn` record, restored by
+  `morphRestoreOwn`, and `open` for a live line. Trails (echoes, ribbons) are drawn by the runtime as the editor's `drawMorphTrails` does,
+  under the shapes, from the engine's `morphTrailSpan`, `morphTrailTime` and `morphCentreAt`. `player.html` opens one
+  (button, drop, `?src=`). A scene's camera frames the canvas (`viewOf` at t), its lines draw on (`drawOn`), and its
+  stops wait: the controller's `next()` (a click on the canvas, unless `click: false`) goes on and `prev()` goes back a
+  stop, `ctl.stop` says which it waits at, `opts.onstop` is told. `examples/` holds every example on `gallery/animated.html` as a `.tvfs`, and `index.json`
+  (its sections, each example's name, note and tags, each file's size), **generated** by `npm run examples`
+  (`tools/write-examples.mjs`: each example's scene link opened in a headless editor and `__box.tvfScene()` written;
+  `npm run examples -- id …` writes some): after changing an example, the scene link or the `.tvfs` writer, run it,
+  or `npm test` fails. The smoke test checks the player poses gallery scenes as the editor does
+  (`__box.morphPoses(t)`) to the keys' rounding, and that those files are what the editor writes now.
 - `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
   specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
   and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and
@@ -29,10 +53,10 @@ publishes.
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before
   anything else, typeset by KaTeX from cdnjs when that loads and shown as source when it does not.
-- `gallery/`: twenty-eight teaching pages, in reading order: `gallery.html` (the catalogue),
+- `gallery/`: thirty teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `epicycles`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`
-  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`, `embedded`. Also `playground.html` (sculpt
+  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`, `embedded`, `played`, `explained`. Also `playground.html` (sculpt
   a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
   library as an ES module, *generated* from the copy the pages inline: regenerate it from
   a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
@@ -50,16 +74,16 @@ publishes.
   - **Styles live in `gallery/style.css`**, shared by every page in `gallery/` (and by
     `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
     a layout of their own have a section there scoped to their body class (`page-index`,
-    `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`, `page-animated`).
-  - Each page bundles its JavaScript so it runs from one file. All twenty-eight, and the playground, carry the **same**
+    `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`, `page-animated`, `page-embedded`, `page-played`, `page-explained`).
+  - Each page bundles its JavaScript so it runs from one file. All thirty, and the playground, carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
     mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
     names the page that differs.
-  - The other nineteen have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
+  - The other twenty-one have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
     STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES, SITUATED, DEPTHPAGE, RECOVER, CORNER, LEVELS, STAND, BETWEEN, COMPILE), and no spectrum strip or predict mode. `spiral`,
-    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated`, `embedded` are *chart* pages (`body.page-chart`: a measurement and a
+    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated`, `embedded`, `played` are *chart* pages (`body.page-chart`: a measurement and a
     verdict line per tile); `motion`, `compose` and `epicycles` animate (`page-chart page-motion`; epicycles
     carries only tvf.js, FORMAT and EPICYCLES, and its dials may be selects);
     `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`).
@@ -195,6 +219,25 @@ publishes.
     sliders, saved, the scene link's `gravity` and `wind`, the AI vocabulary): gravity has hops, falls and throws
     over in 1/√g of their cycle and then rest, and swings round(√g) times (lighter than 1 would need more than a
     loop); wind leans sways and swings its way and carries drifts. The snow and tree tiles have some wind.
+    EXPLAINERS (28 Oct 2026, Tom: "can you do explainers with this animation tool?", then "1-3"). DRAWING A LINE ON: a
+    clip's `show: 'draw'` (`morphDrawFactor`, `morphDrawFill`) leaves it unseen before its window, draws its outline from
+    its start over the window like a pen and brings its fill in over the last 30%, an outline it has not got of its own
+    (a filled shape with no stroke) drawn in its fill's colour and going as the fill comes (`drawShapeDrawingOn`, called
+    from the shape loop while `sp._draw` < 1); the SVG export writes it as `pathLength="1"` and a `stroke-dashoffset`
+    animation. Open exact lines now go live as lines (`run.open`, all keys open with the same corner count, no corner
+    pairing; `morphExactCubics(P, open)`, `cubicsToPathD(…, open)`), so an arrow drawn on is a one-key morph. A CAMERA:
+    `state.morphCamera = [{t, box: [x0, y0, x1, y1]}]` in page units (`morphCameraOk`, `morphCameraAt`: eased between
+    keys, centre straight, size by a constant ratio, held outside), followed while playing or scrubbing
+    (`morphCameraFollow`, `morphViewOfBox`; the timeline's **camera** switch, `state.morphCamFollow`), keyed from the
+    view as it is (**+ view**, `morphViewBox`), a row of keys on the timeline (drag, double-click to remove); the SVG
+    export animates its `viewBox`. STOPS: `state.morphStops` (`morphStopsOk`), red flags on the timeline's ruler (**+
+    stop**, drag, double-click); played through (an embed always, the editor when the timeline's **stops** is on,
+    `state.morphStopsOn`) the clock waits at each and at the loop's end (`morphStopCrossed` in `morphTick`), and
+    `morphStopGo(±1)` goes on or back; in an embed a click, space, → or Enter goes on and ← back. Both are saved
+    (`morphStateSave`, so undo too), new each time a first morph starts, in the scene link as `camera: [{t, fit:
+    [shape numbers] | 'all', pad} | {t, box: [x0, y0, x1, y1] in the svg's units, y down}]` (`sceneCameraIn`, through
+    `window.__sceneBoxOf`; the editor writes boxes) and `stops: [t…]`, in the AI vocabulary and in the `.tvfs`. The
+    gallery's **explainers** section has one (`explainer`). Hooks `__box.seek(t)`, `drawn()`, `viewBox()`, `explain()`.
     The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
     what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
     in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted
@@ -218,11 +261,14 @@ publishes.
     0°), and keep a corner smooth in every pose where any key has it smooth (SMOOTH WHERE ANY KEY IS SMOOTH).
     The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
     come first, then the **sequences** (a house builds itself, a seed: morphs that play once, in turn, seen from when they
-    play), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), **chains, contact and emitters** (one thing after another, onto the table, snow, confetti), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
+    play), the **explainers** (a square drawn on, a camera to its corner, a stop after each beat; how leaves become a
+    curve, the scene of `explained.html`, whose leaves hold and move by `straight`: STRAIGHT FROM KEY TO KEY, each
+    stretch of a run's keys blended from its two keys only, so a key repeated holds; saved, in the scene link and the
+    AI vocabulary, read by `morphWeightsOf`), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), **chains, contact and emitters** (one thing after another, onto the table, snow, confetti), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
   - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your
-    recommendations": a light player) is the last page, a chart page: the same examples, each tile its **animated
+    recommendations": a light player) is a chart page: the same examples, each tile its **animated
     SVG**, made by one hidden editor (THE EMBED AS A CONVERTER in `draw.html`: an embed of the same origin answers
     `{type: 'tvf-scene-svg', id, code}` with `{type, id, svg}`) and then playing on its own (SMIL, no script, the editor
     gone once all are made; out of view, paused; the same `sceneSvg` and cache as animated.html, copied with the
@@ -232,8 +278,26 @@ publishes.
     examples are animated.html's, **copied unchanged** between `// >>> copied from animated.html, unchanged: EXAMPLES`
     and `// <<< end of EXAMPLES` (from `// ── THE EXAMPLES` up to `// the settings as one line`): change them in
     animated.html and copy them across, or `npm test` fails. Hook `window.__embedded`.
+  - `played` (27 Oct 2026, Tom: "lets put it to work with its own gallery help page.") is a chart page:
+    the TVF player at work and its help. Four cards on top say how to make a scene (the morph bar's tvfs), put it on
+    a page (two scripts and `<canvas data-tvfs>`, with that code running beside it), drive it (`TVFPlayer.play`'s
+    controller; `load`, `draw`, `poses`) and what a `.tvfs` holds; then a wide panel to open or drop your own and
+    scrub it; then every file in `player/examples/`, built from its `index.json`, each tile a canvas and a
+    controller of the player's, started when first in view and paused out of view (a click pauses one).
+    **copy embed code** gives the two scripts and a canvas at `https://reportbase.github.io/draw/`. It is the one
+    gallery page that loads scripts beside it (`../tvf-core.js`, `../player/tvf-player.js`), since that is what
+    it shows; it still carries `tvf.js` like the rest. Hook `window.__played`.
+  - `explained` (28 Oct 2026, Tom: "build the scrolling explainer page") is the last page (`body.page-explained`, not a
+    chart page): how leaves become a curve, as a scrolling explainer. Five beats of text down the left (`.beat`, each
+    with `data-from` and `data-to`, a stretch of the loop between two of the scene's stops) and the scene pinned on the
+    right (on a phone, on top): `player/examples/leaves.tvfs` (the animated gallery's `leaves`), played by the player
+    with its clock set by the reading (`seek(t)` on every scroll: how far the reading line, a little above the middle
+    of the window or just under the picture on a phone, is through the beat). A beat's **play this step** plays its
+    stretch and waits at its stop; scrolling again takes the clock back. It loads the player beside it, like
+    `played`, and carries `tvf.js`. Hook `window.__explained`. A new explainer page would be another scene with
+    stops and its own beats of text.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 28" crumbs and "next" links in each page.
+    a page means updating it, and the "N of 30" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE

@@ -1922,8 +1922,12 @@ current = 'scene link out';
     e.on('pageerror', x => failures.push(`[scene link out] ${x.message}`));
     await e.route(/fonts\.g/, r => r.abort());
     await e.goto(scene({ name: 'made', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="60" cy="140" r="20" fill="#f5c542"/><rect x="120" y="120" width="30" height="30" fill="#4287f5"/><polygon points="20,190 180,190 100,170" fill="#3a3"/></svg>', morphs: [] }), { waitUntil: 'load' });
-    await e.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 })
+    // its three shapes in and the opening settled before anything is applied: a scene still opening replaces the
+    // drawing when it lands, and what was applied before that goes with it (seen on a loaded CI runner)
+    await e.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch() && window.__animSketch().n === 3
+      && /made/.test(document.getElementById('status')?.textContent || ''), null, { timeout: 60000 })
       .catch(async () => { throw new Error('the editor-made scene did not open: ' + await e.evaluate(() => document.getElementById('status')?.textContent).catch(x => 'page gone: ' + x.message)); });
+    await e.waitForTimeout(400);
     await e.evaluate(() => window.__animApply({ copies: [{ of: 0, dy: -300, turn: 30 }], svg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><circle cx='640' cy='640' r='120' fill='none' stroke='#888'/></svg>",
       morphs: [{ keys: [0, 3] }, { keys: [1], path: 4, spin: 1 }], loop: 3 }));
     await e.evaluate(() => window.__animApply({ change: [{ morph: 0, rate: 3 }] }));
@@ -2711,7 +2715,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html', 'played.html', 'explained.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -2756,11 +2760,17 @@ for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === '
     // saved copy) is not in the way: the link should open on a page of its own.
     const ep = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     ep.on('pageerror', e => failures.push(`[gallery/${g} → editor] ${e.message}`));
+    // "opened … from the link" is a flash, gone after 1.4 s; polling for it can miss it on a loaded
+    // runner, where frames are slow. Every line the status shows is kept as it is written instead.
+    await ep.addInitScript(() => {
+      window.__said = [];
+      new MutationObserver(() => {
+        const t = document.getElementById('status')?.textContent;
+        if (t && t !== window.__said[window.__said.length - 1]) window.__said.push(t);
+      }).observe(document, { subtree: true, childList: true, characterData: true });
+    });
     await ep.goto(link, { waitUntil: 'load' });
-    const status = await ep.waitForFunction(() => {
-      const t = document.getElementById('status')?.textContent || '';
-      return /opened|shape link/.test(t) && t;
-    }, null, { timeout: 15000 }).then(h => h.jsonValue()).catch(async () => 'timed out; status: ' + await ep.evaluate(() => document.getElementById('status')?.textContent));
+    const status = await ep.waitForFunction(() => window.__said.find(t => /opened|shape link/.test(t)) || false, null, { timeout: 15000 }).then(h => h.jsonValue()).catch(async () => 'timed out; status: ' + await ep.evaluate(() => document.getElementById('status')?.textContent));
     await ep.close();
     if (!/opened/.test(status)) throw new Error(status);
   } catch (e){ failures.push(`[gallery/${g}] ${e.message.split('\n')[0]}`); }
@@ -3148,6 +3158,265 @@ await step('playground', async () => {
 
 /* labs.html is generated from the lab drawer (tools/build-labs.mjs). Regenerate it here and
    compare: a lab added, renamed or re-described in draw.html without \`npm run labs\` fails. */
+/* THE TVF PLAYER (player/tvf-player.js, built by tools/build-player.mjs from draw.html). The file on disk is what
+   the build writes (else `npm run player`); gallery scenes opened in the editor, written as .tvfs and loaded by the
+   player pose every morph as the editor does at six times through the loop, to the stored keys' rounding: leaves
+   with a detail effect and with a lag, exact corners with physics and a chain, a path with parents, an emitter;
+   and player.html plays a scene from a file, drawing it at two sizes. */
+/* EXPLAINERS (draw.html: DRAWING A LINE ON; A CAMERA, AND STOPS). A scene of a line drawn on (an open exact line
+   gone live as a line), a circle drawn on and filled, a box that fades, a camera that frames the line and then
+   everything, and two stops. Drawn on: the share drawn follows the clip's window. The camera: scrubbing frames
+   the line, then the whole. The embed waits at each stop and a click goes on. The scene link and the .tvfs
+   carry it all, the player waits at the stops too, the SVG export moves its viewBox and draws its lines on, and
+   a stop added on the timeline is one undo step. */
+await step('explainers: drawn on, a camera, stops', async () => {
+  const zlib = await import('node:zlib');
+  const sc = { v: 1, name: 'explain', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><path d="M40 250 L120 120 L200 200" fill="none" stroke="#f2c14e" stroke-width="4"/><circle cx="300" cy="150" r="50" fill="#7c5cff"/><rect x="250" y="40" width="100" height="40" fill="#e05a6a"/></svg>',
+    loop: 6, stops: [0.33, 0.66], play: false, t: 0,
+    camera: [{ t: 0, fit: [0] }, { t: 0.3, fit: [0] }, { t: 0.45, fit: 'all' }],
+    morphs: [{ keys: [0], clip: { start: 0, len: 0.3, show: 'draw' } }, { keys: [1], clip: { start: 0.35, len: 0.3, show: 'draw' } }, { keys: [2], clip: { start: 0.7, len: 0.25, show: 'fade' } }] };
+  const link = new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(sc))).toString('base64url');
+  const ep = await browser.newPage({ viewport: { width: 1000, height: 700 } });
+  ep.on('pageerror', e => failures.push(`[explainers] ${e.message}`));
+  await ep.route(/fonts\.g/, r => r.abort());
+  await ep.goto(link, { waitUntil: 'load' });
+  await ep.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
+  await ep.waitForTimeout(300);
+  const diag = await ep.evaluate(() => window.__box.morphDiag());
+  if (diag.length !== 3 || !diag.every(r => r.exact && r.lazy)) throw new Error('the three did not go live as exact shapes: ' + JSON.stringify(diag));
+  const at = t => ep.evaluate(t => { window.__box.seek(t); return { drawn: window.__box.drawn(), box: window.__box.viewBox() }; }, t);
+  const a = await at(0.15), b = await at(0.5), c = await at(0.8);
+  if (Math.abs(a.drawn[0] - 0.5) > 1e-9 || a.drawn[1] !== 0 || Math.abs(b.drawn[1] - 0.5) > 1e-9 || c.drawn[0] !== 1 || c.drawn[1] !== 1 || c.drawn[2] != null)
+    throw new Error('drawn on: ' + JSON.stringify([a.drawn, b.drawn, c.drawn]));
+  const wid = B => B[2] - B[0];
+  if (!(wid(c.box) > 1.5 * wid(a.box))) throw new Error('the camera did not pull out from the line to everything: ' + JSON.stringify([a.box, c.box]));
+  const d = await ep.evaluate(() => window.__box.tvfScene());
+  if (d.camera.length !== 3 || d.stops.join() !== '0.33,0.66' || !d.morphs[0].open || d.morphs[1].open) throw new Error('the .tvfs: ' + JSON.stringify({ camera: d.camera.length, stops: d.stops, open: d.morphs.map(m => m.open) }));
+  const svg = await ep.evaluate(() => window.__box.morphSvg({}));
+  if (!/attributeName="viewBox"/.test(svg) || (svg.match(/attributeName="stroke-dashoffset"/g) || []).length !== 2) throw new Error('the svg export does not move its camera or draw its lines on');
+  // the link round trip keeps the camera and the stops
+  const back = await ep.evaluate(async () => (await window.__sceneShare()).link);
+  const E1 = await ep.evaluate(() => window.__box.explain());
+  const rp = await browser.newPage({ viewport: { width: 1000, height: 700 } });
+  rp.on('pageerror', e => failures.push(`[explainers: link back] ${e.message}`));
+  await rp.route(/fonts\.g/, r => r.abort());
+  await rp.goto(back, { waitUntil: 'load' });
+  await rp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
+  const E2 = await rp.evaluate(() => window.__box.explain());
+  await rp.close();
+  const same = E1.stops.join() === E2.stops.join() && E1.camera.length === E2.camera.length && E1.camera.every((k, i) => Math.abs(k.t - E2.camera[i].t) < 1e-3
+    && k.box.every((v, j) => Math.abs(v - E2.camera[i].box[j]) < 2e-3 * wid(k.box)));
+  if (!same) throw new Error('the link back gave ' + JSON.stringify(E2) + ', not ' + JSON.stringify(E1));
+  // a stop added on the timeline is one undo step
+  await ep.evaluate(() => { window.__box.seek(0.5); });
+  await ep.click('#bMorphTimeline');
+  await ep.click('#tlStop');
+  const n1 = (await ep.evaluate(() => window.__box.explain())).stops.length;
+  await ep.evaluate(() => document.getElementById('bUndo').click());
+  await ep.waitForTimeout(250);
+  const n2 = (await ep.evaluate(() => window.__box.explain())).stops.length;
+  if (n1 !== 3 || n2 !== 2) throw new Error('a stop added and undone: ' + n1 + ' then ' + n2);
+  await ep.close();
+  // the embed waits at each stop, and a click goes on
+  const em = await browser.newPage({ viewport: { width: 600, height: 400 } });
+  em.on('pageerror', e => failures.push(`[explainers: embed] ${e.message}`));
+  await em.route(/fonts\.g/, r => r.abort());
+  await em.goto(link.replace('draw.html#', 'draw.html?embed=1#'), { waitUntil: 'load' });
+  await em.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
+  await em.evaluate(() => window.__box.seek(0.3));
+  await em.keyboard.press('ArrowRight');
+  await em.waitForFunction(() => { const m = window.__box.morph(); return !m.play && Math.abs(m.t - 0.33) < 1e-9; }, null, { timeout: 10000 });
+  await em.mouse.click(300, 200);
+  await em.waitForFunction(() => { const m = window.__box.morph(); return !m.play && Math.abs(m.t - 0.66) < 1e-9; }, null, { timeout: 15000 });
+  await em.close();
+  // the player waits at the stops as well
+  const pl = await browser.newPage();
+  pl.on('pageerror', e => failures.push(`[explainers: player] ${e.message}`));
+  await pl.goto(new URL('player/player.html', base).href, { waitUntil: 'load' });
+  const r = await pl.evaluate(async d => {
+    const ctl = TVFPlayer.play(document.getElementById('cv'), d, {});
+    await ctl.ready;
+    ctl.seek(0.3);
+    await new Promise(r => setTimeout(r, 900));
+    const one = { t: ctl.t, playing: ctl.playing, stop: ctl.stop };
+    ctl.next();
+    await new Promise(r => setTimeout(r, 200));
+    return { one, two: { t: ctl.t, playing: ctl.playing } };
+  }, d);
+  await pl.close();
+  if (r.one.t !== 0.33 || r.one.playing || r.one.stop !== 0 || !r.two.playing || !(r.two.t > 0.33)) throw new Error('the player at its stops: ' + JSON.stringify(r));
+});
+
+await step('the tvf player', async () => {
+  const { buildPlayer } = await import('../tools/build-player.mjs');
+  const { out } = await buildPlayer();
+  if (out !== await readFile(join(ROOT, 'player/tvf-player.js'), 'utf8')) throw new Error('player/tvf-player.js is out of date with draw.html: run `npm run player`');
+  const gp = await browser.newPage();
+  await gp.route(/fonts\.g/, r => r.abort());
+  await gp.goto(new URL('gallery/animated.html', base).href, { waitUntil: 'load' });
+  await gp.waitForFunction(() => typeof EXAMPLES !== 'undefined' && typeof sceneCode === 'function');
+  const ids = ['grow', 'lag', 'one-after', 'kite', 'orrery', 'snow', 'house', 'explainer', 'leaves'];
+  const codes = await gp.evaluate(async ids => { const o = {}; for (const e of EXAMPLES.filter(e => ids.includes(e.id))) o[e.id] = await sceneCode(e); return o; }, ids);
+  await gp.close();
+  const pl = await browser.newPage({ viewport: { width: 800, height: 500 } });
+  pl.on('pageerror', e => failures.push(`[player] ${e.message}`));
+  await pl.goto(new URL('player/player.html', base).href, { waitUntil: 'load' });
+  const ts = [0, 0.13, 0.37, 0.5, 0.81, 0.97];
+  for (const id of ids) {
+    const ep = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    ep.on('pageerror', e => failures.push(`[player: ${id} in the editor] ${e.message}`));
+    await ep.route(/fonts\.g/, r => r.abort());
+    await ep.goto(new URL('draw.html', base).href + '#scene=' + codes[id], { waitUntil: 'load' });
+    await ep.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
+    await ep.waitForTimeout(300);
+    const d = await ep.evaluate(() => window.__box.tvfScene());
+    const A = await ep.evaluate(ts => ts.map(t => window.__box.morphPoses(t)), ts);
+    await ep.close();
+    // player/examples/ holds what the editor writes now (npm run examples writes them again)
+    const file = await readFile(join(ROOT, 'player', 'examples', id + '.tvfs'), 'utf8').catch(() => null);
+    if (file !== JSON.stringify(d)) throw new Error('player/examples/' + id + '.tvfs is not what the editor writes now: run `npm run examples`');
+    const B = await pl.evaluate(([d, ts]) => { const S = TVFPlayer.load(d); return ts.map(t => TVFPlayer.poses(S, t).map(P => ({ x: Array.from(P.x), y: Array.from(P.y) }))); }, [d, ts]);
+    let worst = 0, scale = 1e-12;
+    A.forEach((ps, i) => ps.forEach((P, j) => { for (let k = 0; k < P.x.length; k++) { scale = Math.max(scale, Math.abs(P.x[k]), Math.abs(P.y[k])); worst = Math.max(worst, Math.abs(P.x[k] - B[i][j].x[k]), Math.abs(P.y[k] - B[i][j].y[k])); } }));
+    if (!(worst / scale < 1e-6)) throw new Error(id + ': the player poses it ' + (worst / scale).toExponential(2) + ' of its size away from the editor');
+  }
+  await pl.close();
+  // the page: a scene from a file, drawn, and drawn again at another size
+  const pp = await browser.newPage({ viewport: { width: 900, height: 600 } });
+  pp.on('pageerror', e => failures.push(`[player.html] ${e.message}`));
+  await pp.goto(new URL('player/player.html?src=examples/grow.tvfs', base).href, { waitUntil: 'load' });
+  await pp.waitForFunction(() => window.__player.ctl() && window.__player.ctl().scene, null, { timeout: 30000 });
+  const lit = () => pp.evaluate(() => { const c = document.getElementById('cv'), x = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < x.length; i += 16) if (x[i] > 120 && x[i + 2] > 200) n++; return { n, w: c.width }; });
+  await pp.evaluate(() => { const c = window.__player.ctl(); c.pause(); c.seek(0.5); });
+  await pp.waitForTimeout(300);
+  const a = await lit();
+  await pp.setViewportSize({ width: 450, height: 300 });
+  await pp.evaluate(() => window.__player.ctl().seek(0.5));
+  await pp.waitForTimeout(300);
+  const b = await lit();
+  await pp.close();
+  if (!(a.n > 200) || !(b.n > 50) || !(b.w < a.w)) throw new Error('player.html drew ' + JSON.stringify({ a, b }));
+});
+
+/* THE PLAYED GALLERY (gallery/played.html): the TVF player at work. Every example on the animated page is a
+   file in player/examples/ listed in its index.json; the page plays each one through the player alone, only
+   the tiles in view; a trail draws (a ribbon and echoes add to what the shape alone draws); the embed code it
+   hands out works pasted into a page of someone else's, the scripts and the scene fetched from GitHub Pages;
+   and "scrub" puts a scene on the wide panel. */
+await step('the played gallery', async () => {
+  const dir = join(ROOT, 'player', 'examples');
+  const index = JSON.parse(await readFile(join(dir, 'index.json'), 'utf8'));
+  const files = (await readdir(dir)).filter(f => f.endsWith('.tvfs')).map(f => f.slice(0, -5)).sort();
+  const listed = index.sections.flatMap(s => s.ids);
+  if (listed.slice().sort().join() !== files.join()) throw new Error('index.json lists ' + listed.length + ' scenes for ' + files.length + ' files');
+  for (const id of files) {
+    const n = (await readFile(join(dir, id + '.tvfs'), 'utf8')).length;
+    if (index.bytes[id] !== n) throw new Error('index.json gives ' + id + '.tvfs as ' + index.bytes[id] + ' bytes, not ' + n);
+  }
+  const A = await readFile(join(ROOT, 'gallery/animated.html'), 'utf8');
+  const ids = [...A.matchAll(/^\s+id: '([a-z0-9-]+)', name:/gm)].map(m => m[1]).sort();
+  if (ids.join() !== files.join()) throw new Error('player/examples/ is not the animated page\'s examples: run `npm run examples`');
+  // trails: the orbit's ribbon and the fish's echoes draw more than the shape alone
+  const tp = await browser.newPage();
+  tp.on('pageerror', e => failures.push(`[played: trails] ${e.message}`));
+  await tp.goto(new URL('player/player.html', base).href, { waitUntil: 'load' });
+  for (const id of ['orbit', 'fish']) {
+    const d = JSON.parse(await readFile(join(dir, id + '.tvfs'), 'utf8'));
+    const [withT, without] = await tp.evaluate(d => [true, false].map(on => {
+      const s = JSON.parse(JSON.stringify(d));
+      if (!on) { s.trail = null; for (const m of s.morphs) m.own.trail = { kind: '', len: 0.5 }; }
+      const c = document.createElement('canvas'); c.width = 400; c.height = 300;
+      const x = c.getContext('2d');
+      TVFPlayer.draw(x, TVFPlayer.load(s), 0.4, 400, 300);
+      const p = x.getImageData(0, 0, 400, 300).data; let n = 0;
+      for (let i = 3; i < p.length; i += 4) if (p[i] > 8) n++;
+      return n;
+    }), d);
+    if (!(withT > without * 1.3)) throw new Error(id + ': its trail drew ' + withT + ' pixels against ' + without + ' without it');
+  }
+  await tp.close();
+  // the page
+  const gp = await browser.newPage({ viewport: { width: 1300, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[played] ${e.message}`));
+  await gp.route(/fonts\.g/, r => r.abort());
+  await gp.goto(new URL('gallery/played.html', base).href, { waitUntil: 'load' });
+  await gp.waitForFunction(() => window.__played && window.__played.ids.length > 0, null, { timeout: 20000 });
+  const n = await gp.evaluate(() => window.__played.ids.length);
+  if (n !== files.length) throw new Error(n + ' tiles for ' + files.length + ' scenes');
+  // each tile brought into view and held there until it has started (one scrolled past within a frame is never seen)
+  await gp.evaluate(async () => {
+    for (const id of window.__played.ids) {
+      const t = document.getElementById(id);
+      t.scrollIntoView();
+      for (let k = 0; k < 100 && !window.__played.ctl(id); k++) await new Promise(r => setTimeout(r, 30));
+    }
+  });
+  await gp.waitForFunction(() => window.__played.ready().length + window.__played.failed().length === window.__played.ids.length, null, { timeout: 60000 });
+  // a tile that has just started draws on its next frame: wait for every canvas to have something on it
+  await gp.waitForFunction(() => window.__played.ids.every(id => { const c = document.getElementById(id).querySelector('canvas');
+    if (!c.width) return false; const p = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    for (let i = 3; i < p.length; i += 16) if (p[i] > 8) return true; return false; }), null, { timeout: 20000 }).catch(() => {});
+  const st = await gp.evaluate(() => ({ failed: window.__played.failed(), playing: window.__played.playing(), first: window.__played.ids[0],
+    blank: window.__played.ids.filter(id => { const c = document.getElementById(id).querySelector('canvas'), x = c.getContext('2d');
+      const p = x.getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < p.length; i += 4) if (p[i] > 8) return false; return true; }) }));
+  if (st.failed.length) throw new Error('could not play ' + st.failed.join(', '));
+  if (st.blank.length) throw new Error('drew nothing for ' + st.blank.join(', '));
+  if (st.playing.includes(st.first) || st.playing.length > 12) throw new Error('tiles out of view keep playing: ' + st.playing.join(', '));
+  // scrub: the wide panel takes a scene
+  await gp.click('#orbit .mine');
+  await gp.waitForFunction(() => window.__played.yours() && window.__played.yours().scene, null, { timeout: 10000 });
+  const embed = await gp.evaluate(() => window.__played.embed('bouncing-ball'));
+  await gp.close();
+  // the embed code, pasted into someone's page: its scripts and scene fetched from GitHub Pages
+  const xp = await browser.newPage({ viewport: { width: 600, height: 400 } });
+  xp.on('pageerror', e => failures.push(`[played: embed code] ${e.message}`));
+  await xp.route('https://reportbase.github.io/draw/**', async r => {
+    const path = new URL(r.request().url()).pathname.replace(/^\/draw\//, '');
+    r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': path.endsWith('.js') ? 'text/javascript' : 'application/json' },
+      body: await readFile(join(ROOT, path)) });
+  });
+  await xp.route('https://someone.example/', r => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><body>' + embed + '</body>' }));
+  await xp.goto('https://someone.example/', { waitUntil: 'load' });
+  await xp.waitForFunction(() => { const c = document.querySelector('canvas'); return c && c._tvfs && c._tvfs.scene; }, null, { timeout: 15000 });
+  await xp.waitForTimeout(300);
+  const lit = await xp.evaluate(() => { const c = document.querySelector('canvas'), p = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let n = 0; for (let i = 3; i < p.length; i += 4) if (p[i] > 8) n++; return { n, w: c.width }; });
+  await xp.close();
+  if (!(lit.w >= 480 && lit.n > 1000)) throw new Error('the embed code drew ' + JSON.stringify(lit));
+});
+
+/* THE SCROLLING EXPLAINER (gallery/explained.html): the scene's clock follows the reading. Scrolled down, the
+   clock only goes forward, through every beat's stretch; a beat's play button plays its stretch and waits at the
+   stop that ends it; and on a phone the page does not scroll sideways. */
+await step('the scrolling explainer', async () => {
+  const xp = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+  xp.on('pageerror', e => failures.push(`[explained] ${e.message}`));
+  await xp.route(/fonts\.g/, r => r.abort());
+  await xp.goto(new URL('gallery/explained.html', base).href, { waitUntil: 'load' });
+  await xp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
+  const ts = [];
+  for (let f = 0; f <= 1.0001; f += 0.05) {
+    await xp.evaluate(f => scrollTo({ top: f * (document.documentElement.scrollHeight - innerHeight), behavior: 'instant' }), f); // style.css scrolls smoothly
+    await xp.waitForTimeout(80);
+    ts.push(await xp.evaluate(() => window.__explained.ctl.t));
+  }
+  if (ts.some((t, i) => i && t < ts[i - 1] - 1e-9) || !(ts[0] < 0.1) || !(ts[ts.length - 1] > 0.99)) throw new Error('the clock against the scroll: ' + ts.map(t => t.toFixed(2)).join(' '));
+  // the second beat's play button: from 0.2 to its stop at 0.42
+  await xp.evaluate(() => document.querySelectorAll('.beat')[1].scrollIntoView({ behavior: 'instant' }));
+  await xp.waitForTimeout(300); // the scroll's own event first: a scroll after the press takes the clock back
+  await xp.evaluate(() => document.querySelectorAll('.beat .go')[1].click());
+  await xp.waitForFunction(() => !window.__explained.ctl.playing && Math.abs(window.__explained.ctl.t - 0.42) < 1e-6, null, { timeout: 15000 });
+  await xp.close();
+  const mp = await browser.newPage({ viewport: { width: 390, height: 800 } });
+  mp.on('pageerror', e => failures.push(`[explained, a phone] ${e.message}`));
+  await mp.route(/fonts\.g/, r => r.abort());
+  await mp.goto(new URL('gallery/explained.html', base).href, { waitUntil: 'load' });
+  await mp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
+  const sw = await mp.evaluate(() => document.documentElement.scrollWidth);
+  await mp.close();
+  if (sw > 390) throw new Error('on a phone the page is ' + sw + ' px wide');
+});
+
 if (!QUICK) await step('labs.html matches the drawer', async () => {
   const { readLabs, render } = await import('../tools/build-labs.mjs');
   const want = render(await readLabs(base));
