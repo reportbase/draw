@@ -1325,7 +1325,7 @@ return { radius, level, visible, present, centroid, read, geoMean, broad, crossi
 // Leaves y up, as the editor's deep link carries them. 128 leaves each.
 const NL = 128, LP = TVF.leafPositions(NL);
 const leaves = f => { const x = new Float64Array(NL), y = new Float64Array(NL); LP.forEach((p, k) => { const q = f(p); x[k] = q[0]; y[k] = q[1]; }); return { x, y }; };
-const HARM = (() => { let s = 12345; const rnd = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+const HARM = (() => { let s = 12345; const rnd = () => (s = (Math.imul(s, 1103515245) + 12345) & 0x7fffffff) / 2147483648; // 32-bit products: a float one loses its low bits
   const h = []; for (let n = 2; n <= 24; n++) h.push({ n, a: 0.32 / n ** 0.9 * (0.6 + 0.8 * rnd()), p: TAU * rnd() }); return h; })();
 const SHAPES = {
   'a perturbed circle': () => leaves(p => { const r = Math.exp(HARM.reduce((z, c) => z + c.a * Math.cos(c.n * p + c.p), 0)); return [r * Math.cos(p), r * Math.sin(p)]; }),

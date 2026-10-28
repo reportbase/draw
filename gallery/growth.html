@@ -3334,9 +3334,11 @@ const { Shape, TAU } = TVF;
 const PI = Math.PI;
 
 // ── deterministic noise ─────────────────────────────────────────────────────
+// The products are taken in 32-bit integers (Math.imul): in floating point they pass 2⁵³ and lose
+// the low bits the mask reads, and the stream falls into a short cycle (28 Oct 2026).
 function rng(seed) {
-  let s = (seed | 0) * 1103515245 + 12345;
-  return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  let s = Math.imul(seed | 0, 1103515245) + 12345;
+  return () => { s = (Math.imul(s, 1103515245) + 12345) & 0x7fffffff; return s / 0x7fffffff; };
 }
 
 // ────────────────────────────────────────────────────────────────────────────

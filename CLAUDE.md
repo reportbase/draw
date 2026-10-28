@@ -62,8 +62,10 @@ publishes.
   labs had stopped on it since 9 Oct. It multiplies in 32-bit integers (`Math.imul`, 28 Oct 2026): written as a
   float product it passed 2⁵³, lost its low bits and cycled after about 10,500 values from seed 8191, which made
   `lib` and `whr` fail their own tolerances; every lab was run again (`papers/labs.md`, "The run again, after the
-  generator"). The library's copy in `tvf-core.js` and the copies in `gallery/growth.html` and `levels.html` still
-  have the float product: the first changes only with 3d and games, the gallery's would change their pictures.
+  generator"). The library's copy in `tvf-core.js` was mended the same way (Tom: "both"), and with it the copies in 3d and
+  games (their PRs follow draw's merge, since their Draw sync checks compare with draw's `main`); so were
+  `gallery/growth.html`'s `rng` (its organisms are the same kinds, other instances: brain coral 572 nodes, was 558;
+  the front page's thumbnail is the old one, drawn by hand) and the perturbed circle's harmonics in `levels.html`.
   The faults `papers/labs.md` found were dealt with the same day: `rec`'s claim 5 now drops a tick and decodes the
   string; `frn` judges each response in floors of the figure's own (1.5 held, 3 broke, set after seeing the data);
   `bhm` says its seams are exact by construction; `dpt`'s departing circle is the library's 160-point polygon.
