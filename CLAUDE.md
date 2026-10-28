@@ -75,6 +75,12 @@ publishes.
   **corner** (π/4) and the **horizon** (π/2), the reader's **unit circle** (not the virtual circle), the
   **reconstruction** (not the presentation), the reader's and the writer's (not inside and outside). Other papers
   are cited by their own titles (*The Observation Atom* keeps its name).
+  The editor's and the gallery's words follow (28 Oct 2026, Tom: "yes"): what draw.html called an atom is a **leaf**
+  where it meant a place read, a **reader** where it meant one of the labs' instruments (the radial, angular and area
+  readers; the two- and three-reader tests), a **quarter** where it meant a quarter-turn of the line of sight (the
+  four quarters overlay) and **the triangle** for the rise/run glyph. Identifiers (`fourAtoms`, `ATOM_RGB`, …) and
+  saved values (`headGlyph: 'atom'`, `bucketRule: 'atoms'`) keep the old word, so old files and links still open;
+  so does the plot parser's grammar term, and `tvf-core.js`'s one comment (3d and games copy it unchanged).
 - `papers.html`: the index of `papers/` and a reader for them (`#tvf` opens one, `#tvf:heading-id`
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before

@@ -3499,7 +3499,7 @@ await step('text in a scene, and beats', async () => {
 });
 
 /* A SHAPE FROM A FORMULA, A CLIP'S OWN IN AND OUT, LABELS INTO LABELS. The plot language reads sums and functions of
-   its own (eight kernels weighted by eight readings give the readings back at the atoms) and says what is wrong
+   its own (eight kernels weighted by eight readings give the readings back at the leaves) and says what is wrong
    with a bad line; a scene's data-plot becomes a shape that keeps its program, through undo; a plot added from the
    panel's hook is updated in place. A line drawn on and then faded is unseen before, drawn while it comes in, and
    gone after it goes; "N = 8" turns into "N = 16" at its key's time; x_2 is set apart from x2. */

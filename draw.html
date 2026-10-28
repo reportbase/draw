@@ -1512,7 +1512,7 @@
             gap: 4px;
         }/* The close X: only in edit mode, pinned to the top right corner of the page, above
            the number line strip so it is never buried by it. *//* The close button lives in the edit bar now, not pinned to the top corner:
-           the top of the page belongs to the atom strip, and the footer is where the
+           the top of the page belongs to the triangle strip, and the footer is where the
            mode's other controls already are. Same gold accent, edit-bar sizing. */
 
         #bCancelEdit {
@@ -2530,7 +2530,7 @@
                        treatment as the edit bar, for the same reason: taking a layout row would resize the
                        canvas and move the artwork. pointer-events:none so panning through it still works. */
                     #editHead { display: none; }
-                    /* The atom strip is GONE — readout text, ladder, defect walk, sparkline and the
+                    /* The triangle strip is GONE — readout text, ladder, defect walk, sparkline and the
                        joint-alphabet block all came off the edit view. The canvas element stays in the
                        markup so the export path and the resize path keep a node to address, but it is
                        never displayed, in edit mode or out of it. */
@@ -2671,17 +2671,17 @@
                     #checksumPanel .cks-note { font-size: 10px; opacity: 0.8; }
                     #checksumPanel .ok { color: rgb(90,210,180); }
                     #checksumPanel .warn { color: rgb(212,160,82); }
-                    /* ── The four-atoms panel ──
+                    /* ── The four-quarters panel ──
                        Same fixture as the checksum panel (one edit panel at a time — setEditPanel),
                        same corner. The OVERLAY is gated by state.fourAtoms.on, not by this panel:
                        close the options and the colours stay up. */
-                    /* The four-atoms options panel was REMOVED (Tom, Aug 30) — every option is
+                    /* The four-quarters options panel was REMOVED (Tom, Aug 30) — every option is
                        permanently true and the button is the whole control, so its markup, wiring
                        and styles are all gone. */
                     .topbar.editing { display: none; }
                     @media (pointer: coarse) { body.editing #editHead { height: 112px; } }
-                    /* THE ATOM GLYPH NO LONGER GROWS THE STRIP — Tom's ruling (Aug 29): one header height
-                       for every glyph. The atom is drawn uniformly scaled into the same box as the dome
+                    /* THE TRIANGLE GLYPH NO LONGER GROWS THE STRIP — Tom's ruling (Aug 29): one header height
+                       for every glyph. The triangle is drawn uniformly scaled into the same box as the dome
                        (see drawHeadAtom), so the 138px overrides that lived here are gone. */
                     /* ── THE SUB-HEADER ─────────────────────────────────────────────────────────
                        Tom's ruling (Aug 29): the register strip is the SUB-HEADER, its own strip 15px
@@ -2782,7 +2782,7 @@
                     body.no-browser .shape-scroller { display: none; }
                     /* No shape browser in EDIT VIEW: the mode isolates one shape, so a strip for
                        getting around the scene is navigation the mode has deliberately taken away
-                       — and the atom strip now lives where the tiles sat. */
+                       — and the triangle strip now lives where the tiles sat. */
                     body.editing .shape-scroller { display: none; }
                     /* The edit footer, hidden by the canvas long-press. Edit mode is where the drawing wants
                        the whole window — you are inside one shape, working close — and the footer is the
@@ -4165,7 +4165,7 @@
                 <option value="dial:quadrant">dial · bearing</option>
                 <option value="twodial">two dials</option>
                 <option value="dome">dome · square</option>
-                <option value="atom">atom · v:h</option>
+                <option value="atom">triangle · v:h</option>
             </select>
         </label>
         <label class="toggle" style="display:flex;align-items:center;gap:6px;" title="Five readings of the same dots, in increasing distance from the drawing: what the contour is doing there, where the leaf sits, where it is headed, what the observer said about it, and what all that saying adds up to. Only the COLOUR changes — the leaves, their positions and their hit-testing are untouched, so a reading can be left on while sculpting.
@@ -4215,7 +4215,7 @@
             <input type="checkbox" id="tHContour" checked>
              └ observer's contour (Λ_N)
         </label>
-        <label class="toggle" style="display:flex;align-items:center;gap:6px;" title="Draw the base rule's holding in the observer's OWN chart — the Cauchy lens. Radii are compressed by v → 2h₀·(2/π)·atan(v/h₀), with h₀ the shape's median radius (an order statistic, the atom's own centre). The whole infinite plane then fits inside a drawable rim at 2h₀ — the HORIZON, drawn faint — and the shape's balance locus v = h₀ lands at exactly half-field: the CORNER ring, dotted, the visual field's 45°. True contour thin amber, held contour dashed amber. What changes under the lens: the register's uniform log-cells become view bands that are widest at the corner and vanish at home and rim — the base rule and the Cauchy chart are conjugate, and the register spends its view-space resolution exactly at the self-certified radius. Costs O(N) per shape; drawn for the same targets as the observer's contour.">
+        <label class="toggle" style="display:flex;align-items:center;gap:6px;" title="Draw the base rule's holding in the observer's OWN chart — the Cauchy lens. Radii are compressed by v → 2h₀·(2/π)·atan(v/h₀), with h₀ the shape's median radius (an order statistic, the reader's own centre). The whole infinite plane then fits inside a drawable rim at 2h₀ — the HORIZON, drawn faint — and the shape's balance locus v = h₀ lands at exactly half-field: the CORNER ring, dotted, the visual field's 45°. True contour thin amber, held contour dashed amber. What changes under the lens: the register's uniform log-cells become view bands that are widest at the corner and vanish at home and rim — the base rule and the Cauchy chart are conjugate, and the register spends its view-space resolution exactly at the self-certified radius. Costs O(N) per shape; drawn for the same targets as the observer's contour.">
             <input type="checkbox" id="tHCauchy">
              └ cauchy chart (rim &amp; corner)
         </label>
@@ -4916,7 +4916,7 @@
                     <b>C&nbsp;=&nbsp;2</b>
                      — a single held bit, the cell a half-turn. The winding survives to the last rung (a ring cannot rail, even one bit wide), and silence becomes the default: a mark the sweep does not enclose is 
                     <b>dead silent</b>
-                     — zero cells over the whole sweep, not a cancelling wobble — unless the journey genuinely wound and unwound, which reads as net&nbsp;0 with its turns named. The area atom runs at one bit too, where quantization performs the calibration: κ&nbsp;=&nbsp;0 and the raw sum 
+                     — zero cells over the whole sweep, not a cancelling wobble — unless the journey genuinely wound and unwound, which reads as net&nbsp;0 with its turns named. The area reader runs at one bit too, where quantization performs the calibration: κ&nbsp;=&nbsp;0 and the raw sum 
                     <em>is</em>
                      the Magnus integer — at 
                     <em>this</em>
@@ -4924,7 +4924,7 @@
                     <b>letter-maker</b>
                      spells the sweep: each full turn around a mark is two cells, an accumulator per ring emits a letter at ±C, and the word appears under the class line — segmentation dissolved by coarseness.
                 </div>
-                <label class="toggle" style="display:flex;align-items:center;gap:6px;margin-top:6px;" title="run every mark's ray ring — and the area atom — at C = 2, one held bit per mark, and spell the sweep's word from the rings' own streams.">
+                <label class="toggle" style="display:flex;align-items:center;gap:6px;margin-top:6px;" title="run every mark's ray ring — and the area reader — at C = 2, one held bit per mark, and spell the sweep's word from the rings' own streams.">
                     <input type="checkbox" id="tOneBit">
                      one-bit rings (C = 2) + letter-maker
                 </label>
@@ -4951,9 +4951,9 @@
                     <button id="bWalkerSurvey" data-code="wsv" class="res-btn" title="the homology handoff (R5): once tags exist, the walker walks egocentric closed journeys — a fixed turn per step — and reads each tag's SURVEYOR BEARING, arg(tag − odometer), through a one-bit ring. Composing two held values is the corpus's one deliberate P2 break, performed here at the exact operation. One journey around each tag, then one around them all; windings land in the ledger.">survey</button>
                     <button id="bWalkerCourse" data-code="wco" class="res-btn" title="the course: seven worlds, the target always at the centre. First walk the shape — the circle, corners, the star, the double arrow — then the same walking with the obstructions thickening: a pebble ring, a wall with one way in, and the gauntlet of nested walls with opposed gaps. Each level is walked until the target is certified or the look budget runs out; the scene is replaced level by level (undo steps back through them). Results land in the ledger.">walk the course</button>
                     <button id="bWalkerMaze" data-code="wmz" class="res-btn" title="a maze, every press a new one: corridors whose walls TOUCH (the hug follows the union boundary), a target disk in the far cell, and one solid island in the central plaza. The border wall tree can never be lapped at any curl — only the islands certify, so the final tag list is the maze's b₁, read by contact. Solving is certifying the target; the price prints in looks. The scene is replaced (one undo brings the old page back).">the maze</button>
-                    <button id="bWalkerRound" data-code="wrd" class="res-btn" title="the ROUND maze: start and exit taken as opposite sides of a circle — and identified, so the maze closes into an annulus and the solution becomes a CLASS, not a place. A solid core with a free corridor around it, three rings of baffles between the walker and that corridor, every wall hanging from the border. The world's one certifiable body is the core, so the first w = +1 certificate IS the solution — winding 1, the maze's generator, walked and certified by the walker's own four clauses with no describer verdict anywhere. Cost stays metric; proof is topological. And the EXIT IS THE CORNER: the winning lap is priced by the observation atom, and the door opens only when its sentence sits at the corner cell — closure holding, the radial stream mostly the free symbol. Not 'you are at the exit' — 'your journey reads as the cheapest closed sentence'. The shortest distance between home and exit is π, not the straight line: the chord runs through the one body that cannot be crossed, only wound — and the exit does not exist until it has been. The whole journey is a recursion whose test is the corner: descend while the register speaks; certify at silence; return.">the round maze</button>
+                    <button id="bWalkerRound" data-code="wrd" class="res-btn" title="the ROUND maze: start and exit taken as opposite sides of a circle — and identified, so the maze closes into an annulus and the solution becomes a CLASS, not a place. A solid core with a free corridor around it, three rings of baffles between the walker and that corridor, every wall hanging from the border. The world's one certifiable body is the core, so the first w = +1 certificate IS the solution — winding 1, the maze's generator, walked and certified by the walker's own four clauses with no describer verdict anywhere. Cost stays metric; proof is topological. And the EXIT IS THE CORNER: the winning lap is priced by the reader of The Observation Atom, and the door opens only when its sentence sits at the corner cell — closure holding, the radial stream mostly the free symbol. Not 'you are at the exit' — 'your journey reads as the cheapest closed sentence'. The shortest distance between home and exit is π, not the straight line: the chord runs through the one body that cannot be crossed, only wound — and the exit does not exist until it has been. The whole journey is a recursion whose test is the corner: descend while the register speaks; certify at silence; return.">the round maze</button>
                     <button id="bWalkerSpiral" data-code="wsp" class="res-btn" title="the SPIRAL: the world where the entrance and the exit are a pebble-toss apart and the distance between them is set by the mason. One band coils three times from a central chamber to the rim; the target disk waits in the chamber. Every point of the corridor is one pitch from a point a full turn of walking away. Where the round maze's sweep was luck (7 laps on one world, 244 on another), the spiral's is the world's constant: 2πN by construction — the mason's meter, kept in the true frame, verifies that whoever reaches the centre paid it exactly. The scene is replaced (one undo brings the old page back).">the spiral</button>
-                    <button id="bWalkerJourney" data-code="wjr" class="res-btn" title="the journey as a shape: the latest certified lap — a closed contour in the odometer's frame — becomes the scene's one shape, with a mark placed on every tag the walk earned, and the editor opens on it in edit mode. The whole tower then reads the route: the base rule its radial sentence, the tangent ring its turning, the ray rings its class about the marks (the wound body at +1, the rooms as spectators), the area atom its order. One undo brings the maze back.">import the journey</button>
+                    <button id="bWalkerJourney" data-code="wjr" class="res-btn" title="the journey as a shape: the latest certified lap — a closed contour in the odometer's frame — becomes the scene's one shape, with a mark placed on every tag the walk earned, and the editor opens on it in edit mode. The whole tower then reads the route: the base rule its radial sentence, the tangent ring its turning, the ray rings its class about the marks (the wound body at +1, the rooms as spectators), the area reader its order. One undo brings the maze back.">import the journey</button>
                     <select id="selWalkerPace" class="bar-select" style="flex:0 0 auto;" title="looks per frame. watch: slow enough to see the hug happen. brisk: a lap every second or two. full: the ledger fills as fast as the frame allows.">
                         <option value="watch">watch</option>
                         <option value="brisk" selected>brisk</option>
@@ -5012,11 +5012,11 @@
             </div>
 
             <div class="group">
-                <div class="menu-title">two-atom tests</div>
+                <div class="menu-title">two-reader tests</div>
                 <div class="menu-note sub">
                     The Two-Atom Observer's checks, on this library. Each representable primitive is swept by 
-                    <b>both atoms</b>
-                    : the radial floor rule, whose checksum Σ(i−c) must read 0 on a closed contour, and the angular atom — a direction held on a 
+                    <b>both readers</b>
+                    : the radial floor rule, whose checksum Σ(i−c) must read 0 on a closed contour, and the angular reader — a direction held on a 
                     <b>ring of 64 cells</b>
                     , whose cells must sum to exactly one circumference (winding 1, an integer by format). Reported per shape: both checksums, each register's bits per look, and the largest single cell count — a ring cannot rail, so a sharp corner arrives as one big count and costs nothing. The two economies run in opposite directions: the radial register charges for corners, the angular for roundness — the circle's angular spend H(64/512) = 0.544 is the 
                     <em>convex ceiling</em>
@@ -5031,18 +5031,18 @@
                      where it misses. The aggregate is in the status line. This one replaces the page, in a single history frame: one undo brings your work back.
                 </div>
                 <div class="group row" style="margin-top:6px;gap:8px;">
-                    <button id="bTwoAtomTests" data-code="two" class="res-btn" title="sweep every representable primitive with both atoms; sweep every representable primitive with both atoms and lay the corpus out as a ladder — one cell per shape, both checksums and both rates under it. Replaces the current page in one history frame.">run the tests</button>
+                    <button id="bTwoAtomTests" data-code="two" class="res-btn" title="sweep every representable primitive with both readers; sweep every representable primitive with both readers and lay the corpus out as a ladder — one cell per shape, both checksums and both rates under it. Replaces the current page in one history frame.">run the tests</button>
                 </div>
             </div>
 
             <div class="group">
-                <div class="menu-title">three-atom tests</div>
+                <div class="menu-title">three-reader tests</div>
                 <div class="menu-note sub">
                     The Three-Atom Observer's library run, with The Acquisitive Observer's one-bit column riding along. Each representable primitive is placed about the 
                     <b>first mark</b>
                      (its own centroid); a 
                     <b>second mark</b>
-                     sits at distance 2.5 in shape units — the corpus separation. Three atoms read the sweep: the radial floor rule (checksum 0, the closing arrival handed), and one ring per mark on the 
+                     sits at distance 2.5 in shape units — the corpus separation. Three readers read the sweep: the radial floor rule (checksum 0, the closing arrival handed), and one ring per mark on the 
                     <b>bearing</b>
                      of that mark — rays read residues; chords read Hopf. The windings must be integer-exact — (1,&nbsp;0), the homology class — at C&nbsp;=&nbsp;64 and again at 
                     <b>C&nbsp;=&nbsp;2</b>
@@ -5061,7 +5061,7 @@
                      where it fails. The aggregate is in the status line. This one replaces the page, in a single history frame: one undo brings your work back.
                 </div>
                 <div class="group row" style="margin-top:6px;gap:8px;">
-                    <button id="bThreeAtomTests" data-code="tri" class="res-btn" title="sweep every representable primitive with the radial atom and two bearing rings (C = 64 and C = 2); sweep every representable primitive with the radial atom and two bearing rings (C = 64 and C = 2) and lay the corpus out as a ladder — one cell per shape, the residue pair and the one-bit column under it. Replaces the current page in one history frame.">run the tests</button>
+                    <button id="bThreeAtomTests" data-code="tri" class="res-btn" title="sweep every representable primitive with the radial reader and two bearing rings (C = 64 and C = 2); sweep every representable primitive with the radial reader and two bearing rings (C = 64 and C = 2) and lay the corpus out as a ladder — one cell per shape, the residue pair and the one-bit column under it. Replaces the current page in one history frame.">run the tests</button>
                 </div>
             </div>
 
@@ -6222,7 +6222,7 @@
                 <div class="menu-title">repair</div>
                 <div class="menu-note sub">The two repairs for a shape the current rung cannot hold: add resolution, or cut out the content that will not settle at any rung.</div>
                 <div class="group row" style="margin-top:6px;gap:8px;">
-                    <button id="bRefine2" data-code="rfn" class="res-btn" title="Double the active shape's leaf count by evaluating the current reconstruction at the interleaved finer lattice — lossless for band content (the bands nest; the atoms interleave). The alias flags should visibly calm where the content was resolvable.">refine ×2</button>
+                    <button id="bRefine2" data-code="rfn" class="res-btn" title="Double the active shape's leaf count by evaluating the current reconstruction at the interleaved finer lattice — lossless for band content (the bands nest; the leaves interleave). The alias flags should visibly calm where the content was resolvable.">refine ×2</button>
                     <label class="res-btn res-toggle" id="lRing" data-code="rng" title="highlight in red where the contour is Gibbs-ringing — the near-discontinuities the kernel cannot represent. This is what excise cuts, so leave it on while you excise.">
                         <input type="checkbox" id="tRing">
                          ringing
@@ -6242,7 +6242,7 @@
                      spectral reconstruction (FFT)
                 </label>
                 <div class="menu-note sub" style="margin-top:9px;">The window the aperture reads through is chosen per shape. A shape's own spectrum says how much of its band it is using; if it is using all of it — which is what the rung solver produces, since its job is to find the smallest sufficient rung — the tapered cardinal kernel is used. If it has a real guard band (a circle held at 512 leaves, anything refined past what it needs) the Fessler–Sutton min-max weights are used instead, which are optimal inside a band and need one to exist. Measured over 14 primitives: 3 qualify, 13× mean improvement, no shape made worse. The threshold is strict on purpose — relaxing it from 1e-6 to 1e-4 of the peak mode qualifies 13 of 14 and makes every one of them worse.</div>
-                <div class="menu-note sub" style="margin-top:9px;">The bridge is exact at its atoms and may ring at a corner — that is the Dirichlet horn, and it is what the ringing overlay finds. Fejér is the other horn (§22): the same leaf readings under a triangular window, giving a positive kernel with operator norm exactly 1, which cannot ring for ANY continuous shape. It pays for that by no longer passing through its own leaves — the dots sit just off the line, approaching at O(1/N). A presentation only: the solve, the thumbnails and the export keep reading the bridge itself.</div>
+                <div class="menu-note sub" style="margin-top:9px;">The bridge is exact at its leaves and may ring at a corner — that is the Dirichlet horn, and it is what the ringing overlay finds. Fejér is the other horn (§22): the same leaf readings under a triangular window, giving a positive kernel with operator norm exactly 1, which cannot ring for ANY continuous shape. It pays for that by no longer passing through its own leaves — the dots sit just off the line, approaching at O(1/N). A presentation only: the solve, the thumbnails and the export keep reading the bridge itself.</div>
                 <label class="toggle" style="display:flex;align-items:center;gap:6px;margin-top:6px;" title="present the shapes through the positive Fejér kernel instead of the interpolating bridge. No ringing at any corner, at the cost of exactness at the leaves (R1/R2 surrendered, R4 secured).">
                     <input type="checkbox" id="tFejer">
                      Fejér presentation (never rings)
@@ -6458,7 +6458,7 @@
                 <b id="cksExtraV">—</b>
             </div>
         </div>
-        <!-- THE FOUR ATOMS. The switchboard for the sweep overlay, which is drawn on the
+        <!-- THE FOUR QUARTERS. The switchboard for the sweep overlay, which is drawn on the
                CANVAS — this panel holds the options plus the two numbers the overlay is
                claiming: the sweep, and the entry count. One caveat is load-bearing and lives
                in the note below: the phase here is read off the COMPLETED shape. This is the
@@ -6597,15 +6597,15 @@
                         <path d="M17.5 4.5H7l5.6 7.5L7 19.5h10.5"/>
                     </svg>
                 </button>
-                <!-- THE FOUR ATOMS. Only in edit mode, the serial strip's and checksum's rule: the
+                <!-- THE FOUR QUARTERS. Only in edit mode, the serial strip's and checksum's rule: the
                          sweep reads ONE shape about ONE counterpart, and edit mode is the only place
                          there is exactly one of each. The button opens the OPTIONS; the overlay is a
                          state of the view and survives the panel closing. The icon is the claim: four
                          arcs about a counterpart, the gaps where the landmarks fall. -->
-                <button id="b4AtomsEdit" class="icon-btn" title="the four atoms — sweep the LINE OF SIGHT to the counterpart (the last mark, or the shape's own centre) once around the contour and colour each quarter-turn of that relation as one atom: I azure, II ember, III indigo, IV rose, with home and horizon pinned where the relation crosses them. Enclosed, the sweep is exactly 2π — four atoms; not enclosed, exactly 0 — none. Colours, landmarks, corners and the ray are all on.">
+                <button id="b4AtomsEdit" class="icon-btn" title="the four quarters — sweep the LINE OF SIGHT to the counterpart (the last mark, or the shape's own centre) once around the contour and colour each quarter-turn of that relation as one quarter: I azure, II ember, III indigo, IV rose, with home and horizon pinned where the relation crosses them. Enclosed, the sweep is exactly 2π — four quarters; not enclosed, exactly 0 — none. Colours, landmarks, corners and the ray are all on.">
                     <!-- The icon stays MONOCHROME (Tom's ruling, Aug 30) — it takes the bar's own
                                currentColor like every other button, and lights gold when active. The four
-                               colours belong to the atoms on the artwork and to the leg bar that reports them,
+                               colours belong to the quarters on the artwork and to the leg bar that reports them,
                                not to the switch that turns them on. -->
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
                         <path d="M20.67 10.47 A8.8 8.8 0 0 0 13.53 3.33"/>
@@ -6670,9 +6670,9 @@
                         <circle cx="20" cy="12" r="1.8"/>
                     </svg>
                 </button>
-                <!-- THE STANDPOINT. The mark placer came off the bar with the atom strip; it is back
+                <!-- THE STANDPOINT. The mark placer came off the bar with the triangle strip; it is back
                          because a mark is now where a reader stands — the census, the rays, the walk and
-                         the four-atoms sweep all read from the last mark. In mark mode a click on open
+                         the four-quarters sweep all read from the last mark. In mark mode a click on open
                          canvas drops a mark, a press-and-drag moves one, a press-and-release lifts it.
                          Two marks: two readers. -->
                 <button id="bMarkEdit" class="icon-btn" title="readers: A is the selected leaf — the cursor. In mark mode a click on the outline places reader B (a mark on the nearest leaf), another places C; tap a mark to swap it with A; drag slides it along the outline; Shift+tap lifts it; Alt+tap makes it lie (readings 15% long).">
@@ -6707,7 +6707,7 @@
                    same place it holds in the top toolbar, so the one control that decides what a
                    drag means is in the same corner in both views instead of drifting past on a
                    ring that spins. Same flag, same handler, same gold corner-button chip. -->
-            <button id="bLockEdit" class="icon-btn" title="lock the shape so dragging pans the view instead of sculpting — hover still reads the atom (L)">
+            <button id="bLockEdit" class="icon-btn" title="lock the shape so dragging pans the view instead of sculpting — hover still reads the triangle (L)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="4.5" y="10.5" width="15" height="10" rx="2"/>
                     <path class="shackle" d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
@@ -7094,14 +7094,14 @@
 
             marks: [],
             // placed PUNCTURES (world coords): one ray ring per mark in the edit header; empty → the origin stands in as m2
-            // ── The four-atoms overlay: the line-of-sight sweep's quarter-turns, coloured ──
+            // ── The four-quarters overlay: the line-of-sight sweep's quarter-turns, coloured ──
             // Session state only, deliberately NOT persisted: the overlay is an instrument
             // pointed at a question, not a property of the document, and a saved file that
             // reopens mid-lesson startles. `startU` is the first observation as a FRACTION of
             // the sweep — leaf (k+0.5)/N — so it survives a rung change. NULL means the
             // reference is the TOP (the default): the legs stand at 90° from twelve o'clock
             // rather than from whichever leaf the path was stored first.
-            // ⚠ NO PANEL — Tom's ruling (Aug 30): "remove the four atoms panel. All the options of
+            // ⚠ NO PANEL — Tom's ruling (Aug 30): "remove the four quarters panel. All the options of
             // the current panel should just be set to true. No panel is needed." Every option is
             // ON and stays on; the BUTTON is the whole control, toggling `on`. startU stays a
             // field (null = the top) because the reset is doctrine, not an option — 'start here'
@@ -8971,7 +8971,7 @@
         // What the window is actually required to be, which is less than it looks:
         //   w(0) = 1     keeps (R2). At a node the window centre lands on that leaf and K
         //                is cardinal there, so the normalized sum returns the leaf value
-        //                exactly — for ANY w with w(0) = 1. Exactness at the atoms does
+        //                exactly — for ANY w with w(0) = 1. Exactness at the leaves does
         //                not depend on the window's shape at all.
         //   w(±1) = 0    leaves enter and leave at zero weight: no membership jump.
         //   w'(±1) = 0   and they do it smoothly. A bare parabola fails this; Hann does not.
@@ -18406,7 +18406,7 @@
                 state.headGlyph = k;
                 flashStatus(k === 'dome' ? 'dome — the pointing on the arc, with the rung ladder as the inscribed square'
                 : k === 'twodial' ? 'two dials — the fold kept, the sign given back: left lobe negative, right positive, joined at home ≡ horizon'
-                : 'atom — the rise/run triangle at the line’s own scale: v ÷ h is the number, the ±1 corners are the balance');
+                : 'triangle — the rise/run triangle at the line’s own scale: v ÷ h is the number, the ±1 corners are the balance');
             }
             syncHeadGlyph();
             drawAll();
@@ -18419,7 +18419,7 @@
 
 
         }
-        // The glyph-atom body class and its refit are gone with the taller strip (Tom's
+        // The glyph-triangle body class and its refit are gone with the taller strip (Tom's
         // ruling, Aug 29: one header height for every glyph) — the strip is 112px whichever
         // glyph is up, so switching glyphs no longer changes the room the shape has.
         // Kept as the ruler-only entry point: the lab's dial sheets and the keyboard still ask
@@ -18481,7 +18481,7 @@
             state.checksumPanel = (which === 'checksum');
             state.bucketPanel = (which === 'bucket');
             state.cascadePanel = (which === 'cascade');
-            state.atomsPanel = false; // the atoms panel is gone; never opens
+            state.atomsPanel = false; // the quarters panel is gone; never opens
             if (typeof window.__syncCascadeBtn === 'function')
                 window.__syncCascadeBtn();
             if (typeof window.__syncSerialBtn === 'function')
@@ -31027,7 +31027,7 @@
             let hInfo = '';
             // The base rule readout obeys its display toggle IN EVERY VIEW. Edit mode used
             // to force it on; it now respects the same option the default view does —
-            // the atom strip at the foot of the edit view carries the always-on reading.
+            // the triangle strip at the foot of the edit view carries the always-on reading.
             if (state.showHLeaves) {
                 let sp = null,
                     idx = -1;
@@ -33614,7 +33614,7 @@
             g.stroke();
             // A SECOND READING ON THE SAME DIAL. Nothing feeds this now — the base rule's marker
             // came off the edit view with the rest of its picture — but the hook is kept because
-            // it costs one branch and it is the correct place for any second atom that wants the
+            // it costs one branch and it is the correct place for any second reader that wants the
             // same landmarks. opts.mark2 is a pair (A, B): the dial's
             // question — "how do these two compare?" — is the same question the register asks,
             // so both readings can be shown against one set of landmarks. Gold, smaller, no
@@ -33623,7 +33623,7 @@
             // What it buys: agreement stops being a word in a caption. h = v puts this marker
             // exactly on the gold corner at the bottom, every leaf of a circle, and a railed
             // leaf throws it round toward the seam — the same seam the tangent's marker uses
-            // when the run goes to zero. One picture, two atoms, the same corner.
+            // when the run goes to zero. One picture, two readers, the same corner.
             if (o.mark2 && !o.noMarker) {
                 const a2 = Math.abs(o.mark2.A),
                     b2 = Math.abs(o.mark2.B);
@@ -33777,18 +33777,18 @@
             }
         }
 
-        /* ═══ THE ATOM — THE RISE/RUN TRIANGLE ══════════════════════════════════════
-           Ported from tns.html's atom top glyph (drawAtomTriangle).
+        /* ═══ THE TRIANGLE GLYPH — RISE OVER RUN ══════════════════════════════════════
+           Ported from tns.html's triangle top glyph (drawAtomTriangle).
 
            THIS ONE IS NOT A PICTURE OF THE READING; IT IS THE READING — but no longer at the
            number line's own scale. Tom's ruling (Aug 29): the header is the same height for
-           every glyph, the atom included, so the atom is drawn at the SAME BOX the other
+           every glyph, the triangle included, so the triangle is drawn at the SAME BOX the other
            glyphs hang in (the caller passes 2·dialR as its unit rather than the line's R).
            The scaling is UNIFORM, so everything internal to the triangle survives it exactly:
-           the run leg h is one unit of the ATOM measured downward from the chord, the rise
+           the run leg h is one unit of the TRIANGLE measured downward from the chord, the rise
            leg v runs along the chord out to the ball, v/h is still tan θ read straight off
            the two legs, and the hypotenuse is still the pointing. What is given up is the
-           correspondence to the line's ticks: the two gold dots mark the ATOM'S ±1 corners
+           correspondence to the line's ticks: the two gold dots mark the TRIANGLE'S ±1 corners
            (|rise| = |run|), which now sit a little inside the line's own ±1 ticks.
 
            THE BALL IS CLAMPED TO THE CANVAS, not to the value. A leaf on a near-vertical stretch
@@ -34338,9 +34338,9 @@
                 // ── AUTO STARTS AT HOME, AND HOME IS THE TOP ─────────────────────────────
                 // Tom's ruling (Aug 30): "home is the top. the top becomes the current leaf.
                 // select the top leaf every time auto starts." HOME IS A READING, not a station of
-                // the atoms: (V, H) = (0, 1) — no rise, all run — which is the flat tangent at the
+                // the quarters: (V, H) = (0, 1) — no rise, all run — which is the flat tangent at the
                 // top of the shape, exactly as the header's own doctrine has it. ⚠ An earlier pass
-                // used the ATOMS' reference (ψ = 0, straight up FROM THE COUNTERPART) and that is a
+                // used the QUARTERS' reference (ψ = 0, straight up FROM THE COUNTERPART) and that is a
                 // different point whenever the counterpart is not the centre — a placed mark moved
                 // "home" onto the side of the shape. The top is read off the artwork instead: the
                 // highest leaf, ties broken by the flattest tangent, which on any smooth contour is
@@ -34593,26 +34593,26 @@
             return Math.floor(((h % TAU) + TAU) % TAU / (PI / 2)) % 4;
         }
 
-        /* ═══ THE FOUR ATOMS — the sweep of the line of sight, coloured ═══════════════
+        /* ═══ THE FOUR QUARTERS — the sweep of the line of sight, coloured ═══════════════
 
            The relation is the LINE OF SIGHT from the counterpart to the contour — not the
            tangent, which the header reads. A straight edge holds its tangent still while
            its line of sight turns the whole way; this overlay is the instrument that shows
            the difference. Swept once around the contour, the relation turns through exactly
-           2π when the counterpart is enclosed — four quarter-turns, four atoms — and through
-           exactly 0 when it is not: no atoms at all, not small ones. The pins alternate
-           home / horizon, two of each; the corner of each atom is its 45°.
+           2π when the counterpart is enclosed — four quarter-turns, four quarters — and through
+           exactly 0 when it is not: no quarters at all, not small ones. The pins alternate
+           home / horizon, two of each; the corner of each quarter is its 45°.
 
            STATED ONCE, WHERE THE CODE DOES IT: the phase here is read off the COMPLETED
-           shape. The drawn shape has no atoms of its own, and the serial stream cannot
+           shape. The drawn shape has no quarters of its own, and the serial stream cannot
            recover this colouring (same shape, different schedules, different streams). The
            overlay is honest scaffolding for the discovery, not a reading the observer could
            make — the withdrawn triangle test made from outside on purpose.
 
-           THE PALETTE. Odd atoms depart from homes, even atoms from horizons, so the four
+           THE PALETTE. Odd quarters depart from homes, even quarters from horizons, so the four
            run cool / warm / cool / warm — and the pins keep the app's own vocabulary (home
            cyan, horizon red, corner gold), so each landmark hands its temperature to the
-           atom that leaves it. Atoms I and III are the same passage with the facing
+           quarter that leaves it. Quarters I and III are the same passage with the facing
            reversed (the double cover), so the two cools pair, and so do the two warms. */
         const ATOM_RGB = ['88,176,255', '255,160,92', '125,111,240', '255,111,145']; // I azure · II ember · III indigo · IV rose
         const ATOM_NAMES = ['I', 'II', 'III', 'IV'];
@@ -34664,7 +34664,7 @@
         }
 
         // The read. Everything the overlay and the panel report comes out of this one pass:
-        // per-sample atom index, landmark and corner crossings (interpolated on the frame's
+        // per-sample quarter index, landmark and corner crossings (interpolated on the frame's
         // own polyline), the total sweep, and the entry count per boundary. It reads the
         // draw loop's OWN cached contour rather than calling shapeContour with a private M —
         // a second M would evict that cache every frame and pay two reconstructions.
@@ -34707,16 +34707,16 @@
             // rung change); reset returns to the top.
             const startU = state.fourAtoms ? state.fourAtoms.startU : null;
             const i0 = (M && startU != null) ? (Math.max(0, Math.round(startU * M)) % M) : 0;
-            // THE ATOMS ARE RELATIVE TO THE SELECTED LEAF (Tom, Sep 7). The reference direction —
-            // where atom I begins — is the line of sight from the counterpart to the leaf the
+            // THE QUARTERS ARE RELATIVE TO THE SELECTED LEAF (Tom, Sep 7). The reference direction —
+            // where quarter I begins — is the line of sight from the counterpart to the leaf the
             // reader stands on, so the four quarter-turns start at the cursor and turn with it as
             // the arrow keys walk it. Only with no leaf selected does the old absolute reference
             // (straight up) stand in.
             let phi0 = (startU == null) ? Math.PI / 2 : phi[i0];
             {
                 // THE SELECTED LEAF WINS over any remembered start (a saved scene may still carry a
-                // startU from the retired panel, which left the white line inside one atom instead of
-                // on the boundary between the two front atoms — Tom, Sep 7).
+                // startU from the retired panel, which left the white line inside one quarter instead of
+                // on the boundary between the two front quarters — Tom, Sep 7).
                 const S0 = state.subpaths[spi];
                 const kf = (S0 && S0.leafX && typeof focusLeafOf === 'function') ? focusLeafOf(S0) : null;
                 if (kf != null)
@@ -34727,12 +34727,12 @@
                 u -= Math.floor(u);
                 return u;
             };
-            // ψ AND THE ATOM AT AN ARBITRARY POINT, by the same rule as the array above. The
+            // ψ AND THE QUARTER AT AN ARBITRARY POINT, by the same rule as the array above. The
             // overlay colours the CONTOUR CACHE (the smoothed curve, M points) while the sub-
             // header walks LEAVES (N of them), and the two parameterisations do not line up — so
-            // indexing atomAt by a rescaled leaf number named the wrong atom near every boundary
-            // (Tom: "the leg colors don't match between the sub-header and the 4 atoms"). Asking
-            // for the atom AT THE LEAF'S OWN POSITION cannot drift: same counterpart, same
+            // indexing atomAt by a rescaled leaf number named the wrong quarter near every boundary
+            // (Tom: "the leg colors don't match between the sub-header and the 4 quarters"). Asking
+            // for the quarter AT THE LEAF'S OWN POSITION cannot drift: same counterpart, same
             // reference, same winding, evaluated where the reading actually is.
             const psiOfPoint = (x, y) => {
                 let u = s * (Math.atan2(y - P.y, x - P.x) - phi0) / TAU;
@@ -35075,9 +35075,9 @@
             ctx.save();
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
-            // ── the contour, in atom colours ─────────────────────────────────────────
+            // ── the contour, in quarter colours ─────────────────────────────────────────
             if (fa.colours && R.enclosed) {
-                // Runs of one atom, wrap-merged, each stroked once with one extra point so
+                // Runs of one quarter, wrap-merged, each stroked once with one extra point so
                 // adjacent colours meet without a gap. A shape whose counterpart sees the whole
                 // boundary has four runs; re-entries add more, which is the honest picture.
                 const runs = [];
@@ -35170,13 +35170,13 @@
                     const pP = px(R.P.x, R.P.y),
                         pL = px(lx, ly);
                     let col = '160,160,172',
-                        lbl = 'no atom';
+                        lbl = 'no quarter';
                     if (R.enclosed) {
                         let u = R.s * (Math.atan2(ly - R.P.y, lx - R.P.x) - R.phi0) / TAU;
                         u -= Math.floor(u);
                         const a = Math.min(3, Math.floor(u * 4));
                         col = ATOM_RGB[a];
-                        lbl = 'atom ' + ATOM_NAMES[a];
+                        lbl = 'quarter ' + ATOM_NAMES[a];
                     }
                     ctx.strokeStyle = 'rgba(' + col + ',0.85)';
                     ctx.lineWidth = 1.5;
@@ -35331,7 +35331,7 @@
             return checksumColor(e.run[k]);
         }
 
-        // ── THE ANGULAR ATOM (§21.1): the second observer, on its ring ────────────
+        // ── THE ANGULAR READER (§21.1): the second observer, on its ring ────────────
         // It holds a DIRECTION. Tangent-direction changes are quantised on a 64-cell
         // ring WITH FEEDBACK — the reference is the reconstructed direction, and
         // without that feedback the reading dies (turning.py T1-T5: 18 of 56 close
@@ -35466,7 +35466,7 @@
             }; // a nonzero leftover: the sweep ended mid-letter
         }
 
-        // ── The area atom (The Fourth Atom §2) ──────────────────────────────────────
+        // ── The area reader (The Fourth Atom §2) ──────────────────────────────────────
         // A register that reads a register: ring A's RUNNING winding Q₁ is held, and
         // each time ring B advances a cell the held count is deposited once —
         // Z ← Z + Q₁·q₂, pre-update (Chen's ordering), then Q₁ ← Q₁ + q₁. Two held
@@ -35480,7 +35480,7 @@
         // WHAT THAT AUDIT IS WORTH, corrected against the paper's second edition
         // (The Fourth Atom §2.1, August 2026). This comment used to call it "the
         // checksum on the checksum", which over-states it, and the paper now says so in
-        // those words: the identity is algebraic in WHATEVER STREAMS the atom is handed.
+        // those words: the identity is algebraic in WHATEVER STREAMS the reader is handed.
         // It passes a 2-tap reading that has lost the class entirely, and it passed six
         // of seven injected aliasing faults while the register certified a WRONG Magnus
         // integer — residual exactly zero every time. So: it audits the register's
@@ -35492,7 +35492,7 @@
         // stated in the papers' second editions:
         //   · the FLOOR RULE (Three-Atom §4.1, Fourth §2.1) — angularRead below uses it
         //     ("h becomes the value just read"). On a 2-tap reference every ray ring reads
-        //     (0,0) and the area atom collapses with it: ab against ba separates by
+        //     (0,0) and the area reader collapses with it: ab against ba separates by
         //     0.0000. The class, and this whole tower, are made of that one rule.
         //   · the NEAR-MISS RADIUS δ* = (s/2)·tan(π/2C) (Three-Atom §2.1) — a sweep passing
         //     nearer a mark than δ* can misread a whole turn. At level 1 that costs one
@@ -35637,7 +35637,7 @@
 
             // THE ORIGINAL INSTRUMENT, restored: the number line and the dial, reading
             // the hovered leaf's TANGENT slope (the contour's dy/dx at that leaf).
-            // The atom read lived here for a while; it now has its own strip at the
+            // The triangle read lived here for a while; it now has its own strip at the
             // foot of the page (drawEditFoot), so both readings are on screen at once —
             // the line answers "which direction does this leaf point", the ladder
             // answers "what did the observer just say about it".
@@ -35664,9 +35664,9 @@
             // WHICH GLYPH, on the same reading. ALL of them hang in the same box now —
             // chord_y … chord_y + 2·dialR — so switching between them moves nothing else in the
             // strip; only their HALF-WIDTHS differ, and the V/H numbers flank whatever is there.
-            // The atom used to be the exception (drawn at the line's own unit R, with a taller
+            // The triangle used to be the exception (drawn at the line's own unit R, with a taller
             // strip from the CSS); Tom's ruling (Aug 29) made the header one height for every
-            // glyph, so the atom takes the dome's box and scales uniformly (see drawHeadAtom).
+            // glyph, so the triangle takes the dome's box and scales uniformly (see drawHeadAtom).
             const gl = state.headGlyph || 'dial';
             const gV = read ? read.V : 0,
                 gH = read ? read.H : 0;
@@ -35765,7 +35765,7 @@
         //
         // ── AUDIT NOTE, August 2026: THE PAPERS CITE A GAUGE THIS STRIP NO LONGER DRAWS.
         // The Fourth Atom §8 and its `lab` appendix row credit this application with
-        // holding the area atom as a LIVE gauge — "S₁₂, S₂₁ and the shuffle audit drawn
+        // holding the area reader as a LIVE gauge — "S₁₂, S₂₁ and the shuffle audit drawn
         // under the class line, computed each frame from the placed marks' actual ring
         // streams", with the honesty colour ("the line turns teal only at w = (0,0),
         // where no correction is owed and the raw read IS the class") and the reported
@@ -35773,7 +35773,7 @@
         //
         // As the file stands, areaAtomRead is defined, exported on window.__lab, and
         // called by NOTHING in the draw path: the class line and the ray-ring pair went
-        // when this strip was stripped, and the area line went with them. The three-atom
+        // when this strip was stripped, and the area line went with them. The three-reader
         // LAB RUN is intact and still supports the papers' other library claims (49 of
         // 49, ring 1 at H(64/512) on every shape, ring 2 median 0.2319, the one-bit
         // column). The per-frame gauge is what is missing, and the citation was ahead of
@@ -35783,8 +35783,8 @@
         // afterwards taken off the panel. The reader (areaAtomRead) stays, exported and
         // callable from the lab; what does not exist is a frame that draws it.
 
-        // ── The atom strip, at the foot of the page — REMOVED ──────────────────────
-        // The strip carried the atom readout sentence, the register ladder, the defect
+        // ── The triangle strip, at the foot of the page — REMOVED ──────────────────────
+        // The strip carried the triangle readout sentence, the register ladder, the defect
         // walk, the e/sigma sparkline and the joint-alphabet block. All of it was readout
         // and chart, and the edit view is now the number line, its dial, the shape and
         // the footer. The function is kept as a no-op rather than deleted because it is
@@ -37860,16 +37860,16 @@
             // progress and the leg, computed BEFORE anything is drawn: the trail, the dot and
             // the bar all colour themselves from the leg, so it cannot be worked out later.
             const prog = fracOf(k);
-            // ⚠ THE LEG IS THE ATOM, not a parallel count — Tom's ruling (Aug 30): "the current
+            // ⚠ THE LEG IS THE QUARTER, not a parallel count — Tom's ruling (Aug 30): "the current
             // leg should be the same color in both the shape and the leg." The two were different
-            // quantities: the overlay's atoms are quarters of the LINE-OF-SIGHT turn about the
+            // quantities: the overlay's quarters are those of the LINE-OF-SIGHT turn about the
             // counterpart, while this bar's legs were quarters of the TANGENT-BEARING turn. On a
             // circle they agree; on anything else they drift, so the strip could say ember while
             // the shape under it was drawn indigo. The leg is now READ FROM THE OVERLAY'S OWN
             // COMPUTATION (fourAtomRead's atomAt, the same array that colours the contour), and
             // the two cannot disagree. The phase still drives the DOT and the progress — that is
             // the pacing, and it is this instrument's own — but the NAME and the COLOUR come from
-            // the atoms. Where the counterpart is not enclosed there are no atoms at all, and the
+            // the quarters. Where the counterpart is not enclosed there are no quarters at all, and the
             // bar falls back to quarters of the phase.
             let legNow = Math.min(4, Math.floor(prog * 4) + 1),
                 legFromAtoms = false;
@@ -37939,7 +37939,7 @@
             const closure = Math.pow(10, lUp + lDown);
             const atSeam = k === 0;
 
-            // the dot wears the ATOM's colour when there are atoms — the same colour the contour
+            // the dot wears the QUARTER's colour when there are quarters — the same colour the contour
             // under it is drawn in — and falls back to the rung palette when there are none.
             const v = sweepSlopeAt(src, k, N);
             g.fillStyle = legFromAtoms ? 'rgba(' + ATOM_RGB[legNow - 1] + ',0.95)'
@@ -37994,16 +37994,16 @@
                 // leg. You dont start from the middle. NEVER start from anywhere other than the 0
                 // position, the left position." Slot 0 is the FIRST quarter walked, slot 3 the last —
                 // the fill is simply how far round the lap the walk has got, drawn left to right.
-                // What each slot CARRIES is the atom that was being walked while that quarter was
-                // walked, recorded as the walk passes through it, so the colours are the atoms' own
+                // What each slot CARRIES is the quarter of the sweep that was being walked while that part of the bar was
+                // walked, recorded as the walk passes through it, so the colours are the quarters' own
                 // and still arrive in the order the walk met them (I,II,III,IV one way round,
-                // IV,III,II,I the other). The previous version gave each slot to a fixed atom, which
+                // IV,III,II,I the other). The previous version gave each slot to a fixed quarter, which
                 // filled the bar right-to-left on a backward winding — the fault being corrected.
-                // ⚠ A SLOT IS AN ATOM, TAKEN IN VISIT ORDER. Cutting the bar at quarters of the
+                // ⚠ A SLOT IS A QUARTER, TAKEN IN VISIT ORDER. Cutting the bar at quarters of the
                 // WALKED PHASE gave ragged colours (a lap ending I,I,II,IV): the phase is the
-                // tangent-bearing turn while the atoms are quarters of the LINE-OF-SIGHT sweep, and
+                // tangent-bearing turn while the quarters are those of the LINE-OF-SIGHT sweep, and
                 // the two sets of boundaries do not coincide. The bar now advances a slot when the
-                // WALK ENTERS A NEW ATOM, so slot 0 is the first atom met, slot 3 the last — filled
+                // WALK ENTERS A NEW QUARTER, so slot 0 is the first quarter met, slot 3 the last — filled
                 // left to right, always, whichever way the winding runs. A minimum spend before a
                 // slot may advance keeps a leaf sitting on a boundary from flickering through slots.
                 if (!SD.legAtom) {
@@ -38025,7 +38025,7 @@
                 if (SD.walked >= 0.999) {
                     // ⚠ THE FINISHED LAP KEEPS ITS COLOURS — Tom's ruling (Aug 30): "don't change a
                     // previous color when drawing a new leg." Clearing legAtom here while the bar was
-                    // still drawn full made every slot fall back to whatever atom was current, so the
+                    // still drawn full made every slot fall back to whatever quarter was current, so the
                     // completed bar came up monochrome and legs that had already been drawn changed
                     // colour. The lap's colours are kept in legDone for the closed display, and the
                     // working slots are cleared only when the NEXT lap actually starts.
@@ -38055,16 +38055,16 @@
             // A leg's colour is fixed the moment it is first drawn and never revisited: the
             // walking bar reads legAtom, the closed bar reads the lap it just finished. Null means
             // the leg has not been walked, and an unwalked leg is not drawn at all — so nothing
-            // ever falls back to "whatever atom is current", which is what used to repaint a leg.
+            // ever falls back to "whatever quarter is current", which is what used to repaint a leg.
             const legColour = q => {
                 const a = closing ? (SD.legDone && SD.legDone[q]) : (SD.legAtom && SD.legAtom[q]);
                 return a == null ? null : ATOM_RGB[a & 3];
             };
-            // THE LEG BAR WEARS THE FOUR ATOMS' COLOURS — Tom's ruling (Aug 30). The four legs
-            // of a lap ARE the four atoms (I azure, II ember, III indigo, IV rose), so the bar is
+            // THE LEG BAR WEARS THE FOUR QUARTERS' COLOURS — Tom's ruling (Aug 30). The four legs
+            // of a lap ARE the four quarters (I azure, II ember, III indigo, IV rose), so the bar is
             // drawn as four quarters in ATOM_RGB, dim until walked and full once the leg is under
             // way, and the leg's name is said in its own colour. One palette across the overlay
-            // and the strip: a leg here is the same object the four-atoms overlay colours there.
+            // and the strip: a leg here is the same object the four-quarters overlay colours there.
             // AT COMPLETION THE BAR SHOWS ALL FOUR — Tom's ruling. A lap that finishes used to
             // wrap the progress to nothing and blank the bar in the same frame, so the completed
             // state was never seen: the one moment worth showing showed least. At the seam every
@@ -38076,9 +38076,9 @@
             g.lineWidth = 2;
             // ⚠ THE UNWALKED TRACK IS NEUTRAL — Tom's ruling (Aug 30): "invert the leg. closure
             // should mean all four colors are shown on the leg." The track used to be pre-tinted
-            // in all four atom colours at low alpha, so every colour was already on screen before
+            // in all four quarter colours at low alpha, so every colour was already on screen before
             // a single leg had been walked and the fill only brightened what was there. A colour
-            // now APPEARS as its leg is earned: an empty bar carries no atom colour at all, and
+            // now APPEARS as its leg is earned: an empty bar carries no quarter colour at all, and
             // four colours on the bar means four legs walked — which is what closure is.
             for (let q = 0; q < 4; q++) {
                 const qa = barX0 + q * barW / 4,
@@ -38091,7 +38091,7 @@
                 g.lineTo(qb - 1, barY);
                 g.stroke();
                 if (done > 0 && rgb) {
-                    g.strokeStyle = 'rgba(' + rgb + ',0.95)'; // the walked leg: its atom
+                    g.strokeStyle = 'rgba(' + rgb + ',0.95)'; // the walked leg: its quarter
                     g.beginPath();
                     g.moveTo(qa + 1, barY);
                     g.lineTo(qa + 1 + done * (qb - qa - 2), barY);
@@ -38102,8 +38102,8 @@
             const legRGB = ATOM_RGB[Math.min(3, legNow - 1)];
             g.fillStyle = closing ? 'rgba(255,255,255,0.9)' : 'rgba(' + legRGB + ',0.95)';
             g.fillText(closing ? 'closed \u00b7 all four walked \u00b7 round again'
-            : (filled * 100).toFixed(1) + '% walked \u00b7 atom ' + ATOM_NAMES[Math.min(3, legNow - 1)]
-            + (legFromAtoms ? '' : ' (no atoms \u2014 quarters of the sweep)'),
+            : (filled * 100).toFixed(1) + '% walked \u00b7 quarter ' + ATOM_NAMES[Math.min(3, legNow - 1)]
+            + (legFromAtoms ? '' : ' (nothing enclosed \u2014 the legs are quarters of the turn)'),
             w / 2, h - 17);
             if (!state.autoWalk) {
                 g.fillStyle = 'rgba(214,206,192,0.35)';
@@ -38389,7 +38389,7 @@
         //     turned through exactly 360°.
         //
         // That is the turning number, and it is the same integer the closure defect and the
-        // angular atom's winding are about elsewhere in this file. Here it is a thing you do
+        // angular reader's winding are about elsewhere in this file. Here it is a thing you do
         // with your hand: circle the artwork with a pan and watch the bail come back to where
         // it started, once, having gone round once. The accumulated figure under the vessel is
         // UNWRAPPED, so a full circuit reads +360° rather than falling back to 0 — a wrapped
@@ -38575,7 +38575,7 @@
             _bucketRAF = 0;
             if (!state.bucketPanel || !state.editMode)
                 return;
-            // In the atom row the easing happens inside bucketAtomTrack, one register at a time —
+            // In the reader row the easing happens inside bucketAtomTrack, one register at a time —
             // the tick's only job there is to keep asking for frames until they have all arrived.
             if ((state.bucketRule || 'radius') !== 'atoms') {
                 const target = state.bucketTarget;
@@ -38646,12 +38646,12 @@
             state.bucketTurn += step;
         }
 
-        // ── THE ROW OF ATOMS ────────────────────────────────────────────────────────
-        // ONE VESSEL PER INSTRUMENT, NOT PER SHAPE. The single bucket reads the radial atom and
+        // ── THE ROW OF READERS ────────────────────────────────────────────────────────
+        // ONE VESSEL PER INSTRUMENT, NOT PER SHAPE. The single bucket reads the radial reader and
         // nothing else, which is the one reading that cannot tell a 3:1 ellipse from a 3:1
         // rectangle — it charges for how far the boundary is from the centre, and those two do
         // the same thing with that quantity. The row puts the other three registers beside it,
-        // and the point of the row is the DISAGREEMENT: each atom is blind exactly where its
+        // and the point of the row is the DISAGREEMENT: each reader is blind exactly where its
         // neighbours see, so a shape is not any one vessel but the pattern across four.
         //
         //   radial   the held radius        fills with distance from the centre
@@ -38686,7 +38686,7 @@
                 resetBucketAtoms();
             return state.bucketAtoms;
         }
-        // The same unwrapping updateBucketTurn does, per atom: accumulate the SHORTEST step
+        // The same unwrapping updateBucketTurn does, per reader: accumulate the SHORTEST step
         // between successive bearings so the total passes through ±180° without a seam and a
         // second lap reads 720° rather than 0°.
         function bucketAtomStep(a, bearing) {
@@ -38763,7 +38763,7 @@
                 bucketAtomStep(aRad, bear.radial);
             bucketAtomStep(aAng, bear.angular);
             const dRay = bucketAtomStep(aRay, bear.ray);
-            // THE FOURTH ATOM, IN ITS CONTINUOUS FORM. Ring A's running winding is held and
+            // THE AREA READER (The Fourth Atom), IN ITS CONTINUOUS FORM. Ring A's running winding is held and
             // deposited once per advance of ring B — Chen's ordering, the held value read BEFORE
             // it is updated, which is the whole reason the quantity separates A-then-B from
             // B-then-A. Kept in turns² so the reference below is a number about laps.
@@ -38861,7 +38861,7 @@
         // below was the body of drawBucketPanel and is unchanged apart from taking its centre
         // and its scale from `box` instead of from the canvas.
         //
-        // THE READING, AND NOTHING ELSE. The level is what the atom holds and the facing is its
+        // THE READING, AND NOTHING ELSE. The level is what the reader holds and the facing is its
         // bearing; the hand's only say over the vessel is how big it is and where it sits. The
         // manual level and facing offsets that briefly lived here are gone — a gauge you can
         // set by hand is not reading anything. Screen y runs downward and so does the near side
@@ -39809,7 +39809,7 @@
                 ctx.restore();
             }
 
-            // ── The four atoms: the line-of-sight sweep, coloured. Suppressed while a
+            // ── The four quarters: the line-of-sight sweep, coloured. Suppressed while a
             // motion plays — the overlay reads the resting geometry through the contour
             // cache, and a playing pose is not the cached one. ──────────────────────────
             if (CHROME && state.editMode && !isPlaying() && typeof drawSeenShape === 'function')
@@ -39827,7 +39827,7 @@
             }
             if (CHROME && state.cauchyView >= 2)
                 drawCauchyAddresses(w, h);
-            // (the four-atoms panel is gone — its options are permanently true)
+            // (the four-quarters panel is gone — its options are permanently true)
 
             // ── The tangent at the leaf the header is reading ───────────────────────
             // The number line's value is this line's slope, and V and H beside the dial
@@ -41238,11 +41238,11 @@
                     }
 
                     // ── THE PREVIOUS TANGENT, through the same point ─────────────────
-                    // The SECOND atom (§21.1): the one that holds a DIRECTION rather than
+                    // The SECOND reader (§21.1): the one that holds a DIRECTION rather than
                     // an extent, whose corner is "no turn since the last look" and whose
                     // register is a ring. Drawn through this point rather than through the
                     // previous leaf, so the wedge between the two lines is the turn itself.
-                    // Deliberately not called h: h is the radial atom's held reading, and
+                    // Deliberately not called h: h is the radial reader's held reading, and
                     // this is the angular one. Two different registers, two different
                     // corners, and conflating them is exactly the mistake the V/H readout
                     // made two revisions ago.
@@ -46496,7 +46496,7 @@
             // whatever the scene view happened to be showing — the footer switch is the ask,
             // and it starts unlit so the mode opens on the artwork and nothing else.
             state.showProps = false;
-            // The puncture placer and the whole atom strip came off the edit view, so neither
+            // The puncture placer and the whole triangle strip came off the edit view, so neither
             // mode is reachable any more. A session autosaved before that change can still
             // be carrying them, and the foot strip they belong to is gone entirely — so both
             // are normalised here rather than trusted to whatever the session restored.
@@ -46775,7 +46775,7 @@
                 if (state.editMode)
                     exitEditMode();
             });
-        // The atom strip's ladder/defect-walk toggle came off the edit bar with the strip
+        // The triangle strip's ladder/defect-walk toggle came off the edit bar with the strip
         // itself — a button whose only job is switching between two charts that no longer
         // draw is worse than no button. footMode is pinned to 0 in enterEditMode so nothing
         // downstream ever sees a stale value from an autosaved session, and markMode is
@@ -50877,7 +50877,7 @@
         // reconstructs a contour — so the loop closes, t = 1 arrives back at t = 0 with no
         // seam, and the interpolation between keys is the same operator the whole file is about
         // rather than a second, unrelated easing curve bolted on. A morph of a shape sequence
-        // is a bridge whose atoms are shapes.
+        // is a bridge whose leaves are shapes.
         //
         // IN PLACE, and that is the default. The first version of this took the whole page: it
         // stashed state.subpaths, put one shape on an empty canvas and gave it the slider. That
@@ -57151,9 +57151,9 @@
             return drawn;
         }
 
-        // ── TWO-ATOM TESTS ────────────────────────────────────────────────────────
+        // ── TWO-READER TESTS ────────────────────────────────────────────────────────
         // The Two-Atom Observer's library run: both checksums per primitive. The
-        // angular atom holds a direction on a ring of C cells with sigma-delta
+        // angular reader holds a direction on a ring of C cells with sigma-delta
         // feedback; the chord list wraps because these contours close — the closing
         // chord is real, not invented.
         function taEntropy(arr) {
@@ -57254,13 +57254,13 @@
         }
         function showTwoAtomReport(res) {
             const {rows, total, L, C} = res;
-            // The two atoms get a line each, and the winding gets the verdict — it is the claim
+            // The two readers get a line each, and the winding gets the verdict — it is the claim
             // with an integer answer. "64/64" rather than the ratio, because the thing being
             // asserted is that the ring's cells SUM to one circumference, and a count against a
             // count says that; 1.0000 is the same fact rounded until it cannot be wrong.
             const out = labLadder({
                 rows,
-                name: 'two-atom tests',
+                name: 'two-reader tests',
                 suffix: 'C=' + C,
                 // Exact means both: the radial checksum on zero and the winding on the nose. Gold
                 // is the tolerance the old table shaded — the radial within ±2, the ring within two
@@ -57281,7 +57281,7 @@
             const sorted = [...drawn].sort((a, b) => a.angBits - b.angBits);
             const cheap = sorted[0],
                 dear = sorted[sorted.length - 1];
-            flashStatus('two-atom tests · ' + drawn.length + ' of ' + total + ' primitives representable'
+            flashStatus('two-reader tests · ' + drawn.length + ' of ' + total + ' primitives representable'
             + ' · ring C=' + C + ' L=' + L
             + ' — radial checksum 0 (±2) in ' + radOk + '/' + drawn.length
             + ' · winding exactly one circumference in ' + windExact + '/' + drawn.length
@@ -57294,11 +57294,11 @@
             + ' · largest single cell ' + Math.max(...drawn.map(r => r.mx)) + ', the ring did not rail'
             + (ms ? ' · ' + ms + ' ms' : ''));
         }
-        // ── THREE-ATOM TESTS ──────────────────────────────────────────────────────
+        // ── THREE-READER TESTS ──────────────────────────────────────────────────────
         // The Three-Atom Observer's library run, with The Acquisitive Observer's
         // one-bit column riding along. Each representable primitive is placed about
         // the first mark (its own centroid); a second mark sits at distance 2.5 in
-        // shape units — the corpus separation. Three atoms read the sweep: the
+        // shape units — the corpus separation. Three readers read the sweep: the
         // radial floor rule (checksum 0), and one ring per mark on the BEARING of
         // that mark (not the chord: rays read residues, chords read Hopf). The
         // windings must be integer-exact — (1, 0), the homology class of a loop
@@ -57407,7 +57407,7 @@
             const onebit = r => r.ob1 === 1 && r.ob2 === 0 && r.obCells2 === 0;
             const out = labLadder({
                 rows,
-                name: 'three-atom tests',
+                name: 'three-reader tests',
                 suffix: 'C=' + C + ' d=' + D2,
                 verdict: r => (triple(r) && onebit(r)) ? 2 : (triple(r) ? 1 : 0),
                 caption: r => r.key + '\n'
@@ -57422,7 +57422,7 @@
             const exact = drawn.filter(triple).length;
             const obExact = drawn.filter(r => r.ob1 === 1 && r.ob2 === 0).length;
             const silent = drawn.filter(r => r.obCells2 === 0).length;
-            flashStatus('three-atom tests · ' + drawn.length + ' of ' + total + ' primitives representable'
+            flashStatus('three-reader tests · ' + drawn.length + ' of ' + total + ' primitives representable'
             + ' · second mark at ' + D2 + ' shape units, rings on bearings C=' + C + ' and C=2'
             + ' — triple exact (radial 0, windings 1/0 to the cell) in ' + exact + '/' + drawn.length
             + ' · one-bit windings exact in ' + obExact + '/' + drawn.length
@@ -69191,11 +69191,11 @@
                         try {
                             const res = runThreeAtomTests();
                             if (!res.rows.length)
-                                flashStatus('three-atom tests: no representable primitives');
+                                flashStatus('three-reader tests: no representable primitives');
                             else
                                 showThreeAtomReport(res);
                         } catch (e) {
-                            flashStatus('three-atom tests failed: ' + e.message);
+                            flashStatus('three-reader tests failed: ' + e.message);
                         }
                         finally {
                             b3.disabled = false;
@@ -69495,11 +69495,11 @@
                         try {
                             const res = runTwoAtomTests();
                             if (!res.rows.length)
-                                flashStatus('two-atom tests: no representable primitives');
+                                flashStatus('two-reader tests: no representable primitives');
                             else
                                 showTwoAtomReport(res);
                         } catch (e) {
-                            flashStatus('two-atom tests failed: ' + e.message);
+                            flashStatus('two-reader tests failed: ' + e.message);
                         }
                         finally {
                             bA.disabled = false;
@@ -69811,7 +69811,7 @@
             }
             // Interleaved finer lattice: the NEW leaves of the doubled grid, evaluated
             // from the current reconstruction with the aperture OPEN (exact for band
-            // content — the bands nest, the atoms interleave; C-1).
+            // content — the bands nest, the leaves interleave; C-1).
             const N2 = 2 * N,
                 phis = new Float64Array(N2);
             for (let k = 0; k < N2; k++)
@@ -75414,6 +75414,8 @@
                 redraw();
                 flashStatus(state.bucketRule === 'quadrant'
                 ? 'bucket: quadrant — drains and fills twice a lap, whatever the shape'
+                : state.bucketRule === 'atoms'
+                ? 'bucket: readers — one vessel a reader, each blind where another sees'
                 : 'bucket: radius — the leaf’s distance from the centre');
             });
         })();
@@ -75438,7 +75440,7 @@
         //     sum drifts off zero. That is the honest cost of the extra register.
         //   · HOW MANY LEAVES. Closure is an integer identity, not a limit, so it should hold
         //     at 32 leaves and at 512 alike — and where it stops holding is worth seeing.
-        // ── THE FOUR-ATOMS PANEL: the switchboard for drawFourAtoms ─────────────────
+        // ── THE FOUR-QUARTERS PANEL: the switchboard for drawFourAtoms ─────────────────
         // The button opens the OPTIONS (setEditPanel — one panel at a time); the overlay
         // itself is state.fourAtoms.on and survives the panel closing. Opening turns the
         // overlay on if it was off, because a panel of options about an invisible thing is
@@ -75576,8 +75578,8 @@
                     sync();
                     drawAll();
                     flashStatus(state.fourAtoms.on
-                    ? 'the four atoms — the line of sight about ' + (state.marks && state.marks.length ? 'm' + (state.marks.length + 1) : 'the shape\'s centre') + ', one colour per quarter-turn'
-                    : 'four atoms off');
+                    ? 'the four quarters — the line of sight about ' + (state.marks && state.marks.length ? 'm' + (state.marks.length + 1) : 'the shape\'s centre') + ', one colour per quarter-turn'
+                    : 'four quarters off');
                 });
                 sync();
                 window.__syncAtomsBtn = sync;
@@ -77732,7 +77734,7 @@
                 heart: { src: 'x = 16 sin(t)^3\ny = 13cos t - 5cos 2t - 2cos 3t - cos 4t', t1: '2π' },
                 wave: { src: 'y = sin x', t0: '-2π', t1: '2π' },
                 bridge: {
-                    src: '# a curve read at eight atoms, and the sum of the kernel at each, weighted by the readings\n'
+                    src: '# a curve read at eight leaves, and the sum of the kernel at each, weighted by the readings\n'
                         + 'F(t) = 95 + 16cos(3t - 0.4) + 12cos(5t + 0.9) + 7cos(9t + 0.3)\n'
                         + 'K(p, N) = sin(N p/2) cos(p/2) / (N sin(p/2))\n'
                         + 'a(j) = (2j + 1)π/8\n'
@@ -82160,8 +82162,8 @@
                     const a = worldToPx(ax, ay, w, h);
                     if (hit) {
                         const p = worldToPx(hit.x + dx0, hit.y + dy0, w, h);
-                        // THE ATOMS AS THE READER RECEIVES THEM (Tom, Sep 7): with the four atoms on, each
-                        // ray takes the colour of the atom it lands in, so the half-turn shows the near
+                        // THE QUARTERS AS THE READER RECEIVES THEM (Tom, Sep 7): with the four quarters on, each
+                        // ray takes the colour of the quarter it lands in, so the half-turn shows the near
                         // two (I and IV, the reader's own neighbours) squeezed to its edges at the
                         // horizon and the far two (II and III) filling the middle of its view.
                         let rayCol = 'rgba(212,160,82,0.75)';
@@ -86148,9 +86150,9 @@
         // ── THE EXIT IS THE CORNER ──────────────────────────────────────────────────
         // The last identification. The round maze removed the exit as a PLACE (start
         // and finish identified — the goal became a class); this removes it as an
-        // EVENT. The certified lap is handed to the observation atom — the same
+        // EVENT. The certified lap is handed to the reader of The Observation Atom — the same
         // base rule that prices every contour in the editor — and the DOOR is a cell of
-        // that atom's alphabet: the free symbol, the corner of the ladder, where the
+        // that reader's alphabet: the free symbol, the corner of the ladder, where the
         // register is silent and the circle lives. The walker leaves the labyrinth
         // when its journey's sentence sits at the corner: closure holds (defect ~ 0)
         // and the radial stream is mostly the unchanged symbol. Not "you are at the
@@ -86617,7 +86619,7 @@
         // and the whole tower reads the route: the base rule prices its radial
         // sentence, the tangent ring counts its turning, the ray rings read its
         // class about the marks (the wound core at +1, the rooms as spectators),
-        // the area atom its order. The walk becomes a shape; the shape was always
+        // the area reader its order. The walk becomes a shape; the shape was always
         // a walk.
         function walkerImportJourney() {
             const cand = _walk.tags.filter(t => t.lapPath);

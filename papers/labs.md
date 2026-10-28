@@ -24,7 +24,7 @@ Each of the 54 sections is one heading of the drawer, in the drawer's order. Its
 - **Ours.** what, if anything, we did not find stated elsewhere, said as narrowly as the evidence allows;
 - **In the editor.** the deep links that run it.
 
-The drawer's names keep the words of their day (atom, octave, rung). This paper uses the current ones: **leaves** for the places read, **levels** for the dyadic intervals, the **reader** and the **writer**, the **corner** (the ratio 1, π/4) and the **horizon** (π/2), **home** (the ratio 0) and the **unit circle**. A *standpoint* is the point a reader reads from.
+The drawer's names keep some words of their day (octave, rung). This paper uses the current ones: **leaves** for the places read, **levels** for the dyadic intervals, the **reader** and the **writer**, the **corner** (the ratio 1, π/4) and the **horizon** (π/2), **home** (the ratio 0) and the **unit circle**. A *standpoint* is the point a reader reads from.
 
 ## What the labs found, in brief
 
@@ -102,7 +102,7 @@ Five ways of colouring the leaves are each applied to the 73 primitives that hav
 - *slope*: the dyadic band (level) of the tangent slope |dy/dx| at each leaf.
 - *position*: the quadrant the leaf lies in, about the shape's centroid. This depends on the frame.
 - *bearing*: the quadrant the tangent points into. This is unchanged by translation; it changes under rotation only through which quadrant boundaries the turning crosses.
-- *symbol*: the output of the radial log-ratio quantiser at each leaf (see *Two-leaf readers*).
+- *symbol*: the output of the radial log-ratio quantiser at each leaf (see §5).
 - *running*: the partial sum of those symbols around the loop.
 
 **Found.**
@@ -119,7 +119,7 @@ All 73 cells are descriptive, so there is no pass or fail.
 
 **In the editor.** `?lab=psl`, `?lab=ppo`, `?lab=pbe`, `?lab=psy`, `?lab=prt`
 
-## 5. Two-leaf readers: radial log-ratio quantiser and tangent-angle ring (*two-atom tests*)
+## 5. Two readers: radial log-ratio quantiser and tangent-angle ring (*two-reader tests*)
 
 Each primitive that is star-shaped about its centroid is sampled as a radius r(θ) at L = 512 equal angles, and two quantisers read the samples in turn. Both feed back what they have reconstructed, so they behave as first-order delta (sigma-delta-type) modulators.
 
@@ -142,9 +142,9 @@ The angular quantiser holds the direction of each chord between neighbouring sam
 
 **In the editor.** `?lab=two`
 
-## 6. Winding numbers about points, at 64 cells and at one bit (*three-atom tests*)
+## 6. Winding numbers about points, at 64 cells and at one bit (*three-reader tests*)
 
-The radial quantiser runs as in *Two-leaf readers*. Alongside it, two rings track the bearing from a fixed point to the curve: one point is the centroid, inside the curve; the other is 2.5 shape units away, outside it. Each ring runs at C = 64 cells and again at C = 2, where the ring is a single bit and one cell is half a turn. What is measured is the winding number of the curve about each point.
+The radial quantiser runs as in §5. Alongside it, two rings track the bearing from a fixed point to the curve: one point is the centroid, inside the curve; the other is 2.5 shape units away, outside it. Each ring runs at C = 64 cells and again at C = 2, where the ring is a single bit and one cell is half a turn. What is measured is the winding number of the curve about each point.
 
 **Found.** 58 of 58 primitives qualified, and on all 58:
 - the radial checksum was 0;
