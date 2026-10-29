@@ -33,6 +33,7 @@
     "explainer",
     "leaves",
     "bridge",
+    "reading",
     "turned",
     "addresses"
    ]
@@ -392,6 +393,17 @@
     "essay"
    ]
   },
+  "reading": {
+   "name": "reading and writing",
+   "note": "The first of wander's essays in five beats: a room read from one corner, directions only, a room half the size on the same rays; the world scaled by 1.5 and no ray moving; one step, the second rays crossing at every thing, the room 3.57 steps wide; the step counted as six strides of 0.7 m, writing the room 15.0 m; the world scaled again, the steps unmoved and the metres moving. The scene of the explainer page's fifth explainer.",
+   "tags": [
+    "camera",
+    "Bézier eases",
+    "walk",
+    "labels",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -582,6 +594,7 @@
   "word-draw": 12456,
   "word-pop": 5412,
   "addresses": 143520,
-  "turned": 124042
+  "turned": 124042,
+  "reading": 166525
  }
 }

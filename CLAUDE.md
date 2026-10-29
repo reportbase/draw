@@ -459,7 +459,20 @@ publishes.
     camera out to the last landing fifteen lengths up (median 1, mean 2.55 and climbing 0.44 a doubling), and payloads
     arriving at the landings as bars and changing while no landing moves; its paper pill links the essay on GitHub. A
     scene opens exact only under 150 shapes, its labels' glyphs counted (`LAZY_MIN_SHAPES` in `loadSvgExact`): past
-    it every outline comes in as leaves and the `.tvfs` grows fivefold. Beat
+    it every outline comes in as leaves and the `.tvfs` grows fivefold. `?x=turned` is ONE LENGTH TURNED (essay 2, five
+    beats: an arm raised through a quarter turn, its tip riding the arc with echoes; lowered with its shares h and v and
+    v/h from ∞ through 1 to 0, the corner; the camera across to a chord, rays from both ends meeting on its circle and the
+    radius at twice the angle; back, the arc unrolled beside the arm, π/2 × 2/π = 1) and `?x=reading` READING AND
+    WRITING (essay 1, five beats: a room read from one corner, a half-size room on the same rays; the world scaled by
+    1.5, no ray moving; one step, the second rays crossing, the room 3.57 steps wide; six strides of 0.7 m writing 15.0 m;
+    scaled again, the steps unmoved and only the metres moving), both after Tom's "these explainers have a dual purpose,
+    to exercise the features of the tvf viewer and also to explain the essays": between them paths ridden with echoes,
+    draw-on and undraw, cut, pop, keys at chosen times, cubic Bézier eases, labels into labels, plotted curves morphing,
+    and the camera panning and zooming. TWO RULES FOUND MAKING THEM: a clip plays its keys from the first key's time to
+    the last's across its window, so a last key earlier than the window's end is stretched to it (give the last key again
+    at the window's end where the pose is to hold); a morph that must hold between keys needs `straight`, since the even
+    kernel over all its keys overshoots past a repeated key. A clip also holds its first pose before its window: a thing
+    that should not be seen until it starts needs an `in`. Beat
     words take a blank line between paragraphs, `**bold**`, `*italic*` and `[a link](address)`, a link into
     `papers.html` drawn as the paper pill.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens

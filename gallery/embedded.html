@@ -2134,6 +2134,109 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 18. READING AND WRITING (29 Oct 2026, Tom: "proceed", the second of the two explainers asked for, and "these
+// explainers have a dual purpose, to exercise the features of the tvf viewer and also to explain the essays"): essay 1
+// (papers/essays/01-reading-and-writing.md) in five beats, the scene of explained.html?x=reading. A room seen from
+// above, a reader in its corner at A, a ray to each thing: directions only, and a room half the size on the very same
+// rays; the world scaled by 1.5 about A, every ray keeping its direction; one step along the wall to B, the second rays
+// crossing at each thing, the room 3.57 steps wide; the step counted as six strides of 0.7 m, writing 4.2 m and the room
+// 15.0 m; the world scaled again, the places in steps unmoved and only the metres moving, 6.3 m and 22.5 m. Every
+// position is computed (the scale is A + k(p − A)). Features it exercises, beyond the others': cubic Bézier eases on the
+// scaling stretches, the camera zooming out with the world and back, a reader that pops in (a motion), a walk ridden
+// along a path with echoes and cut at its end, a line taken back by undraw, staggered ticks, and labels into labels in
+// two chains (one step, six strides, 4.2 m, 6.3 m; 15.0 m, 22.5 m).
+{
+  const A = [96, 300], K = 1.5, B = [A[0] + 84, A[1]], f1 = v => +v.toFixed(2), seq = n => Array.from({ length: n }, (_, j) => j),
+    S = (p, k) => [A[0] + k * (p[0] - A[0]), A[1] + k * (p[1] - A[1])],
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 16) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#b9b2a6',
+    box = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]],
+    ROOM = box(80, 116, 380, 316), TABLE = box(185, 188, 255, 232), CAB = box(305, 136, 355, 164), BALL = [320, 270], BR = 14,
+    T = [[220, 210], BALL, [330, 150], [380, 116]], // where the rays go: the table, the ball, the cabinet, the far corner
+    room = (k, fill, stroke) => `<path d="M${ROOM.map(p => S(p, k)).map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')} Z" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`,
+    tick = (j, k) => line([S([A[0] + 14 * j, A[1] + 6], k), S([A[0] + 14 * j, A[1] + 14], k)], INK, 1.6),
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/01-reading-and-writing.md',
+    BZ = [0.65, 0, 0.25, 1]; // the world grows and shrinks on a curve of its own: slow away, slow to rest
+  const READING_BEATS = [
+    { title: 'From one place, directions only',
+      text: 'Stand in a room\'s corner and look round. Each thing comes to you as a direction: a ray from where you stand. That is a **reading**, a ratio of two lengths, and it costs nothing.\n\nWhat it does not give is how far. A room half the size, with everything in it half as far, sends every ray the same way: the faint copy lies on the very same rays.' },
+    { title: 'Scale the world',
+      text: 'The test is simple. Make everything bigger by the same factor: the room, its things, you, your stride. Every ray keeps its direction. **Nothing a reading holds can change**, because a reading is a ratio of two lengths that both grew.\n\nWhatever does change under this test is not a reading. [The test, §5](' + ESSAY + ')' },
+    { title: 'One step',
+      text: 'Walk one step along the wall, a direction you know, and look again. From the new place each thing gives a second ray, and the two rays cross at the thing. Every thing now has a **place**, and the room a shape, all in steps: it is 3.57 steps wide.\n\nStill no metres. The step is the unit, and how long a step is, no reading says.' },
+    { title: 'Count the stride',
+      text: 'To say how big, something has to be carried in: count the step as six strides of 0.7 m. That one amount, 4.2 m, **writes** every length in the room: it is 15.0 m wide.\n\nThis is the only part that was not free. A writing costs an amount brought from outside the readings. [What writing costs, §6](' + ESSAY + ')' },
+    { title: 'Scale the world again',
+      text: 'Now scale everything once more. The rays and the places in steps stay where they were; the room is still 3.57 steps wide. But the step is now 6.3 m and the room 22.5 m: **the metres moved, and only the metres**.\n\nThat is the whole line between the two. A reading is unchanged when the world is scaled; a writing changes with it, and needs one amount from outside to be made at all.' }
+  ];
+  // shapes, in order: 0 the paper; 1, 2 the room and the room at 1.5; 3–8 the table, ball and cabinet, each at 1 and 1.5;
+  // 9–12 the rays from A, 13–16 at 1.5; 17–20 the room and its things at ½, faint; 21 A; 22 the walk; 23 the walker;
+  // 24, 25 B at 1 and 1.5; 26–29 the rays from B, 30–33 at 1.5; 34–37 the places, 38–41 at 1.5; 42–48 the strides,
+  // 49–55 at 1.5; 56 A, 57 B; 58, 59 × 1.5 (twice); 60–63 one step, 6 strides, 4.2 m, 6.3 m; 64 the room in steps;
+  // 65, 66 the room in metres
+  const pair = k => polyOf(TABLE.map(p => S(p, k)), '#a8743c') + polyOf(TABLE.map(p => S(p, k * K)), '#a8743c');
+  const body = rectP(-600, -500, 1400, 900, '#f4f1ea')
+    + room(1, '#ebe4d6', INK) + room(K, '#ebe4d6', INK)
+    + pair(1) + circ4(...BALL, BR, '#e05a6a') + circ4(...S(BALL, K), BR * K, '#e05a6a')
+    + polyOf(CAB, '#5a7d9a') + polyOf(CAB.map(p => S(p, K)), '#5a7d9a')
+    + T.map(t => line([A, t], VIOLET, 1.6)).join('') + T.map(t => line([A, S(t, K)], VIOLET, 1.6)).join('')
+    + room(0.5, 'none', GREY) + polyOf(TABLE.map(p => S(p, 0.5)), '#d8c2a6') + circ4(...S(BALL, 0.5), BR / 2, '#efb2ba') + polyOf(CAB.map(p => S(p, 0.5)), '#b8c8d6')
+    + circ4(...A, 6, INK)
+    + `<path d="M${A[0]} ${A[1]} L${B[0]} ${B[1]}" fill="none" stroke="#999" stroke-width="1"/>` + circ4(...A, 6, GOLD)
+    + circ4(...B, 6, INK) + circ4(...S(B, K), 6, INK)
+    + T.map(t => line([B, t], TEAL, 1.6)).join('') + T.map(t => line([S(B, K), S(t, K)], TEAL, 1.6)).join('')
+    + T.map(t => circ4(...t, 5, GOLD)).join('') + T.map(t => circ4(...S(t, K), 5, GOLD)).join('')
+    + seq(7).map(j => tick(j, 1)).join('') + seq(7).map(j => tick(j, K)).join('')
+    + label(70, 296, 'A', INK) + label(174, 334, 'B', INK)
+    + label(452, 8, '× 1.5', GOLD, 18) + label(452, 8, '× 1.5', GOLD, 18)
+    + label(110, 352, 'one step', INK) + label(110, 352, '6 strides', INK) + label(110, 352, '4.2 m', GOLD) + label(110, 352, '6.3 m', GOLD)
+    + label(250, 352, 'room: 3.57 steps', TEAL) + label(250, 376, '= 15.0 m', GOLD) + label(250, 376, '= 22.5 m', GOLD);
+  const rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)),
+    span = (start, end, io) => Object.assign({ start, len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    // a thing of the world at 1 and at 1.5: as it is until the first scaling, back, then scaled again to the end
+    world = (k1, k2, a, io) => ({ keys: [k1, k1, k2, k2, k1, k1, k2, k2], times: rel(a, 0.99, [a, 0.23, 0.28, 0.33, 0.37, 0.82, 0.88, 0.99]),
+      eases: [null, BZ, null, BZ, null, BZ, null, null], straight: true, clip: span(a, 0.99, io) }),
+    // a thing that comes in after the first scaling, scaled with the second
+    later = (k1, k2, a, io) => ({ keys: [k1, k1, k2, k2], times: rel(a, 0.99, [a, 0.82, 0.88, 0.99]), eases: [null, BZ, null, null],
+      straight: true, clip: span(a, 0.99, io) });
+  SHOWPIECES.push({
+    id: 'reading', name: 'reading and writing', section: 'explainers', tags: ['camera', 'Bézier eases', 'walk', 'labels', 'essay'],
+    note: 'The first of wander\'s essays in five beats: a room read from one corner, directions only, a room half the size on the same rays; the world scaled by 1.5 and no ray moving; one step, the second rays crossing at every thing, the room 3.57 steps wide; the step counted as six strides of 0.7 m, writing the room 15.0 m; the world scaled again, the steps unmoved and the metres moving. The scene of the explainer page\'s fifth explainer.',
+    svg: svg(640, 420, body),
+    scene: {
+      loop: 44, ease: '', stops: [0.2, 0.4, 0.6, 0.78],
+      camera: [{ t: 0, fit: [1, 65], pad: 0.08 }, { t: 0.23, fit: [1, 65], pad: 0.08 }, { t: 0.28, fit: [2, 65, 58], pad: 0.06 },
+        { t: 0.33, fit: [2, 65, 58], pad: 0.06 }, { t: 0.37, fit: [1, 65], pad: 0.08 }, { t: 0.82, fit: [1, 65], pad: 0.08 },
+        { t: 0.88, fit: [2, 65, 58], pad: 0.06 }],
+      beats: READING_BEATS,
+      morphs: [
+        world(1, 2, 0.01, drawIn(0.04)),
+        ...[3, 5, 7].map((k, i) => world(k, k + 1, +(0.05 + 0.01 * i).toFixed(3), fadeIn(0.02))),
+        { keys: [21], motion: { kind: 'pop', amount: 0.6 }, clip: span(0.06, 0.1, { show: 'in' }) },
+        { keys: [56], clip: span(0.08, 0.99, fadeIn(0.02)) },
+        ...seq(4).map(j => world(9 + j, 13 + j, +(0.09 + 0.012 * j).toFixed(3), drawIn(0.03))),
+        // the room at half the size, on the same rays: in, then taken back
+        { keys: [17], clip: span(0.14, 0.2, { in: { kind: 'draw', len: 0.02 }, out: { kind: 'undraw', len: 0.015 } }) },
+        ...[18, 19, 20].map(k => ({ keys: [k], clip: span(0.15, 0.2, { in: { kind: 'fade', len: 0.015 }, out: { kind: 'fade', len: 0.015 } }) })),
+        { keys: [58], clip: span(0.24, 0.37, { in: { kind: 'fade', len: 0.015 }, out: { kind: 'fade', len: 0.015 } }) },
+        // one step along the wall, then the second rays and where they cross
+        { keys: [23], path: 22, at: 0, turn: false, trail: { kind: 'echoes', len: 0.1 }, clip: span(0.42, 0.47, { in: { kind: 'cut', len: 0 }, out: { kind: 'cut', len: 0 } }) },
+        later(24, 25, 0.47, fadeIn(0.01)),
+        { keys: [57], clip: span(0.47, 0.99, fadeIn(0.015)) },
+        ...seq(4).map(j => later(26 + j, 30 + j, +(0.48 + 0.012 * j).toFixed(3), drawIn(0.03))),
+        ...seq(4).map(j => later(34 + j, 38 + j, +(0.53 + 0.008 * j).toFixed(3), fadeIn(0.015))),
+        { keys: [60, 61, 62, 62, 63, 63], times: rel(0.45, 0.99, [0.45, 0.66, 0.71, 0.84, 0.88, 0.99]), clip: span(0.45, 0.99, fadeIn(0.015)) },
+        { keys: [64], clip: span(0.56, 0.99, fadeIn(0.02)) },
+        // the stride counted, a tick at a time
+        ...seq(7).map(j => later(42 + j, 49 + j, +(0.61 + 0.008 * j).toFixed(3), fadeIn(0.01))),
+        { keys: [65, 65, 66, 66], times: rel(0.73, 0.99, [0.73, 0.84, 0.88, 0.99]), clip: span(0.73, 0.99, fadeIn(0.02)) },
+        { keys: [59], clip: span(0.82, 0.99, fadeIn(0.015)) }
+      ]
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -2263,7 +2366,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'turned', 'addresses'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
