@@ -472,7 +472,12 @@ publishes.
     the last's across its window, so a last key earlier than the window's end is stretched to it (give the last key again
     at the window's end where the pose is to hold); a morph that must hold between keys needs `straight`, since the even
     kernel over all its keys overshoots past a repeated key. A clip also holds its first pose before its window: a thing
-    that should not be seen until it starts needs an `in`. Beat
+    that should not be seen until it starts needs an `in`. A SCENE'S QUIET FALLBACKS, SAID ALOUD (29 Oct 2026, Tom:
+    "proceed per your suggestions"): the editor now says these in the console and keeps them in `window.__sceneWarnings`
+    (`sceneWarn`, beside `loadSvgExact`): a drawing past `LAZY_MIN_SHAPES` opening as leaves, a clip whose last key's time
+    is under 0.98, and times or eases dropped as not well formed; the AI's scene vocabulary (`ANIM_MORPH_FIELDS`, the clip
+    line) says to give the last key again; the smoke test checks all three and that a well-made scene says nothing. The
+    Bridge's keyed clips end on a key at 0.99 since (they ended at 0.93 and 0.98, so its leaves arrived late). Beat
     words take a blank line between paragraphs, `**bold**`, `*italic*` and `[a link](address)`, a link into
     `papers.html` drawn as the paper pill.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens

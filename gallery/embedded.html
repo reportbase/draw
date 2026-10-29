@@ -1879,17 +1879,19 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
         { keys: [2], clip: clip(0.02, 0.12, 'draw') },
         { keys: [81], clip: clip(0.08, 0.99, 'in') },
         ...seq(8).map(j => { const a = +(0.15 + 0.008 * j).toFixed(3); return { keys: [3 + j], clip: { start: a, len: +(0.62 - a).toFixed(3), in: { kind: 'draw', len: 0.04 }, out: { kind: 'fade', len: 0.04 } } }; }),
+        // (29 Oct 2026) a clip plays its keys from the first to the last across its window, so each keyed clip here ends
+        // on a key at 0.99, the last given again: until then they ended at 0.93 or 0.98 and arrived a little late
         // each leaf of eight slides half a step to one of sixteen's, then of thirty-two's; the rest come in between
-        ...seq(8).map(j => { const a = +(0.19 + 0.008 * j).toFixed(3); return { keys: [11 + j, 11 + j, 30 + 2 * j, 30 + 2 * j, 46 + 4 * j], times: rel(a, 0.99, [a, 0.79, 0.82, 0.9, 0.93]), straight: true, clip: clip(a, 0.99, 'in') }; }),
-        ...seq(8).map(j => { const k = 2 * j + 1, a = +(0.82 + 0.002 * j).toFixed(3); return { keys: [30 + k, 30 + k, 46 + 2 * k], times: rel(a, 0.99, [a, 0.9, 0.93]), straight: true, clip: clip(a, 0.99, 'in') }; }),
+        ...seq(8).map(j => { const a = +(0.19 + 0.008 * j).toFixed(3); return { keys: [11 + j, 11 + j, 30 + 2 * j, 30 + 2 * j, 46 + 4 * j, 46 + 4 * j], times: rel(a, 0.99, [a, 0.79, 0.82, 0.9, 0.93, 0.99]), straight: true, clip: clip(a, 0.99, 'in') }; }),
+        ...seq(8).map(j => { const k = 2 * j + 1, a = +(0.82 + 0.002 * j).toFixed(3); return { keys: [30 + k, 30 + k, 46 + 2 * k, 46 + 2 * k], times: rel(a, 0.99, [a, 0.9, 0.93, 0.99]), straight: true, clip: clip(a, 0.99, 'in') }; }),
         ...seq(16).map(j => { const a = +(0.93 + 0.001 * j).toFixed(3); return { keys: [46 + 2 * j + 1], clip: clip(a, 0.99, 'in') }; }),
         // N = 8, then 16, then 32: one label turning into the next as the leaves do
-        { keys: [78, 79, 80], times: rel(0.17, 0.99, [0.17, 0.8, 0.93]).map(v => +(v / 0.99).toFixed(4)), clip: { start: 0.17, len: 0.82, in: { kind: 'fade', len: 0.03 } } },
+        { keys: [78, 79, 80, 80], times: rel(0.17, 0.99, [0.17, 0.8, 0.93, 0.99]), clip: { start: 0.17, len: 0.82, in: { kind: 'fade', len: 0.03 } } },
         { keys: [1], clip: { start: 0.31, len: 0.19, in: { kind: 'fade', len: 0.02 }, out: { kind: 'fade', len: 0.02 } } },
         { keys: [19], clip: { start: 0.31, len: 0.19, in: { kind: 'draw', len: 0.04 }, out: { kind: 'fade', len: 0.02 } } },
         { keys: [82], clip: { start: 0.33, len: 0.17, in: { kind: 'fade', len: 0.02 }, out: { kind: 'fade', len: 0.02 } } },
         ...seq(7).map(j => { const a = +(0.36 + 0.008 * j).toFixed(3); return { keys: [20 + j], clip: { start: a, len: +(0.5 - a).toFixed(3), in: { kind: 'draw', len: 0.03 }, out: { kind: 'fade', len: 0.02 } } }; }),
-        { keys: [27, 27, 28, 28, 29], times: rel(0.49, 0.99, [0.49, 0.84, 0.88, 0.95, 0.98]), straight: true, clip: clip(0.49, 0.99, 'in') }
+        { keys: [27, 27, 28, 28, 29, 29], times: rel(0.49, 0.99, [0.49, 0.84, 0.88, 0.95, 0.98, 0.99]), straight: true, clip: clip(0.49, 0.99, 'in') }
       ]
     }
   });
