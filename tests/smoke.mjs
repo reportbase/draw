@@ -985,6 +985,40 @@ current = 'morph settings';
    key dragged on the strip's track moves, a stretch clicked takes the next ease, and all of it comes
    back from a reload and survives an added key. Then the animated gallery plays a tile in place, in
    the editor's embed, which leaves the drawing saved in the editor alone; one tile at a time. */
+/* A SCENE'S QUIET FALLBACKS, SAID ALOUD (29 Oct 2026): a clip whose last key ends before its window, eases of the
+   wrong count and a drawing past LAZY_MIN_SHAPES each leave a line in window.__sceneWarnings; a well-made scene none. */
+current = "a scene's warnings";
+{
+  const zlib = await import('node:zlib');
+  const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
+  const wp = await browser.newPage({ viewport: { width: 1000, height: 700 } });
+  wp.on('pageerror', e => failures.push(`[scene warnings] ${e.message}`));
+  await wp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  const sq = (x, y, c) => `<polygon points="${x},${y} ${x + 20},${y} ${x + 20},${y + 20} ${x},${y + 20}" fill="${c}"/>`;
+  const three = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${sq(10, 10, 'red')}${sq(50, 10, 'blue')}${sq(50, 50, 'green')}</svg>`;
+  const warnsOf = async o => {
+    await wp.goto('about:blank');
+    await wp.goto(scene(o), { waitUntil: 'load' });
+    await wp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
+    return wp.evaluate(() => window.__sceneWarnings || []);
+  };
+  try {
+    const bad = await warnsOf({ name: 'bad', svg: three, morphs: [{ keys: [0, 1, 2], times: [0, 0.3, 0.5], eases: ['linear', 'linear'], clip: { start: 0.1, len: 0.8 } }] });
+    if (!(bad.some(w => /eases dropped/.test(w)) && bad.some(w => /stretched to the window's end/.test(w))))
+      failures.push(`[scene warnings] a clip ending early and eases of the wrong count: ${JSON.stringify(bad)}`);
+    const good = await warnsOf({ name: 'good', svg: three, morphs: [{ keys: [0, 1, 2, 2], times: [0, 0.3, 0.5, 0.99], eases: ['linear', null, null, null], straight: true, clip: { start: 0.1, len: 0.8 } }] });
+    if (good.length) failures.push(`[scene warnings] a well-made scene warned: ${JSON.stringify(good)}`);
+    const many = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">${Array.from({ length: 160 }, (_, i) => sq((i % 16) * 25, Math.floor(i / 16) * 25, 'red')).join('')}</svg>`;
+    const big = await warnsOf({ name: 'big', svg: many, morphs: [[0]] });
+    if (!big.some(w => /160 shapes/.test(w))) failures.push(`[scene warnings] 160 shapes: ${JSON.stringify(big)}`);
+    console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a scene's warnings (an early clip, eases of the wrong count, 160 shapes; none for a well-made one)`);
+  } catch (e) {
+    failures.push(`[scene warnings] ${e.message.split('\n')[0]}`);
+  }
+  await wp.close();
+}
+
 current = 'smooth corners and key times';
 {
   const zlib = await import('node:zlib');

@@ -1879,17 +1879,19 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
         { keys: [2], clip: clip(0.02, 0.12, 'draw') },
         { keys: [81], clip: clip(0.08, 0.99, 'in') },
         ...seq(8).map(j => { const a = +(0.15 + 0.008 * j).toFixed(3); return { keys: [3 + j], clip: { start: a, len: +(0.62 - a).toFixed(3), in: { kind: 'draw', len: 0.04 }, out: { kind: 'fade', len: 0.04 } } }; }),
+        // (29 Oct 2026) a clip plays its keys from the first to the last across its window, so each keyed clip here ends
+        // on a key at 0.99, the last given again: until then they ended at 0.93 or 0.98 and arrived a little late
         // each leaf of eight slides half a step to one of sixteen's, then of thirty-two's; the rest come in between
-        ...seq(8).map(j => { const a = +(0.19 + 0.008 * j).toFixed(3); return { keys: [11 + j, 11 + j, 30 + 2 * j, 30 + 2 * j, 46 + 4 * j], times: rel(a, 0.99, [a, 0.79, 0.82, 0.9, 0.93]), straight: true, clip: clip(a, 0.99, 'in') }; }),
-        ...seq(8).map(j => { const k = 2 * j + 1, a = +(0.82 + 0.002 * j).toFixed(3); return { keys: [30 + k, 30 + k, 46 + 2 * k], times: rel(a, 0.99, [a, 0.9, 0.93]), straight: true, clip: clip(a, 0.99, 'in') }; }),
+        ...seq(8).map(j => { const a = +(0.19 + 0.008 * j).toFixed(3); return { keys: [11 + j, 11 + j, 30 + 2 * j, 30 + 2 * j, 46 + 4 * j, 46 + 4 * j], times: rel(a, 0.99, [a, 0.79, 0.82, 0.9, 0.93, 0.99]), straight: true, clip: clip(a, 0.99, 'in') }; }),
+        ...seq(8).map(j => { const k = 2 * j + 1, a = +(0.82 + 0.002 * j).toFixed(3); return { keys: [30 + k, 30 + k, 46 + 2 * k, 46 + 2 * k], times: rel(a, 0.99, [a, 0.9, 0.93, 0.99]), straight: true, clip: clip(a, 0.99, 'in') }; }),
         ...seq(16).map(j => { const a = +(0.93 + 0.001 * j).toFixed(3); return { keys: [46 + 2 * j + 1], clip: clip(a, 0.99, 'in') }; }),
         // N = 8, then 16, then 32: one label turning into the next as the leaves do
-        { keys: [78, 79, 80], times: rel(0.17, 0.99, [0.17, 0.8, 0.93]).map(v => +(v / 0.99).toFixed(4)), clip: { start: 0.17, len: 0.82, in: { kind: 'fade', len: 0.03 } } },
+        { keys: [78, 79, 80, 80], times: rel(0.17, 0.99, [0.17, 0.8, 0.93, 0.99]), clip: { start: 0.17, len: 0.82, in: { kind: 'fade', len: 0.03 } } },
         { keys: [1], clip: { start: 0.31, len: 0.19, in: { kind: 'fade', len: 0.02 }, out: { kind: 'fade', len: 0.02 } } },
         { keys: [19], clip: { start: 0.31, len: 0.19, in: { kind: 'draw', len: 0.04 }, out: { kind: 'fade', len: 0.02 } } },
         { keys: [82], clip: { start: 0.33, len: 0.17, in: { kind: 'fade', len: 0.02 }, out: { kind: 'fade', len: 0.02 } } },
         ...seq(7).map(j => { const a = +(0.36 + 0.008 * j).toFixed(3); return { keys: [20 + j], clip: { start: a, len: +(0.5 - a).toFixed(3), in: { kind: 'draw', len: 0.03 }, out: { kind: 'fade', len: 0.02 } } }; }),
-        { keys: [27, 27, 28, 28, 29], times: rel(0.49, 0.99, [0.49, 0.84, 0.88, 0.95, 0.98]), straight: true, clip: clip(0.49, 0.99, 'in') }
+        { keys: [27, 27, 28, 28, 29, 29], times: rel(0.49, 0.99, [0.49, 0.84, 0.88, 0.95, 0.98, 0.99]), straight: true, clip: clip(0.49, 0.99, 'in') }
       ]
     }
   });
@@ -2237,6 +2239,193 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 19. NEAR AND FAR (29 Oct 2026, Tom: "proceed per your suggestions", the explainers for essays 4 and 6 next): essay 4
+// (papers/essays/04-near-and-far.md) in five beats, the scene of explained.html?x=nearfar. Sixty-four fence posts a
+// unit apart, as the number line has them, then as the reader lays them: those within H = 8 in proportion, those past
+// it one doubling to the same room (1 + ln(d/H), the reader's lay), then all of the far field squeezed between H and 2H
+// (2 − H/d, the in-place lay), then H made 16, which slides every post along without changing the lay. Each row of
+// posts is one open line, a comb with a tooth a post, so sixty-four posts are one shape a layout and morph as one.
+// Features it exercises: a comb of 64 teeth drawn on like a pen and morphed whole through four layouts, Bézier eases
+// on every move, faint copies left behind, and labels into labels (H = 8 into H = 16, the posts in proportion).
+{
+  const X0 = 40, YW = 110, YR = 232, U = 6, L = 120, TOOTH = 16, f1 = v => +v.toFixed(2), seq = (a, b) => Array.from({ length: b - a + 1 }, (_, j) => a + j),
+    lay = s => s <= 1 ? s : 1 + Math.log(s), inplace = s => s <= 1 ? s : 2 - 1 / s,
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    comb = (xs, y, stroke, w = 2) => line(xs.flatMap(x => [[x, y], [x, y - TOOTH], [x, y]]), stroke, w),
+    label = (x, y, s, fill, size = 14) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#b9b2a6', RED = '#e2563f',
+    NEAR = seq(1, 8), FAR = seq(9, 64),
+    writer = D => D.map(d => X0 + U * d), reader = (D, H) => D.map(d => X0 + L * lay(d / H)), squeezed = (D, H) => D.map(d => X0 + L * inplace(d / H)),
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/04-near-and-far.md',
+    BZ = [0.55, 0, 0.3, 1];
+  const NEARFAR_BEATS = [
+    { title: 'Fence posts on a plain',
+      text: 'Sixty-four fence posts a step apart, running straight away from you, as the number line holds them: every gap the same.\n\nStanding among them you do not see it that way. The first few are clear steps, one, two, three. Far out they crowd: you can tell the sixty-fourth is about twice as far as the thirty-second, and not much more. **Near things are read by their differences, far things by their ratios.**' },
+    { title: 'Inside the corner: proportion',
+      text: 'The reader holds one length, *H*, here eight posts. Everything within it is laid out at true scale against it: a post half of *H* away goes halfway out. This is the **near field**, laid in proportion, and *H* is a ruler there.\n\nThe gold mark is the corner, where the reader\'s length ends.' },
+    { title: 'Past the corner: every doubling the same room',
+      text: 'A ruler with equal marks never ends, so the far posts cannot be laid the same way. Since nothing fixes *H*, a stretch from *d* to twice *d* should get the same room wherever it falls, and only one rule does that: the logarithm, starting at the corner with the same slope, 1 + ln(*d*/*H*).\n\nFrom 8 to 16, from 16 to 32, from 32 to 64: **each doubling gets the same room.** [The essay, §3](' + ESSAY + ')' },
+    { title: 'Reality in 2H',
+      text: 'The same addresses can be laid by length instead: a far post at 2 − *H*/*d*. Then the first doubling past the corner takes half of the next *H*, the second a quarter, the third an eighth, and the whole far field, out to infinity, fits between *H* and **2*H***.\n\nThe reader holds the same places either way, the same number each doubling. Laid by count they run on; laid by length they crowd toward a wall.' },
+    { title: 'H is a zoom',
+      text: 'Now let *H* be sixteen posts. Every post slides toward home along the same lay; nothing about the lay changes, only where the world falls on it. Sixteen posts are now in proportion, each given less room than before.\n\n**A larger H holds more at true scale and gives each thing less detail.** No single *H* holds every scale at once, so the best one puts the thing being read at the corner, as focusing an eye does. [H is a zoom, §11](' + ESSAY + ')' }
+  ];
+  // shapes, in order: 0 the paper; 1, 2 the two rows; 3, 4 you on each; 5, 6 the near and far posts on the number line;
+  // 7, 8 on the reader's lay at H = 8; 9, 10 on the in-place lay; 11, 12 on the reader's lay at H = 16; 13, 14 the
+  // number line's posts again, faint; 15 the corner; 16 the doublings' ticks; 17 the wall at 2H; 18–28 the labels
+  const body = rectP(-300, -200, 900, 600, '#f4f1ea')
+    + line([[X0, YW], [450, YW]], GREY, 1.4) + line([[X0, YR], [450, YR]], GREY, 1.4)
+    + circ4(X0 - 8, YW - 6, 5, INK) + circ4(X0 - 8, YR - 6, 5, INK)
+    + comb(writer(NEAR), YW, TEAL) + comb(writer(FAR), YW, VIOLET)
+    + comb(reader(NEAR, 8), YR, TEAL) + comb(reader(FAR, 8), YR, VIOLET)
+    + comb(squeezed(NEAR, 8), YR, TEAL) + comb(squeezed(FAR, 8), YR, VIOLET)
+    + comb(reader(NEAR, 16), YR, TEAL) + comb(reader(FAR, 16), YR, VIOLET)
+    + comb(writer(NEAR), YW, '#bfe3dc', 1.4) + comb(writer(FAR), YW, '#d6ccff', 1.4)
+    + line([[X0 + L, YR + 8], [X0 + L, YR - 28]], GOLD, 2.4)
+    + comb([2, 4, 8].map(k => X0 + L * lay(k)), YR + 10, INK, 1.4)
+    + line([[X0 + 2 * L, YR + 8], [X0 + 2 * L, YR - 28]], RED, 2.4)
+    + label(X0, YW - 30, 'the number line', INK) + label(X0, YR - 40, "the reader's lay", INK)
+    + label(X0 + L - 4, YR + 26, 'H', GOLD) + label(X0 + L * lay(2) - 8, YR + 26, '2H', INK) + label(X0 + L * lay(4) - 8, YR + 26, '4H', INK)
+    + label(X0 + L * lay(8) - 8, YR + 26, '8H', INK) + label(X0 + 2 * L - 10, YR - 34, '2H', RED)
+    + label(330, YW - 30, 'H = 8', GOLD, 16) + label(330, YW - 30, 'H = 16', GOLD, 16)
+    + label(X0, YR + 52, 'near: 8 posts', TEAL) + label(X0, YR + 52, 'near: 16 posts', TEAL);
+  const rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)),
+    span = (start, end, io) => Object.assign({ start, len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), inOut = (a, b) => ({ in: { kind: 'fade', len: a }, out: { kind: 'fade', len: b } }),
+    // a row of posts through every layout: [number line, reader at 8, in place, reader at 8, reader at 16], each move eased
+    posts = (w, r8, ip, r16, a, moveAt, drawLen) => ({ keys: [w, w, r8, r8, ip, ip, r8, r8, r16, r16],
+      times: rel(a, 0.99, [a, moveAt, moveAt + 0.07, 0.61, 0.67, 0.79, 0.82, 0.86, 0.92, 0.99]),
+      eases: [null, BZ, null, BZ, null, BZ, null, BZ, null, null], straight: true, clip: span(a, 0.99, { in: { kind: 'draw', len: drawLen } }) });
+  SHOWPIECES.push({
+    id: 'nearfar', name: 'near and far', section: 'explainers', tags: ['comb', 'camera-free', 'Bézier eases', 'labels', 'essay'],
+    note: 'The fourth of wander\'s essays in five beats: sixty-four fence posts on the number line, then on the reader\'s lay, those within H in proportion and each doubling past it the same room; the far field squeezed between H and 2H; H made 16, every post sliding along the same lay. Each row of posts is one open line. The scene of the explainer page\'s sixth explainer.',
+    svg: svg(480, 300, body),
+    scene: {
+      loop: 40, ease: '', stops: [0.18, 0.38, 0.58, 0.78],
+      camera: [{ t: 0, fit: [1, 2, 28], pad: 0.08 }],
+      beats: NEARFAR_BEATS,
+      morphs: [
+        { keys: [1], clip: span(0.01, 0.99, { in: { kind: 'draw', len: 0.03 } }) },
+        { keys: [2], clip: span(0.18, 0.99, { in: { kind: 'draw', len: 0.03 } }) },
+        { keys: [3], clip: span(0.01, 0.99, fadeIn(0.02)) },
+        { keys: [4], clip: span(0.19, 0.99, fadeIn(0.02)) },
+        { keys: [18], clip: span(0.02, 0.99, fadeIn(0.02)) },
+        { keys: [19], clip: span(0.19, 0.99, fadeIn(0.02)) },
+        // the number line's posts left behind, faint, once they start to move
+        ...[13, 14].map((k, i) => ({ keys: [k], clip: span([0.21, 0.41][i], 0.99, fadeIn(0.02)) })),
+        posts(5, 7, 9, 11, 0.03, 0.21, 0.03),
+        posts(6, 8, 10, 12, 0.06, 0.41, 0.08),
+        { keys: [15], clip: span(0.2, 0.99, { in: { kind: 'draw', len: 0.02 } }) },
+        { keys: [20], clip: span(0.2, 0.99, fadeIn(0.02)) },
+        { keys: [25, 25, 26, 26], times: rel(0.2, 0.99, [0.2, 0.86, 0.92, 0.99]), clip: span(0.2, 0.99, fadeIn(0.02)) },
+        { keys: [27, 27, 28, 28], times: rel(0.28, 0.99, [0.28, 0.86, 0.92, 0.99]), clip: span(0.28, 0.99, fadeIn(0.02)) },
+        // the doublings, each the same room, until the far field is squeezed
+        { keys: [16], clip: span(0.5, 0.6, { in: { kind: 'draw', len: 0.02 }, out: { kind: 'fade', len: 0.01 } }) },
+        ...[21, 22, 23].map((k, i) => ({ keys: [k], clip: span(+(0.51 + 0.01 * i).toFixed(2), 0.6, inOut(0.015, 0.01)) })),
+        { keys: [17], clip: span(0.66, 0.79, { in: { kind: 'draw', len: 0.02 }, out: { kind: 'undraw', len: 0.015 } }) },
+        { keys: [24], clip: span(0.67, 0.79, inOut(0.015, 0.01)) }
+      ]
+    }
+  });
+}
+// 20. MANY STANDPOINTS (29 Oct 2026, Tom: "proceed per your suggestions"): essay 6 (papers/essays/06-many-standpoints.md)
+// in five beats, the scene of explained.html?x=standpoints. One eye at A sees a target as a ray, things half and twice as
+// far on the same ray; a second eye at B, half a baseline either side of the middle, and the two rays cross at the target;
+// the target slides along the middle line, in toward the baseline, then out through the circle on the baseline (Thales,
+// parallax's corner, where the depth is read best) with the error patch drawn at every place, round at the corner and
+// stretched along the line of sight elsewhere; out past the band's far edge, where the parallax is under 2ε (each eye off by
+// up to ε) and the outer rays no longer meet, the patch opening into a ray (here past about 10 half-baselines, where tan ε = B/2d); then one counted baseline writing the distance, in centimetres for two eyes and in AU
+// for Earth's orbit, the picture unchanged. The step ε is a coarse 0.1 rad so the patches can be seen. Every patch is
+// computed: the four crossings of the rays from A and B turned ±ε, a crossing behind either eye taken 1800 out along its
+// ray. Features it exercises: one keyed walk shared by four morphs (target, two rays, patch) through 17 keys with
+// straight stretches, a plotted semicircle drawn on, the camera pulled out to follow and back, an undraw, and labels into
+// labels with two chains.
+{
+  const O = [240, 340], b = 40, EPS = 0.1, f1 = v => +v.toFixed(2), seq = n => Array.from({ length: n }, (_, j) => j),
+    A = [O[0] - b, O[1]], B = [O[0] + b, O[1]], T = k => [O[0], O[1] - k * b],
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 15) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#b9b2a6',
+    ang = (P, Q) => Math.atan2(Q[1] - P[1], Q[0] - P[0]),
+    // where the ray from P at angle a meets the ray from Q at angle c; behind either, a point far out on P's ray
+    cross = (P, a, Q, c) => {
+      const d1 = [Math.cos(a), Math.sin(a)], d2 = [Math.cos(c), Math.sin(c)], den = d1[0] * d2[1] - d1[1] * d2[0];
+      const t = den ? ((Q[0] - P[0]) * d2[1] - (Q[1] - P[1]) * d2[0]) / den : -1,
+        u = den ? ((Q[0] - P[0]) * d1[1] - (Q[1] - P[1]) * d1[0]) / den : -1;
+      const s = t > 0 && u > 0 ? Math.min(t, 1800) : 1800;
+      return [P[0] + s * d1[0], P[1] + s * d1[1]];
+    },
+    patch = k => { const t = T(k), a = ang(A, t), c = ang(B, t);
+      return [cross(A, a - EPS, B, c - EPS), cross(A, a - EPS, B, c + EPS), cross(A, a + EPS, B, c + EPS), cross(A, a + EPS, B, c - EPS)]; },
+    KS = [0.5, 0.71, 1, 1.41, 2, 2.83, 4, 7, 12, 30],
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/06-many-standpoints.md';
+  const STAND_BEATS = [
+    { title: 'One eye: a direction is a line',
+      text: 'Close one eye and look at something. It comes to you as a direction: a line from your eye through it to whatever lies beyond. **Every point on that line looks the same.** The faint dots, half as far and twice as far, are seen exactly where the target is.\n\nOne standpoint gives directions, and the corner of each; it gives no distance.' },
+    { title: 'Two eyes: two lines cross',
+      text: 'Open the other eye, a baseline away. From there the target is a second line, and the two lines **cross at the target**. The crossing is a place.\n\nThe length every place is found in is the baseline itself, which you have never measured: here the target is 2.8 half-baselines out.' },
+    { title: 'Parallax has a corner',
+      text: 'Read each direction only to a step, and each line becomes a narrow wedge. Where the two wedges cross is everything the pair cannot tell apart: the patch.\n\nThe circle on the baseline is **parallax\'s corner** (Thales): there the lines of sight meet square, and the patch is round. Nearer or farther it stretches along the line of sight, alike at *k* and 1/*k* half-baselines. [Parallax has a corner, §4](' + ESSAY + ')' },
+    { title: 'Past the far edge, a ray',
+      text: 'Farther out the patch stretches as the square of the distance. At the far edge, where the whole parallax is no more than the two eyes\' steps together, the outer lines no longer meet at all, and **the place opens back into a ray**.\n\nPast its band, parallax gives what one eye gives, a direction. Each eye\'s step here is a coarse 0.1 rad so the patches can be seen, which puts the edge about 10 half-baselines out; real eyes reach about 650 m.' },
+    { title: 'One length writes them all',
+      text: 'Everything so far was in baselines: free, and the same for any pair of eyes. Carry in one amount, the baseline\'s length, and every place is written in it.\n\nTwo eyes 6.5 cm apart put this target 9.2 cm away; Earth\'s orbit, two astronomical units across, puts the same picture\'s target 2.8 AU away. **The picture does not change; only the one amount does.** [The essay](' + ESSAY + ')' }
+  ];
+  // shapes, in order: 0 the paper; 1 the baseline; 2, 3 the eyes A and B; 4–13 the patch at each k of KS (under the rest);
+  // 14–23 the target; 24–33 the ray from A; 34–43 the ray from B; 44, 45 the target's twins at half and twice its distance; 46 the circle
+  // on the baseline; 47–50 the labels A, B, the corner, a ray; 51, 52 B = 6.5 cm, B = 2 AU; 53, 54 d = 9.2 cm, d = 2.8 AU
+  const half = KS.map(k => { const t = T(k); return [A[0] + 0.5 * (t[0] - A[0]), A[1] + 0.5 * (t[1] - A[1])]; })[5],
+    twice = (() => { const t = T(KS[5]); return [A[0] + 2 * (t[0] - A[0]), A[1] + 2 * (t[1] - A[1])]; })();
+  const body = rectP(-1400, -1600, 1900, 900, '#f4f1ea')
+    + line([A, B], INK, 2) + circ4(...A, 6, INK) + circ4(...B, 6, INK)
+    + KS.map(k => polyOf(patch(k), '#f1dfbd')).join('')
+    + KS.map(k => circ4(...T(k), 5.5, GOLD)).join('')
+    + KS.map(k => line([A, T(k)], VIOLET, 1.6)).join('') + KS.map(k => line([B, T(k)], TEAL, 1.6)).join('')
+    + circ4(...half, 4, '#ead2a8') + circ4(...twice, 4, '#ead2a8')
+    + `<path data-plot="x = ${b}cos(t); y = ${b}sin(t)" data-t0="0" data-t1="π" data-n="48" data-cx="${O[0]}" data-cy="${O[1]}" fill="none" stroke="${GREY}" stroke-width="1.6"/>`
+    + label(A[0] - 22, A[1] + 22, 'A', INK) + label(B[0] + 8, B[1] + 22, 'B', INK) + label(O[0] - b - 86, O[1] - b + 4, 'the corner', GREY, 13)
+    + label(O[0] + 30, O[1] - 30 * b, 'a ray', GOLD, 40)
+    + label(O[0] - 150, O[1] + 46, 'B = 6.5 cm', INK) + label(O[0] - 150, O[1] + 46, 'B = 2 AU', INK)
+    + label(O[0] + 30, O[1] + 46, 'd = 9.2 cm', GOLD) + label(O[0] + 30, O[1] + 46, 'd = 2.8 AU', GOLD);
+  const rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)),
+    span = (start, end, io) => Object.assign({ start, len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    inOut = (a, c) => ({ in: { kind: 'fade', len: a }, out: { kind: 'fade', len: c } }),
+    // the walk every target-tied morph takes: held at 2.83, in to 0.5, out through the corner to 4, on past the far edge
+    // to 24, then back to 2.83
+    WALK = [5, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6, 6, 7, 8, 9, 9, 5, 5],
+    WT = [0, 0.42, 0.428, 0.436, 0.444, 0.452, 0.46, 0.476, 0.492, 0.508, 0.524, 0.54, 0.556, 0.6, 0.64, 0.68, 0.73, 0.8, 0.83, 0.99],
+    walk = (k0, a, io) => { const T0 = WT.map((t, i) => i ? t : a);
+      return { keys: WALK.map(i => k0 + i), times: rel(a, 0.99, T0), straight: true, clip: span(a, 0.99, io) }; };
+  SHOWPIECES.push({
+    id: 'standpoints', name: 'many standpoints', section: 'explainers', tags: ['camera', 'Thales', 'parallax', 'labels', 'essay'],
+    note: 'The sixth of wander\'s essays in five beats: one eye\'s ray and its twins on it; a second eye, the rays crossing at the target; the target walked in and out through the circle on the baseline, its error patch round at the corner and stretched elsewhere; past the far edge, the patch opening into a ray; one counted baseline writing the distance in centimetres or AU, the picture unchanged. The scene of the explainer page\'s seventh explainer.',
+    svg: svg(480, 400, body),
+    scene: {
+      loop: 40, ease: '', stops: [0.2, 0.4, 0.6, 0.8],
+      camera: [{ t: 0, fit: [1, 20, 45, 49, 51, 54], pad: 0.1 }, { t: 0.6, fit: [1, 20, 45, 49, 51, 54], pad: 0.1 }, { t: 0.73, fit: [1, 23, 50], pad: 0.08 },
+        { t: 0.8, fit: [1, 23, 50], pad: 0.08 }, { t: 0.84, fit: [1, 20, 45, 49, 51, 54], pad: 0.1 }],
+      beats: STAND_BEATS,
+      morphs: [
+        { keys: [1], clip: span(0.01, 0.99, drawIn(0.02)) },
+        { keys: [2], motion: { kind: 'pop', amount: 0.5 }, clip: span(0.02, 0.05, { show: 'in' }) },
+        { keys: [47], clip: span(0.03, 0.99, fadeIn(0.02)) },
+        walk(24, 0.05, drawIn(0.04)),
+        walk(14, 0.08, fadeIn(0.02)),
+        ...[44, 45].map((k, i) => ({ keys: [k], clip: span(+(0.11 + 0.02 * i).toFixed(2), 0.2, inOut(0.015, 0.015)) })),
+        { keys: [3], motion: { kind: 'pop', amount: 0.5 }, clip: span(0.21, 0.24, { show: 'in' }) },
+        { keys: [48], clip: span(0.22, 0.99, fadeIn(0.02)) },
+        walk(34, 0.24, drawIn(0.04)),
+        { keys: [46], clip: span(0.41, 0.99, drawIn(0.03)) },
+        { keys: [49], clip: span(0.43, 0.99, fadeIn(0.02)) },
+        walk(4, 0.41, fadeIn(0.02)), // before the walk's second key, at 0.42: the times must increase
+        { keys: [50], clip: span(0.72, 0.8, inOut(0.02, 0.015)) },
+        { keys: [51, 51, 52, 52], times: rel(0.83, 0.99, [0.83, 0.9, 0.93, 0.99]), clip: span(0.83, 0.99, fadeIn(0.02)) },
+        { keys: [53, 53, 54, 54], times: rel(0.85, 0.99, [0.85, 0.9, 0.93, 0.99]), clip: span(0.85, 0.99, fadeIn(0.02)) }
+      ]
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -2366,7 +2555,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },

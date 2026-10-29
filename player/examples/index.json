@@ -35,7 +35,9 @@
     "bridge",
     "reading",
     "turned",
-    "addresses"
+    "addresses",
+    "nearfar",
+    "standpoints"
    ]
   },
   {
@@ -404,6 +406,28 @@
     "essay"
    ]
   },
+  "nearfar": {
+   "name": "near and far",
+   "note": "The fourth of wander's essays in five beats: sixty-four fence posts on the number line, then on the reader's lay, those within H in proportion and each doubling past it the same room; the far field squeezed between H and 2H; H made 16, every post sliding along the same lay. Each row of posts is one open line. The scene of the explainer page's sixth explainer.",
+   "tags": [
+    "comb",
+    "camera-free",
+    "Bézier eases",
+    "labels",
+    "essay"
+   ]
+  },
+  "standpoints": {
+   "name": "many standpoints",
+   "note": "The sixth of wander's essays in five beats: one eye's ray and its twins on it; a second eye, the rays crossing at the target; the target walked in and out through the circle on the baseline, its error patch round at the corner and stretched elsewhere; past the far edge, the patch opening into a ray; one counted baseline writing the distance in centimetres or AU, the picture unchanged. The scene of the explainer page's seventh explainer.",
+   "tags": [
+    "camera",
+    "Thales",
+    "parallax",
+    "labels",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -589,12 +613,14 @@
   "lag": 17194,
   "explainer": 3611,
   "leaves": 33573,
-  "bridge": 203030,
+  "bridge": 217282,
   "word-morph": 17264,
   "word-draw": 12456,
   "word-pop": 5412,
   "addresses": 143520,
   "turned": 124042,
-  "reading": 166525
+  "reading": 166525,
+  "nearfar": 198335,
+  "standpoints": 135539
  }
 }

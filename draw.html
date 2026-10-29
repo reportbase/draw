@@ -29069,8 +29069,26 @@
                 host.remove();
             }
         }
+        // A SCENE'S QUIET FALLBACKS, SAID ALOUD (29 Oct 2026, Tom: "proceed per your suggestions", after making three
+        // explainers): a scene that asks for something the editor will not do falls back without a word, and each of these
+        // cost a round of looking at frames to find. Now each is said once in the console and kept in
+        // window.__sceneWarnings (the newest 50) for the tests and for whoever is writing a scene by hand: a drawing
+        // past LAZY_MIN_SHAPES opening as leaves, not exact; a clip whose last key's time comes before the window's end
+        // (the keys are laid from the first to the last across the window, so the last pose is stretched to its end);
+        // times or eases dropped as not well formed.
+        function sceneWarn(msg) {
+            const W = window.__sceneWarnings = window.__sceneWarnings || [];
+            if (W.includes(msg))
+                return;
+            W.push(msg);
+            if (W.length > 50)
+                W.shift();
+            console.warn('scene: ' + msg);
+        }
         function loadSvgExact(svgText, name, append) {
             const ex = parseSvgExact(svgText);
+            if (ex && ex.shapes.length >= LAZY_MIN_SHAPES)
+                sceneWarn(`${ex.shapes.length} shapes (a label's letters each count) is past ${LAZY_MIN_SHAPES}: the drawing opens as leaves, not exact`);
             if (!ex || !ex.shapes.length || ex.shapes.length >= LAZY_MIN_SHAPES)
                 return false;
             if (!append)
@@ -65898,7 +65916,7 @@
                 '- the scene may also set "stops": [t, …], places on the clock (0–1) where playing waits for the viewer to click on: the beats of an explainer (put one at the end of each step\'s clips); "beats": [{"title", "text"}, …], one more than the stops, the words read beside each stretch between them (an explainer page shows them, **bold** allowed); and "camera": [{"t": 0–1, "fit": [shape numbers] or "all", "pad": 0.12}, …], the view framing those shapes at that time, moving smoothly from one key to the next (zoom in on a detail, then back out), holding before the first and after the last.',
                 '- emit: {"count": 2–200 (12), "spread": [across, up] in the shape\'s own heights (where copies are scattered, round where it is drawn), "vary": 0–1 (how much each copy\'s size, turn and motion differ, 0.5), "seed": a number} makes the morph many times over, each copy with its own phase: confetti, rain, snow, a flock of bubbles. Draw the one shape; emit does the rest.',
                 '- times: one time per key, 0–1, increasing (when each key is reached); eases: one per stretch between keys: "linear", "inout", "in", "out", "anticipate" (draws back first, then goes), "overshoot" (goes past the next key and settles back), "elastic" (goes past and rings to rest) or null; the scene\'s "ease" takes the same names. Two keys with "anticipate" or "overshoot" give a simple morph the cartoon feel: use them for a thing that jumps, pops, snaps or lands. "straight": true blends each stretch from its two keys only, so a key repeated holds still (hold, move, hold: an explainer\'s steps); without it three keys or more flow smoothly through one another.',
-                '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out" | "draw"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), there until it plays then gone ("out"), or DRAWN ON over the window, its outline traced from its start like a pen and its fill coming in at the end, then staying ("draw"). A line (an open path: an arrow, an underline, a bracket) drawn on is a morph with one key and a "draw" clip. Clips one after another make a sequence. A clip may instead say how it comes and goes apart, each over its own length (a share of the loop, like start and len): "in": {"kind": "fade" | "draw" | "cut", "len"} (unseen before the window, then fading in, drawn on, or there at once) and "out": {"kind": "fade" | "undraw" | "cut", "len"} (gone after the window, fading out, the pen going back, or gone at once); with no "in" it is there from the loop\'s start, with no "out" it stays. So a line can be drawn on and later fade: {"start": 0.2, "len": 0.5, "in": {"kind": "draw", "len": 0.1}, "out": {"kind": "fade", "len": 0.05}}.',
+                '- clip: {"start": 0–1, "len": 0–1, "show": "" | "during" | "fade" | "in" | "out" | "draw"}: the morph plays ONCE in that window of the loop (first key to last), holding either side; with \"times\" its keys are laid across the window from the first time to the last, so a pose meant to hold until the window ends needs its last key given again with the last time near 1; "show" makes it seen only while it plays ("during"), fading in and out ("fade"), appearing and staying ("in"), there until it plays then gone ("out"), or DRAWN ON over the window, its outline traced from its start like a pen and its fill coming in at the end, then staying ("draw"). A line (an open path: an arrow, an underline, a bracket) drawn on is a morph with one key and a "draw" clip. Clips one after another make a sequence. A clip may instead say how it comes and goes apart, each over its own length (a share of the loop, like start and len): "in": {"kind": "fade" | "draw" | "cut", "len"} (unseen before the window, then fading in, drawn on, or there at once) and "out": {"kind": "fade" | "undraw" | "cut", "len"} (gone after the window, fading out, the pen going back, or gone at once); with no "in" it is there from the loop\'s start, with no "out" it stays. So a line can be drawn on and later fade: {"start": 0.2, "len": 0.5, "in": {"kind": "draw", "len": 0.1}, "out": {"kind": "fade", "len": 0.05}}.',
                 '- trail: {"kind": "echoes" | "ribbon", "len": 0–1}. fx: {"kind": "shimmer" | "grow" | "boil", "amount": 0–1}: a living outline, for flames, water, a heartbeat.',
                 '- lag: 0–0.9, the outline\'s parts arriving one after another (a flag, a jelly). follow: {"kind": "lag" | "spring", "amount": 0–1}, with parent: how loosely it is carried.',
                 '- parent: a MORPH number whose every move and turn carries this one (a moon on its planet, a rider on a horse). look: a morph number it keeps turning to face.',
@@ -74447,6 +74465,15 @@
                     run.straight = !!o.straight;
                 if (has('clip'))
                     run.clip = morphClipNorm(o.clip); // A MORPH THAT PLAYS ONCE, and IN AND OUT
+                // A SCENE'S QUIET FALLBACKS, SAID ALOUD: what was given and not taken, and a clip whose last key ends early
+                const which = 'a morph of ' + run.keys.length + ' keys';
+                if (has('times') && o.times != null && !run.times)
+                    sceneWarn(which + ': times dropped (one per key, increasing, each 0 to 0.9999)');
+                if (has('eases') && o.eases != null && !run.eases)
+                    sceneWarn(which + ': eases dropped (one per stretch: ' + (run.keys.length === 2 ? 1 : run.keys.length) + ', the last the stretch back round)');
+                if (run.clip && run.times && run.keys.length > 2 && run.times[run.times.length - 1] < 0.98)
+                    sceneWarn(which + ': a clip lays its keys from the first to the last across its window, and the last key\'s time is '
+                        + run.times[run.times.length - 1] + ', so its last pose is stretched to the window\'s end; give the last key again at the end to hold');
                 if (o.trail)
                     run.trail = { kind: MORPH_TRAILS.includes(o.trail.kind) ? o.trail.kind : '', len: clamp(o.trail.len, 0, 1, 0.5) };
                 if (o.path != null && S[o.path])
