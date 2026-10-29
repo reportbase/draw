@@ -14,7 +14,7 @@
 <body class="page-labs">
 <header>
   <nav class="crumbs"><a href="draw.html">← the editor</a> · <a href="gallery/index.html">the galleries</a></nav>
-  <h1>tvf <em>labs</em> <span class="pill">93 labs</span></h1>
+  <h1>tvf <em>labs</em> <span class="pill">96 labs</span></h1>
   <p class="lede">
     The leaf editor's lab drawer holds the <b>experiments</b>: instruments that measure the format rather than
     make shapes with it, test suites that print their own numbers, and figures laid out for a paper. Each
@@ -29,7 +29,7 @@
 </header>
 <div class="bar"><div class="bar-in">
   <input id="q" type="search" placeholder="filter: a code, a word, a heading" aria-label="filter the labs" autocomplete="off">
-  <span class="count" id="count">93 labs</span>
+  <span class="count" id="count">96 labs</span>
   <div class="spacer"></div>
   <a class="jump" href="draw.html?lab=list" title="open the editor with the lab drawer listed">open the drawer</a>
 </div></div>
@@ -681,6 +681,36 @@
     </ul>
   </section>
   <section class="group" id="g56">
+    <div class="sec-head"><h2>averaging directions</h2><div class="rule"></div><span class="n">1 lab</span></div>
+    <div class="sec-note">Essay 3 (and OFS §7.2) advises: to summarize directions take the median; to average, average the angle, which is bounded . <details><summary>more</summary>Here each library figure gives a true direction m, the slope to its farthest point from its centroid, and 20,000 readings of it are taken from a height γ (0.05, 0.2, 0.5 or 1): slopes m + γ·tan of a uniform turn, the address law met from a standpoint off the line. Three summaries are formed. Predictions, written before the run : (1) the median of the slopes returns m; (2) the mean of the angles returns atan(m/(1+γ)), not atan m, so it is pulled toward home wherever m ≠ 0 (from E[log(1 + is)] = log(1 + γ + im), the expectation of a function analytic in the lower half-plane taken at m − iγ); (3) half the mean of the doubled angle returns ½·[atan2(m, 1−γ) + atan2(m, 1+γ)], pulled the other way, toward the horizon. Kill : any cell off any of the three by more than four standard errors. If they hold, the angle's mean is a mean of the angle chart and not an estimate of the direction, and the essay's sentence needs its scope.</details></div>
+    <ul class="labs">
+      <li class="lab" data-q="avd average the readings read each library figure's direction 20,000 times from a height and summarize it three ways: the median of the slopes, the mean of the angles, and the mean of the doubled angle, each against its predicted value. replaces the page in one history frame. averaging directions">
+        <a class="run" href="draw.html?lab=avd" title="open the editor and run average the readings"><span class="code">avd</span>average the readings</a>
+        <p>read each library figure's direction 20,000 times from a height and summarize it three ways: the median of the slopes, the mean of the angles, and the mean of the doubled angle, each against its predicted value. Replaces the page in one history frame.</p>
+      </li>
+    </ul>
+  </section>
+  <section class="group" id="g57">
+    <div class="sec-head"><h2>joining the four facings</h2><div class="rule"></div><span class="n">1 lab</span></div>
+    <div class="sec-note">Essay 10 §2: a closed curve is four quarter-turn arrays, and the reader holds each only up to its own factor, so it cannot tell whether two ends meet ; the writer, knowing the sizes, joins them. <details><summary>more</summary>Here each star-shaped figure's radius from its centroid is laid as four arrays of 64 leaves, each multiplied by an unknown seeded factor between ¼ and 4, and the order of the four is given. The reader then assumes one thing about the payload, that it is continuous, and joins each pair where they meet: each array's log-radius carried to the seam by a quadratic through its three nearest leaves, the two ends set equal. Three seams fix the three ratios; the fourth, back round to the first, is left over as a check. Predictions, written before the run : (1) on the round figures the ratios come back within 10⁻⁴; (2) over the library the median worst ratio error is under 1%; (3) every figure whose worst ratio is off by more than 1% is flagged by the fourth seam (left over by more than 0.5%): no wrong join passes unseen. Kill : any of the three failing. The overall size never comes back, by construction. If they hold, the essay's sentence holds for a reader that assumes nothing about the payload, and continuity, a model of the payload, is enough to join the facings up to one size.</details></div>
+    <ul class="labs">
+      <li class="lab" data-q="jnf join the facings lay each star-shaped figure as four quarter-turn arrays scaled by unknown factors, join them by continuity at three seams, and check the fourth. replaces the page in one history frame. joining the four facings">
+        <a class="run" href="draw.html?lab=jnf" title="open the editor and run join the facings"><span class="code">jnf</span>join the facings</a>
+        <p>lay each star-shaped figure as four quarter-turn arrays scaled by unknown factors, join them by continuity at three seams, and check the fourth. Replaces the page in one history frame.</p>
+      </li>
+    </ul>
+  </section>
+  <section class="group" id="g58">
+    <div class="sec-head"><h2>size sets the level</h2><div class="rule"></div><span class="n">1 lab</span></div>
+    <div class="sec-note">Essay 4 §10 (and OFS §8): a thing that spans n of the reader's places is resolved to about log₂ n levels of detail , and the level is a continuous number. <details><summary>more</summary>Here each star-shaped figure's log-radius from its centroid is read at n equal-angle places, n = 16 to 512, and its spectrum split into levels, harmonics 2ʲ to 2ʲ⁺¹ − 1. The reader's reconstruction is the trigonometric interpolant of its places, and a level holds when its error, folding included, is within 10% of the level's own size. A second reader reads from the Cauchy's height, γ = π/n, half a place, which keeps harmonic k by e^(−kγ); its level is the sum over levels of the share of each level's energy it keeps, a continuous number. Predictions, written before the run : (1) every level wholly below a quarter of the places holds, on every figure at every n, so at least log₂ n − 2 levels; (2) the median over the library gains exactly one held level per doubling of n; (3) the height reader's level rises by 1 ± 0.15 per doubling from 16 to 256, on every figure. Kill : (1) a level below n/4 off by more than 10% on any figure, (2) a median gain other than one, (3) any figure off by more than 0.15 at any doubling. Corners, stars and grazing figures are where it may break: their fine detail folds into the coarse levels.</details></div>
+    <ul class="labs">
+      <li class="lab" data-q="ssl count the levels read each star-shaped figure at 16 to 512 places, count the levels of its shape that hold, and follow the level a reader at the cauchy's height keeps as a continuous number. replaces the page in one history frame. size sets the level">
+        <a class="run" href="draw.html?lab=ssl" title="open the editor and run count the levels"><span class="code">ssl</span>count the levels</a>
+        <p>read each star-shaped figure at 16 to 512 places, count the levels of its shape that hold, and follow the level a reader at the Cauchy's height keeps as a continuous number. Replaces the page in one history frame.</p>
+      </li>
+    </ul>
+  </section>
+  <section class="group" id="g59">
     <div class="sec-head"><h2>the live morph</h2><div class="rule"></div><span class="n">14 labs</span></div>
     <div class="sec-note">The controls of a running morph, which sit in the bar under the canvas rather than in the drawer. <details><summary>more</summary>They act on the morph that is live, so they do nothing until one is: select two or more shapes, press morph in the toolbar, then live.</details></div>
     <ul class="labs">
@@ -764,7 +794,7 @@ q.addEventListener('input', () => {
     }
     sec.hidden = !any;
   }
-  count.textContent = words.length ? shown + ' of 93' : '93 labs';
+  count.textContent = words.length ? shown + ' of 96' : '96 labs';
   none.hidden = shown > 0;
 });
 </script>

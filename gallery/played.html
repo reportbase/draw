@@ -17,7 +17,7 @@
      two script tags, so it is the one gallery page that is not a single file. -->
 
 <header>
-  <nav class="crumbs"><a href="index.html">← all galleries</a> · 29 of 30</nav>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 29 of 31</nav>
   <h1>tvf <em>played</em> <span class="pill">player/tvf-player.js</span></h1>
   <p class="lede">
     The animations a third way: as <b>the scene itself</b>. A <code>.tvfs</code> file holds what the leaf editor
@@ -93,14 +93,15 @@
   </section>
 
   <section id="yours">
-    <div class="sec-head"><h2>your own</h2><div class="rule"></div><span class="n">drop a .tvfs</span></div>
+    <div class="sec-head"><h2>your own</h2><div class="rule"></div><span class="n">drop a .tvfs or a Lottie</span></div>
     <p class="sec-note">Open a <code>.tvfs</code> or drop one on this panel, and it plays here at the size of the
-    panel. Scrub it with the slider. Nothing is sent anywhere: the file is read in this tab. The same is on its own
+    panel. A Lottie file (Bodymovin's <code>.json</code>) is turned into a scene first, here, by
+    <code>player/lottie.js</code>, and what it could not read is named under the panel. Scrub it with the slider. Nothing is sent anywhere: the file is read in this tab. The same is on its own
     page, <a href="../player/player.html">player/player.html</a>, which also takes <code>?src=</code>.</p>
     <div class="tile wide yours" id="yourTile">
-      <div class="stage"><canvas id="yourCv"></canvas><div class="drop" id="yourDrop">drop a .tvfs file here</div></div>
+      <div class="stage"><canvas id="yourCv"></canvas><div class="drop" id="yourDrop">drop a .tvfs or a Lottie .json here</div></div>
       <div class="tools">
-        <label class="file">open .tvfs<input type="file" id="yourFile" accept=".tvfs,.json,application/json" hidden></label>
+        <label class="file">open .tvfs or Lottie<input type="file" id="yourFile" accept=".tvfs,.json,application/json" hidden></label>
         <button id="yourPlay" disabled>pause</button>
         <input type="range" id="yourT" min="0" max="1000" value="0" disabled title="where in the loop">
       </div>
@@ -113,7 +114,7 @@
   Every tile here is a file in <code>player/examples/</code>, written by the leaf editor from the
   <a href="animated.html">animated</a> page's examples and played by <code>player/tvf-player.js</code>, which is the
   editor's own morph engine taken from <code>draw.html</code> by name, unchanged, with a small runtime that draws.
-  <div class="next">Next: <a href="explained.html">explained</a>, one of these scenes as a scrolling explainer: how leaves become a curve.</div>
+  <div class="next">Next: <a href="lottie.html">lottie</a>, a Lottie file processed into a scene and played, with a place to open your own.</div>
 </footer>
 
 <script>
@@ -1317,6 +1318,7 @@ return { Shape, mix, alignTo, primitives, kernelMatrix, kernelSlope, slopeDiff, 
 </script>
 <script src="../tvf-core.js"></script>
 <script src="../player/tvf-player.js"></script>
+<script src="../player/lottie.js"></script>
 <script>
 // ── THE PLAYED GALLERY ─────────────────────────────────────────────────────────────────────────────
 // Every tile is one canvas and one controller of the player's (TVFPlayer.play), started the first time the
@@ -1384,13 +1386,22 @@ const yours = { ctl: null };
     tIn = document.getElementById('yourT'), playB = document.getElementById('yourPlay'), tile = document.getElementById('yourTile');
   const show = (d, from) => {
     if (yours.ctl) yours.ctl.pause();
+    let note = '';
+    if (TVFLottie.isLottie(d)) { // (29 Oct 2026, Tom: "1,2,4", the fourth: import from Lottie)
+      try {
+        const { scene, report } = TVFLottie.toScene(d, { name: from });
+        const out = Object.keys(report.unsupported);
+        note = ' · from Lottie: ' + report.frames + ' frames, ' + report.keys + ' keys' + (out.length ? ', left out: ' + out.join(', ') : '');
+        d = scene;
+      } catch (e) { info.textContent = 'could not read the Lottie file: ' + e.message; return; }
+    }
     let c;
     try { c = TVFPlayer.play(cv, d, {}); } catch (e) { info.textContent = 'could not play it: ' + e.message; return; }
     yours.ctl = c;
     c.ready.then(() => {
       const S = c.scene;
       info.textContent = (d.name || from || 'scene') + ' · ' + S.runs.length + ' morph' + (S.runs.length === 1 ? '' : 's') + ' · '
-        + S.items.filter(it => it.still).length + ' still shape' + (S.items.filter(it => it.still).length === 1 ? '' : 's') + ' · a ' + S.loop.toFixed(1) + ' s loop';
+        + S.items.filter(it => it.still).length + ' still shape' + (S.items.filter(it => it.still).length === 1 ? '' : 's') + ' · a ' + S.loop.toFixed(1) + ' s loop' + note;
       drop.style.display = 'none';
       playB.disabled = tIn.disabled = false;
       playB.textContent = 'pause';
@@ -1414,12 +1425,12 @@ const io = new IntersectionObserver(entries => {
     const t = e.target;
     t.classList.toggle('seen', e.isIntersecting);
     if (e.isIntersecting && !t._ctl) start(t);
-    else if (t._ctl && !t.classList.contains('held')) e.isIntersecting ? t._ctl.play() : t._ctl.pause();
+    else if (t._ctl && !t.classList.contains('held') && !t.classList.contains('live')) e.isIntersecting ? t._ctl.play() : t._ctl.pause();
   }
   document.getElementById('playing').textContent = '· ' + tiles.filter(t => t._ctl && t._ctl.playing).length + ' playing';
 }, { threshold: 0.05 });
 function start(tile) {
-  tile._ctl = TVFPlayer.play(tile.querySelector('canvas'), new URL(tile.id + '.tvfs', EX).href, {});
+  tile._ctl = TVFPlayer.play(tile.querySelector('canvas'), tile._src || new URL(tile.id + '.tvfs', EX).href, {});
   tile._ctl.ready.then(c => {
     tile._scene = c.scene;
     const S = c.scene, n = S.runs.length;
@@ -1476,7 +1487,55 @@ function start(tile) {
     a.textContent = sec.title.replace(/^first steps: /, '');
     jumps.appendChild(a);
   }
-  const total = Object.values(index.bytes).reduce((a, b) => a + b, 0);
+  // ── YOU CAN CLICK, YOU CAN TOUCH, FROM LOTTIE (29 Oct 2026, Tom: "1,2,4") ── scenes that answer the hand
+  // (states and rules, papers/tvf.md §2.10), morphs you can take and throw, and a Lottie file read as a scene;
+  // player/interactive/, written by tools/write-interactive.mjs. The canvas here is the scene's: a click on it is
+  // the scene's click, not a pause.
+  const IA = new URL('../player/interactive/', location.href);
+  const ia = await (await fetch(new URL('index.json', IA))).json();
+  const IA_SECS = [
+    { id: 'interactive', title: 'you can click', note: 'Scenes with states (named times of the loop) and rules for the hand: a click toggles between two states, a press holds one, the pointer over a shape lifts it, the page\'s scroll draws a line. Nothing is posed differently: a state is only a time, and the player turns the clock toward it.' },
+    { id: 'touch', title: 'you can touch', note: 'The same ball, lantern and jelly as above with touch on: take one with the mouse or a finger and let go. The ball flies and bounces, the lantern swings as a pendulum of its own length, the jelly springs back; then each gives itself back to its motion.' },
+    { id: 'lottie', title: 'from Lottie', note: 'A small Lottie file of our own, read by player/lottie.js: every frame drawn as exact paths and each path kept as keys only where a straight blend cannot stand in for the frames between. Against lottie-web drawing the same file it is within a tenth of a step of 255 on every frame compared.' }
+  ];
+  for (const sec of IA_SECS) {
+    const list = ia.scenes.filter(e => e.kind === sec.id);
+    const el = document.createElement('section');
+    el.id = 'sec-' + sec.id;
+    el.innerHTML = `<div class="sec-head"><h2>${esc(sec.title)}</h2><div class="rule"></div><span class="n">${list.length}</span></div>`
+                 + `<p class="sec-note">${esc(sec.note)}</p><div class="grid"></div>`;
+    const grid = el.querySelector('.grid');
+    for (const ex of list) {
+      const id = ex.id, url = new URL(ex.file, IA).href;
+      const tile = document.createElement('div');
+      tile.className = sec.id === 'interactive' ? 'tile live' : 'tile'; // a scene with states plays only when the hand asks
+      tile.id = id;
+      tile._src = url;
+      tile.innerHTML =
+        `<div class="stage"><canvas title="${esc(ex.note)}"></canvas></div>` +
+        `<div class="tools"><button class="copy" title="copy the code that puts this scene on a page of yours">copy embed code</button>` +
+        `<a class="get" href="${url}" download="${ex.file}" title="the scene as a file">.tvfs</a>` +
+        (sec.id === 'lottie' ? `<a class="get" href="${new URL(ex.file.replace(/\.tvfs$/, '.json'), IA).href}" download="${ex.file.replace(/\.tvfs$/, '.json')}" title="the Lottie file it was read from">.json</a>` : '') +
+        `</div><div class="body"><h3>${esc(ex.name)}</h3><p class="note">${esc(ex.note)}</p>` +
+        `<code class="src">${kb(ex.bytes || 0)}<span class="facts"></span></code></div>`;
+      const cb = tile.querySelector('.copy');
+      cb.addEventListener('click', async () => {
+        const code = embedOf(id, ex.name).replace('player/examples/' + id + '.tvfs', 'player/interactive/' + ex.file);
+        if (await copyText(code)) flash(cb, 'copied', 'copy embed code');
+      });
+      grid.appendChild(tile);
+      tiles.push(tile);
+      io.observe(tile);
+      n++;
+    }
+    main.appendChild(el);
+    const a = document.createElement('a');
+    a.className = 'jump';
+    a.href = '#' + el.id;
+    a.textContent = sec.title;
+    jumps.appendChild(a);
+  }
+  const total = Object.values(index.bytes).reduce((a, b) => a + b, 0) + ia.scenes.reduce((a, e) => a + (e.bytes || 0), 0);
   document.getElementById('count').textContent = n + ' scenes · ' + kb(total) + ' in all';
   window.__played = {
     ids: tiles.map(t => t.id),

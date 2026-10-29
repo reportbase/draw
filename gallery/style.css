@@ -548,6 +548,43 @@ a.paper:hover{background:rgba(124,92,255,.22);color:#d9cfff}
   font-family:var(--mono);font-size:11.5px;line-height:1.55;color:var(--ink-2);overflow:auto;white-space:pre}
 .page-played .step-card .tools{display:flex;justify-content:flex-end;margin-top:-4px}
 .page-played .step-card .tools button{padding:3px 10px;font-size:11.5px;border-radius:7px}
+
+/* ── LOTTIE ── (lottie.html, on the played page's cards and tile buttons) two benches: the Lottie's frame as exact
+   paths beside the scene the player plays, the strip of kept keys under them, the knobs, the numbers */
+.page-lottie .bench{display:flex;flex-direction:column;gap:12px}
+.page-lottie .bench-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.page-lottie .bench-bar .sep{flex:1}
+.page-lottie .bench-bar .picker{display:inline-flex;gap:6px;flex-wrap:wrap}
+.page-lottie .bench-bar button, .page-lottie .bench-bar label.file{font-size:11.5px;color:var(--ink);background:#1c2333;
+  border:1px solid var(--line-2);border-radius:7px;padding:4px 11px;cursor:pointer;white-space:nowrap}
+.page-lottie .bench-bar button:hover:not(:disabled), .page-lottie .bench-bar label.file:hover{background:#232c42}
+.page-lottie .bench-bar button.on{background:var(--curv);border-color:var(--curv);color:#fff}
+.page-lottie .bench-bar button.go{background:var(--curv);border-color:var(--curv);color:#fff}
+.page-lottie .bench-bar button:disabled, .page-lottie .bench input:disabled{opacity:.45;cursor:default}
+.page-lottie .bench-bar input[type=range].fr{width:min(300px,40vw)}
+.page-lottie .bench-bar .frl{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:11ch}
+.page-lottie .status{font-family:var(--mono);font-size:11.5px;color:var(--dim);min-height:1.5em;line-height:1.5}
+.page-lottie .bench-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.page-lottie .bench figure{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.page-lottie .bench figure canvas{width:100%;height:300px;display:block;background:var(--stage);border:1px solid var(--line);border-radius:8px}
+.page-lottie .bench figcaption{font-size:12px;color:var(--dim);line-height:1.5}
+.page-lottie .bench figcaption b{color:var(--ink-2);font-weight:600}
+.page-lottie .keys canvas{width:100%;height:140px;display:block;border:1px solid var(--line);border-radius:8px}
+.page-lottie .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--dim);margin-top:6px}
+.page-lottie .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.page-lottie .knobs{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center;font-size:12px;color:var(--ink-2)}
+.page-lottie .knobs label{display:inline-flex;gap:8px;align-items:center}
+.page-lottie .knobs b{font-variant-numeric:tabular-nums;color:var(--ink);min-width:7ch}
+.page-lottie .read{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px 22px;font-variant-numeric:tabular-nums}
+.page-lottie .read div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.page-lottie .read span{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim)}
+.page-lottie .read b{font-weight:550;color:var(--ink);overflow-wrap:anywhere}
+.page-lottie .bench.over{outline:2px dashed var(--curv);outline-offset:-2px}
+.page-lottie table.sizes{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:12.5px}
+.page-lottie table.sizes th{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);text-align:right;font-weight:500;padding:2px 10px 4px}
+.page-lottie table.sizes th:first-child, .page-lottie table.sizes td:first-child{text-align:left}
+.page-lottie table.sizes td{padding:3px 10px;border-top:1px solid var(--line);text-align:right;color:var(--ink-2)}
+
 .page-played .step-card .tools .copy.done{background:var(--ok);border-color:var(--ok);color:#0c0f16}
 .page-played .demo{display:flex;align-items:center;gap:12px;color:var(--dim);font-size:12px}
 .page-played .demo canvas{width:160px;height:110px;background:var(--stage);border:1px solid var(--line);border-radius:8px;flex:none}

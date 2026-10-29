@@ -2721,7 +2721,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html', 'played.html', 'explained.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html', 'played.html', 'lottie.html', 'explained.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -3347,8 +3347,9 @@ await step('the played gallery', async () => {
   await gp.route(/fonts\.g/, r => r.abort());
   await gp.goto(new URL('gallery/played.html', base).href, { waitUntil: 'load' });
   await gp.waitForFunction(() => window.__played && window.__played.ids.length > 0, null, { timeout: 20000 });
-  const n = await gp.evaluate(() => window.__played.ids.length);
-  if (n !== files.length) throw new Error(n + ' tiles for ' + files.length + ' scenes');
+  const n = await gp.evaluate(() => window.__played.ids.length),
+    nIa = JSON.parse(await readFile(join(ROOT, 'player', 'interactive', 'index.json'), 'utf8')).scenes.length;
+  if (n !== files.length + nIa) throw new Error(n + ' tiles for ' + files.length + ' + ' + nIa + ' scenes');
   // each tile brought into view and held there until it has started (one scrolled past within a frame is never seen)
   await gp.evaluate(async () => {
     for (const id of window.__played.ids) {
@@ -3389,6 +3390,203 @@ await step('the played gallery', async () => {
     let n = 0; for (let i = 3; i < p.length; i += 4) if (p[i] > 8) n++; return { n, w: c.width }; });
   await xp.close();
   if (!(lit.w >= 480 && lit.n > 1000)) throw new Error('the embed code drew ' + JSON.stringify(lit));
+});
+
+/* SCENES THAT ANSWER THE HAND, AND LOTTIE (29 Oct 2026, Tom: "1,2,4"): player/interactive/ is what
+   tools/write-interactive.mjs writes, its Lottie scene is what player/lottie.js makes of lottie-sample.json now,
+   and on the played gallery, with real input: a click on the menu runs it to its other state and a second back;
+   a press on the button holds it down and the release lets it up; the pointer over the card lifts it; the ball
+   taken and thrown flies the way it was thrown; the lantern pulled aside swings; and player.html opens a Lottie
+   file as a scene. */
+await step('interactive scenes, touch and Lottie', async () => {
+  const dir = join(ROOT, 'player', 'interactive'),
+    ia = JSON.parse(await readFile(join(dir, 'index.json'), 'utf8'));
+  const tvfs = (await readdir(dir)).filter(f => f.endsWith('.tvfs')).sort();
+  if (ia.scenes.map(e => e.file).sort().join() !== tvfs.join()) throw new Error('interactive/index.json lists ' + ia.scenes.length + ' scenes for ' + tvfs.length + ' files');
+  for (const e of ia.scenes)
+    if ((await readFile(join(dir, e.file), 'utf8')).length !== e.bytes) throw new Error(e.file + ' is not the size index.json gives: run node tools/write-interactive.mjs');
+  const gp = await browser.newPage({ viewport: { width: 1300, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[interactive] ${e.message}`));
+  await gp.route(/fonts\.g/, r => r.abort());
+  await gp.goto(new URL('gallery/played.html', base).href, { waitUntil: 'load' });
+  await gp.waitForFunction(() => window.__played && window.__played.ids.includes('lottie-sample'), null, { timeout: 20000 });
+  // the Lottie scene, made again in the page from its source
+  const same = await gp.evaluate(async () => {
+    const L = await (await fetch('../player/interactive/lottie-sample.json')).json(),
+      S = await (await fetch('../player/interactive/lottie-sample.tvfs')).json(),
+      { scene, report } = TVFLottie.toScene(L, { name: 'from Lottie' });
+    return { same: JSON.stringify(scene.morphs) === JSON.stringify(S.morphs) && JSON.stringify(scene.items) === JSON.stringify(S.items), report };
+  });
+  if (!same.same) throw new Error('lottie-sample.tvfs is not what player/lottie.js makes of lottie-sample.json now: run node tools/write-interactive.mjs');
+  if (!(same.report.morphs === 4 && same.report.frames === 60)) throw new Error('the Lottie sample read as ' + JSON.stringify(same.report));
+  // ONE SHAPE, MOVED and A CURVE OF ITS OWN: the ball, which only moves and squashes, is one key and a transform with
+  // Lottie's eases (17 of its 60 frames: its position and its squash are keyed at different frames with different
+  // eases, and a stretch has one ease for all its parts); the scene is version 2; and the player poses the ball where
+  // lottie.js drew it at frames between keys
+  const moved = await gp.evaluate(async () => {
+    const L = await (await fetch('../player/interactive/lottie-sample.json')).json(),
+      { scene, report } = TVFLottie.toScene(L, { name: 'from Lottie' }),
+      S = TVFPlayer.load(scene),
+      ball = scene.morphs.findIndex(m => m.xform),
+      run = S.runs[ball];
+    let worst = 0;
+    for (const f of [7, 13, 29, 41, 53]) {
+      const ops = TVFLottie.drawingAt(L, f, () => {}),
+        o = ops.find(q => q.key.startsWith('ball') || q.fill && Math.abs(q.fill[0] - 0.98) < 1e-6),
+        P = TVFPlayer.poses(S, f / 60)[ball];
+      for (let i = 0; i < o.x.length; i++)
+        worst = Math.max(worst, Math.hypot(P.x[i] - o.x[i], P.y[i] - o.y[i]));
+    }
+    return { v: scene.v, moved: report.moved, keys: run ? run.keys.length : 0, xkeys: scene.morphs[ball] ? scene.morphs[ball].xform.t.length : 0,
+      eased: !!(scene.morphs[ball] && scene.morphs[ball].xform.e && scene.morphs[ball].xform.e.some(Array.isArray)), worst };
+  });
+  if (!(moved.v === 2 && moved.moved >= 1 && moved.keys === 1 && moved.xkeys < 20 && moved.eased && moved.worst < 0.25))
+    throw new Error('the Lottie sample\'s ball as one shape moved: ' + JSON.stringify(moved));
+  const ready = async id => {
+    await gp.locator('#' + id).scrollIntoViewIfNeeded();
+    await gp.waitForFunction(id => window.__played.ready().includes(id), id, { timeout: 15000 });
+    await gp.waitForTimeout(100);
+    return gp.evaluate(id => window.__played.ctl(id).whereIs(0), id);
+  };
+  const tOf = id => gp.evaluate(id => window.__played.ctl(id).t, id);
+  // the menu: a click toggles it to its other state, a second back
+  let w = await ready('menu');
+  const m0 = await tOf('menu');
+  await gp.mouse.click(w.x, w.y);
+  await gp.waitForTimeout(1500);
+  const m1 = await tOf('menu');
+  await gp.mouse.click(w.x, w.y);
+  await gp.waitForTimeout(1500);
+  const m2 = await tOf('menu');
+  if (!(m0 === 0 && m1 === 1 && m2 === 0)) throw new Error('the menu went ' + [m0, m1, m2].join(' → ') + ', not 0 → 1 → 0');
+  // the button: held down while pressed
+  w = await ready('button');
+  await gp.mouse.move(w.x, w.y);
+  await gp.mouse.down();
+  await gp.waitForTimeout(900);
+  const b1 = await tOf('button');
+  await gp.mouse.up();
+  await gp.waitForTimeout(900);
+  const b2 = await tOf('button');
+  if (!(b1 > 0.9 && b2 < 0.1)) throw new Error('the button went to ' + b1 + ' pressed and ' + b2 + ' let go');
+  // the card: lifted while the pointer is over it
+  w = await ready('card');
+  await gp.mouse.move(w.x, w.y, { steps: 4 });
+  await gp.waitForTimeout(900);
+  const c1 = await tOf('card');
+  await gp.mouse.move(5, 5, { steps: 4 });
+  await gp.waitForTimeout(900);
+  const c2 = await tOf('card');
+  if (!(c1 > 0.9 && c2 < 0.1)) throw new Error('the card went to ' + c1 + ' under the pointer and ' + c2 + ' off it');
+  // the ball: thrown up and to the right, it flies that way
+  await ready('touch-bouncing-ball');
+  // (held still first: a ball bouncing under a slow page has moved on from where it was measured by the time the press lands)
+  w = await gp.evaluate(() => { const c = window.__played.ctl('touch-bouncing-ball'); c.pause(); return c.whereIs(0); });
+  await gp.waitForTimeout(100);
+  await gp.mouse.move(w.x, w.y);
+  await gp.mouse.down();
+  for (let i = 1; i <= 6; i++) { await gp.mouse.move(w.x + i * 20, w.y - i * 15); await gp.waitForTimeout(16); }
+  await gp.mouse.up();
+  // (read late on a busy machine, gravity may already have taken its upward speed: risen above where it was let go
+  // counts as thrown up)
+  const ball = await gp.evaluate(y0 => { const c = window.__played.ctl('touch-bouncing-ball'), T = c.scene.runs[0].touch;
+    return { phase: T.phase, vx: T.vx, vy: T.vy, rose: c.whereIs(0).y < y0 - 2 }; }, w.y - 6 * 15);
+  if (!(ball.phase === 'fly' && ball.vx > 0.2 && (ball.vy > 0.5 || ball.rose))) throw new Error('the ball thrown up and right: ' + JSON.stringify(ball));
+  // the lantern: pulled aside and let go, it swings
+  w = await ready('touch-lantern');
+  await gp.mouse.move(w.x, w.y + w.h * 0.3);
+  await gp.mouse.down();
+  await gp.mouse.move(w.x + 80, w.y + w.h * 0.3, { steps: 6 });
+  await gp.mouse.up();
+  await gp.waitForTimeout(200);
+  const lan = await gp.evaluate(() => window.__played.ctl('touch-lantern').scene.runs[0].touch.phase);
+  if (lan !== 'swing') throw new Error('the lantern let go is ' + lan + ', not swinging');
+  await gp.close();
+  // player.html opens a Lottie file as a scene
+  const pl = await browser.newPage();
+  pl.on('pageerror', e => failures.push(`[player: Lottie] ${e.message}`));
+  await pl.goto(new URL('player/player.html', base).href, { waitUntil: 'load' });
+  await pl.setInputFiles('#file', join(dir, 'lottie-sample.json'));
+  await pl.waitForFunction(() => window.__player.ctl() && window.__player.ctl().scene, null, { timeout: 10000 });
+  const info = await pl.evaluate(() => document.getElementById('info').textContent);
+  await pl.close();
+  if (!/from Lottie, 60 frames/.test(info)) throw new Error('player.html read the Lottie file as: ' + info);
+});
+
+/* THE LOTTIE PAGE (gallery/lottie.html, 29 Oct 2026, Tom: "Create a help gallery page the show the vtf viewer processing a
+   lottie file and animating it. One of the demos should let the user import a lottie file."): with real input, the first
+   bench converts a Lottie of ours and plays it, "process it" reads every frame and ends playing the scene, the picker
+   changes the Lottie, the knobs convert again (a looser tolerance and no transforms change the keys), the Lottie's frame
+   drawn as exact paths and the scene at the same moment agree to the pixel (mean difference under 2 of 255), a ring that
+   only turns takes two transform keys (about its own middle, not the page's origin), and the second bench opens a Lottie
+   file through its real picker, refuses a file that is not one and says so for a scene. */
+await step('the lottie page', async () => {
+  const dir = join(ROOT, 'player', 'interactive');
+  const gp = await browser.newPage({ viewport: { width: 1300, height: 1000 } });
+  gp.on('pageerror', e => failures.push(`[lottie page] ${e.message}`));
+  await gp.route(/fonts\.g/, r => r.abort());
+  await gp.goto(new URL('gallery/lottie.html', base).href, { waitUntil: 'load' });
+  await gp.waitForFunction(() => window.__lottie && window.__lottie.ready(), null, { timeout: 20000 });
+  await gp.waitForTimeout(500);
+  const info = id => gp.evaluate(id => { const i = window.__lottie.info(id); return { name: i.name, frames: i.frames, busy: i.busy, playing: i.playing, t: i.t, f: i.f, status: i.status, tol: i.tol,
+    morphs: i.report && i.report.morphs, moved: i.report && i.report.moved, keys: i.report && i.report.keys, xkeys: i.report && i.report.xkeys, tracks: i.report && i.report.tracks, scene: i.scene }; }, id);
+  const lit = sel => gp.evaluate(sel => { const c = document.querySelector(sel), p = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0;
+    for (let i = 0; i < p.length; i += 4) if (p[i] + p[i + 1] + p[i + 2] > 120) n++; return n; }, sel);
+  let a = await info('watch');
+  if (!(a.name === 'balls and squares' && a.frames === 60 && a.moved >= 1 && a.scene && a.playing)) throw new Error('the first bench opened as ' + JSON.stringify(a));
+  if (!(await lit('#benchWatch .cvL') > 2000 && await lit('#benchWatch .cvR') > 2000)) throw new Error('the two pictures drew nothing');
+  // process it: every frame read, then the conversion, the scene playing at the end
+  await gp.locator('#benchWatch .go').scrollIntoViewIfNeeded();
+  await gp.click('#benchWatch .go');
+  await gp.waitForFunction(() => /reading frame/.test(window.__lottie.info('watch').status), null, { timeout: 5000 });
+  await gp.waitForFunction(() => { const i = window.__lottie.info('watch'); return !i.busy && /^done:/.test(i.status); }, null, { timeout: 30000 });
+  a = await info('watch');
+  if (!a.playing) throw new Error('the scene was not playing after process it: ' + a.status);
+  // the picker: the spinner is eight shapes that only move and fade
+  await gp.click('#benchWatch .picker button[data-s="lottie-spinner"]');
+  await gp.waitForFunction(() => window.__lottie.info('watch').name === 'a spinner' && window.__lottie.info('watch').scene, null, { timeout: 10000 });
+  a = await info('watch');
+  if (!(a.frames === 48 && a.moved === 8 && a.morphs === 8 && a.xkeys < a.tracks * a.frames / 4)) throw new Error('the spinner read as ' + JSON.stringify(a));
+  // the blob: its ring only turns about its own middle, so two transform keys, whatever the page's origin is
+  await gp.click('#benchWatch .picker button[data-s="lottie-blob"]');
+  await gp.waitForFunction(() => window.__lottie.info('watch').name === 'a blob', null, { timeout: 10000 });
+  const ring = await gp.evaluate(() => { const S = window.__lottie.benches.watch.scene; const m = S.morphs.find(q => q.xform && q.stroke); return m ? m.xform.t.length : -1; });
+  if (ring !== 2) throw new Error('the blob\'s turning ring took ' + ring + ' transform keys, not 2');
+  // the frame slider (real input): the Lottie's frame and the scene at the same moment are the same picture
+  await gp.evaluate(() => { const r = document.querySelector('#benchWatch .fr'); r.value = 21; r.dispatchEvent(new Event('input', { bubbles: true })); });
+  await gp.waitForTimeout(300);
+  const same = await gp.evaluate(() => { const L = document.querySelector('#benchWatch .cvL'), R = document.querySelector('#benchWatch .cvR');
+    if (L.width !== R.width || L.height !== R.height) return { size: [L.width, L.height, R.width, R.height] };
+    const a = L.getContext('2d').getImageData(0, 0, L.width, L.height).data, b = R.getContext('2d').getImageData(0, 0, R.width, R.height).data; let d = 0;
+    for (let i = 0; i < a.length; i += 4) d += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+    return { mean: d / (a.length / 4 * 3), f: window.__lottie.info('watch').f, playing: window.__lottie.info('watch').playing }; });
+  if (!(same.mean < 2 && same.f === 21 && !same.playing)) throw new Error('frame 21 of the Lottie and of the scene differ: ' + JSON.stringify(same));
+  // the knobs: a looser tolerance and no transforms convert it again, with more keys of the outline
+  const before = await info('watch');
+  await gp.evaluate(() => window.__lottie.benches.watch.set({ tol: 1.5, xform: false }));
+  const after = await info('watch');
+  if (!(after.tol !== before.tol && after.moved === 0 && after.keys > before.keys)) throw new Error('the knobs did nothing: ' + JSON.stringify([before.keys, after.keys, after.moved]));
+  // the second bench: a Lottie file opened through the real picker, then what is not one
+  const yb = '#benchYours input[type=file]';
+  await gp.locator('#yours').scrollIntoViewIfNeeded();
+  await gp.setInputFiles(yb, join(dir, 'lottie-sample.json'));
+  await gp.waitForFunction(() => { const i = window.__lottie.info('yours'); return i.scene && !i.busy && /^done:/.test(i.status); }, null, { timeout: 30000 });
+  const y = await info('yours');
+  if (!(y.name === 'lottie-sample' && y.frames === 60 && y.playing && await lit('#benchYours .cvR') > 2000)) throw new Error('the opened Lottie: ' + JSON.stringify(y));
+  await gp.setInputFiles(yb, { name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"a": 1}') });
+  await gp.waitForTimeout(250);
+  const bad = await info('yours');
+  if (!(/not a Lottie file/.test(bad.status) && bad.name === 'lottie-sample')) throw new Error('a file that is not a Lottie: ' + bad.status);
+  await gp.setInputFiles(yb, join(dir, 'menu.tvfs'));
+  await gp.waitForTimeout(250);
+  const scn = await info('yours');
+  if (!/scene already/.test(scn.status)) throw new Error('a scene dropped on the Lottie bench: ' + scn.status);
+  // the download hands back the scene it made
+  const dl = gp.waitForEvent('download', { timeout: 5000 });
+  await gp.click('#benchYours .dl');
+  const file = await dl;
+  if (file.suggestedFilename() !== 'lottie-sample.tvfs') throw new Error('the .tvfs download was named ' + file.suggestedFilename());
+  await gp.close();
 });
 
 /* THE SCROLLING EXPLAINER (gallery/explained.html): the scene's clock follows the reading. Scrolled down, the
@@ -3483,8 +3681,9 @@ await step('text in a scene, and beats', async () => {
     await pp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
     const pv = await pp.evaluate(() => [window.__explained.beats, window.__explained.titles.slice(0, 3).join()]);
     if (pv[0] !== 4 || pv[1] !== 'one,Step 2,second') throw new Error('the preview\'s beats: ' + JSON.stringify(pv));
-    const refused = await pp.evaluate(() => { try { TVFPlayer.load({ format: 'tvf-scene', v: 2, items: [], morphs: [] }); return false; } catch (e) { return /version 2/.test(e.message); } });
-    if (!refused) throw new Error('the player read a version 2 scene');
+    // (version 2, 29 Oct 2026, adds a morph's xform: the player reads 1 and 2, and refuses 3)
+    const refused = await pp.evaluate(() => { try { TVFPlayer.load({ format: 'tvf-scene', v: 3, items: [], morphs: [] }); return false; } catch (e) { return /version 3/.test(e.message); } });
+    if (!refused) throw new Error('the player read a version 3 scene');
     await pp.close();
     await bp.bringToFront();
     await bp.click('#bUndo');
@@ -3537,6 +3736,29 @@ await step('a lab that lives in labs/', async () => {
     await pp.waitForFunction(() => { const s = document.getElementById('sheetPanel'); return s && s.offsetParent && /closure sheet/i.test(s.innerText); },
       null, { timeout: 10000 }).catch(() => { throw new Error('the closure sheet did not open from labs/sheets.js'); });
   } finally { await pp.close(); }
+});
+
+/* THE LABS FROM THE ESSAYS (29 Oct 2026). Each runs from ?lab= and says what its record in papers/labs.md says:
+   the median returns the direction and the mean angle its own formula on every figure; the facings joined within 1%
+   on most figures with every wrong join flagged; the median figure gaining one held level per doubling. */
+await step('the labs from the essays', async () => {
+  const runLab = async (code, name) => {
+    const pp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    pp.on('pageerror', e => failures.push(`[?lab=${code}] ${e.message}`));
+    await pp.route(/fonts\.g/, r => r.abort());
+    try {
+      await pp.goto(new URL('draw.html?lab=' + code, base).href, { waitUntil: 'load' });
+      await pp.waitForFunction(n => window.__lastLadder && window.__lastLadder.name === n, name, { timeout: 60000 });
+      return await pp.evaluate(n => (window.__flashLog || []).filter(f => f.startsWith(n)).pop() || '', name);
+    } finally { await pp.close(); }
+  };
+  const avd = await runLab('avd', 'averaging directions');
+  const m = avd.match(/returned the direction on (\d+)\/(\d+).*returned atan\(m\/\(1\+γ\)\) on (\d+)\/(\d+)/);
+  if (!m || m[1] !== m[2] || m[3] !== m[4]) throw new Error('averaging directions said: ' + avd.slice(0, 240));
+  const jnf = await runLab('jnf', 'joining the four facings');
+  if (!/joined right but flagged/.test(jnf) || /let \d+ through/.test(jnf)) throw new Error('joining the facings said: ' + jnf.slice(0, 240));
+  const ssl = await runLab('ssl', 'size sets the level');
+  if (!/the median figure gained 1, 1, 1, 1, 1 held levels/.test(ssl)) throw new Error('size sets the level said: ' + ssl.slice(0, 240));
 });
 
 /* A SHAPE FROM A FORMULA, A CLIP'S OWN IN AND OUT, LABELS INTO LABELS. The plot language reads sums and functions of
