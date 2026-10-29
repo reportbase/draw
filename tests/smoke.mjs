@@ -2730,7 +2730,7 @@ const galleries = (await readdir(join(ROOT, 'gallery'))).filter(f => f.endsWith(
 // list of loops, the bench is numbered steps, heard plays its tiles, and the loop and
 // composed animate. No spectrum strip on any of them. Everything else is a shape page.
 const CHART_PAGES = new Set(['spiral.html', 'curves.html', 'space.html', 'fail.html',
-                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html', 'played.html', 'lottie.html', 'explained.html']);
+                             'bench.html', 'sound.html', 'motion.html', 'compose.html', 'epicycles.html', 'situated.html', 'depth.html', 'recovered.html', 'corner.html', 'levels.html', 'standpoint.html', 'readers.html', 'compile.html', 'animated.html', 'embedded.html', 'played.html', 'lottie.html', 'circles.html', 'explained.html']);
 const shapePages = galleries.filter(g => !CHART_PAGES.has(g));
 for (const g of QUICK ? galleries.filter(g => g === 'snowflakes.html' || g === 'spiral.html') : galleries){
   current = 'gallery/' + g;
@@ -3520,6 +3520,56 @@ await step('interactive scenes, touch and Lottie', async () => {
   const info = await pl.evaluate(() => document.getElementById('info').textContent);
   await pl.close();
   if (!/from Lottie, 60 frames/.test(info)) throw new Error('player.html read the Lottie file as: ' + info);
+});
+
+/* THE CIRCLES PAGE (gallery/circles.html, 29 Oct 2026, Tom: "its almost like you could draw any shape with just rotating
+   circles.", then "Yes, create a new gallary just for this"): the sums are exact (every circle in, the pen is the outline
+   to rounding), a circle is one circle, an ellipse two and a heart eight, a square and a letter never quite stop (the 0.1%
+   column counted in the dozens), the chain's pen is the sum of its circles, two words mixed circle by circle are the first
+   at 0 and the second at 1, and a shape drawn with the real mouse becomes a chain whose error falls with the circles. */
+await step('the circles page', async () => {
+  const gp = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[circles page] ${e.message}`));
+  await gp.route(/fonts\.g/, r => r.abort());
+  try {
+    await gp.goto(new URL('gallery/circles.html', base).href, { waitUntil: 'load' });
+    await gp.waitForFunction(() => window.__circles && window.__circles.table, null, { timeout: 20000 });
+    const T = await gp.evaluate(() => Object.fromEntries(window.__circles.table.map(r => [r.label, r.r])));
+    if (T['a circle'].join() !== '1,1,1' || T['an ellipse'].join() !== '2,2,2') throw new Error('a circle or an ellipse is not 1 or 2 circles: ' + JSON.stringify([T['a circle'], T['an ellipse']]));
+    if (T['a heart'][2] > 8) throw new Error('the heart needs ' + T['a heart'][2] + ' circles, it is made of four harmonics');
+    if (!(T['a square'][2] > 30 && T['the letter S'][2] > 100)) throw new Error('corners cost too little: ' + JSON.stringify([T['a square'], T['the letter S']]));
+    // every circle in, the pen is the resampled outline; the chain's tip is the pen
+    const ex = await gp.evaluate(() => { const C = window.__circles,
+      Lh = C.build('heart').loops[0], full = C.approx(Lh, 255), ch = C.chain(Lh, 255, 0.3), th = 2 * Math.PI * 0.3; let sx = Lh.cr[0], sy = Lh.ci[0];
+      for (let m = 0; m < 255; m++) { const k = Lh.order[m], n = k <= 128 ? k : k - 256; sx += Lh.cr[k] * Math.cos(n * th) - Lh.ci[k] * Math.sin(n * th); sy += Lh.cr[k] * Math.sin(n * th) + Lh.ci[k] * Math.cos(n * th); }
+      return { tip: Math.hypot(ch.cx[255] - sx, ch.cy[255] - sy), fullErr: C.relErr(Lh, 255), n: full.xs.length }; });
+    if (ex.tip > 1e-9 || ex.fullErr > 1e-9) throw new Error('the chain is not the sum of its circles: ' + JSON.stringify(ex));
+    // two words mixed circle by circle: the first at 0, the second at 1
+    const mx = await gp.evaluate(() => { const C = window.__circles, A = C.build('SUNSET').loops[0], Z = C.build('ZENITH').loops[0], d = (P, Q) => { let m = 0; for (let j = 0; j < C.M; j++) m = Math.max(m, Math.hypot(P.xs[j] - Q.xs[j], P.ys[j] - Q.ys[j])); return m; };
+      return { a: d(C.approx(C.mix(A, Z, 0), 255), C.approx(A, 255)), z: d(C.approx(C.mix(A, Z, 1), 255), C.approx(Z, 255)), mid: d(C.approx(C.mix(A, Z, 0.5), 255), C.approx(A, 255)) }; });
+    if (mx.a > 1e-9 || mx.z > 1e-9 || !(mx.mid > 1)) throw new Error('the mix does not run from the first word to the second: ' + JSON.stringify(mx));
+    // the machine: picking a shape, the circles slider and a letter's chain by a real click
+    await gp.click('#benchMachine .picker button[data-s="SUNSET"]');
+    await gp.evaluate(() => window.__circles.set('machine', { K: 5, play: false }));
+    const e5 = await gp.evaluate(() => window.__circles.relErr(window.__circles.benches.machine.st.loops[0], 5));
+    await gp.evaluate(() => window.__circles.set('machine', { K: 60 }));
+    const e60 = await gp.evaluate(() => window.__circles.relErr(window.__circles.benches.machine.st.loops[0], 60));
+    if (!(e60 < e5 / 3)) throw new Error('more circles did not get closer: ' + e5 + ' then ' + e60);
+    await gp.locator('#benchMachine').scrollIntoViewIfNeeded();
+    const cb = await gp.locator('#benchMachine canvas').first().boundingBox();
+    await gp.mouse.click(cb.x + cb.width * 0.43, cb.y + cb.height * 0.5);   // the N
+    await gp.waitForTimeout(200);
+    const picked = await gp.evaluate(() => window.__circles.state('machine').chosen);
+    if (picked !== 2) throw new Error('a click on the N chose letter ' + picked);
+    // your own: draw with the real mouse, the loop closes and its error falls with the circles
+    await gp.locator('#benchYours').scrollIntoViewIfNeeded();
+    const db = await gp.locator('#benchYours canvas.draw').boundingBox(), cx = db.x + db.width / 2, cy = db.y + db.height / 2;
+    await gp.mouse.move(cx - 140, cy); await gp.mouse.down();
+    for (let i = 0; i <= 36; i++) { const a = Math.PI + i / 36 * 2 * Math.PI * 0.97; await gp.mouse.move(cx + 140 * Math.cos(a) * (1 + 0.25 * Math.cos(3 * a)), cy + 100 * Math.sin(a) * (1 + 0.25 * Math.cos(3 * a))); }
+    await gp.mouse.up();
+    const y = await gp.evaluate(() => { const C = window.__circles, s = C.benches.yours.st; if (!s.loops.length) return null; return { n: s.loops.length, e4: C.relErr(s.loops[0], 4), e40: C.relErr(s.loops[0], 40) }; });
+    if (!y || y.n !== 1 || !(y.e40 < y.e4 / 3)) throw new Error('a drawn shape did not become a chain: ' + JSON.stringify(y));
+  } finally { await gp.close(); }
 });
 
 /* THE LOTTIE PAGE (gallery/lottie.html, 29 Oct 2026, Tom: "Create a help gallery page the show the vtf viewer processing a

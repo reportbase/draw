@@ -135,7 +135,7 @@ publishes.
     gzipped, ours with `tvf-core.js` about 48.
     **The lottie page** (`gallery/lottie.html`, 29 Oct 2026, Tom: "Create a help gallery page the show the vtf viewer
     processing a lottie file and animating it. One of the demos should let the user import a lottie file."; page 30 of
-    31, before `explained`, on `played`'s styles): two benches of one kind (`makeBench`), each a Lottie's frame as exact
+    32, before `circles` and `explained`, on `played`'s styles): two benches of one kind (`makeBench`), each a Lottie's frame as exact
     paths (the importer's own `TVFLottie.drawingAt`, put through the player as a scene of stills: `frameScene`), the scene
     played by the player, a strip of which frames were kept as keys for each path (gold: an outline key, teal: a
     transform key), the tolerance and transform knobs, the numbers (sizes, gzipped through `CompressionStream`, keys,
@@ -192,10 +192,10 @@ publishes.
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before
   anything else, typeset by KaTeX from cdnjs when that loads and shown as source when it does not.
-- `gallery/`: thirty-one teaching pages, in reading order: `gallery.html` (the catalogue),
+- `gallery/`: thirty-two teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `epicycles`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`
-  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`, `embedded`, `played`, `lottie`, `explained`. Also `playground.html` (sculpt
+  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`, `embedded`, `played`, `lottie`, `circles`, `explained`. Also `playground.html` (sculpt
   a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
   library as an ES module, *generated* from the copy the pages inline: regenerate it from
   a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
@@ -214,15 +214,15 @@ publishes.
     `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
     a layout of their own have a section there scoped to their body class (`page-index`,
     `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`, `page-animated`, `page-embedded`, `page-played`, `page-explained`).
-  - Each page bundles its JavaScript so it runs from one file. All thirty-one, and the playground, carry the **same**
+  - Each page bundles its JavaScript so it runs from one file. All thirty-two, and the playground, carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
     mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
     names the page that differs.
-  - The other twenty-two have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
+  - The other twenty-three have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
     STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES, SITUATED, DEPTHPAGE, RECOVER, CORNER, LEVELS, STAND, BETWEEN, COMPILE), and no spectrum strip or predict mode. `spiral`,
-    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated`, `embedded`, `played`, `lottie` are *chart* pages (`body.page-chart`: a measurement and a
+    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated`, `embedded`, `played`, `lottie`, `circles` are *chart* pages (`body.page-chart`: a measurement and a
     verdict line per tile); `motion`, `compose` and `epicycles` animate (`page-chart page-motion`; epicycles
     carries only tvf.js, FORMAT and EPICYCLES, and its dials may be selects);
     `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`).
@@ -248,6 +248,20 @@ publishes.
     universe (by logic, by a literal) read alike from inside. Each
     has a section in `style.css`. Edit buttons (the shared editor link) are on `spiral`,
     `curves`, `space`, `motion`, `compose` and `epicycles`; the rest hold no curve to hand on.
+  - `circles` (29 Oct 2026, Tom: "its almost like you could draw any shape with just rotating circles.", then "Yes, create a
+    new gallary just for this"; page 31 of 32, before `explained`) is a chart page on plain canvas: any closed curve as a
+    chain of rotating circles, each riding the rim of the one before, the pen at the end. A loop is resampled at 256
+    points (even in arc length; a curve given by a formula keeps its own parameter, `byIndex`, since an ellipse is two
+    circles only at the angle's own pace), turned to run the same way and to start where the first harmonic is real, put
+    through the DFT; the circles are the coefficients, kept largest first (`CIRCLES`: `makeLoop`, `approx`, `chain`,
+    `relErr`, `needed`, `mix`). The error with K circles is exact at the samples (Parseval: the dropped energy over the
+    total), so what a corner costs is counted: a circle 1, an ellipse 2, a heart 8, a square 35 and a letter 150 or so
+    for 0.1%. Three benches: **the machine** (circle, ellipse, heart, star, square, the words SUNSET and ZENITH baked from
+    the animated gallery's glyphs, a circles slider, the error curve; click a letter for its chain), **word into word**
+    (the two words mixed circle by circle, no corners to pair; the halfway letters are soft) and **your own** (draw with a
+    finger or the mouse, it closes itself); and a table of circles needed to 5%, 1% and 0.1%. Hook `window.__circles`
+    (`makeLoop`, `approx`, `chain`, `relErr`, `needed`, `mix`, `build`, `benches`, `table`, `state`, `set`, `pen`). It carries
+    tvf.js like the rest and draws nothing with it; `epicycles` is the format's own chain, this is the picture on anything.
   - `animated` (25 Oct 2026, Tom: "could you creae a gallery page that has examples that can be loaded into
     draw.html", then "make this a gallary page like with the same formatting as the others") is the last page and a
     chart page with no curve to edit: tiles of animations for the editor's live morph, each the example's drawing and an
@@ -486,7 +500,7 @@ publishes.
     map that best takes the key's corners to the pose's (`morphAffineOf`, `morphHolesAt`); saved, in the `.tvfs`
     (`holes`), drawn by the player, and written in the SVG export as keyhole bridges under `fill-rule="evenodd"`.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 31" crumbs and "next" links in each page.
+    a page means updating it, and the "N of 32" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE

@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tvf — circles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="page-chart page-circles">
+<!-- THE CIRCLES GALLERY (29 Oct 2026, Tom: "its almost like you could draw any shape with just rotating circles.", then
+     "Yes, create a new gallary just for this"): any closed curve as a chain of rotating circles, each riding the rim of
+     the one before, drawn by the pen at the chain's end. epicycles.html (page 3) is the format's own machine, the chain
+     the leaves give exactly; this page is for the picture itself, on things people draw: a heart, a star, a square, a
+     word, a line of your own. A loop is resampled at 256 points even in arc length, read as complex numbers and put
+     through the discrete Fourier transform; the circles are its coefficients, a circle's radius |c| and its speed n
+     whole turns while the pen goes round once, and the K largest are kept. The error at the samples is exact
+     (Parseval: the dropped energy over the total), so what a corner costs is a number here, not a look. Plain canvas;
+     it carries tvf.js like every page and draws nothing with it. -->
+
+<header>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 31 of 32</nav>
+  <h1>tvf <em>circles</em> <span class="pill">draw anything with rotating circles</span></h1>
+  <p class="lede">
+    Any closed curve can be drawn by a <b>chain of circles</b>: each one rides on the rim of the one before and turns a
+    whole number of times while the pen at the end goes round the shape once. Give it a heart and it finds the circles;
+    give it a word, and one chain draws each letter. Take circles away and the drawing softens, which is exactly what
+    you would want to know before using it.
+  </p>
+  <p class="sub">
+    The circles are the shape's Fourier coefficients (a circle's size is the coefficient's size, its speed the
+    harmonic's number), so this is the same sum <a href="epicycles.html">the epicycles page</a> watches the format make
+    from its leaves, here for anything you can draw. Smooth things need a handful; a corner needs a never-ending
+    supply, and the page counts them.
+  </p>
+</header>
+
+<div class="bar"><div class="bar-in">
+  <div class="spacer"></div>
+  <a class="jump" href="#machine">the machine</a>
+  <a class="jump" href="#morph">word into word</a>
+  <a class="jump" href="#yours">your own</a>
+  <a class="jump" href="#cost">what it costs</a>
+</div></div>
+
+<main id="main">
+
+  <section id="machine">
+    <div class="sec-head"><h2>the machine</h2><div class="rule"></div><span class="n">pick a shape, take circles away</span></div>
+    <p class="sec-note">Pick a shape and watch the pen. The <b>circles</b> slider is how many of the biggest circles are
+    kept: with one, a circle; with two, an ellipse; with a few, a heart; the star and the square need many before their
+    corners stop being rounded. In a word, <b>click a letter</b> to see its own chain. The curve on the right is the error
+    at each number of circles: a drop of a decade means ten times closer.</p>
+    <div class="tile wide bench" id="benchMachine"></div>
+  </section>
+
+  <section id="morph">
+    <div class="sec-head"><h2>word into word</h2><div class="rule"></div><span class="n">morph by mixing circles</span></div>
+    <p class="sec-note">Two words, letter for letter, mixed <b>circle by circle</b>: each letter's chain is a list of
+    complex numbers, and a morph is the mix of two lists. There are no corners to pair and no vertex counts to match, and
+    every halfway shape is a drawing the machine could have made. The price is the corners: halfway between two letters
+    with square ends, the ends are soft. Fewer circles soften them further.</p>
+    <div class="tile wide bench" id="benchMorph"></div>
+  </section>
+
+  <section id="yours">
+    <div class="sec-head"><h2>your own</h2><div class="rule"></div><span class="n">draw a closed line</span></div>
+    <p class="sec-note">Draw any outline with a finger or the mouse and lift: it closes itself, and the circles that draw it
+    appear. A loop with a self-crossing is fine; a hole is a second loop, which needs a chain of its own.</p>
+    <div class="tile wide bench" id="benchYours"></div>
+  </section>
+
+  <section id="cost">
+    <div class="sec-head"><h2>what it costs</h2><div class="rule"></div><span class="n">circles needed, counted</span></div>
+    <p class="sec-note">The smallest number of circles that lands within 5%, 1% and 0.1% of the shape's own size (the
+    drop in the error is exact at the 256 samples: the energy of the circles left out over the total). A circle is one
+    circle and an ellipse two, because a circle is a single harmonic and an ellipse is two turning opposite ways. A heart
+    drawn by its formula is exactly eight, since the formula is made of four harmonics. A square, a star or a letter with straight
+    ends and sharp corners keeps asking: the last hundredth of a corner costs most of the circles.</p>
+    <div class="tile wide" id="costTable"></div>
+  </section>
+
+</main>
+
+<footer>
+  A closed curve through <i>N</i> leaves is a chain of <i>N</i> − 1 circles, exactly, and the <a href="epicycles.html">epicycles
+  page</a> is that fact as machinery; this page runs the same sum on outlines the format never held, and counts
+  what dropping circles costs. The letters are traced from a bold sans-serif (the animated gallery's
+  <a href="animated.html">vector text</a>), so the page needs no font.
+  <div class="next">Next: <a href="explained.html">explained</a>, how leaves become a curve, as a scrolling explainer.</div>
+</footer>
+
+<script>
+const TVF = (function () {
+// tvf.js — closed-curve sculpting on band-limited leaves
+// ============================================================================
+//
+// A shape is N samples of a closed curve, taken at the midpoints of N equal
+// arcs of the parameter circle:
+//
+//     theta_k = (k + 0.5) * 2*PI / N,   k = 0 .. N-1
+//
+// and stored as two flat Float64Arrays, x[] and y[]. That is the whole data
+// model. The curve between the samples is not stored — it is *recovered*, by
+// summing the samples against the periodic cardinal kernel
+//
+//     K_N(phi) = sin(N*phi/2) / (N * tan(phi/2))    N even
+//     K_N(phi) = sin(N*phi/2) / (N * sin(phi/2))    N odd
+//     K_N(0)   = 1                                  either way
+//
+// which is 1 at its own node and exactly 0 at every other node. So:
+//
+//   - Every leaf lies ON the curve. There are no off-curve control handles and
+//     no tangents to keep matched; moving a leaf moves the curve through it.
+//   - You cannot make a kink. The reconstruction is band-limited by
+//     construction, so the worst a single leaf can do is a smooth bump.
+//   - The curve is closed because the domain is a circle. There is no seam.
+//   - Resolution is a scalar: N up is finer, N down is smoother, same shape.
+//   - Every interesting operation is arithmetic on two arrays. Morph is a lerp.
+//     Smooth is a low-pass. Symmetry is an index map. Affine transforms are
+//     exact, because the kernel is a partition of unity.
+//
+// What it is bad at: true corners. A sharp vertex has infinite bandwidth, so
+// you approximate it by spending leaves, and leaves are uniform in parameter —
+// there is no local refinement. Great for organic, blobby, and typographic
+// curve work; awkward for a rounded rectangle. `reparameterize()` mitigates by
+// spending leaves proportional to arc length, but that is parameterization,
+// not adaptivity. Know which one you need.
+//
+// Two charts, one kernel. The angle chart (sin/tan) is what the code above runs
+// and what the Tangent Bridge paper proves in; the slope chart further down is
+// the same object as an algebraic function of the held slope, with no
+// trigonometry at all — the paper is emphatic that this is the observer's
+// actual operation and the trig form is only the display.
+//
+// The math core (kernel, node layout, reconstruction, arc-length resampling)
+// is ported from the tangent leaf editor; this module is the same numerics
+// with a sculpting API on top and no DOM.
+//
+// ----------------------------------------------------------------------------
+// Quick start
+//
+//     import { circle, Shape } from './tvf.js';
+//
+//     const s = circle(64, { r: 100 });
+//     s.push(12, { dx: 30, dy: 0 });   // thumb press at leaf 12
+//     s.smooth(0.3);                   // relax it
+//     s.blend(circle(64, { r: 60 }), 0.25);
+//     ctx.stroke(new Path2D(s.toPath()));
+//
+// ============================================================================
+
+const TAU = Math.PI * 2;
+const PI = Math.PI;
+
+// ────────────────────────────────────────────────────────────────────────────
+// KERNEL AND NODE LAYOUT
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Parameter angles of the N leaves: midpoints of N equal arcs. */
+function leafPositions(N) {
+  const out = new Float64Array(N);
+  for (let k = 0; k < N; k++) out[k] = (k + 0.5) * TAU / N;
+  return out;
+}
+
+/**
+ * The periodic cardinal kernel. K(0) = 1, K(2*PI*m/N) = 0 for integer m != 0,
+ * and sum_k K(phi - theta_k) = 1 for every phi (partition of unity).
+ *
+ * PARITY MATTERS, and getting it wrong is a quiet bug rather than a loud one.
+ * With an even number of nodes the Nyquist harmonic cos(N*phi/2) is real and
+ * shared between +N/2 and -N/2, and folding it in symmetrically turns the
+ * sin(phi/2) denominator into tan(phi/2):
+ *
+ *     N even:  sin(N*phi/2) / (N * tan(phi/2))
+ *     N odd:   sin(N*phi/2) / (N * sin(phi/2))
+ *
+ * Both are 1 at their own node and 0 at every other node, so the *interpolation*
+ * property holds either way — which is exactly why using the even form for odd N
+ * looks fine at the leaves and is wrong everywhere between them. The tell is that
+ * the weights stop summing to 1: a 33-leaf circle built with the even kernel
+ * misses its own radius by ~0.15 px between leaves, and a constant is no longer
+ * reproduced. The leaf editor this was ported from uses the tan form for every N;
+ * if it ever offers an odd N, that is a live bug there.
+ */
+function kernel(phi, N) {
+  while (phi > PI) phi -= TAU;
+  while (phi < -PI) phi += TAU;
+  if (Math.abs(phi) < 1e-12) return 1;
+  const half = phi / 2;
+  const denom = N * ((N & 1) ? Math.sin(half) : Math.tan(half));
+  if (Math.abs(denom) < 1e-12) return 1;
+  return Math.sin(N * half) / denom;
+}
+
+// Weight-matrix cache. out[i] = sum_k c[k] * K(phi_i - theta_k, N) has weights
+// that depend only on (i, k, N, M) and never on the data, yet the naive form
+// pays two transcendentals per inner step for every channel of every shape.
+// Build the M x N matrix once per (N, M) and the inner loop becomes a trig-free
+// multiply-accumulate. Output is bit-identical to the direct sum.
+const _matCache = new Map();
+let _matBytes = 0;
+const MAT_BUDGET = 64 * 1024 * 1024;   // 64 MB of cached weights, total
+
+function kernelMatrix(N, M) {
+  const key = N + 'x' + M;
+  const hit = _matCache.get(key);
+  if (hit) return hit;
+  const bytes = N * M * 8;
+  if (bytes > MAT_BUDGET) return null;          // too big to be worth caching
+  while (_matBytes + bytes > MAT_BUDGET && _matCache.size) {
+    const oldest = _matCache.keys().next().value;
+    const [on, om] = oldest.split('x').map(Number);
+    _matCache.delete(oldest);
+    _matBytes -= on * om * 8;
+  }
+  const leaves = leafPositions(N);
+  const W = new Float64Array(N * M);
+  for (let i = 0; i < M; i++) {
+    const phi = (i / M) * TAU;
+    const base = i * N;
+    for (let k = 0; k < N; k++) W[base + k] = kernel(phi - leaves[k], N);
+  }
+  _matCache.set(key, W);
+  _matBytes += bytes;
+  return W;
+}
+
+/** Drop all cached kernel weights. Only useful if you are cycling many N. */
+function clearCache() { _matCache.clear(); _matBytes = 0; }
+
+/**
+ * Reconstruct one channel: N leaf values -> M points uniformly spaced in the
+ * parameter, starting at phi = 0.
+ *
+ * `opts.matrix` lets a host supply its own weight-matrix cache — a function
+ * (N, M) => Float64Array | null, laid out row-major as W[i*N + k]. This exists
+ * so an application that already caches these weights (with its own memory
+ * budget, and its own decisions keyed off when the cache declines) can delegate
+ * the sum here without ending up with two caches holding the same numbers.
+ * Both branches produce identical output, so which one runs is a performance
+ * question only.
+ */
+function reconstruct(channel, M, opts) {
+  const N = channel.length;
+  const out = new Float64Array(M);
+  const W = (opts && opts.matrix ? opts.matrix : kernelMatrix)(N, M);
+  if (W) {
+    for (let i = 0; i < M; i++) {
+      const base = i * N;
+      let sum = 0;
+      for (let k = 0; k < N; k++) sum += channel[k] * W[base + k];
+      out[i] = sum;
+    }
+    return out;
+  }
+  const leaves = leafPositions(N);
+  for (let i = 0; i < M; i++) {
+    const phi = (i / M) * TAU;
+    let sum = 0;
+    for (let k = 0; k < N; k++) sum += channel[k] * kernel(phi - leaves[k], N);
+    out[i] = sum;
+  }
+  return out;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// THE SLOPE CHART — the same kernel, without trigonometry
+// ────────────────────────────────────────────────────────────────────────────
+// The Tangent Bridge paper (§11) makes an operational claim the angle-chart code
+// above does not honour: the kernel is only *displayed* in sin/tan, and the
+// observer that runs it holds slopes, where the same object is algebraic —
+//
+//     K_N = Im[(1+is)^N] / (N · s · (1+s²)^(N/2)),      s = tan(φ/2)
+//
+// — "rational in s with the single square root sqrt(1+s²) as its only
+// non-rational step... the count of sin/tan/arctan calls held at zero."
+//
+// It reduces, and the reduction is the point. |1+is|^N = (1+s²)^(N/2) and
+// arg(1+is) = arctan(s) = t, so Im[(1+is)^N] = (1+s²)^(N/2)·sin(Nt) and the
+// whole expression collapses to sin(Nt)/(N·s) — which is sin(Nφ/2)/(N·tan(φ/2)),
+// the EVEN-N kernel exactly.
+//
+// So the published slope form carries the same parity assumption the angle form
+// does, and for the same reason: in the paper N = 2^(d+1) is always even, so the
+// question never arises. Where it does arise, the correction is one character.
+// The odd kernel is sin(Nt)/(N·sin t) rather than sin(Nt)/(N·tan t), and
+// sin t = s/sqrt(1+s²), so the odd form is the same numerator over one lower
+// power of the Cauchy denominator. Both parities at once:
+//
+//     K_N = Im[(1+is)^N] / (N · s · (1+s²)^floor(N/2))
+//
+// The parity that cost a `tan` in §4.1 costs a floor here. Measured against the
+// angle form: as published, 2.6e-2 error at N=33; with the floor, 8.9e-16.
+//
+// Computed by binary powering of the unit-modulus z = (1+is)/sqrt(1+s²), which
+// is O(log N) multiplies rather than the O(N) of expanding the binomial — and
+// which keeps the paper's accounting honest, since sqrt is the one non-rational
+// step it allows and there is no other.
+
+/**
+ * The bridge kernel evaluated from a held slope. Zero trigonometric calls.
+ *
+ * @param {number} s   the slope tan(phi/2) — the quantity the observer holds
+ * @param {number} N   leaf count, either parity
+ */
+function kernelSlope(s, N) {
+  if (s === 0) return 1;
+  if (!isFinite(s)) {
+    // The antipode, phi = ±pi. Even N: the cos(phi/2) of the product form kills
+    // it. Odd N: sin(N·pi/2)/N, which alternates ±1/N.
+    if ((N & 1) === 0) return 0;
+    return ((N - 1) / 2 & 1 ? -1 : 1) / N;
+  }
+  const q = 1 / Math.sqrt(1 + s * s);      // = cos t. THE one non-rational step.
+  // z = e^{it} as a pair, never as an angle.
+  let zr = q, zi = s * q;
+  let wr = 1, wi = 0;                       // w = z^N by squaring
+  let n = N;
+  while (n > 0) {
+    if (n & 1) { const t = wr * zr - wi * zi; wi = wr * zi + wi * zr; wr = t; }
+    const t2 = zr * zr - zi * zi; zi = 2 * zr * zi; zr = t2;
+    n >>= 1;
+  }
+  const sinNt = wi;
+  return (N & 1) ? sinNt / (N * s * q) : sinNt / (N * s);
+}
+
+/**
+ * Tangent subtraction — the Möbius composition law, tan(t - t_k) from the two
+ * held slopes. This is how a slope-posed query reaches the kernel without ever
+ * becoming an angle.
+ */
+function slopeDiff(s, sk) {
+  // The horizon is a POINT here, not an edge — but it is a point the arithmetic
+  // has to be told about. (inf - sk)/(1 + inf*sk) is inf/inf = NaN, which then
+  // falls into kernelSlope's own antipode branch and returns silently wrong.
+  // §4.1 notes the antipodal argument does occur on this grid (j - k = ±N for
+  // odd j, k), so this is reachable, not hypothetical.
+  if (!isFinite(s)) return !isFinite(sk) ? 0 : (sk === 0 ? Infinity : 1 / sk);
+  if (!isFinite(sk)) return s === 0 ? Infinity : -1 / s;
+  const den = 1 + s * sk;
+  if (den === 0) return Infinity;
+  return (s - sk) / den;
+}
+
+// Seeds for the cascade below, keyed by the odd part of 2N: [tan(pi/M), log2 of
+// the M each seed is stated at]. Every one is a constructible ratio — 1 is the
+// gate where the run equals the rise, and the other two are the Fermat-prime
+// arcs that Gauss's condition admits alongside it.
+const _SEEDS = new Map([
+  [1, [1, 2]],                                  // tan(pi/4)  = 1
+  [3, [1 / Math.sqrt(3), 1]],                   // tan(pi/6)  = 1/sqrt(3)
+  [5, [Math.sqrt(1 - 2 / Math.sqrt(5)), 1]],    // tan(pi/10)
+]);
+
+/**
+ * The leaf lattice GENERATED rather than looked up: no trigonometry, no pi.
+ *
+ * The lattice is the dyadic cascade's orbit structure (§2.4, §5.3), so it can be
+ * built from a ratio. Start at the gate where the run equals the rise — s = 1,
+ * a statement about two lengths that needs no total to be meaningful — halve the
+ * arc algebraically, then step around by tangent addition:
+ *
+ *     halve:  tan(x/2) = t / (1 + sqrt(1 + t^2))      the one square root
+ *     step:   the unit-modulus pair, multiplied           pure rational
+ *
+ * The halving is written in the rationalized form on purpose. The textbook twin
+ * (sqrt(1+t^2) - 1)/t is the same number and subtracts near-equals: it drifts to
+ * 1.6e-9 by N = 2048 where this holds 1e-13. Identical on paper, four orders
+ * apart in the register — the algebraic chart has its own craft.
+ *
+ * Available exactly when pi/(2N) is constructible (Gauss: a power of two times
+ * distinct Fermat primes). The paper's N = 2^(d+1) sits inside that by
+ * construction, which is not luck — the radix forced in §2.4 is also the radix
+ * that keeps every leaf reachable by square roots. Returns null otherwise.
+ */
+function leafSlopesCascade(N) {
+  let odd = N * 2, j = 0;
+  while ((odd & 1) === 0) { odd >>= 1; j++; }
+  const seed = _SEEDS.get(odd);
+  if (!seed) return null;
+  const halvings = j - seed[1];
+  if (halvings < 0) return null;
+  let t = seed[0];
+  for (let i = 0; i < halvings; i++) t = t / (1 + Math.sqrt(1 + t * t));
+  // The base arc as a unit-modulus pair. The bare ratio would cancel badly as
+  // the running sum approaches the horizon; the pair never does.
+  const q = 1 / Math.sqrt(1 + t * t);
+  let cr = q, ci = t * q;
+  const sr = cr * cr - ci * ci, si = 2 * cr * ci;   // two base arcs
+  const out = new Float64Array(N);
+  for (let k = 0; k < N; k++) {
+    out[k] = cr === 0 ? Infinity : ci / cr;
+    const nr = cr * sr - ci * si; ci = cr * si + ci * sr; cr = nr;
+  }
+  return out;
+}
+
+/**
+ * Slopes of the N leaf positions, s_k = tan(theta_k / 2).
+ *
+ * Generated by the cascade where the leaf count allows it, which is every N the
+ * paper actually uses and most of the ones anyone picks by hand. Where it does
+ * not, this falls back to the boundary conversion the paper permits — "a lone
+ * tangent enters only to convert a query supplied as an angle" — which is now
+ * the exception rather than the setup path.
+ */
+function leafSlopes(N) {
+  const built = leafSlopesCascade(N);
+  if (built) return built;
+  const out = new Float64Array(N);
+  for (let k = 0; k < N; k++) out[k] = Math.tan((k + 0.5) * PI / N);
+  return out;
+}
+
+/**
+ * Reconstruct from held slopes, with no trigonometry in the per-leaf loop.
+ *
+ * Produces the same numbers as `reconstruct` (verified to ~1e-13 through
+ * N = 1024 in verify-slope.mjs, both parities) by a different route: Möbius-
+ * composed slopes into a rational kernel over a Cauchy denominator.
+ *
+ * With `leafSlopes` generated by the cascade, this path now runs with the
+ * trigonometric call count measured at zero — not argued at zero — for every N
+ * the cascade reaches. `verify-slope.mjs` replaces every trig entry point on
+ * Math with a counter before anything runs: 128 leaves, 512 queries, lattice
+ * built from scratch, 0 calls.
+ *
+ * It is still slower than `reconstruct`, but the comparison is not the one it
+ * looks like: the angle form gets a cached weight matrix and this does not. The
+ * weights depend only on (i, k, N) in either chart, so a slope-side matrix cache
+ * would close the gap entirely — after the matrix exists, neither chart runs.
+ *
+ * @param {ArrayLike<number>} channel  N leaf values
+ * @param {ArrayLike<number>} sQuery   slopes to evaluate at, tan(phi/2) each
+ */
+function reconstructSlope(channel, sQuery) {
+  const N = channel.length;
+  const sk = leafSlopes(N);                 // generated, not converted — see above
+  const out = new Float64Array(sQuery.length);
+  for (let i = 0; i < sQuery.length; i++) {
+    const s = sQuery[i];
+    let sum = 0;
+    for (let k = 0; k < N; k++) sum += channel[k] * kernelSlope(slopeDiff(s, sk[k]), N);
+    out[i] = sum;
+  }
+  return out;
+}
+
+/** Evaluate one channel at a single parameter angle. */
+function evalAt(channel, phi) {
+  const N = channel.length;
+  let sum = 0;
+  for (let k = 0; k < N; k++) sum += channel[k] * kernel(phi - (k + 0.5) * TAU / N, N);
+  return sum;
+}
+
+/**
+ * Resample a closed polyline to N points spaced equally in ARC LENGTH.
+ * Returns { x, y, srcCoV } where srcCoV is the coefficient of variation of the
+ * input's own gap lengths — a measure of how uneven the source sampling was.
+ */
+function arcLengthResample(polyX, polyY, N) {
+  const M = polyX.length;
+  const cum = new Float64Array(M + 1);
+  for (let i = 1; i <= M; i++) {
+    const j = i % M;
+    cum[i] = cum[i - 1] + Math.hypot(polyX[j] - polyX[i - 1], polyY[j] - polyY[i - 1]);
+  }
+  const total = cum[M];
+  let srcCoV = 0;
+  {
+    let n = 0, mean = 0;
+    for (let i = 1; i <= M; i++) { const g = cum[i] - cum[i - 1]; if (g > 1e-12) { n++; mean += g; } }
+    if (n > 1) {
+      mean /= n;
+      let v = 0;
+      for (let i = 1; i <= M; i++) { const g = cum[i] - cum[i - 1]; if (g > 1e-12) v += (g - mean) * (g - mean); }
+      srcCoV = Math.sqrt(v / n) / mean;
+    }
+  }
+  const outX = new Float64Array(N), outY = new Float64Array(N);
+  let seg = 0;
+  for (let k = 0; k < N; k++) {
+    const t = ((k + 0.5) / N) * total;
+    while (seg < M && cum[seg + 1] < t) seg++;
+    const sLen = cum[seg + 1] - cum[seg];
+    const u = sLen > 1e-12 ? (t - cum[seg]) / sLen : 0;
+    const j = (seg + 1) % M;
+    outX[k] = polyX[seg] * (1 - u) + polyX[j] * u;
+    outY[k] = polyY[seg] * (1 - u) + polyY[j] * u;
+  }
+  return { x: outX, y: outY, srcCoV };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SPECTRUM
+// ────────────────────────────────────────────────────────────────────────────
+// Leaves sit on a uniform grid, so their DFT *is* the curve's harmonic content.
+// Naive O(N^2) transforms: N here is a leaf count (tens to low thousands), not
+// an audio buffer, and keeping it dependency-free is worth more than the
+// asymptotics. Swap in an FFT if you ever push N past a few thousand.
+
+function dft(re, im) {
+  const N = re.length;
+  const outRe = new Float64Array(N), outIm = new Float64Array(N);
+  for (let m = 0; m < N; m++) {
+    let sr = 0, si = 0;
+    for (let k = 0; k < N; k++) {
+      const a = -TAU * m * k / N;
+      const c = Math.cos(a), s = Math.sin(a);
+      sr += re[k] * c - im[k] * s;
+      si += re[k] * s + im[k] * c;
+    }
+    outRe[m] = sr / N; outIm[m] = si / N;
+  }
+  return { re: outRe, im: outIm };
+}
+
+function idft(re, im) {
+  const N = re.length;
+  const outRe = new Float64Array(N), outIm = new Float64Array(N);
+  for (let k = 0; k < N; k++) {
+    let sr = 0, si = 0;
+    for (let m = 0; m < N; m++) {
+      const a = TAU * m * k / N;
+      const c = Math.cos(a), s = Math.sin(a);
+      sr += re[m] * c - im[m] * s;
+      si += re[m] * s + im[m] * c;
+    }
+    outRe[k] = sr; outIm[k] = si;
+  }
+  return { re: outRe, im: outIm };
+}
+
+// Deterministic PRNG, so a seeded noise() is reproducible across runs.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Circular index distance, in leaves. */
+function wrapDist(a, b, N) {
+  let d = a - b;
+  d -= N * Math.round(d / N);
+  return d;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SHAPE
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A closed curve as N leaves. Mutating methods change the shape in place and
+ * return `this`, so they chain. Use `clone()` first if you need the original.
+ */
+class Shape {
+  /**
+   * @param {ArrayLike<number>} x leaf x values
+   * @param {ArrayLike<number>} y leaf y values
+   */
+  constructor(x, y) {
+    if (!x || !y || x.length !== y.length) throw new Error('tvf: x and y must be the same length');
+    if (x.length < 3) throw new Error('tvf: a shape needs at least 3 leaves');
+    this.x = Float64Array.from(x);
+    this.y = Float64Array.from(y);
+    /** Free-form user data, carried through clone/resample. */
+    this.meta = {};
+  }
+
+  get N() { return this.x.length; }
+
+  clone() {
+    const s = new Shape(this.x, this.y);
+    s.meta = Object.assign({}, this.meta);
+    return s;
+  }
+
+  /** Build from a closed polyline, spending leaves equally along arc length. */
+  static fromPoints(points, N, opts = {}) {
+    const px = new Float64Array(points.length), py = new Float64Array(points.length);
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      px[i] = Array.isArray(p) ? p[0] : p.x;
+      py[i] = Array.isArray(p) ? p[1] : p.y;
+    }
+    const n = N || Math.min(256, Math.max(8, points.length));
+    if (opts.arcLength === false) {
+      const ox = new Float64Array(n), oy = new Float64Array(n);
+      for (let k = 0; k < n; k++) {
+        const t = (k + 0.5) / n * px.length;
+        const i0 = Math.floor(t) % px.length, i1 = (i0 + 1) % px.length, u = t - Math.floor(t);
+        ox[k] = px[i0] * (1 - u) + px[i1] * u;
+        oy[k] = py[i0] * (1 - u) + py[i1] * u;
+      }
+      return new Shape(ox, oy);
+    }
+    const r = arcLengthResample(px, py, n);
+    const s = new Shape(r.x, r.y);
+    s.meta.srcCoV = r.srcCoV;
+    return s;
+  }
+
+  /** Build from a parametric function f(t) with t in [0, 1). */
+  static fromFunction(f, N) {
+    const x = new Float64Array(N), y = new Float64Array(N);
+    for (let k = 0; k < N; k++) {
+      const p = f((k + 0.5) / N);
+      x[k] = Array.isArray(p) ? p[0] : p.x;
+      y[k] = Array.isArray(p) ? p[1] : p.y;
+    }
+    return new Shape(x, y);
+  }
+
+  // ── SAMPLING ──────────────────────────────────────────────────────────────
+
+  /** Dense polyline of the reconstructed curve: M points, uniform in parameter. */
+  sample(M) {
+    const m = M || Math.max(256, this.N * 8);
+    return { x: reconstruct(this.x, m), y: reconstruct(this.y, m) };
+  }
+
+  /** Point on the curve at parameter t in [0, 1). Exact, not interpolated. */
+  at(t) {
+    const phi = t * TAU;
+    return { x: evalAt(this.x, phi), y: evalAt(this.y, phi) };
+  }
+
+  /** Unit tangent at parameter t, by central difference on the reconstruction. */
+  tangentAt(t) {
+    const h = 1 / (this.N * 64);
+    const a = this.at(t - h), b = this.at(t + h);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1e-12;
+    return { x: dx / len, y: dy / len };
+  }
+
+  /**
+   * LEFT unit normal at t: the tangent rotated +90 degrees. Whether that points
+   * out of the shape or into it depends on the winding direction, which is why
+   * anything that means "outward" should ask `normals()` instead of guessing.
+   */
+  normalAt(t) {
+    const tg = this.tangentAt(t);
+    return { x: -tg.y, y: tg.x };
+  }
+
+  /** Parameter t in [0, 1) of leaf k. */
+  tOf(k) { return (k + 0.5) / this.N; }
+
+  /** Index of the leaf nearest to (x, y), with its distance. */
+  nearestLeaf(x, y) {
+    let best = -1, bestD = Infinity;
+    for (let k = 0; k < this.N; k++) {
+      const d = Math.hypot(this.x[k] - x, this.y[k] - y);
+      if (d < bestD) { bestD = d; best = k; }
+    }
+    return { index: best, distance: bestD };
+  }
+
+  // ── RESOLUTION ────────────────────────────────────────────────────────────
+
+  /**
+   * Change the leaf count. The curve is reconstructed and re-sampled uniformly
+   * in the parameter, which preserves the existing parameterization — so N down
+   * then N up is a smoothing pass, not a scramble.
+   *
+   * Evaluated with `evalAt` at each new leaf position, which is exact. It used
+   * to reconstruct onto an internal grid of M = max(2048, 16·max(N, N0)) points
+   * and interpolate linearly between them, and that had a failure mode worth
+   * recording because nothing about the call site hinted at it: the query
+   * positions are (k + 1/2)·M/N, so they land ON grid indices exactly when
+   * M/(2N) is an integer, and fall between them otherwise. Upsampling 96 → 128
+   * was exact to 2e-12; 96 → 127 was off by 1.5e-2, seven orders of magnitude
+   * worse from one leaf's difference — and because M is clamped at 2048, COARSER
+   * targets were the unreliable ones, which is backwards from every intuition
+   * anyone brings to a resampling call. Exactness should not depend on an
+   * arithmetic coincidence between the argument and a constant buried in the
+   * method, so it no longer does.
+   */
+  resample(N) {
+    if (N === this.N) return this;
+    if (N < 3) throw new Error('tvf: N must be at least 3');
+    const nx = new Float64Array(N), ny = new Float64Array(N);
+    for (let k = 0; k < N; k++) {
+      const phi = (k + 0.5) * TAU / N;
+      nx[k] = evalAt(this.x, phi);
+      ny[k] = evalAt(this.y, phi);
+    }
+    this.x = nx; this.y = ny;
+    return this;
+  }
+
+  /**
+   * Redistribute the same number of leaves so they are equally spaced in ARC
+   * LENGTH rather than in parameter. Same curve, better-spent leaves — worth
+   * running after a transform that stretched one region.
+   */
+  reparameterize() {
+    const d = this.sample(Math.max(2048, this.N * 16));
+    const r = arcLengthResample(d.x, d.y, this.N);
+    this.x = r.x; this.y = r.y;
+    return this;
+  }
+
+  // ── SCULPT ────────────────────────────────────────────────────────────────
+
+  /**
+   * Press the curve near leaf `k`. This is the thumb.
+   *
+   * A raised-cosine bump of half-width `radius` leaves is added to the leaf
+   * positions, so the deformation is smooth and local and the peak lands
+   * exactly on the leaf you grabbed.
+   *
+   * If `radius` is omitted it is derived from how far you pushed, relative to
+   * the typical leaf spacing: a raised-cosine bump of half-width R has peak
+   * inter-leaf slope PI/(2R) of its height, so holding that slope under a fixed
+   * threshold gives R proportional to |delta| / spacing. Small nudges stay
+   * tight, big shoves spread out, and the result does not depend on N.
+   *
+   * @param {number} k leaf index (fractional is fine)
+   * @param {{dx?: number, dy?: number, radius?: number, falloff?: string}} opts
+   */
+  push(k, opts = {}) {
+    const N = this.N;
+    const dx = opts.dx || 0, dy = opts.dy || 0;
+    const dist = Math.hypot(dx, dy);
+    if (dist === 0) return this;
+
+    let R = opts.radius;
+    if (R == null) {
+      let total = 0;
+      for (let i = 0; i < N; i++) {
+        const j = (i + 1) % N;
+        total += Math.hypot(this.x[j] - this.x[i], this.y[j] - this.y[i]);
+      }
+      const spacing = total / N || 1e-9;
+      R = (PI * PI / 2) * dist / spacing;
+    }
+    R = Math.max(1, Math.min(R, N / 2));
+
+    const falloff = opts.falloff || 'cosine';
+    for (let i = 0; i < N; i++) {
+      const d = Math.abs(wrapDist(i, k, N));
+      if (d > R) continue;
+      let w;
+      if (falloff === 'cosine') w = 0.5 * (1 + Math.cos(PI * d / R));
+      else if (falloff === 'linear') w = 1 - d / R;
+      else if (falloff === 'gauss') w = Math.exp(-4.5 * (d / R) * (d / R));
+      else w = 0.5 * (1 + Math.cos(PI * d / R));
+      this.x[i] += dx * w;
+      this.y[i] += dy * w;
+    }
+    return this;
+  }
+
+  /** Press at parameter t in [0, 1) instead of at a leaf index. */
+  pushAt(t, opts = {}) { return this.push(t * this.N - 0.5, opts); }
+
+  /** Push along the local normal — inflate or dent without choosing a direction. */
+  pushNormal(k, amount, opts = {}) {
+    const n = this.normalAt(this.tOf(k));
+    return this.push(k, Object.assign({}, opts, { dx: n.x * amount, dy: n.y * amount }));
+  }
+
+  /**
+   * Relax the curve. `amount` in [0, 1] mixes toward a circular [1,2,1]/4 blur
+   * of the leaves; `passes` repeats it for a wider, gentler result.
+   */
+  smooth(amount = 0.5, passes = 1) {
+    const N = this.N;
+    for (let p = 0; p < passes; p++) {
+      const bx = new Float64Array(N), by = new Float64Array(N);
+      for (let i = 0; i < N; i++) {
+        const a = (i - 1 + N) % N, b = (i + 1) % N;
+        bx[i] = 0.25 * this.x[a] + 0.5 * this.x[i] + 0.25 * this.x[b];
+        by[i] = 0.25 * this.y[a] + 0.5 * this.y[i] + 0.25 * this.y[b];
+      }
+      for (let i = 0; i < N; i++) {
+        this.x[i] += (bx[i] - this.x[i]) * amount;
+        this.y[i] += (by[i] - this.y[i]) * amount;
+      }
+    }
+    return this;
+  }
+
+  /**
+   * Keep only the lowest `keep` fraction of harmonics. This is the honest
+   * band-limit: keep = 1 is a no-op, keep = 0.1 leaves a soft blob, and unlike
+   * `smooth()` it removes detail exactly rather than attenuating it.
+   */
+  lowpass(keep = 0.5) {
+    const N = this.N;
+    const cut = Math.max(1, Math.floor(Math.max(0, Math.min(1, keep)) * N / 2));
+    const zero = new Float64Array(N);
+    const fx = dft(this.x, zero), fy = dft(this.y, new Float64Array(N));
+    for (let m = 0; m < N; m++) {
+      const h = Math.min(m, N - m);          // signed harmonic order
+      if (h > cut) {
+        fx.re[m] = fx.im[m] = 0;
+        fy.re[m] = fy.im[m] = 0;
+      }
+    }
+    const rx = idft(fx.re, fx.im), ry = idft(fy.re, fy.im);
+    this.x = rx.re; this.y = ry.re;
+    return this;
+  }
+
+  /** Drop the lowest harmonics instead — leaves the wobble, kills the body. */
+  highpass(cutFraction = 0.1) {
+    const N = this.N;
+    const cut = Math.floor(Math.max(0, Math.min(1, cutFraction)) * N / 2);
+    const fx = dft(this.x, new Float64Array(N)), fy = dft(this.y, new Float64Array(N));
+    for (let m = 0; m < N; m++) {
+      const h = Math.min(m, N - m);
+      if (h <= cut) { fx.re[m] = fx.im[m] = 0; fy.re[m] = fy.im[m] = 0; }
+    }
+    const rx = idft(fx.re, fx.im), ry = idft(fy.re, fy.im);
+    this.x = rx.re; this.y = ry.re;
+    return this;
+  }
+
+  /**
+   * Morph toward another shape. This is why the format is pleasant: a morph is
+   * a lerp of two arrays, with no correspondence problem to solve, because both
+   * shapes are sampled on the same parameter grid.
+   *
+   * If the leaf counts differ, the other shape is resampled to match. Set
+   * `align: true` to first rotate the other shape's leaf order to the offset
+   * that minimizes total travel — usually what you want when the two shapes
+   * were authored independently.
+   */
+  blend(other, t = 0.5, opts = {}) {
+    let o = other;
+    if (o.N !== this.N) o = o.clone().resample(this.N);
+    if (opts.align) o = alignTo(this, o);
+    const N = this.N;
+    for (let i = 0; i < N; i++) {
+      this.x[i] += (o.x[i] - this.x[i]) * t;
+      this.y[i] += (o.y[i] - this.y[i]) * t;
+    }
+    return this;
+  }
+
+  /**
+   * Fold the shape onto its own mirror image about a line through the centroid
+   * at `angle` radians, then average. The index correspondence is found by
+   * searching all N leaf offsets for the one that minimizes total travel, so
+   * this works on an arbitrary shape rather than only on a near-symmetric one.
+   *
+   * `strength` in [0, 1] controls how far to go: 1 is fully symmetric.
+   */
+  symmetrize(angle = 0, strength = 1) {
+    const N = this.N;
+    const c = this.centroid();
+    const ca = Math.cos(2 * angle), sa = Math.sin(2 * angle);
+    // Reflected leaves, in reversed order (reflection flips orientation).
+    const rx = new Float64Array(N), ry = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+      const j = (N - 1 - i) % N;
+      const px = this.x[j] - c.x, py = this.y[j] - c.y;
+      rx[i] = c.x + px * ca + py * sa;
+      ry[i] = c.y + px * sa - py * ca;
+    }
+    // Best circular offset between the original order and the reflected order.
+    let bestOff = 0, bestCost = Infinity;
+    for (let off = 0; off < N; off++) {
+      let cost = 0;
+      for (let i = 0; i < N; i++) {
+        const j = (i + off) % N;
+        const ddx = this.x[i] - rx[j], ddy = this.y[i] - ry[j];
+        cost += ddx * ddx + ddy * ddy;
+        if (cost >= bestCost) break;
+      }
+      if (cost < bestCost) { bestCost = cost; bestOff = off; }
+    }
+    for (let i = 0; i < N; i++) {
+      const j = (i + bestOff) % N;
+      this.x[i] += (0.5 * (this.x[i] + rx[j]) - this.x[i]) * strength;
+      this.y[i] += (0.5 * (this.y[i] + ry[j]) - this.y[i]) * strength;
+    }
+    return this;
+  }
+
+  /** Force n-fold rotational symmetry about the centroid, the same way. */
+  radialize(fold = 5, strength = 1) {
+    const N = this.N;
+    const c = this.centroid();
+    const acc = this.clone();
+    for (let f = 1; f < fold; f++) {
+      const rot = this.clone().rotate(TAU * f / fold, c);
+      const aligned = alignTo(this, rot);
+      for (let i = 0; i < N; i++) { acc.x[i] += aligned.x[i]; acc.y[i] += aligned.y[i]; }
+    }
+    for (let i = 0; i < N; i++) {
+      this.x[i] += (acc.x[i] / fold - this.x[i]) * strength;
+      this.y[i] += (acc.y[i] / fold - this.y[i]) * strength;
+    }
+    return this;
+  }
+
+  /**
+   * Band-limited displacement along the normal. Built from harmonics directly
+   * rather than from per-leaf white noise, so `detail` means something: it is
+   * the highest harmonic used, as a fraction of the Nyquist limit. Low detail
+   * gives lobes, high detail gives crinkle. Seeded, so it is reproducible.
+   */
+  noise(amp = 5, opts = {}) {
+    const N = this.N;
+    const detail = opts.detail == null ? 0.25 : opts.detail;
+    const rand = mulberry32(opts.seed == null ? 1 : opts.seed);
+    const maxH = Math.max(1, Math.floor(detail * N / 2));
+    const minH = Math.max(1, opts.minHarmonic || 2);
+    const disp = new Float64Array(N);
+    for (let h = minH; h <= maxH; h++) {
+      const phase = rand() * TAU;
+      const a = (rand() * 2 - 1) / h;            // 1/f falloff reads as organic
+      for (let i = 0; i < N; i++) disp[i] += a * Math.cos(h * (i + 0.5) * TAU / N + phase);
+    }
+    let peak = 0;
+    for (let i = 0; i < N; i++) peak = Math.max(peak, Math.abs(disp[i]));
+    const scale = peak > 0 ? amp / peak : 0;
+    // ALL the normals first, THEN move. Reading a normal off a curve you are
+    // halfway through displacing feeds each leaf's motion into the next one's
+    // direction, and the error compounds around the loop until the curve
+    // crosses itself — a 26 px wobble on a 132 px circle was producing ten
+    // self-intersections before this was two passes instead of one.
+    const { nx, ny } = this.normals();
+    for (let i = 0; i < N; i++) {
+      this.x[i] += nx[i] * disp[i] * scale;
+      this.y[i] += ny[i] * disp[i] * scale;
+    }
+    return this;
+  }
+
+  /**
+   * Unit normals at every leaf, sampled off the CURRENT curve and flipped so
+   * they all point OUT of the shape regardless of winding direction. Orientation
+   * is read once from the signed area, so a clockwise shape and its reversed
+   * twin inflate the same way — which is the only behaviour a caller can use.
+   */
+  normals() {
+    const N = this.N;
+    const nx = new Float64Array(N), ny = new Float64Array(N);
+    // Left normal points INTO a positively-wound curve, so flip there.
+    const sign = this.area() > 0 ? -1 : 1;
+    for (let i = 0; i < N; i++) {
+      const n = this.normalAt(this.tOf(i));
+      nx[i] = n.x * sign; ny[i] = n.y * sign;
+    }
+    return { nx, ny };
+  }
+
+  /** Move every leaf along its normal. Positive inflates (for CCW curves). */
+  inflate(amount) {
+    const N = this.N;
+    const { nx, ny } = this.normals();
+    for (let i = 0; i < N; i++) { this.x[i] += nx[i] * amount; this.y[i] += ny[i] * amount; }
+    return this;
+  }
+
+  /**
+   * Rotate the leaf ORDER without moving the curve. Same shape, different
+   * starting leaf — occasionally what you need before a blend.
+   */
+  roll(offset) {
+    const N = this.N;
+    const nx = new Float64Array(N), ny = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+      const j = ((i + offset) % N + N) % N;
+      nx[i] = this.x[j]; ny[i] = this.y[j];
+    }
+    this.x = nx; this.y = ny;
+    return this;
+  }
+
+  /** Reverse orientation (CW <-> CCW). */
+  reverse() {
+    this.x.reverse(); this.y.reverse();
+    return this;
+  }
+
+  // ── AFFINE ────────────────────────────────────────────────────────────────
+  // These are exact on the reconstructed curve, not just on the leaves: the
+  // kernel is linear and sums to 1, so an affine map of the leaves is the
+  // affine map of the whole curve.
+
+  translate(dx, dy) {
+    for (let i = 0; i < this.N; i++) { this.x[i] += dx; this.y[i] += dy; }
+    return this;
+  }
+
+  scale(sx, sy = sx, about) {
+    const c = about || this.centroid();
+    for (let i = 0; i < this.N; i++) {
+      this.x[i] = c.x + (this.x[i] - c.x) * sx;
+      this.y[i] = c.y + (this.y[i] - c.y) * sy;
+    }
+    return this;
+  }
+
+  rotate(angle, about) {
+    const c = about || this.centroid();
+    const ca = Math.cos(angle), sa = Math.sin(angle);
+    for (let i = 0; i < this.N; i++) {
+      const px = this.x[i] - c.x, py = this.y[i] - c.y;
+      this.x[i] = c.x + px * ca - py * sa;
+      this.y[i] = c.y + px * sa + py * ca;
+    }
+    return this;
+  }
+
+  /** Fit the shape into a box, preserving aspect ratio. */
+  fit(x, y, w, h) {
+    const b = this.bbox();
+    const s = Math.min(w / (b.w || 1e-9), h / (b.h || 1e-9));
+    this.translate(-b.x - b.w / 2, -b.y - b.h / 2);
+    this.scale(s, s, { x: 0, y: 0 });
+    this.translate(x + w / 2, y + h / 2);
+    return this;
+  }
+
+  // ── MEASURE ───────────────────────────────────────────────────────────────
+  // Measured on the reconstructed curve, not on the leaf polygon, since the
+  // curve is the shape.
+
+  centroid() {
+    let sx = 0, sy = 0;
+    for (let i = 0; i < this.N; i++) { sx += this.x[i]; sy += this.y[i]; }
+    return { x: sx / this.N, y: sy / this.N };
+  }
+
+  bbox(M) {
+    const d = this.sample(M);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < d.x.length; i++) {
+      if (d.x[i] < x0) x0 = d.x[i];
+      if (d.x[i] > x1) x1 = d.x[i];
+      if (d.y[i] < y0) y0 = d.y[i];
+      if (d.y[i] > y1) y1 = d.y[i];
+    }
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  /** Perimeter of the reconstructed curve. */
+  length(M) {
+    const d = this.sample(M);
+    let L = 0;
+    for (let i = 0; i < d.x.length; i++) {
+      const j = (i + 1) % d.x.length;
+      L += Math.hypot(d.x[j] - d.x[i], d.y[j] - d.y[i]);
+    }
+    return L;
+  }
+
+  /** Signed area (shoelace). Negative means clockwise in screen coordinates. */
+  area(M) {
+    const d = this.sample(M);
+    let a = 0;
+    for (let i = 0; i < d.x.length; i++) {
+      const j = (i + 1) % d.x.length;
+      a += d.x[i] * d.y[j] - d.x[j] * d.y[i];
+    }
+    return a / 2;
+  }
+
+  contains(px, py, M) {
+    const d = this.sample(M);
+    let inside = false;
+    for (let i = 0, j = d.x.length - 1; i < d.x.length; j = i++) {
+      const yi = d.y[i], yj = d.y[j];
+      if ((yi > py) !== (yj > py)) {
+        const xAt = (d.x[j] - d.x[i]) * (py - yi) / (yj - yi) + d.x[i];
+        if (px < xAt) inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  // ── OUTPUT ────────────────────────────────────────────────────────────────
+
+  /** Dense polyline as [[x, y], ...]. */
+  toPolygon(M) {
+    const d = this.sample(M);
+    const out = new Array(d.x.length);
+    for (let i = 0; i < d.x.length; i++) out[i] = [d.x[i], d.y[i]];
+    return out;
+  }
+
+  /**
+   * SVG path data. A polyline at M samples — honest rather than clever: the
+   * curve is band-limited, so enough samples IS the curve, and there is no
+   * cubic that reproduces it exactly anyway.
+   */
+  toPath(M, precision = 2) {
+    const d = this.sample(M);
+    const n = d.x.length;
+    const f = v => {
+      const s = v.toFixed(precision);
+      return s.replace(/\.?0+$/, '') || '0';
+    };
+    let out = `M${f(d.x[0])} ${f(d.y[0])}`;
+    for (let i = 1; i < n; i++) out += `L${f(d.x[i])} ${f(d.y[i])}`;
+    return out + 'Z';
+  }
+
+  /** Trace onto a canvas 2D context or Path2D. Does not stroke or fill. */
+  trace(ctx, M) {
+    const d = this.sample(M);
+    ctx.moveTo(d.x[0], d.y[0]);
+    for (let i = 1; i < d.x.length; i++) ctx.lineTo(d.x[i], d.y[i]);
+    ctx.closePath();
+    return ctx;
+  }
+
+  /** Plain object, for JSON. */
+  toJSON() {
+    return { N: this.N, x: Array.from(this.x), y: Array.from(this.y), meta: this.meta };
+  }
+
+  static fromJSON(o) {
+    const s = new Shape(o.x, o.y);
+    if (o.meta) s.meta = Object.assign({}, o.meta);
+    return s;
+  }
+}
+
+/**
+ * Return a copy of `b` whose leaf order is rolled to the offset that minimizes
+ * total travel from `a`. Both must share N.
+ */
+function alignTo(a, b) {
+  const N = a.N;
+  if (b.N !== N) b = b.clone().resample(N);
+  let bestOff = 0, bestCost = Infinity;
+  for (let off = 0; off < N; off++) {
+    let cost = 0;
+    for (let i = 0; i < N; i++) {
+      const j = (i + off) % N;
+      const dx = a.x[i] - b.x[j], dy = a.y[i] - b.y[j];
+      cost += dx * dx + dy * dy;
+      if (cost >= bestCost) break;
+    }
+    if (cost < bestCost) { bestCost = cost; bestOff = off; }
+  }
+  return b.clone().roll(bestOff);
+}
+
+/** Non-mutating morph: a new shape t of the way from a to b. */
+function mix(a, b, t, opts) {
+  return a.clone().blend(b, t, opts);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// PRIMITIVES
+// ────────────────────────────────────────────────────────────────────────────
+// Starting clay. Every one of these is exact at its own leaves; the ones with
+// corners (rect, polygon, star) are exact AT the leaves and rounded between
+// them, which is the band limit being honest rather than a bug. Raise N if you
+// want the corners crisper — or accept the rounding, which usually looks good.
+
+/** @param {{r?: number, cx?: number, cy?: number}} o */
+function circle(N = 64, o = {}) {
+  const r = o.r == null ? 100 : o.r, cx = o.cx || 0, cy = o.cy || 0;
+  return Shape.fromFunction(t => [cx + r * Math.cos(t * TAU), cy + r * Math.sin(t * TAU)], N);
+}
+
+function ellipse(N = 64, o = {}) {
+  const rx = o.rx == null ? 120 : o.rx, ry = o.ry == null ? 70 : o.ry;
+  const cx = o.cx || 0, cy = o.cy || 0, rot = o.rotation || 0;
+  const s = Shape.fromFunction(t => [cx + rx * Math.cos(t * TAU), cy + ry * Math.sin(t * TAU)], N);
+  return rot ? s.rotate(rot, { x: cx, y: cy }) : s;
+}
+
+/**
+ * Superellipse: |x/a|^n + |y/b|^n = 1. n = 2 is an ellipse, n = 4 is a squircle,
+ * large n approaches a rectangle. The most useful primitive in the set, because
+ * it gives you rectangle-ish without asking the band limit for corners.
+ */
+function superellipse(N = 96, o = {}) {
+  const a = o.rx == null ? 110 : o.rx, b = o.ry == null ? 110 : o.ry;
+  const n = o.n == null ? 4 : o.n, cx = o.cx || 0, cy = o.cy || 0;
+  return Shape.fromFunction(t => {
+    const th = t * TAU;
+    const c = Math.cos(th), s = Math.sin(th);
+    const p = 2 / n;
+    return [
+      cx + a * Math.sign(c) * Math.pow(Math.abs(c), p),
+      cy + b * Math.sign(s) * Math.pow(Math.abs(s), p),
+    ];
+  }, N);
+}
+
+/** Rectangle, sampled along its perimeter by arc length. Corners round off. */
+function rect(N = 96, o = {}) {
+  const w = o.w == null ? 200 : o.w, h = o.h == null ? 140 : o.h;
+  const cx = o.cx || 0, cy = o.cy || 0;
+  const pts = [];
+  const per = 2 * (w + h), steps = Math.max(256, N * 8);
+  for (let i = 0; i < steps; i++) {
+    let d = (i / steps) * per;
+    let x, y;
+    if (d < w) { x = -w / 2 + d; y = -h / 2; }
+    else if ((d -= w) < h) { x = w / 2; y = -h / 2 + d; }
+    else if ((d -= h) < w) { x = w / 2 - d; y = h / 2; }
+    else { d -= w; x = -w / 2; y = h / 2 - d; }
+    pts.push([cx + x, cy + y]);
+  }
+  return Shape.fromPoints(pts, N);
+}
+
+function polygon(N = 96, o = {}) {
+  const sides = o.sides == null ? 6 : o.sides;
+  const r = o.r == null ? 100 : o.r, cx = o.cx || 0, cy = o.cy || 0;
+  const rot = o.rotation == null ? -PI / 2 : o.rotation;
+  const verts = [];
+  for (let i = 0; i < sides; i++) {
+    const a = rot + i * TAU / sides;
+    verts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  const pts = [];
+  const per = Math.max(256, N * 8), each = Math.ceil(per / sides);
+  for (let i = 0; i < sides; i++) {
+    const [ax, ay] = verts[i], [bx, by] = verts[(i + 1) % sides];
+    for (let s = 0; s < each; s++) {
+      const u = s / each;
+      pts.push([ax + (bx - ax) * u, ay + (by - ay) * u]);
+    }
+  }
+  return Shape.fromPoints(pts, N);
+}
+
+function star(N = 128, o = {}) {
+  const points = o.points == null ? 5 : o.points;
+  const r1 = o.r == null ? 110 : o.r;
+  const r2 = o.innerR == null ? r1 * 0.45 : o.innerR;
+  const cx = o.cx || 0, cy = o.cy || 0;
+  const rot = o.rotation == null ? -PI / 2 : o.rotation;
+  const verts = [];
+  for (let i = 0; i < points * 2; i++) {
+    const a = rot + i * PI / points;
+    const r = i % 2 === 0 ? r1 : r2;
+    verts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  const pts = [];
+  const each = Math.ceil(Math.max(512, N * 8) / verts.length);
+  for (let i = 0; i < verts.length; i++) {
+    const [ax, ay] = verts[i], [bx, by] = verts[(i + 1) % verts.length];
+    for (let s = 0; s < each; s++) {
+      const u = s / each;
+      pts.push([ax + (bx - ax) * u, ay + (by - ay) * u]);
+    }
+  }
+  return Shape.fromPoints(pts, N);
+}
+
+/** A circle with seeded band-limited wobble. The default lump of clay. */
+function blob(N = 64, o = {}) {
+  const s = circle(N, { r: o.r == null ? 100 : o.r, cx: o.cx || 0, cy: o.cy || 0 });
+  return s.noise(o.amp == null ? 22 : o.amp, {
+    seed: o.seed == null ? 7 : o.seed,
+    detail: o.detail == null ? 0.12 : o.detail,
+    minHarmonic: o.minHarmonic || 2,
+  });
+}
+
+/** Rose curve r = r0 * (1 + k*cos(petals * theta)). Cheap organic variety. */
+function rose(N = 128, o = {}) {
+  const r0 = o.r == null ? 100 : o.r, petals = o.petals == null ? 5 : o.petals;
+  const k = o.depth == null ? 0.35 : o.depth;
+  const cx = o.cx || 0, cy = o.cy || 0;
+  return Shape.fromFunction(t => {
+    const th = t * TAU;
+    const r = r0 * (1 + k * Math.cos(petals * th));
+    return [cx + r * Math.cos(th), cy + r * Math.sin(th)];
+  }, N);
+}
+
+const primitives = { circle, ellipse, superellipse, rect, polygon, star, blob, rose };
+
+return { Shape, mix, alignTo, primitives, kernelMatrix, kernelSlope, slopeDiff, leafSlopes, leafSlopesCascade, reconstructSlope, circle, ellipse, superellipse, rect, polygon, star, blob, rose, kernel, leafPositions, reconstruct, evalAt, arcLengthResample, clearCache, TAU };
+
+})();
+</script>
+<script>
+// ── THE CIRCLES GALLERY ─────────────────────────────────────────────────────────────────────────────────────────────
+// A LOOP is a closed curve resampled at M = 256 points even in arc length, read as z = x + iy, and put through the
+// discrete Fourier transform: c_k, k = 0 .. M−1, the harmonic n(k) = k (k ≤ M/2) or k − M. The curve is
+// z(θ) = Σ c_k e^{i n θ}: c_0 the centre, and every other term a CIRCLE of radius |c_k| turning n times while the pen
+// goes round once, riding the rim of the one before. Kept in order of size, the first K are the K biggest circles.
+// The loop is turned to run counter-clockwise on the screen and started where the first harmonic is at its biggest
+// (c_1 real and positive), so two loops from different drawings agree on where they begin, which is all a morph by
+// mixing circles needs. The error with K circles at the samples is exact, by Parseval: the energy of the circles left
+// out over the energy of all of them but the centre. Nothing here is stored but numbers.
+const CIRCLES = (function () {
+  const M = 256, TAU = Math.PI * 2;
+  const cosT = new Float64Array(M), sinT = new Float64Array(M);
+  for (let m = 0; m < M; m++) { cosT[m] = Math.cos(TAU * m / M); sinT[m] = Math.sin(TAU * m / M); }
+  const nOf = k => k <= M / 2 ? k : k - M;
+  const areaOf = P => { let a = 0; for (let i = 0; i < P.length; i++) { const q = P[(i + 1) % P.length]; a += P[i][0] * q[1] - q[0] * P[i][1]; } return a / 2; };
+
+  // M points even in arc length, running the way that makes the area positive (on the screen, y down: clockwise to the eye)
+  // a curve given by a formula keeps its own parameter (byIndex: the points are already even in it), since the
+  // ellipse is two circles only when the pen goes round at the angle's own pace, not at an even speed along the outline
+  function resample(P, byIndex) {
+    if (areaOf(P) < 0) P = P.slice().reverse();
+    if (byIndex) {
+      const n = P.length;
+      return Array.from({ length: M }, (_, k) => { const u = k * n / M, j = Math.floor(u), f = u - j, a = P[j % n], b = P[(j + 1) % n]; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]; });
+    }
+    const n = P.length, L = [0];
+    for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n]; L.push(L[i] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+    const tot = L[n], z = [];
+    let j = 0;
+    for (let k = 0; k < M; k++) {
+      const s = tot * k / M;
+      while (j < n - 1 && L[j + 1] < s) j++;
+      const f = (s - L[j]) / ((L[j + 1] - L[j]) || 1), a = P[j], b = P[(j + 1) % n];
+      z.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+    }
+    return z;
+  }
+  // order the circles by size and keep the running energy, so the error at any K is a lookup
+  function finish(loop) {
+    const { cr, ci } = loop, idx = [];
+    for (let k = 1; k < M; k++) idx.push(k);
+    const e = k => cr[k] * cr[k] + ci[k] * ci[k];
+    idx.sort((a, b) => e(b) - e(a));
+    const cum = new Float64Array(M);
+    for (let m = 0; m < M - 1; m++) cum[m + 1] = cum[m] + e(idx[m]);
+    loop.order = idx; loop.cum = cum; loop.total = cum[M - 1];
+    return loop;
+  }
+  function makeLoop(P, byIndex) {
+    const z = resample(P, byIndex), cr = new Float64Array(M), ci = new Float64Array(M);
+    for (let k = 0; k < M; k++) {
+      let sr = 0, si = 0;
+      for (let j = 0; j < M; j++) { const m = (k * j) & (M - 1), x = z[j][0], y = z[j][1]; sr += x * cosT[m] + y * sinT[m]; si += y * cosT[m] - x * sinT[m]; }
+      cr[k] = sr / M; ci[k] = si / M;
+    }
+    // start where the first harmonic is real and positive
+    if (Math.hypot(cr[1], ci[1]) > 1e-9) {
+      const tau = -Math.atan2(ci[1], cr[1]);
+      for (let k = 0; k < M; k++) { const ph = nOf(k) * tau, c = Math.cos(ph), s = Math.sin(ph), a = cr[k], b = ci[k]; cr[k] = a * c - b * s; ci[k] = a * s + b * c; }
+    }
+    return finish({ z, cr, ci, cache: new Map() });
+  }
+  // the pen's M points with the K biggest circles (the cache holds the last few K)
+  function approx(loop, K) {
+    const hit = loop.cache.get(K);
+    if (hit) return hit;
+    const xs = new Float64Array(M).fill(loop.cr[0]), ys = new Float64Array(M).fill(loop.ci[0]);
+    for (let m = 0; m < K && m < M - 1; m++) {
+      const k = loop.order[m], n = nOf(k), a = loop.cr[k], b = loop.ci[k];
+      for (let j = 0; j < M; j++) { const q = (n * j) & (M - 1), c = cosT[q], s = sinT[q]; xs[j] += a * c - b * s; ys[j] += a * s + b * c; }
+    }
+    const out = { xs, ys };
+    if (loop.cache.size > 24) loop.cache.clear();
+    loop.cache.set(K, out);
+    return out;
+  }
+  // the chain at turn t (0 to 1): centres of the circles and their radii, the pen at the last centre
+  function chain(loop, K, t) {
+    const th = TAU * t, cx = [loop.cr[0]], cy = [loop.ci[0]], rad = [];
+    let x = loop.cr[0], y = loop.ci[0];
+    for (let m = 0; m < K && m < M - 1; m++) {
+      const k = loop.order[m], n = nOf(k), r = Math.hypot(loop.cr[k], loop.ci[k]), ph = Math.atan2(loop.ci[k], loop.cr[k]) + n * th;
+      rad.push(r); x += r * Math.cos(ph); y += r * Math.sin(ph); cx.push(x); cy.push(y);
+    }
+    return { cx, cy, rad };
+  }
+  // the share of the shape's own size (its rms radius about the centre) that K circles miss, at the samples
+  const relErr = (loop, K) => loop.total > 0 ? Math.sqrt(Math.max(0, 1 - loop.cum[Math.min(K, M - 1)] / loop.total)) : 0;
+  const needed = (loop, tol) => { for (let K = 0; K < M; K++) if (relErr(loop, K) <= tol) return K; return M - 1; };
+  // two loops mixed circle by circle: t = 0 the first, 1 the second
+  function mix(A, B, t) {
+    const cr = new Float64Array(M), ci = new Float64Array(M);
+    for (let k = 0; k < M; k++) { cr[k] = (1 - t) * A.cr[k] + t * B.cr[k]; ci[k] = (1 - t) * A.ci[k] + t * B.ci[k]; }
+    return finish({ cr, ci, cache: new Map() });
+  }
+
+  // ── the shapes ──
+  const GLYPH_WORDS = {"SUNSET":["M49.6 70.1L61.6 71.2L69.0 74.1L74.3 79.6L77.1 86.9L63.5 89.1L60.6 84.0L57.5 81.7L46.7 80.4L38.4 83.3L36.8 85.8L36.8 91.1L38.0 93.2L43.2 96.3L63.8 101.5L73.8 106.7L77.7 112.5L78.9 122.6L76.1 130.9L69.6 136.8L61.0 139.8L46.4 140.9L35.9 139.3L27.2 135.1L22.5 130.2L19.3 122.4L32.7 119.8L38.3 127.5L48.4 130.1L58.1 129.1L64.1 124.9L64.7 118.5L61.3 114.4L31.4 105.1L26.6 101.5L23.0 94.8L23.1 83.6L27.9 76.2L36.8 71.6Z","M89.0 71.4L103.2 71.4L104.0 119.2L106.5 124.5L109.8 127.5L114.8 129.3L120.4 129.6L125.5 128.5L129.5 126.1L132.6 122.3L134.1 117.8L134.7 71.4L148.8 71.3L148.6 119.1L146.3 126.7L140.5 134.1L131.9 138.9L115.6 140.9L102.5 137.9L94.9 132.3L91.9 127.9L89.3 119.7Z","M161.9 71.4L178.4 71.4L208.5 124.1L207.9 71.5L220.6 71.4L220.6 139.7L203.6 139.6L174.0 87.6L174.6 139.6L161.9 139.7Z","M260.8 70.1L272.7 71.2L280.2 74.1L285.5 79.6L288.2 86.9L274.6 89.1L271.7 84.0L268.7 81.7L257.8 80.4L252.3 81.5L248.6 84.5L247.5 89.4L249.2 93.2L254.3 96.3L274.9 101.5L281.9 104.5L287.8 110.4L290.0 117.4L288.5 128.6L282.9 135.4L276.0 138.8L264.0 140.9L253.1 140.4L242.0 137.3L234.9 131.9L230.4 122.4L243.8 119.8L249.5 127.5L259.5 130.1L269.2 129.1L275.2 124.9L275.8 118.5L272.5 114.4L242.5 105.1L237.8 101.5L234.1 94.8L234.3 83.6L239.0 76.2L247.9 71.6Z","M300.9 71.4L354.8 71.4L354.6 82.2L315.4 82.5L315.5 99.4L351.6 99.5L352.0 109.7L351.3 110.6L315.5 110.7L315.3 128.1L356.5 128.8L356.5 139.8L300.9 139.7Z","M362.1 71.4L420.6 71.4L420.5 82.2L398.5 82.6L398.1 139.8L384.1 139.6L383.9 82.5L362.2 82.2Z"],"ZENITH":["M48.2 71.4L97.6 71.4L97.4 81.4L60.7 128.3L99.3 128.6L99.3 139.8L44.5 139.7L44.6 129.5L81.3 82.7L48.4 82.4Z","M109.3 71.4L163.2 71.4L162.9 82.2L123.8 82.5L123.9 99.4L160.0 99.5L160.4 109.7L159.7 110.6L123.9 110.7L123.6 128.1L164.9 128.8L164.9 139.8L109.3 139.7Z","M175.9 71.4L192.5 71.4L222.6 124.1L221.9 71.5L234.7 71.4L234.7 139.7L217.6 139.6L188.0 87.6L188.6 139.6L175.9 139.7Z","M248.2 71.4L262.5 71.7L261.8 139.9L248.1 139.4Z","M270.4 71.4L329.2 71.4L328.9 82.2L307.1 82.6L306.7 139.8L292.6 139.6L292.5 82.5L270.5 82.2Z","M337.0 71.4L351.3 71.4L351.4 97.8L352.3 98.5L381.0 98.4L381.4 71.4L395.6 71.4L395.4 139.8L381.4 139.7L381.0 110.5L352.3 110.4L351.4 111.1L351.3 139.7L337.0 139.7Z"]};
+  const ptsOf = d => { const p = []; for (const m of d.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)) p.push([+m[1], +m[2]]); return p; };
+  const regular = (n, f) => Array.from({ length: n }, (_, i) => f(TAU * i / n));
+  const SHAPES = {
+    circle: { name: 'circle', byIndex: true, loops: [regular(160, a => [Math.cos(a), Math.sin(a)])] },
+    ellipse: { name: 'ellipse', byIndex: true, loops: [regular(160, a => { const x = Math.cos(a), y = 0.55 * Math.sin(a), r = 0.35; return [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)]; })] },
+    heart: { name: 'heart', byIndex: true, loops: [regular(200, a => [16 * Math.pow(Math.sin(a), 3) / 16, -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) / 16])] },
+    star: { name: 'star', loops: [Array.from({ length: 10 }, (_, i) => { const a = TAU * i / 10 - Math.PI / 2, r = i % 2 ? 0.42 : 1; return [r * Math.cos(a), r * Math.sin(a)]; })] },
+    square: { name: 'square', loops: [[[-0.8, -0.8], [0.8, -0.8], [0.8, 0.8], [-0.8, 0.8]]] },
+    SUNSET: { name: 'SUNSET', loops: GLYPH_WORDS.SUNSET.map(ptsOf) },
+    ZENITH: { name: 'ZENITH', loops: GLYPH_WORDS.ZENITH.map(ptsOf) }
+  };
+  // centred on its own box; the box is kept so a stage can fit it
+  function build(name) {
+    const S = SHAPES[name];
+    if (S.built) return S.built;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const P of S.loops) for (const q of P) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    return S.built = { name, box: [x1 - x0, y1 - y0], loops: S.loops.map(P => makeLoop(P.map(q => [q[0] - cx, q[1] - cy]), S.byIndex)) };
+  }
+  const COLS = ['#e0475a', '#e8833a', '#f2c14e', '#4fae7a', '#4f8fd6', '#7c5cff'];
+  return { M, makeLoop, approx, chain, relErr, needed, mix, build, SHAPES, COLS, nOf };
+})();
+
+// ── A STAGE: one canvas that shows a scene (loops) with K circles at the turn t ──
+function makeStage(canvas, o) {
+  const ctx = canvas.getContext('2d');
+  const st = { loops: [], box: [2, 2], K: 6, t: 0, chosen: 0, chain: true, fill: true, orig: false, fixed: false, paths: [], w: 0, h: 0, extra: null };
+  const dpr = () => Math.min(2, window.devicePixelRatio || 1);
+  function size() {
+    const r = canvas.getBoundingClientRect(), d = dpr();
+    if (r.width < 1) return false;
+    if (canvas.width !== Math.round(r.width * d) || canvas.height !== Math.round(r.height * d)) { canvas.width = Math.round(r.width * d); canvas.height = Math.round(r.height * d); }
+    st.w = r.width; st.h = r.height;
+    return true;
+  }
+  const scale = () => st.fixed ? 1 : Math.min(st.w * 0.88 / st.box[0], st.h * 0.74 / st.box[1]);
+  st.toScreen = (X, Y) => { const s = scale(); return [st.w / 2 + s * X, st.h / 2 + s * Y]; };
+  st.toWorld = (x, y) => { const s = scale(); return [(x - st.w / 2) / s, (y - st.h / 2) / s]; };
+  st.render = function () {
+    if (!size()) return;
+    const d = dpr(), s = scale(), M = CIRCLES.M;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    ctx.clearRect(0, 0, st.w, st.h);
+    st.paths = [];
+    const colour = i => st.loops.length > 1 ? CIRCLES.COLS[i % 6] : '#a993ff';
+    st.loops.forEach((L, i) => {
+      const A = CIRCLES.approx(L, st.K), P = new Path2D();
+      for (let j = 0; j < M; j++) { const [x, y] = st.toScreen(A.xs[j], A.ys[j]); j ? P.lineTo(x, y) : P.moveTo(x, y); }
+      P.closePath();
+      st.paths.push(P);
+      const col = colour(i);
+      if (st.fill) { ctx.globalAlpha = 0.34; ctx.fillStyle = col; ctx.fill(P); ctx.globalAlpha = 1; }
+      ctx.strokeStyle = col; ctx.globalAlpha = i === st.chosen ? 0.6 : 0.3; ctx.lineWidth = 1; ctx.stroke(P); ctx.globalAlpha = 1;
+      if (st.orig) {
+        ctx.setLineDash([3, 4]); ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.beginPath();
+        for (let j = 0; j <= M; j++) { const q = L.z ? L.z[j % M] : null; if (!q) break; const [x, y] = st.toScreen(q[0] - (L.zc ? L.zc[0] : 0), q[1] - (L.zc ? L.zc[1] : 0)); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.stroke(); ctx.setLineDash([]);
+      }
+      // the pen's trail so far, and the pen
+      const n = Math.floor(st.t * M) + 1;
+      ctx.strokeStyle = col; ctx.lineWidth = 2.2; ctx.beginPath();
+      for (let j = 0; j < n; j++) { const [x, y] = st.toScreen(A.xs[j], A.ys[j]); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke();
+      const C = CIRCLES.chain(L, st.K, st.t), px = st.toScreen(C.cx[C.cx.length - 1], C.cy[C.cy.length - 1]);
+      if (st.chain && i === st.chosen) {
+        ctx.lineWidth = 1;
+        for (let m = 0; m < C.rad.length; m++) {
+          const [x, y] = st.toScreen(C.cx[m], C.cy[m]), [x2, y2] = st.toScreen(C.cx[m + 1], C.cy[m + 1]), r = C.rad[m] * s;
+          if (r > 0.8) { ctx.strokeStyle = 'rgba(190,200,230,.2)'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke(); }
+          ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
+        }
+      }
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px[0], px[1], i === st.chosen ? 4 : 2.6, 0, Math.PI * 2); ctx.fill();
+    });
+    if (st.extra) st.extra(ctx, st);
+  };
+  // a click on a letter chooses its chain
+  canvas.addEventListener('click', e => {
+    if (o && o.noPick) return;
+    const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    for (let i = st.paths.length - 1; i >= 0; i--) if (ctx.isPointInPath(st.paths[i], x * dpr(), y * dpr())) { st.chosen = i; if (o && o.onPick) o.onPick(i); return; }
+  });
+  return st;
+}
+
+// ── a bench's shared bits ──
+const BENCHES = {};
+const el = (tag, attrs, kids) => { const e = document.createElement(tag); for (const k in attrs || {}) { if (k === 'text') e.textContent = attrs[k]; else if (k === 'html') e.innerHTML = attrs[k]; else e.setAttribute(k, attrs[k]); } for (const c of kids || []) e.appendChild(c); return e; };
+const pct = v => v >= 0.1 ? (v * 100).toFixed(0) + '%' : v >= 0.01 ? (v * 100).toFixed(1) + '%' : (v * 100).toFixed(2) + '%';
+let visible = new Set();
+const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? visible.add(e.target) : visible.delete(e.target)), { threshold: 0 }) : null;
+function slider(label, min, max, step, val, on, fmt) {
+  const out = el('b', { text: fmt(val) }), inp = el('input', { type: 'range', min, max, step, value: val });
+  inp.addEventListener('input', () => { out.textContent = fmt(+inp.value); on(+inp.value); });
+  const lab = el('label', {}, [el('span', { text: label }), inp, out]);
+  lab.set = v => { inp.value = v; out.textContent = fmt(v); };
+  lab.inp = inp;
+  return lab;
+}
+function toggle(label, on0, on) {
+  const b = el('button', { text: label, class: on0 ? 'on' : '' });
+  b.addEventListener('click', () => { b.classList.toggle('on'); on(b.classList.contains('on')); });
+  return b;
+}
+function errorCurve(canvas, loop, K) {
+  const ctx = canvas.getContext('2d'), r = canvas.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1);
+  if (r.width < 1) return;
+  canvas.width = Math.round(r.width * d); canvas.height = Math.round(r.height * d);
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  const W = r.width, H = r.height, KM = 128, lo = -3, X = k => 28 + (W - 36) * k / KM, Y = v => 8 + (H - 22) * (Math.log10(Math.max(v, 1e-3)) / lo);
+  ctx.fillStyle = '#7d869a'; ctx.font = '10px ui-monospace, monospace'; ctx.strokeStyle = 'rgba(125,134,154,.25)';
+  for (const [v, t] of [[1, '100%'], [0.1, '10%'], [0.01, '1%'], [0.001, '.1%']]) { ctx.beginPath(); ctx.moveTo(28, Y(v)); ctx.lineTo(W - 8, Y(v)); ctx.stroke(); ctx.fillText(t, 0, Y(v) + 3); }
+  ctx.fillText('circles →', W - 62, H - 3);
+  ctx.strokeStyle = '#a993ff'; ctx.lineWidth = 1.6; ctx.beginPath();
+  for (let k = 0; k <= KM; k++) { const x = X(k), y = Y(CIRCLES.relErr(loop, k)); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(Math.min(K, KM)), 4); ctx.lineTo(X(Math.min(K, KM)), H - 14); ctx.stroke();
+}
+const readout = pairs => { const r = el('div', { class: 'read' }); const bs = {}; for (const [k, label] of pairs) { const b = el('b', { text: '–' }); bs[k] = b; r.appendChild(el('div', {}, [el('span', { text: label }), b])); } r.bs = bs; return r; };
+
+// ── BENCH 1: THE MACHINE ──
+(function () {
+  const root = document.getElementById('benchMachine'), ps = el('div', { class: 'picker' }), cv = el('canvas'), ec = el('canvas', { class: 'err' });
+  const st = makeStage(cv, { onPick: () => update() });
+  const B = { name: 'circle', playing: true, speed: 1, st };
+  const names = ['circle', 'ellipse', 'heart', 'star', 'square', 'SUNSET', 'ZENITH'];
+  const rd = readout([['K', 'circles kept'], ['big', 'the biggest circle'], ['err', 'shape missed'], ['n5', 'for 5%'], ['n1', 'for 1%'], ['n01', 'for 0.1%']]);
+  const play = el('button', { text: 'pause', class: 'on' });
+  const kS = slider('circles', 1, 160, 1, 6, v => { st.K = v; update(); }, v => String(v));
+  const sp = slider('speed', 0.1, 3, 0.05, 1, v => { B.speed = v; }, v => v.toFixed(2) + '×');
+  const bar1 = el('div', { class: 'bench-bar' }, [ps, el('span', { class: 'sep' }), play]);
+  const bar2 = el('div', { class: 'knobs' }, [kS, sp, toggle('circles', true, v => { st.chain = v; }), toggle('filled', true, v => { st.fill = v; }), toggle('the true outline', false, v => { st.orig = v; })]);
+  const grid = el('div', { class: 'bench-grid wide2' }, [el('figure', {}, [cv, el('figcaption', { html: '<b>the pen</b> traces the shape; the white lines are the chain of circles (the biggest first)' })]),
+    el('figure', {}, [ec, el('figcaption', { html: '<b>how close</b> the first <i>K</i> circles are, by number of circles (log scale; click a letter to see its own)' }), rd])]);
+  root.append(bar1, bar2, grid);
+  function pick(n) {
+    B.name = n; const S = CIRCLES.build(n);
+    st.loops = S.loops; st.box = S.box; st.chosen = 0; st.t = 0;
+    ps.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.s === n));
+    update();
+  }
+  function update() {
+    const L = st.loops[st.chosen]; if (!L) return;
+    rd.bs.K.textContent = st.K + ' of ' + (CIRCLES.M - 1);
+    rd.bs.big.textContent = pct(Math.sqrt((L.cum[1]) / L.total));
+    rd.bs.err.textContent = pct(CIRCLES.relErr(L, st.K));
+    rd.bs.n5.textContent = CIRCLES.needed(L, 0.05); rd.bs.n1.textContent = CIRCLES.needed(L, 0.01); rd.bs.n01.textContent = CIRCLES.needed(L, 0.001);
+    errorCurve(ec, L, st.K);
+  }
+  for (const n of names) { const b = el('button', { text: n, 'data-s': n }); b.addEventListener('click', () => pick(n)); ps.appendChild(b); }
+  play.addEventListener('click', () => { B.playing = !B.playing; play.textContent = B.playing ? 'pause' : 'play'; play.classList.toggle('on', B.playing); });
+  B.tick = dt => { if (B.playing) st.t = (st.t + dt * B.speed / 14) % 1; };
+  B.pick = pick; B.update = update; B.kS = kS; B.root = root;
+  BENCHES.machine = B; if (io) io.observe(cv);
+  B.cv = cv;
+  pick('heart');
+})();
+
+// ── BENCH 2: WORD INTO WORD ──
+(function () {
+  const root = document.getElementById('benchMorph'), cv = el('canvas');
+  const A = CIRCLES.build('SUNSET'), Z = CIRCLES.build('ZENITH');
+  const st = makeStage(cv, {});
+  const B = { playing: true, u: 0, dir: 1, speed: 1, st, A, Z };
+  st.box = [Math.max(A.box[0], Z.box[0]), Math.max(A.box[1], Z.box[1])];
+  const lab = el('span', { class: 'frl', text: 'SUNSET' });
+  const play = el('button', { text: 'pause', class: 'on' });
+  const uS = slider('SUNSET → ZENITH', 0, 1, 0.01, 0, v => { B.u = v; B.playing = false; play.textContent = 'play'; play.classList.remove('on'); apply(); }, v => Math.round(v * 100) + '%');
+  const kS = slider('circles', 1, 160, 1, 40, v => { st.K = v; apply(); }, v => String(v));
+  const bar = el('div', { class: 'bench-bar' }, [play, el('span', { class: 'sep' })]);
+  const bar2 = el('div', { class: 'knobs' }, [uS, kS, toggle('circles', false, v => { st.chain = v; }), toggle('filled', true, v => { st.fill = v; })]);
+  root.append(bar, bar2, el('figure', {}, [cv, el('figcaption', { html: '<b>each letter</b> is its own chain; the two words are mixed circle by circle. Click a letter to see its circles.' })]));
+  st.K = 40; st.chain = false; st.t = 0;
+  function apply() {
+    const u = B.u;
+    st.loops = A.loops.map((L, i) => CIRCLES.mix(L, Z.loops[i], u));
+    st.chosen = Math.min(st.chosen, st.loops.length - 1);
+  }
+  play.addEventListener('click', () => { B.playing = !B.playing; play.textContent = B.playing ? 'pause' : 'play'; play.classList.toggle('on', B.playing); });
+  const ease = u => u * u * (3 - 2 * u);
+  B.tick = dt => {
+    st.t = (st.t + dt / 14) % 1;
+    if (!B.playing) return;
+    B.s = ((B.s || 0) + dt / 3.4) % 2;
+    B.u = ease(B.s < 1 ? B.s : 2 - B.s); uS.set(B.u); apply();
+  };
+  B.apply = apply; B.uS = uS; B.kS = kS; B.root = root; B.cv = cv;
+  BENCHES.morph = B; if (io) io.observe(cv);
+  apply();
+})();
+
+// ── BENCH 3: YOUR OWN ──
+(function () {
+  const root = document.getElementById('benchYours'), cv = el('canvas', { class: 'draw' });
+  const st = makeStage(cv, { noPick: true });
+  const B = { st, stroke: null, playing: true, speed: 1 };
+  st.fixed = true; st.K = 8; st.chain = true;
+  const rd = readout([['K', 'circles kept'], ['err', 'shape missed'], ['n5', 'for 5%'], ['n1', 'for 1%']]);
+  const status = el('div', { class: 'status', text: 'draw a closed shape on the canvas' });
+  const clear = el('button', { text: 'clear' });
+  const kS = slider('circles', 1, 160, 1, 8, v => { st.K = v; upd(); }, v => String(v));
+  const sp = slider('speed', 0.1, 3, 0.05, 1, v => { B.speed = v; }, v => v.toFixed(2) + '×');
+  const bar = el('div', { class: 'bench-bar' }, [clear, el('span', { class: 'sep' })]);
+  root.append(bar, el('div', { class: 'knobs' }, [kS, sp, toggle('circles', true, v => { st.chain = v; }), toggle('filled', true, v => { st.fill = v; }), toggle('your line', false, v => { st.orig = v; })]),
+    el('figure', {}, [cv, el('figcaption', { html: '<b>draw</b> any outline; the circles that draw it appear' })]), rd, status);
+  const near = (P, q) => P.length && Math.hypot(P[P.length - 1][0] - q[0], P[P.length - 1][1] - q[1]) < 2;
+  function pos(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2]; }
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); B.stroke = [pos(e)]; st.loops = []; status.textContent = 'drawing…'; e.preventDefault(); });
+  cv.addEventListener('pointermove', e => { if (!B.stroke) return; const q = pos(e); if (!near(B.stroke, q)) B.stroke.push(q); });
+  const end = () => {
+    const P = B.stroke; B.stroke = null; if (!P) return;
+    let len = 0; for (let i = 1; i < P.length; i++) len += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+    if (P.length < 6 || len < 60) { status.textContent = 'too short: draw a closed shape'; return; }
+    const L = CIRCLES.makeLoop(P); L.zc = [0, 0]; st.loops = [L]; st.chosen = 0; st.t = 0; upd();
+    status.textContent = 'closed: ' + P.length + ' points, ' + Math.round(len) + ' px round';
+  };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  clear.addEventListener('click', () => { st.loops = []; B.stroke = null; status.textContent = 'draw a closed shape on the canvas'; });
+  function upd() {
+    const L = st.loops[0]; if (!L) return;
+    rd.bs.K.textContent = st.K + ' of ' + (CIRCLES.M - 1); rd.bs.err.textContent = pct(CIRCLES.relErr(L, st.K));
+    rd.bs.n5.textContent = CIRCLES.needed(L, 0.05); rd.bs.n1.textContent = CIRCLES.needed(L, 0.01);
+  }
+  st.extra = (ctx, s) => {
+    if (B.stroke && B.stroke.length > 1) { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); B.stroke.forEach((q, i) => { const x = s.w / 2 + q[0], y = s.h / 2 + q[1]; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); }
+    if (!s.loops.length && !B.stroke) { ctx.fillStyle = '#7d869a'; ctx.font = '13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('draw here', s.w / 2, s.h / 2); ctx.textAlign = 'start'; }
+  };
+  B.tick = dt => { if (st.loops.length) st.t = (st.t + dt * B.speed / 14) % 1; };
+  B.upd = upd; B.kS = kS; B.root = root; B.cv = cv;
+  BENCHES.yours = B; if (io) io.observe(cv);
+})();
+
+// ── WHAT IT COSTS ──
+(function () {
+  const rows = [['a circle', 'circle', 0], ['an ellipse', 'ellipse', 0], ['a heart', 'heart', 0], ['a five-pointed star', 'star', 0], ['a square', 'square', 0],
+    ['the letter S', 'SUNSET', 0], ['the letter U', 'SUNSET', 1], ['the letter E', 'SUNSET', 4], ['the letter T', 'SUNSET', 5], ['the letter I', 'ZENITH', 3], ['the letter H', 'ZENITH', 5]];
+  const t = el('table', { class: 'sizes' }), th = el('thead', {}, [el('tr', {}, ['shape', 'to 5%', 'to 1%', 'to 0.1%'].map(s => el('th', { text: s })))]);
+  const tb = el('tbody'); const table = [];
+  for (const [label, name, i] of rows) {
+    const L = CIRCLES.build(name).loops[i], r = [CIRCLES.needed(L, 0.05), CIRCLES.needed(L, 0.01), CIRCLES.needed(L, 0.001)];
+    table.push({ label, name, i, r });
+    tb.appendChild(el('tr', {}, [el('td', { text: label }), ...r.map(v => el('td', { text: String(v) }))]));
+  }
+  t.append(th, tb);
+  document.getElementById('costTable').append(t, el('p', { class: 'sec-note', html: 'Circles, counted at 256 samples round the outline. <b>The number to carry off:</b> a smooth shape is a handful of circles, a corner never quite stops.' }));
+  BENCHES.table = table;
+})();
+
+// ── one clock for every visible bench ──
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  for (const k of ['machine', 'morph', 'yours']) {
+    const B = BENCHES[k];
+    if (!io || visible.has(B.cv) || B.force || !B.once) { B.once = true; B.tick(dt); B.st.render(); }
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.addEventListener('resize', () => { BENCHES.machine.update(); });
+
+// the hook, for the smoke test
+window.__circles = {
+  M: CIRCLES.M, makeLoop: CIRCLES.makeLoop, approx: CIRCLES.approx, relErr: CIRCLES.relErr, needed: CIRCLES.needed, mix: CIRCLES.mix, build: CIRCLES.build, chain: CIRCLES.chain,
+  benches: BENCHES, table: BENCHES.table,
+  state: k => { const s = BENCHES[k].st; return { K: s.K, t: s.t, chosen: s.chosen, loops: s.loops.length, name: BENCHES[k].name, u: BENCHES[k].u, playing: BENCHES[k].playing }; },
+  set: (k, o) => { const B = BENCHES[k], s = B.st; if (o.shape) B.pick(o.shape); if (o.K != null) { s.K = o.K; B.kS && B.kS.set(o.K); } if (o.t != null) s.t = o.t; if (o.u != null) { B.u = o.u; B.playing = false; B.uS.set(o.u); B.apply(); } if (o.play != null) B.playing = o.play; if (o.chosen != null) s.chosen = o.chosen; if (B.update) B.update(); if (B.upd) B.upd(); s.render(); },
+  // the pen of a loop at K circles as points, for comparing
+  pen: (k, i) => { const s = BENCHES[k].st, L = s.loops[i == null ? s.chosen : i], A = CIRCLES.approx(L, s.K); return { xs: Array.from(A.xs), ys: Array.from(A.ys) }; }
+};
+</script>
+</body>
+</html>
