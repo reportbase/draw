@@ -406,6 +406,14 @@ publishes.
     AI vocabulary, read by `morphWeightsOf`), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), **chains, contact and emitters** (one thing after another, onto the table, snow, confetti), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
     page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
     tvf.js (every gallery does) and reads no leaves itself.
+  - **Vector text** (29 Oct 2026, Tom: "Tvf would be good for vector text effects and morphs", then "Proceed"): the
+    animated gallery's `text` section (`word-morph`, `word-draw`, `word-pop`, copied to `embedded.html` with the rest).
+    SUNSET into ZENITH is six exact morphs of three keys (word, word, back) turning a beat apart (`phase`); letters
+    without counters, since a hole rides one key and does not morph, so a letter with one would fade where the other
+    word has none. Their outlines are baked as plain paths (`GLYPH_WORDS`; `node tools/glyph-rings.mjs SUNSET ZENITH`
+    traces them with the editor's own `__sceneTextRings`, a hook added for it, and the repo served on :8792), so
+    the examples need no font. `word-draw` is ordinary SVG `<text>` traced when the scene opens, drawn on letter by
+    letter; `word-pop` six letters each with a `pop`. Not done: a morph of letters with different numbers of counters.
   - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your
     recommendations": a light player) is a chart page: the same examples, each tile its **animated
     SVG**, made by one hidden editor (THE EMBED AS A CONVERTER in `draw.html`: an embed of the same origin answers
