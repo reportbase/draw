@@ -3484,8 +3484,11 @@ await step('interactive scenes, touch and Lottie', async () => {
   await gp.mouse.down();
   for (let i = 1; i <= 6; i++) { await gp.mouse.move(w.x + i * 20, w.y - i * 15); await gp.waitForTimeout(16); }
   await gp.mouse.up();
-  const ball = await gp.evaluate(() => { const T = window.__played.ctl('touch-bouncing-ball').scene.runs[0].touch; return { phase: T.phase, vx: T.vx, vy: T.vy }; });
-  if (!(ball.phase === 'fly' && ball.vx > 0.5 && ball.vy > 0.5)) throw new Error('the ball thrown up and right: ' + JSON.stringify(ball));
+  // (read late on a busy machine, gravity may already have taken its upward speed: risen above where it was let go
+  // counts as thrown up)
+  const ball = await gp.evaluate(y0 => { const c = window.__played.ctl('touch-bouncing-ball'), T = c.scene.runs[0].touch;
+    return { phase: T.phase, vx: T.vx, vy: T.vy, rose: c.whereIs(0).y < y0 - 2 }; }, w.y - 6 * 15);
+  if (!(ball.phase === 'fly' && ball.vx > 0.5 && (ball.vy > 0.5 || ball.rose))) throw new Error('the ball thrown up and right: ' + JSON.stringify(ball));
   // the lantern: pulled aside and let go, it swings
   w = await ready('touch-lantern');
   await gp.mouse.move(w.x, w.y + w.h * 0.3);
