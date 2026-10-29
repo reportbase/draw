@@ -1968,10 +1968,12 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     + seq(10).map(k => bar(k, AMT1[k], GOLD)).join('')
     + seq(10).map(k => bar(k, AMT3[k], '#2fa3b3')).join('')
     + label(44, 272, 'home', INK) + label(98, 268, 'H', INK) + label(150, 178, 'v/h = 1', GOLD) + label(224, 214, 'Cauchy', VIOLET);
-  const rel = (a, b, T) => T.map(t => +(0.99 * (t - a) / (b - a)).toFixed(4)),
+  // a clip plays its keys from the first to the last across its window: each keyed clip here ends on a key, the last
+  // given again at the window's end where the pose is to hold
+  const rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)),
     span = (start, end, io) => Object.assign({ start, len: +(end - start).toFixed(4) }, io),
     drawIn = len => ({ in: { kind: 'draw', len } }), fadeIn = len => ({ in: { kind: 'fade', len } }),
-    WIN = [0.15, 0.31, 0.36, 0.39, 0.43];
+    WIN = [0.15, 0.31, 0.36, 0.39, 0.43, 0.49];
   SHOWPIECES.push({
     id: 'addresses', name: 'addresses given, payloads met', section: 'explainers', tags: ['camera', 'stops', 'essay', 'Cauchy'],
     note: 'The third of wander\'s essays in six beats: twelve fingers laid evenly by a turn, painted by a stained-glass window, a window twice as far and twice as large painting them the same, another painting them otherwise; the fingers carried on to a line, landing as the Cauchy with half below the corner; the far ones running off with no mean; amounts arriving and changing while no landing moves. The scene of the explainer page\'s third explainer.',
@@ -1988,11 +1990,11 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
         { keys: [123], clip: span(0.02, 0.99, fadeIn(0.03)) },
         ...seq(N).map(k => { const a = +(0.04 + 0.006 * k).toFixed(3); return { keys: [3 + k], clip: span(a, 0.99, drawIn(0.025)) }; }),
         // the window: near, then twice as far and twice as large (the same colours), then another window there
-        ...seq(N).map(k => ({ keys: [15 + k, 15 + k, 27 + k, 27 + k, 39 + k], times: rel(0.15, 0.49, WIN), straight: true,
+        ...seq(N).map(k => ({ keys: [15 + k, 15 + k, 27 + k, 27 + k, 39 + k, 39 + k], times: rel(0.15, 0.49, WIN), straight: true,
           clip: span(0.15, 0.49, { in: { kind: 'fade', len: 0.04 }, out: { kind: 'fade', len: 0.015 } }) })),
         // each finger lit by its pane: the same through the first two windows, otherwise through the third
-        ...seq(N).map(k => { const a = +(0.2 + 0.004 * k).toFixed(3); return { keys: [51 + k, 51 + k, 51 + k, 51 + k, 63 + k],
-          times: rel(a, 0.49, [a, 0.31, 0.36, 0.39, 0.43]), straight: true,
+        ...seq(N).map(k => { const a = +(0.2 + 0.004 * k).toFixed(3); return { keys: [51 + k, 51 + k, 51 + k, 51 + k, 63 + k, 63 + k],
+          times: rel(a, 0.49, [a, 0.31, 0.36, 0.39, 0.43, 0.49]), straight: true,
           clip: span(a, 0.49, { in: { kind: 'fade', len: 0.03 }, out: { kind: 'fade', len: 0.015 } }) }; }),
         { keys: [75], clip: span(0.48, 0.99, drawIn(0.03)) },
         { keys: [124], clip: span(0.49, 0.99, fadeIn(0.02)) },
@@ -2005,8 +2007,132 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
         { keys: [102], clip: span(0.6, 0.82, { in: { kind: 'draw', len: 0.035 }, out: { kind: 'fade', len: 0.015 } }) },
         { keys: [126], clip: span(0.62, 0.82, { in: { kind: 'fade', len: 0.02 }, out: { kind: 'fade', len: 0.015 } }) },
         // what arrives at the landings: one window's light, then another's, then the first again
-        ...seq(10).map(k => ({ keys: [103 + k, 103 + k, 113 + k, 113 + k, 103 + k], times: rel(0.82, 0.99, [0.82, 0.87, 0.9, 0.93, 0.96]),
+        ...seq(10).map(k => ({ keys: [103 + k, 103 + k, 113 + k, 113 + k, 103 + k, 103 + k], times: rel(0.82, 0.99, [0.82, 0.87, 0.9, 0.93, 0.96, 0.99]),
           straight: true, clip: span(0.82, 0.99, fadeIn(0.025)) }))
+      ]
+    }
+  });
+}
+// 17. ONE LENGTH TURNED (29 Oct 2026, Tom: "proceed", to an explainer for the second of wander's essays, and "these
+// explainers have a dual purpose, to exercise the features of the tvf viewer and also to explain the essays"): essay
+// 2 (papers/essays/02-one-length-turned.md) in five beats, the scene of explained.html?x=turned. An arm of length H
+// raised through a quarter turn, its tip riding the arc with echoes behind it while the arc is drawn on; lowered
+// again with its two shares drawn as it goes (h along the ground, v straight up), the reading v/h turning from ∞
+// through 1 to 0 as one label into the next, the corner marked where they are equal; then the camera across to a
+// chord and the circle on it, a ray from each end meeting on the circle (Thales), and the radius from the middle at
+// twice the angle reaching the same point (Euclid III.20); then back, the arc the hand travelled unrolled into a
+// straight line π/2 of the arm long beside the arm upright, and π/2 × 2/π = 1. Features it exercises: a path ridden
+// once in a clip with echoes, a line drawn on in step with it, keys at chosen times with straight stretches and a
+// linear ease, labels into labels, a camera between two panels, plotted curves, and an open curve morphing through
+// plotted keys into a straight line.
+{
+  const O = [70, 270], R = 180, C = [600, 270], r = 150, A = [C[0] - r, C[1]], B = [C[0] + r, C[1]],
+    f1 = v => +v.toFixed(2), rad = d => d * Math.PI / 180, seq = n => Array.from({ length: n }, (_, j) => j),
+    up = (p, a, l) => [p[0] + l * Math.cos(a), p[1] - l * Math.sin(a)], // y up
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 17) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    plot = (prog, stroke, w, t1, cx = O[0], cy = O[1], n = 48) => `<path data-plot="${prog}" data-t0="0" data-t1="${t1}" data-n="${n}" data-cx="${cx}" data-cy="${cy}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#b9b2a6',
+    // the arm at angle a: a bar from home, six wide, the same at every angle
+    arm = a => { const n = [Math.sin(a) * 3, Math.cos(a) * 3], q = up(O, a, R);
+      return polyOf([[O[0] - n[0], O[1] - n[1]], [q[0] - n[0], q[1] - n[1]], [q[0] + n[0], q[1] + n[1]], [O[0] + n[0], O[1] + n[1]]], INK); },
+    hBar = a => rectP(O[0], O[1] + 5, O[0] + Math.max(0.6, R * Math.cos(a)), O[1] + 11, TEAL),
+    vBar = a => { const x = O[0] + R * Math.cos(a); return rectP(x - 3, O[1] - Math.max(0.6, R * Math.sin(a)), x + 3, O[1], GOLD); },
+    TH = [8, 20, 32, 45, 58, 70, 82].map(rad),
+    meet = t => [C[0] + r * Math.cos(2 * t), C[1] - r * Math.sin(2 * t)], // Thales: the rays from A at θ and from B meet here
+    // the arc rolled out from its foot: a circle of radius ρ through the same foot, the same length along it; at a thousand
+    // arm lengths it is straight to within a pixel, so the straight line is one of the family too
+    unroll = rho => `x = ${R} - ${rho} + ${rho}cos(t ${R}/${rho}); y = ${rho}sin(t ${R}/${rho})`,
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/02-one-length-turned.md';
+  const TURNED_BEATS = [
+    { title: 'An arm held out',
+      text: 'Hold an arm out level and raise it until it points straight up. The arm never changes length, and its hand traces a quarter of a circle.\n\nThat is all a circle is from where you stand: **one length, turning**. No second length, no centre measured out, nothing far away consulted. The essays call that one length *H*.' },
+    { title: 'Two shares, and the corner',
+      text: 'At every moment the arm\'s reach has two parts: how far forward (*h*, teal, along the ground) and how far up (*v*, gold). Both are shares of the one arm, between 0 and 1. Their ratio v/h is what the direction reads: without bound near upright, 1 at 45°, 0 straight ahead.\n\nAt 45° the two shares are equal. That is **the corner**, v = h. It needs no measurement and no unit: it is where the arm\'s own two parts trade places.' },
+    { title: 'Two rays, meeting on the circle',
+      text: 'Now a chord, and a reader at each end. From *A* point up at an angle θ; from *B* point across at 90° − θ. The two rays always meet on the circle drawn on the chord (Thales), and as θ sweeps, the meeting point runs the whole half circle.\n\n*A* reads v/h, *B* reads h/v, its reciprocal. At the top, where the rays cross square, the two readings are equal: the corner again.' },
+    { title: 'One point, read twice',
+      text: 'From the middle of the chord, the radius to the same point turns at **twice** the angle: 2θ against θ (Euclid III.20). Ray and radius end at one point, every time.\n\nThe ray from the end is the **inscribed** sweep, which lays the reader\'s addresses; the radius from the middle is the **central** sweep. They are not two motions but one turn, counted from two pivots.' },
+    { title: 'π/2 and 2/π',
+      text: 'Unroll the arc the hand travelled. It is π/2 of the arm\'s length, while the arm\'s straight reach upward is the whole arm, 1.\n\nRead as arc over reach, the turn is **π/2**; read as reach over arc, **2/π**. Each sweep gets at the straight 1 through the curve, one too long and one too short, and only their product gives it back: **π/2 × 2/π = 1**. It is the reader\'s own length measured in itself, H in H, and the size of nothing else. [The essay, §7](' + ESSAY + ')' }
+  ];
+  // shapes, in order: 0 the paper; 1, 2 the axes; 3 the quarter arc; 4 the tip's path; 5 the tip; 6–18 the arm every
+  // 7.5°; 19–25 h every 15° from upright down, 26–32 v likewise; 33, 34 the corner's ray and mark; 35 home; 36–38 the
+  // readings v/h = ∞, 1, 0; 39 the chord, 40 the circle on it, 41, 42 its ends; 43–49 the rays from A, 50–56 from B,
+  // 57–63 the radius, 64–70 the meeting point; 71–74 the labels A, B, θ, 2θ; 75–78 the arc unrolling (radius R, 2R,
+  // 5R, straight); 79 the arm's height; 80–82 the labels 1, π/2 and the product
+  const body = rectP(-500, -400, 1300, 800, '#f4f1ea')
+    + line([O, [300, 270]], '#9a927f', 1.4) + line([O, [70, 60]], '#9a927f', 1.4)
+    + plot(`x = ${R}cos(t); y = ${R}sin(t)`, GREY, 2, 'π/2')
+    + `<path d="M${O[0] + R} ${O[1]} A ${R} ${R} 0 0 0 ${O[0]} ${O[1] - R}" fill="none" stroke="#999" stroke-width="1"/>`
+    + circ4(O[0] + R, O[1], 6, GOLD)
+    + seq(13).map(k => arm(rad(7.5 * k))).join('')
+    + seq(7).map(k => hBar(rad(90 - 15 * k))).join('') + seq(7).map(k => vBar(rad(90 - 15 * k))).join('')
+    + line([O, up(O, Math.PI / 4, R + 24)], GOLD, 1.6) + circ4(...up(O, Math.PI / 4, R), 5, GOLD)
+    + label(36, 296, 'home', INK, 15)
+    + label(190, 70, 'v/h = ∞', INK) + label(190, 70, 'v/h = 1', GOLD) + label(190, 70, 'v/h = 0', INK)
+    + line([A, B], '#9a927f', 1.4) + plot(`x = ${r}cos(t); y = ${r}sin(t)`, GREY, 2, 'π', C[0], C[1], 64)
+    + circ4(A[0], A[1], 4.5, INK) + circ4(B[0], B[1], 4.5, INK)
+    + TH.map(t => line([A, meet(t)], INK, 2)).join('') + TH.map(t => line([B, meet(t)], INK, 2)).join('')
+    + TH.map(t => line([C, meet(t)], VIOLET, 2.4)).join('') + TH.map(t => circ4(...meet(t), 6, GOLD)).join('')
+    + label(A[0] - 14, A[1] + 24, 'A', INK) + label(B[0] + 2, B[1] + 24, 'B', INK)
+    + label(A[0] + 30, A[1] - 8, 'θ', INK, 15) + label(C[0] + 14, C[1] - 8, '2θ', VIOLET, 15)
+    + [R, 2 * R, 5 * R, 1000 * R].map(rho => plot(unroll(rho), TEAL, 3, 'π/2')).join('')
+    + line([[O[0] - 14, O[1] - R], [O[0] + R + 30, O[1] - R]], GREY, 1)
+    + label(O[0] - 26, O[1] - R / 2, '1', INK) + label(O[0] + R + 10, O[1] - R * Math.PI / 2 + 6, 'π/2', TEAL)
+    + label(96, 228, 'π/2 × 2/π = 1', INK, 16);
+  // a clip plays its keys from the first to the last across its window, so every keyed clip here ends on a key: where a
+  // pose is to hold before the clip fades, its last key is given again at the window's end
+  const rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)),
+    span = (start, end, io) => Object.assign({ start, len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    inOut = (a, b) => ({ in: { kind: 'fade', len: a }, out: { kind: 'fade', len: b } }),
+    even = (a, b, n) => seq(n).map(j => a + (b - a) * j / (n - 1)),
+    // the arm: up over beat 1, down over beat 2, held level, up again quickly for beat 5
+    ARM_KEYS = [...seq(13), ...seq(13).reverse(), ...seq(13), 12].map(k => 6 + k),
+    ARM_T = [...even(0.04, 0.16, 13), ...even(0.2, 0.34, 13), ...even(0.73, 0.77, 13), 0.99],
+    // the meeting point: up over beat 3, back over beat 4
+    TK = [...seq(7), ...seq(7).reverse(), 0], TT = [...even(0.43, 0.53, 7), ...even(0.58, 0.68, 7), 0.72];
+  SHOWPIECES.push({
+    id: 'turned', name: 'one length turned', section: 'explainers', tags: ['path', 'echoes', 'camera', 'labels', 'essay'],
+    note: 'The second of wander\'s essays in five beats: an arm raised through a quarter turn, its tip tracing the arc; lowered with its two shares drawn and v/h turning from ∞ through 1 to 0, the corner where they are equal; a ray from each end of a chord meeting on the circle, and the radius from the middle at twice the angle reaching the same point; the arc unrolled beside the arm, π/2 × 2/π = 1. The scene of the explainer page\'s fourth explainer.',
+    svg: svg(800, 320, body),
+    scene: {
+      loop: 40, ease: 'linear', stops: [0.18, 0.38, 0.56, 0.72],
+      camera: [{ t: 0, fit: [1, 2], pad: 0.16 }, { t: 0.38, fit: [1, 2], pad: 0.16 }, { t: 0.42, fit: [39, 40], pad: 0.2 },
+        { t: 0.72, fit: [39, 40], pad: 0.2 }, { t: 0.76, fit: [1, 78], pad: 0.14 }],
+      beats: TURNED_BEATS,
+      morphs: [
+        { keys: [1], clip: span(0.005, 0.99, drawIn(0.03)) },
+        { keys: [2], clip: span(0.01, 0.99, drawIn(0.03)) },
+        { keys: [35], clip: span(0.01, 0.99, fadeIn(0.02)) },
+        // the arc drawn on while the tip rides it once, with echoes
+        { keys: [3], clip: span(0.04, 0.99, drawIn(0.12)) },
+        { keys: [5], path: 4, at: 0, turn: false, trail: { kind: 'echoes', len: 0.15 }, clip: span(0.04, 0.16, { out: { kind: 'fade', len: 0.01 } }) },
+        { keys: ARM_KEYS, times: rel(0.04, 0.99, ARM_T), straight: true, clip: span(0.04, 0.99, fadeIn(0.01)) },
+        // the shares, as the arm comes down: upright first, level last
+        ...[19, 26].map(k0 => ({ keys: [...seq(7), 6].map(j => k0 + j), times: rel(0.2, 0.72, [...even(0.2, 0.34, 7), 0.72]), straight: true,
+          clip: span(0.2, 0.72, inOut(0.005, 0.015)) })),
+        { keys: [36, 37, 38, 38], times: rel(0.2, 0.72, [0.2, 0.27, 0.34, 0.72]), clip: span(0.2, 0.72, inOut(0.01, 0.015)) },
+        { keys: [33], clip: span(0.27, 0.72, { in: { kind: 'draw', len: 0.02 }, out: { kind: 'fade', len: 0.015 } }) },
+        { keys: [34], clip: span(0.27, 0.72, inOut(0.01, 0.015)) },
+        // the chord, its circle, its ends
+        { keys: [39], clip: span(0.39, 0.72, { in: { kind: 'draw', len: 0.02 }, out: { kind: 'fade', len: 0.02 } }) },
+        { keys: [40], clip: span(0.4, 0.72, { in: { kind: 'draw', len: 0.025 }, out: { kind: 'fade', len: 0.02 } }) },
+        ...[41, 42, 71, 72].map(k => ({ keys: [k], clip: span(0.41, 0.72, inOut(0.01, 0.02)) })),
+        { keys: [73], clip: span(0.43, 0.72, inOut(0.01, 0.02)) },
+        ...[43, 50, 64].map(k0 => ({ keys: TK.map(j => k0 + j), times: rel(0.43, 0.72, TT), straight: true,
+          trail: k0 === 64 ? { kind: 'echoes', len: 0.12 } : { kind: '' }, clip: span(0.43, 0.72, inOut(0.01, 0.02)) })),
+        // the radius from the middle, at twice the angle, on the way back
+        { keys: [...seq(7).reverse(), 0].map(j => 57 + j), times: rel(0.58, 0.72, [...even(0.58, 0.68, 7), 0.72]), straight: true,
+          clip: span(0.58, 0.72, inOut(0.01, 0.02)) },
+        { keys: [74], clip: span(0.57, 0.72, inOut(0.01, 0.02)) },
+        // the arc unrolled beside the arm upright
+        { keys: [75, 75, 76, 77, 78, 78], times: rel(0.76, 0.99, [0.76, 0.78, 0.81, 0.84, 0.87, 0.99]), straight: true, clip: span(0.76, 0.99, fadeIn(0.01)) },
+        { keys: [79], clip: span(0.87, 0.99, { in: { kind: 'draw', len: 0.02 } }) },
+        { keys: [80], clip: span(0.88, 0.99, fadeIn(0.015)) },
+        { keys: [81], clip: span(0.88, 0.99, fadeIn(0.015)) },
+        { keys: [82], clip: span(0.92, 0.99, fadeIn(0.02)) }
       ]
     }
   });
@@ -2140,7 +2266,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'addresses'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'turned', 'addresses'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
