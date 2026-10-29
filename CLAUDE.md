@@ -21,8 +21,8 @@ publishes.
   or re-describing a lab in `draw.html`, run it, or `npm test` fails.
   **The labs are leaving `draw.html`** (28 Oct 2026, Tom: "all the labs can ultimately be pulled from draw.html. its
   already too big", then "agreed, proceed"): first measured, then written down (`papers/labs.md`), then moved to
-  `labs/*.js` loaded only when asked (Tom: "batch them"). **`labs/`** (28 Oct 2026): every lab group in the drawer (53
-  of its 54 headings; the paint modes are the editor's own), in 51 files named for their headings (`number-tests.js`, `stream-bank.js`, `contact-walker.js`, …;
+  `labs/*.js` loaded only when asked (Tom: "batch them"). **`labs/`** (28 Oct 2026): every lab group in the drawer (56
+  of its 57 headings; the paint modes are the editor's own), in 54 files named for their headings (`number-tests.js`, `stream-bank.js`, `contact-walker.js`, …;
   `sheets.js` holds the sheets, two fisheyes on one array and readers within readers, one block): a moved lab's code, line for line and in the editor's indent, inside one
   function handed over as `(window.TVF_LABS = window.TVF_LABS || {})[name] = function () { … }`. The editor
   (THE LABS THAT LIVE IN labs/, beside `makeRng`) evaluates that function's text by a direct `eval` inside its own
@@ -69,6 +69,14 @@ publishes.
   The faults `papers/labs.md` found were dealt with the same day: `rec`'s claim 5 now drops a tick and decodes the
   string; `frn` judges each response in floors of the figure's own (1.5 held, 3 broke, set after seeing the data);
   `bhm` says its seams are exact by construction; `dpt`'s departing circle is the library's 160-point polygon.
+  **Labs from the essays** (29 Oct 2026, Tom: "take a look at the wander project, the paper/essays. is there any labs
+  we should do from our essays?", then "1,2,3"): three claims wander's essays argue in prose, put to the library, each
+  group's note in the drawer holding its predictions as written before the first run (`papers/labs.md` §§55–57):
+  `avd` (`labs/averaging-directions.js`, essay 3's "to average, average the angle": the mean angle of readings from a
+  height returns atan(m/(1+γ)), not m; nothing killed), `jnf` (`labs/joining-the-facings.js`, essay 10's four facings
+  joined without their sizes, by continuity; one of three killed, by my bound) and `ssl` (`labs/size-sets-the-level.js`,
+  essay 4's "n places, about log₂ n levels"; two of three killed, with readings after the run marked as such). The
+  smoke test runs all three from `?lab=`. What the results ask of the essays is Tom's to rule in wander.
 - `player/`: **the TVF player** (27 Oct 2026, Tom: "build the tvf-native player"). `tvf-player.js` plays a `.tvfs`
   scene on a canvas (`TVFPlayer.play(canvas, scene or url)`, or `<canvas data-tvfs="…">`; `load`, `poses`, `draw`), next
   to `tvf-core.js`. **Generated** by `npm run player` (`tools/build-player.mjs`): its engine is the editor's own code,

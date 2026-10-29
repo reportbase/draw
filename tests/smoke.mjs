@@ -3539,6 +3539,29 @@ await step('a lab that lives in labs/', async () => {
   } finally { await pp.close(); }
 });
 
+/* THE LABS FROM THE ESSAYS (29 Oct 2026). Each runs from ?lab= and says what its record in papers/labs.md says:
+   the median returns the direction and the mean angle its own formula on every figure; the facings joined within 1%
+   on most figures with every wrong join flagged; the median figure gaining one held level per doubling. */
+await step('the labs from the essays', async () => {
+  const runLab = async (code, name) => {
+    const pp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    pp.on('pageerror', e => failures.push(`[?lab=${code}] ${e.message}`));
+    await pp.route(/fonts\.g/, r => r.abort());
+    try {
+      await pp.goto(new URL('draw.html?lab=' + code, base).href, { waitUntil: 'load' });
+      await pp.waitForFunction(n => window.__lastLadder && window.__lastLadder.name === n, name, { timeout: 60000 });
+      return await pp.evaluate(n => (window.__flashLog || []).filter(f => f.startsWith(n)).pop() || '', name);
+    } finally { await pp.close(); }
+  };
+  const avd = await runLab('avd', 'averaging directions');
+  const m = avd.match(/returned the direction on (\d+)\/(\d+).*returned atan\(m\/\(1\+γ\)\) on (\d+)\/(\d+)/);
+  if (!m || m[1] !== m[2] || m[3] !== m[4]) throw new Error('averaging directions said: ' + avd.slice(0, 240));
+  const jnf = await runLab('jnf', 'joining the four facings');
+  if (!/joined right but flagged/.test(jnf) || /let \d+ through/.test(jnf)) throw new Error('joining the facings said: ' + jnf.slice(0, 240));
+  const ssl = await runLab('ssl', 'size sets the level');
+  if (!/the median figure gained 1, 1, 1, 1, 1 held levels/.test(ssl)) throw new Error('size sets the level said: ' + ssl.slice(0, 240));
+});
+
 /* A SHAPE FROM A FORMULA, A CLIP'S OWN IN AND OUT, LABELS INTO LABELS. The plot language reads sums and functions of
    its own (eight kernels weighted by eight readings give the readings back at the leaves) and says what is wrong
    with a bad line; a scene's data-plot becomes a shape that keeps its program, through undo; a plot added from the

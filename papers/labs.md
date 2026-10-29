@@ -2,7 +2,7 @@
 
 ### *What each lab in the editor's drawer measured, what it found, what the result is called elsewhere, and what in it looks new*
 
-*Written 28 October 2026, from a run of every lab on that day. Revised the same day: the labs moved to `labs/`, the seeded generator mended and every lab run again (§§ "What the run found wrong", "The run again, after the generator"), six faults dealt with, and the seven items that look new searched for in print.*
+*Written 28 October 2026, from a run of every lab on that day. Revised the same day: the labs moved to `labs/`, the seeded generator mended and every lab run again (§§ "What the run found wrong", "The run again, after the generator"), six faults dealt with, and the seven items that look new searched for in print. Revised 29 October: three labs added from the essays (§§55–57).*
 
 > **Status: a record.** Every number below was read off the editor by `tools/run-labs.mjs`, which opens `draw.html?lab=CODE` for each lab in headless Chromium and keeps what the lab reports: its status line, and the caption and verdict of each cell it lays on the page. Nothing here was copied from a lab's own notes without being run again, except where a section says so (the interactive labs, which report nothing to read back). Where a classical source is named from memory rather than checked, the section says *to check*.
 
@@ -12,11 +12,11 @@
 
 The labs were written over many sessions, each to try one idea about readers, curves and the Cauchy law. Each was named in the words we had at the time, and much of what they found had older names we did not use. This paper puts every lab beside its standard name, so that a reader who knows the classical subject can see at once what was checked, and so that the few things that may be new are not lost among the many that are not.
 
-It was also written so the labs could leave `draw.html`, and they have. The editor's main script was about 83,000 lines, about 10,000 of them reached only from the labs (18,000 counting the blocks that wire a lab and something else); `tools/measure-labs.mjs` measured it. Every lab group in the drawer (53 of its 54 headings; the other is the editor's own paint modes) now lives in a file in `labs/`, 51 files and about 15,700 lines, loaded only when one of its buttons is pressed or `?lab=` asks for it; each section's **In the editor** line names its file. The findings were written down here first, where they can be read without running anything.
+It was also written so the labs could leave `draw.html`, and they have. The editor's main script was about 83,000 lines, about 10,000 of them reached only from the labs (18,000 counting the blocks that wire a lab and something else); `tools/measure-labs.mjs` measured it. Every lab group in the drawer (56 of its 57 headings; the other is the editor's own paint modes) now lives in a file in `labs/`, 54 files and about 16,300 lines, loaded only when one of its buttons is pressed or `?lab=` asks for it; each section's **In the editor** line names its file. The findings were written down here first, where they can be read without running anything.
 
 ## How to read a section
 
-Each of the 54 sections is one heading of the drawer, in the drawer's order. Its title is the plain name of what it does; the drawer's own name follows in italics. Then:
+Each of the 57 sections is one heading of the drawer, in the drawer's order. Its title is the plain name of what it does; the drawer's own name follows in italics. Then:
 
 - what the lab does, in standard terms;
 - **Found.** what it reported on 28 October 2026;
@@ -52,6 +52,8 @@ Thirty-three of the sections say, in their own words, *Nothing beyond the classi
 7. **A coordinate for a shape read from its own outline** (§13): the inscribed-angle reading tan(θ/2) from a point on the outline, held in levels, each dyadic interval remapped onto a whole quarter turn. A construction, not a result; its approximation behaviour is classical.
 
 **What a search found.** The seven were searched for on 28 October 2026 (fourteen web searches; the sources below were seen as search results only, not read in full, so a "not found" is weaker than a library search would be). None was found as stated; each is set out in "The seven, searched for", at the end. Item 2 reduces to a classical fact. Items 4 and 6 have close prior work that must be read before anything is claimed (Sanders 1972 and Chuang et al. 2007). Item 5's uniqueness conjecture needs a hypothesis it does not yet state.
+
+**From the essays** (§§55–57, added 29 October, each with its prediction written before it ran). Three claims the essays argue in prose were put to the library. The mean of the angles is not a summary of a direction: read from a height γ it returns atan(m/(1+γ)), pulled toward home, by up to 19.7° on the library, while the median returns the direction (§55). Four quarter-turn arrays under unknown factors can be joined by continuity, a model of the payload, to 0.01% on the median figure, with the leftover fourth seam catching every wrong join (§56). And a reader spanning n places does gain one level of detail per doubling of n on the median figure, but its coarse levels carry fine detail folded down from above, and a figure resolves no more levels than it has (§57).
 
 Smaller and descriptive: the radial and angular codes charge in opposite directions, corners cheap for one and roundness for the other (§5); about a third of the library reads, from its centre, as the ellipse of the same breadth (§9); for about half of it the difference from the circle lies in the levels away from the corner (§11); one stored sample serves a one-pass reader as well as the median does (§27).
 
@@ -1078,6 +1080,72 @@ The second lab (`exa`) repeats all of this exactly. Every lattice angle is repre
 **Ours.** The closed form (2/N)Σcot(θ_k/2), with its maximum at the midpoint, is probably classical (to check). The exact cyclotomic reference decoder is an engineering contribution, not a mathematical one. The labs are conformance checks.
 
 **In the editor.** `?lab=vec` · `?lab=exa`. Its code: `labs/decoder-test-vectors.js`.
+
+## 55. The mean of angles read from a height (*averaging directions*)
+
+Essay 3 §8 and OFS §7.2 advise: to summarize directions take the median; *to average, average the angle, which is bounded*. Here each star-shaped library figure gives a true direction m, the slope from its centroid to its farthest point (48 figures). Its direction is read 20,000 times from a height γ, cycling 0.05, 0.2, 0.5 and 1: the slopes are m + γ·tan u with u uniform on the half turn, the Cauchy at m + iγ. Three summaries are formed.
+
+**Predictions, written before the run.**
+1. The median of the slopes returns m.
+2. The mean of the angles returns atan(m/(1+γ)), not atan m. The reason: log(1 + is) is analytic in the lower half-plane, so its Cauchy expectation is its value at m − iγ, which is log(1 + γ + im). The angle atan s is its imaginary part.
+3. Half the mean of the doubled angle returns ½·[atan2(m, 1−γ) + atan2(m, 1+γ)], pulled the other way, toward the horizon.
+
+Kill: any cell off any of the three by more than four standard errors.
+
+**Found** (29 October, run 1). Nothing was killed.
+- The median returned the direction on 48/48.
+- The mean of the angles returned its formula on 48/48. It missed the direction itself by more than eight standard errors on 38/48, by up to 19.7°.
+- The doubled angle returned its formula on 48/48.
+
+**Classical.** Cauchy expectations of functions analytic in a half-plane are evaluated at the parameter (the Poisson integral; McCullagh 1992 for the Möbius family). Circular means of axial data double the angle (Mardia and Jupp 2000).
+
+**Ours.** The essay's sentence needs its scope. The mean of the angle chart exists, but it is not an estimate of the direction once the readings come from a height: it is pulled toward home by atan m − atan(m/(1+γ)). Only the median reads the address. The bias in closed form is easy and probably known; we did not search for it.
+
+**In the editor.** `?lab=avd`. Its code: `labs/averaging-directions.js`.
+
+## 56. Joining four quarter-turn arrays without their sizes (*joining the four facings*)
+
+Essay 10 §2: a closed curve is four quarter-turn arrays, and *the reader holds each only up to its own factor, so it cannot tell whether two ends meet*. Here each star-shaped figure's radius from its centroid is laid as four arrays of 64 leaves (58 figures). Each array is multiplied by an unknown seeded factor between ¼ and 4, and the order of the four is given. The reader assumes that the payload is continuous. At each seam it carries each side's log-radius to the seam by the quadratic through its three nearest leaves, and sets the two equal. Three seams fix the three ratios. The fourth seam, back to the first array, is left over as a check.
+
+**Predictions, written before the run.**
+1. On the round figures the ratios come back within 10⁻⁴.
+2. Over the library the median worst ratio error is under 1%.
+3. Every figure whose worst ratio is off by more than 1% is flagged by the fourth seam (left over by more than 0.5%).
+
+**Found** (29 October, run 1).
+- (1) killed. The library's `round` marker covers far more than circles. Its curved figures came back between 10⁻⁴ and 10⁻³, and flame to 1.1%. A quadratic from 64 leaves cannot do better than about 10⁻⁴ on a curved figure, so the bound was set wrong (my set-up). The circle, ellipse and oval came back to 2·10⁻⁵ and better.
+- (2) held. The median worst ratio was 0.01%, and the join held within 1% on 55/58.
+- (3) held. The three wrong joins (ell 7.2%, flame 1.1%, knife 1.2%: corners or tips at a seam) were all flagged by the fourth seam, and no figure joined right was flagged.
+
+**Classical.** Joining pieces by continuity at their ends is extrapolation; a loop's leftover is a closure check, as surveyors use it (draw §44; OFS's tower).
+
+**Ours.** The essay's sentence holds only for a reader that assumes nothing about the payload. Assume continuity, which is a model of the payload, and the facings join up to one overall size, which no seam gives back. Where the payload has a corner at a seam, the join goes wrong and the loop says so. The essay should say what the join needs: the sizes, or a model of the payload.
+
+**In the editor.** `?lab=jnf`. Its code: `labs/joining-the-facings.js`.
+
+## 57. Levels of detail held against the number of places (*size sets the level*)
+
+Essay 4 §10 and OFS §8: *a thing that spans n of the reader's places is resolved to about log₂ n levels of detail*, and the level is a continuous number. Here each star-shaped figure's log-radius from its centroid (2,048 leaves as the truth, 58 figures) is read at n equal-angle places, n = 16 to 512. Its spectrum is split into levels, harmonics 2ʲ to 2ʲ⁺¹ − 1. The editor's reconstruction is the trigonometric interpolant of the places (§54), so its spectrum is the DFT of the n readings, with the finer harmonics folded in. A level holds when its error is within 10% of the level's own size (or of a millionth of the figure's whole detail, when the level has almost none). A second reader reads from the Cauchy's height, γ = π/n, which keeps harmonic k by e^(−kγ). Its level is the sum of the shares it keeps of every level that has detail.
+
+**Predictions, written before the run.**
+1. Every level wholly below n/4 holds, on every figure at every n.
+2. The median figure gains exactly one held level per doubling of n.
+3. The height reader's level rises by 1 ± 0.15 per doubling from 16 to 256, on every figure.
+
+**Found** (29 October, run 1). Two of the three were killed.
+- (1) killed on 39/58. Most of the failures are folds into levels with almost nothing of their own:
+  - harmonics a symmetric polygon lacks (a pentagon has only multiples of 5, and k = n ± 5j folds into the empty levels);
+  - the first harmonic, which reading from the centroid nearly removes;
+  - the facets of the library's 160-gons, folding into an ellipse's nearly empty fine levels.
+  Read after the run against a hundredth of each figure's whole detail instead, the levels below n/4 held on 27/58. So real detail folded down still swamps real detail on about half the library at the 10% line.
+- (2) held: the median figure gained 1, 1, 1, 1, 1 held levels at each doubling from 16 to 512.
+- (3) killed on 58/58. The height reader's level rose by 0.00 to 0.96 a doubling (median 0.76). The median step climbed 0.61, 0.75, 0.81, 0.90 from 16→32 to 128→256. The figures have 3 to 10 levels with any detail (median 7), and a figure's step falls once it runs out (the ellipse 0.63 down to 0.28).
+
+**Classical.** Aliasing in trigonometric interpolation (Zygmund), and the Poisson kernel as a smoothing that keeps harmonic k by e^(−kγ).
+
+**Ours.** The essay's count is a ceiling, not a measure. Doubling the places opens one more level (prediction 2 held). How many of those levels hold depends on the figure: its coarse levels carry finer detail folded down unless the reader reads from a height, and it resolves no more levels than it has. The essay and OFS §8 should say so.
+
+**In the editor.** `?lab=ssl`. Its code: `labs/size-sets-the-level.js`.
 
 ---
 

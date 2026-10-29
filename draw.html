@@ -6299,6 +6299,58 @@
                 </div>
             </div>
 
+            <!-- FROM THE ESSAYS (29 Oct 2026, Tom: "take a look at the wander project, the paper/essays. is there any
+                   labs we should do from our essays?", then "1,2,3"). Three claims the essays argue in prose, each put to
+                   the library with its prediction written here before the first run. The runs' numbers are in
+                   papers/labs.md; a killed prediction stays killed. -->
+            <div class="group">
+                <div class="menu-title">averaging directions</div>
+                <div class="menu-note sub">
+                    Essay 3 (and OFS §7.2) advises: to summarize directions take the median; 
+                    <b>to average, average the angle, which is bounded</b>
+                    . Here each library figure gives a true direction m, the slope to its farthest point from its centroid, and 20,000 readings of it are taken from a height γ (0.05, 0.2, 0.5 or 1): slopes m + γ·tan of a uniform turn, the address law met from a standpoint off the line. Three summaries are formed. 
+                    <b>Predictions, written before the run</b>
+                    : (1) the median of the slopes returns m; (2) the mean of the angles returns atan(m/(1+γ)), not atan m, so it is pulled toward home wherever m ≠ 0 (from E[log(1 + is)] = log(1 + γ + im), the expectation of a function analytic in the lower half-plane taken at m − iγ); (3) half the mean of the doubled angle returns ½·[atan2(m, 1−γ) + atan2(m, 1+γ)], pulled the other way, toward the horizon. 
+                    <b>Kill</b>
+                    : any cell off any of the three by more than four standard errors. If they hold, the angle's mean is a mean of the angle chart and not an estimate of the direction, and the essay's sentence needs its scope.
+                </div>
+                <div class="group row" style="margin-top:6px;gap:8px;">
+                    <button id="bAvgDirections" data-code="avd" class="res-btn" title="read each library figure's direction 20,000 times from a height and summarize it three ways: the median of the slopes, the mean of the angles, and the mean of the doubled angle, each against its predicted value. Replaces the page in one history frame.">average the readings</button>
+                </div>
+            </div>
+
+            <div class="group">
+                <div class="menu-title">joining the four facings</div>
+                <div class="menu-note sub">
+                    Essay 10 §2: a closed curve is four quarter-turn arrays, and 
+                    <b>the reader holds each only up to its own factor, so it cannot tell whether two ends meet</b>
+                    ; the writer, knowing the sizes, joins them. Here each star-shaped figure's radius from its centroid is laid as four arrays of 64 leaves, each multiplied by an unknown seeded factor between ¼ and 4, and the order of the four is given. The reader then assumes one thing about the payload, that it is continuous, and joins each pair where they meet: each array's log-radius carried to the seam by a quadratic through its three nearest leaves, the two ends set equal. Three seams fix the three ratios; the fourth, back round to the first, is left over as a check. 
+                    <b>Predictions, written before the run</b>
+                    : (1) on the round figures the ratios come back within 10⁻⁴; (2) over the library the median worst ratio error is under 1%; (3) every figure whose worst ratio is off by more than 1% is flagged by the fourth seam (left over by more than 0.5%): no wrong join passes unseen. 
+                    <b>Kill</b>
+                    : any of the three failing. The overall size never comes back, by construction. If they hold, the essay's sentence holds for a reader that assumes nothing about the payload, and continuity, a model of the payload, is enough to join the facings up to one size.
+                </div>
+                <div class="group row" style="margin-top:6px;gap:8px;">
+                    <button id="bJoinFacings" data-code="jnf" class="res-btn" title="lay each star-shaped figure as four quarter-turn arrays scaled by unknown factors, join them by continuity at three seams, and check the fourth. Replaces the page in one history frame.">join the facings</button>
+                </div>
+            </div>
+
+            <div class="group">
+                <div class="menu-title">size sets the level</div>
+                <div class="menu-note sub">
+                    Essay 4 §10 (and OFS §8): 
+                    <b>a thing that spans n of the reader's places is resolved to about log₂ n levels of detail</b>
+                    , and the level is a continuous number. Here each star-shaped figure's log-radius from its centroid is read at n equal-angle places, n = 16 to 512, and its spectrum split into levels, harmonics 2ʲ to 2ʲ⁺¹ − 1. The reader's reconstruction is the trigonometric interpolant of its places, and a level holds when its error, folding included, is within 10% of the level's own size. A second reader reads from the Cauchy's height, γ = π/n, half a place, which keeps harmonic k by e^(−kγ); its level is the sum over levels of the share of each level's energy it keeps, a continuous number. 
+                    <b>Predictions, written before the run</b>
+                    : (1) every level wholly below a quarter of the places holds, on every figure at every n, so at least log₂ n − 2 levels; (2) the median over the library gains exactly one held level per doubling of n; (3) the height reader's level rises by 1 ± 0.15 per doubling from 16 to 256, on every figure. 
+                    <b>Kill</b>
+                    : (1) a level below n/4 off by more than 10% on any figure, (2) a median gain other than one, (3) any figure off by more than 0.15 at any doubling. Corners, stars and grazing figures are where it may break: their fine detail folds into the coarse levels.
+                </div>
+                <div class="group row" style="margin-top:6px;gap:8px;">
+                    <button id="bSizeLevel" data-code="ssl" class="res-btn" title="read each star-shaped figure at 16 to 512 places, count the levels of its shape that hold, and follow the level a reader at the Cauchy's height keeps as a continuous number. Replaces the page in one history frame.">count the levels</button>
+                </div>
+            </div>
+
             <!-- THE LEAF-COLOUR GROUP MOVED. Its five readings are now one combo in the reading
                    popover, beside the instrument that shares their palette — see "leaf colour"
                    there. They were never experiments; they are which reading the dots are showing,
@@ -6943,6 +6995,9 @@
             occ: 'what-a-reader-cannot-see',
             whr: 'what-can-be-recovered',
             whg: 'where-the-geometry-goes',
+            avd: 'averaging-directions',
+            jnf: 'joining-the-facings',
+            ssl: 'size-sets-the-level',
             crs: 'where-the-detail-turns',
             hom: 'where-the-detail-turns',
             rip: 'where-the-detail-turns'
