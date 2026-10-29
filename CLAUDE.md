@@ -450,7 +450,16 @@ publishes.
     gallery's `bridge` tile, every curve computed there from the paper's formulas (the readings at the odd multiples of
     π/N, the kernel in its product form, their sum): a curve F, eight leaves, one kernel turned to each, the sum through
     every leaf, the camera in on the widest gap, then sixteen and thirty-two leaves (each lattice the last one slid half
-    a step with new leaves between, since the leaves of 2N are not those of N), the sum equal to F at thirty-two. Beat
+    a step with new leaves between, since the leaves of 2N are not those of N), the sum equal to F at thirty-two. `?x=addresses` (29 Oct 2026, Tom: "lets tryout our new explainer in draw
+    repository for a topic in the essay folder") is ADDRESSES GIVEN, PAYLOADS MET, wander's third essay
+    (`papers/essays/03-addresses-given-payloads-met.md`) in six beats, the animated gallery's `addresses` tile: twelve
+    fingers laid evenly by a turn, painted by a stained-glass window, the same window twice as far and twice as large
+    painting them the same and another painting them otherwise, the fingers carried on to a line one length H away and
+    landing as the Cauchy (the half-Cauchy plotted from its formula beside it, half the landings below the corner), the
+    camera out to the last landing fifteen lengths up (median 1, mean 2.55 and climbing 0.44 a doubling), and payloads
+    arriving at the landings as bars and changing while no landing moves; its paper pill links the essay on GitHub. A
+    scene opens exact only under 150 shapes, its labels' glyphs counted (`LAZY_MIN_SHAPES` in `loadSvgExact`): past
+    it every outline comes in as leaves and the `.tvfs` grows fivefold. Beat
     words take a blank line between paragraphs, `**bold**`, `*italic*` and `[a link](address)`, a link into
     `papers.html` drawn as the paper pill.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens

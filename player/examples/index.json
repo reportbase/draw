@@ -32,7 +32,8 @@
    "ids": [
     "explainer",
     "leaves",
-    "bridge"
+    "bridge",
+    "addresses"
    ]
   },
   {
@@ -369,6 +370,16 @@
     "theorem"
    ]
   },
+  "addresses": {
+   "name": "addresses given, payloads met",
+   "note": "The third of wander's essays in six beats: twelve fingers laid evenly by a turn, painted by a stained-glass window, a window twice as far and twice as large painting them the same, another painting them otherwise; the fingers carried on to a line, landing as the Cauchy with half below the corner; the far ones running off with no mean; amounts arriving and changing while no landing moves. The scene of the explainer page's third explainer.",
+   "tags": [
+    "camera",
+    "stops",
+    "essay",
+    "Cauchy"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -557,6 +568,7 @@
   "bridge": 203030,
   "word-morph": 17264,
   "word-draw": 12456,
-  "word-pop": 5412
+  "word-pop": 5412,
+  "addresses": 134028
  }
 }

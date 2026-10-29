@@ -1897,6 +1897,120 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 16. ADDRESSES GIVEN, PAYLOADS MET (29 Oct 2026, Tom: "lets tryout our new explainer in draw repository for a topic in
+// the essay folder"): the third of wander's essays (papers/essays/03-addresses-given-payloads-met.md) in six beats,
+// the scene of explained.html?x=addresses. A hand at home, its twelve fingers laid evenly by the turn (the
+// addresses); a stained-glass window painting them (the payload); the window moved twice as far and made twice as
+// large, which paints them the same, then another window, which paints them otherwise, the fingers never moving; the
+// fingers carried on to a line one length H away, where they land as the Cauchy, half below the corner; the far ones
+// running off toward the horizon, so the readings have a median and no mean; and amounts arriving at the landings,
+// changed and changed back, not one landing moving. Every position is computed: finger k at (k + ½)·7.5°, its landing
+// H·tan θ up the line, the curve beside it the half-Cauchy 2/(π(1 + s²)) plotted from its formula.
+{
+  const O = [70, 250], H = 70, N = 12, f1 = v => +v.toFixed(2),
+    th = k => (k + 0.5) * Math.PI / (2 * N),
+    at = (a, r) => [O[0] + r * Math.cos(a), O[1] - r * Math.sin(a)], // y up, from home
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    seq = n => Array.from({ length: n }, (_, j) => j),
+    label = (x, y, s, fill, size = 14) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', VIOLET = '#7c5cff',
+    // a pane of the window: the ring between r0 and r1 across finger k's own slice of the turn, a little short of its edges
+    pane = (k, r0, r1, fill) => {
+      const a0 = th(k) - 0.06, a1 = th(k) + 0.06, arc = (r, A, B) => seq(5).map(i => at(A + (B - A) * i / 4, r));
+      return polyOf(arc(r1, a0, a1).concat(arc(r0, a1, a0)), fill);
+    },
+    // a finger lit: a thin strip along it, in the colour that came through its pane
+    lit = (k, fill) => {
+      const a = th(k), n = [-Math.sin(a), -Math.cos(a)].map(v => 2.6 * v), p = at(a, 22), q = at(a, 82);
+      return polyOf([[p[0] + n[0], p[1] + n[1]], [q[0] + n[0], q[1] + n[1]], [q[0] - n[0], q[1] - n[1]], [p[0] - n[0], p[1] - n[1]]], fill);
+    },
+    land = k => [O[0] + H, O[1] - H * Math.tan(th(k))],
+    bar = (k, len, fill) => { const [x, y] = land(k); return rectP(x + 6, y - 2.6, x + 6 + len, y + 2.6, fill); },
+    GLASS1 = ['#c8323c', '#2f5fb3', '#e0a32e', '#2f5fb3', '#c8323c', '#3a8f5c', '#e0a32e', '#7a3fa0', '#c8323c', '#2f5fb3', '#e0a32e', '#3a8f5c'],
+    GLASS3 = ['#3a8f5c', '#e0a32e', '#7a3fa0', '#e86a92', '#3a8f5c', '#2fa3b3', '#7a3fa0', '#e0a32e', '#2fa3b3', '#e86a92', '#3a8f5c', '#7a3fa0'],
+    AMT1 = seq(10).map(k => f1(10 + 40 * Math.abs(Math.sin(1.7 * k + 0.4)))),
+    AMT3 = seq(10).map(k => f1(8 + 44 * Math.abs(Math.cos(2.3 * k + 1.1)))),
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/03-addresses-given-payloads-met.md';
+  // the words beside each beat, read by explained.html and shown in the editor's beats panel
+  const ADDRESS_BEATS = [
+    { title: 'A hand at home',
+      text: 'Stand at *home* and hold up a hand, fingers spread from flat to upright. Turn evenly from the first finger to the last and each one points a fixed step further round: here twelve of them, 7.5° apart.\n\nThe fingers are where something *can* be put. They were laid by the turn alone, before anything was seen, and the essay calls them **addresses**.' },
+    { title: 'A window paints them',
+      text: 'Hold the hand up to a stained-glass window. Each finger lines up with one pane and is lit by the colour that pane lets through.\n\nThat colour is the **payload**: whatever arrives along a finger\'s line. It tells you about the window. It says nothing about how far off the glass is, or how large.' },
+    { title: 'Another window, the same fingers',
+      text: 'Move the window twice as far away and make it twice as large. Every pane lines up with the same finger as before, and **every finger is lit exactly as it was**: no colour carries a distance.\n\nNow change the window. Every colour changes. Not one finger moves. The addresses belong to the hand; only the payload belongs to the window.' },
+    { title: 'Laid on a line: the Cauchy',
+      text: 'Carry each finger on until it meets a straight line one length *H* away. Finger *k* lands at *H*·tan θ, its reading v/h = tan θ.\n\nThe turn was even, but the landings are not: they crowd near the foot of the line and spread out as they climb. The law of where they land is the Cauchy, 2 ⁄ π(1 + s²), drawn beside the line. Half the fingers turn less than 45°, so **half land below *H***: the corner, v/h = 1, is the median. [The essay, §5](' + ESSAY + ')' },
+    { title: 'A median, and no mean',
+      text: 'Pull back. The last finger, 3.75° short of upright, lands fifteen lengths up; with twice the fingers the last lands thirty up, and the line runs on toward the *horizon*, which no finger reaches.\n\nThe median of the readings stays at 1 however many fingers there are. Their mean does not settle: 2.55 for twelve fingers, 2.99 for twenty-four, 3.43 for forty-eight, about 0.44 more each time the fingers double. **The missing mean belongs to the turn**, not to anything seen along it.' },
+    { title: 'Change what arrives, and no address moves',
+      text: 'Now let amounts arrive at the landings, drawn as bars: one window\'s light, then another window\'s, then the first again. Every bar changes. **Not one landing moves**, and the corner stays where the turn put it.\n\nThat is the essay\'s theorem in plain words: the Cauchy is the law of the addresses, fixed by where you stand and how you turn, and nothing the world sends can change it. It is why practice takes the median of such readings and not the mean. [Addresses given, payloads met](' + ESSAY + ')' }
+  ];
+  // shapes, in order: 0 the paper; 1, 2 the axes h and v; 3–14 the twelve fingers; 15–26 the near window, 27–38 the
+  // same window twice as far and twice as large, 39–50 another window there; 51–62 the fingers lit by the first window,
+  // 63–74 by the other; 75 the line one length H away; 76–87 the fingers carried on to it; 88–99 their landings; 100,
+  // 101 the corner's ray and landing; 102 the half-Cauchy; 103–112 and 113–122 two payloads as bars at the first ten
+  // landings; 123–126 the labels home, H, v/h = 1 and Cauchy. Under 150 shapes, glyphs counted, or the editor opens
+  // the drawing as leaves rather than exact (LAZY_MIN_SHAPES)
+  const top = land(N - 1)[1] - 12,
+    body = rectP(-700, -1100, 1100, 700, '#f4f1ea')
+    + line([O, [380, 250]], '#9a927f', 1.4) + line([O, [70, 20]], '#9a927f', 1.4)
+    + seq(N).map(k => line([at(th(k), 14), at(th(k), 84)], INK, 2)).join('')
+    + seq(N).map(k => pane(k, 90, 112, GLASS1[k])).join('')
+    + seq(N).map(k => pane(k, 180, 224, GLASS1[k])).join('')
+    + seq(N).map(k => pane(k, 180, 224, GLASS3[k])).join('')
+    + seq(N).map(k => lit(k, GLASS1[k])).join('') + seq(N).map(k => lit(k, GLASS3[k])).join('')
+    + line([[O[0] + H, O[1]], [O[0] + H, top]], INK, 1.6)
+    + seq(N).map(k => line([at(th(k), 14), land(k)], '#b9b2a6', 1.1)).join('')
+    + seq(N).map(k => { const [x, y] = land(k); return circ4(x, y, 3.6, VIOLET); }).join('')
+    + line([O, [O[0] + H, O[1] - H]], GOLD, 2.2) + circ4(O[0] + H, O[1] - H, 5, GOLD)
+    + `<path data-plot="x = 90/(1 + t^2); y = ${H}t" data-t0="0" data-t1="12" data-n="160" data-cx="${O[0] + H}" data-cy="${O[1]}" fill="none" stroke="${VIOLET}" stroke-width="2.4"/>`
+    + seq(10).map(k => bar(k, AMT1[k], GOLD)).join('')
+    + seq(10).map(k => bar(k, AMT3[k], '#2fa3b3')).join('')
+    + label(44, 272, 'home', INK) + label(98, 268, 'H', INK) + label(150, 178, 'v/h = 1', GOLD) + label(224, 214, 'Cauchy', VIOLET);
+  const rel = (a, b, T) => T.map(t => +(0.99 * (t - a) / (b - a)).toFixed(4)),
+    span = (start, end, io) => Object.assign({ start, len: +(end - start).toFixed(4) }, io),
+    drawIn = len => ({ in: { kind: 'draw', len } }), fadeIn = len => ({ in: { kind: 'fade', len } }),
+    WIN = [0.15, 0.31, 0.36, 0.39, 0.43];
+  SHOWPIECES.push({
+    id: 'addresses', name: 'addresses given, payloads met', section: 'explainers', tags: ['camera', 'stops', 'essay', 'Cauchy'],
+    note: 'The third of wander\'s essays in six beats: twelve fingers laid evenly by a turn, painted by a stained-glass window, a window twice as far and twice as large painting them the same, another painting them otherwise; the fingers carried on to a line, landing as the Cauchy with half below the corner; the far ones running off with no mean; amounts arriving and changing while no landing moves. The scene of the explainer page\'s third explainer.',
+    svg: svg(400, 300, body),
+    scene: {
+      loop: 32, ease: 'inout', stops: [0.14, 0.3, 0.46, 0.64, 0.8],
+      camera: [{ t: 0, fit: [2, 27], pad: 0.1 }, { t: 0.46, fit: [2, 27], pad: 0.1 }, { t: 0.5, fit: [1, 2], pad: 0.12 },
+        { t: 0.64, fit: [1, 2], pad: 0.12 }, { t: 0.71, fit: [1, 75], pad: 0.06 },
+        { t: 0.8, fit: [1, 75], pad: 0.06 }, { t: 0.85, fit: [1, 2], pad: 0.12 }],
+      beats: ADDRESS_BEATS,
+      morphs: [
+        { keys: [1], clip: span(0.01, 0.99, drawIn(0.03)) },
+        { keys: [2], clip: span(0.02, 0.99, drawIn(0.03)) },
+        { keys: [123], clip: span(0.02, 0.99, fadeIn(0.03)) },
+        ...seq(N).map(k => { const a = +(0.04 + 0.006 * k).toFixed(3); return { keys: [3 + k], clip: span(a, 0.99, drawIn(0.025)) }; }),
+        // the window: near, then twice as far and twice as large (the same colours), then another window there
+        ...seq(N).map(k => ({ keys: [15 + k, 15 + k, 27 + k, 27 + k, 39 + k], times: rel(0.15, 0.49, WIN), straight: true,
+          clip: span(0.15, 0.49, { in: { kind: 'fade', len: 0.04 }, out: { kind: 'fade', len: 0.015 } }) })),
+        // each finger lit by its pane: the same through the first two windows, otherwise through the third
+        ...seq(N).map(k => { const a = +(0.2 + 0.004 * k).toFixed(3); return { keys: [51 + k, 51 + k, 51 + k, 51 + k, 63 + k],
+          times: rel(a, 0.49, [a, 0.31, 0.36, 0.39, 0.43]), straight: true,
+          clip: span(a, 0.49, { in: { kind: 'fade', len: 0.03 }, out: { kind: 'fade', len: 0.015 } }) }; }),
+        { keys: [75], clip: span(0.48, 0.99, drawIn(0.03)) },
+        { keys: [124], clip: span(0.49, 0.99, fadeIn(0.02)) },
+        ...seq(N).map(k => { const a = +(0.5 + 0.004 * k).toFixed(3); return { keys: [76 + k], clip: span(a, 0.99, drawIn(0.03)) }; }),
+        ...seq(N).map(k => { const a = +(0.53 + 0.004 * k).toFixed(3); return { keys: [88 + k], clip: span(a, 0.99, fadeIn(0.02)) }; }),
+        { keys: [100], clip: span(0.57, 0.99, drawIn(0.03)) },
+        { keys: [101], clip: span(0.59, 0.99, fadeIn(0.02)) },
+        { keys: [125], clip: span(0.59, 0.82, { in: { kind: 'fade', len: 0.02 }, out: { kind: 'fade', len: 0.015 } }) },
+        // the curve gives way to the payloads, which are drawn where it was
+        { keys: [102], clip: span(0.6, 0.82, { in: { kind: 'draw', len: 0.035 }, out: { kind: 'fade', len: 0.015 } }) },
+        { keys: [126], clip: span(0.62, 0.82, { in: { kind: 'fade', len: 0.02 }, out: { kind: 'fade', len: 0.015 } }) },
+        // what arrives at the landings: one window's light, then another's, then the first again
+        ...seq(10).map(k => ({ keys: [103 + k, 103 + k, 113 + k, 113 + k, 103 + k], times: rel(0.82, 0.99, [0.82, 0.87, 0.9, 0.93, 0.96]),
+          straight: true, clip: span(0.82, 0.99, fadeIn(0.025)) }))
+      ]
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -2026,7 +2140,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'addresses'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
