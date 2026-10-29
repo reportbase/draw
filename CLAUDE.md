@@ -413,7 +413,7 @@ publishes.
     word has none. Their outlines are baked as plain paths (`GLYPH_WORDS`; `node tools/glyph-rings.mjs SUNSET ZENITH`
     traces them with the editor's own `__sceneTextRings`, a hook added for it, and the repo served on :8792), so
     the examples need no font. `word-draw` is ordinary SVG `<text>` traced when the scene opens, drawn on letter by
-    letter; `word-pop` six letters each with a `pop`. Not done: a morph of letters with different numbers of counters.
+    letter; `word-pop` six letters each with a `pop`; their `.tvfs` are in `player/examples/` (`npm run examples`). Not done: a morph of letters with different numbers of counters.
   - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your
     recommendations": a light player) is a chart page: the same examples, each tile its **animated
     SVG**, made by one hidden editor (THE EMBED AS A CONVERTER in `draw.html`: an embed of the same origin answers
