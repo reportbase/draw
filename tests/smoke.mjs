@@ -3479,7 +3479,10 @@ await step('interactive scenes, touch and Lottie', async () => {
   const c2 = await tOf('card');
   if (!(c1 > 0.9 && c2 < 0.1)) throw new Error('the card went to ' + c1 + ' under the pointer and ' + c2 + ' off it');
   // the ball: thrown up and to the right, it flies that way
-  w = await ready('touch-bouncing-ball');
+  await ready('touch-bouncing-ball');
+  // (held still first: a ball bouncing under a slow page has moved on from where it was measured by the time the press lands)
+  w = await gp.evaluate(() => { const c = window.__played.ctl('touch-bouncing-ball'); c.pause(); return c.whereIs(0); });
+  await gp.waitForTimeout(100);
   await gp.mouse.move(w.x, w.y);
   await gp.mouse.down();
   for (let i = 1; i <= 6; i++) { await gp.mouse.move(w.x + i * 20, w.y - i * 15); await gp.waitForTimeout(16); }
