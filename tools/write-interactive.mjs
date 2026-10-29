@@ -215,11 +215,62 @@ const LOTTIE = {
             ks: { o: st(100), r: st(0), p: st([200, 150, 0]), a: st([200, 150, 0]), s: st([100, 100, 100]) } }
     ]
 };
-writeFileSync(join(OUT, 'lottie-sample.json'), JSON.stringify(LOTTIE) + '\n');
+// A SPINNER (29 Oct 2026, Tom: "Create a help gallery page the show the vtf viewer processing a lottie file", the
+// gallery's lottie page): eight dots round a null layer that turns, each dot's size and opacity keyed a step behind
+// the one before: shapes that only move and fade, which come out as one outline and a transform each, and a parent
+// doing the turning. (The null's own matrix is the identity at frame 0, so the dots' places are the composition's.)
+const cycle = (vals, shift) => [0, 12, 24, 36, 48].map(t => [t, vals[(((t - shift) / 12) % 4 + 4) % 4]]); // a 4-step cycle begun `shift` frames late, closed
+const dots = Array.from({ length: 8 }, (_, i) => {
+    const a = i / 8 * 2 * Math.PI - Math.PI / 2, shift = Math.round(i / 8 * 4) * 12 % 48;
+    return layer(10 + i, 'dot ' + i, { p: st([200 + 78 * Math.cos(a), 150 + 78 * Math.sin(a), 0]), parent: 1,
+        s: kf(cycle([[100, 100, 100], [160, 160, 100], [100, 100, 100], [60, 60, 100]], shift)),
+        o: kf(cycle([100, 100, 55, 35], shift)) },
+        [{ ty: 'gr', nm: 'dot', it: [{ ty: 'el', d: 1, s: st([26, 26]), p: st([0, 0]) },
+            { ty: 'fl', c: st([0.55, 0.42, 0.95, 1]), o: st(100), r: 1 }, xf()] }]);
+});
+const SPINNER = {
+    v: '5.7.4', fr: 24, ip: 0, op: 48, w: 400, h: 300, nm: 'a spinner', ddd: 0, assets: [],
+    layers: [
+        { ddd: 0, ind: 1, ty: 3, nm: 'turn', sr: 1, ip: 0, op: 48, st: 0, ao: 0, bm: 0,
+            ks: { o: st(0), r: kf([[0, 0], [48, 180]], 'linear'), p: st([200, 150, 0]), a: st([200, 150, 0]), s: st([100, 100, 100]) } },
+        ...dots,
+        { ddd: 0, ind: 4, ty: 1, nm: 'ground', sr: 1, ip: 0, op: 48, st: 0, ao: 0, bm: 0, sc: '#1b2333', sw: 400, sh: 300,
+            ks: { o: st(100), r: st(0), p: st([200, 150, 0]), a: st([200, 150, 0]), s: st([100, 100, 100]) } }
+    ]
+};
+// A BLOB: a six-cornered outline whose handles breathe from round to nearly a hexagon, its colour changing with it,
+// inside a ring that only turns (a stroke, so its width has to ride the map's size) and a dot that rides the ring.
+const hex = (k, rad) => {
+    const v = Array.from({ length: 6 }, (_, i) => { const a = i / 6 * 2 * Math.PI - Math.PI / 2; return [rad * Math.cos(a), rad * Math.sin(a)]; }),
+        t = Array.from({ length: 6 }, (_, i) => { const a = i / 6 * 2 * Math.PI; return [-Math.sin(a - Math.PI / 2) * k, Math.cos(a - Math.PI / 2) * k]; });
+    return { v, i: t.map(q => [-q[0], -q[1]]), o: t, c: true };
+};
+const BLOB = {
+    v: '5.7.4', fr: 30, ip: 0, op: 60, w: 400, h: 300, nm: 'a blob', ddd: 0, assets: [],
+    layers: [
+        layer(1, 'blob', { p: st([200, 150, 0]) }, [{ ty: 'gr', nm: 'blob', it: [
+            { ty: 'sh', ks: kf([[0, [hex(46, 64)]], [30, [hex(2, 74)]], [60, [hex(46, 64)]]]) },
+            { ty: 'fl', c: kf([[0, [0.95, 0.76, 0.3, 1]], [30, [0.9, 0.35, 0.5, 1]], [60, [0.95, 0.76, 0.3, 1]]]), o: st(100), r: 1 },
+            xf()] }]),
+        layer(2, 'ring', { p: st([200, 150, 0]), r: kf([[0, 0], [60, 360]], 'linear') }, [{ ty: 'gr', nm: 'ring', it: [
+            { ty: 'el', d: 1, s: st([170, 170]), p: st([0, 0]) },
+            { ty: 'st', c: st([0.55, 0.42, 0.95, 1]), o: st(100), w: st(6), lc: 2, lj: 2 },
+            xf()] }]),
+        layer(3, 'dot', { p: st([200, 150, 0]), r: kf([[0, 0], [60, -720]], 'linear') }, [{ ty: 'gr', nm: 'dot', it: [
+            { ty: 'el', d: 1, s: st([20, 20]), p: st([85, 0]) },
+            { ty: 'fl', c: st([0.98, 0.98, 1, 1]), o: st(100), r: 1 }, xf()] }]),
+        { ddd: 0, ind: 4, ty: 1, nm: 'ground', sr: 1, ip: 0, op: 60, st: 0, ao: 0, bm: 0, sc: '#1b2333', sw: 400, sh: 300,
+            ks: { o: st(100), r: st(0), p: st([200, 150, 0]), a: st([200, 150, 0]), s: st([100, 100, 100]) } }
+    ]
+};
 (0, eval)(readFileSync(join(ROOT, 'player', 'lottie.js'), 'utf8')); // a classic script: TVFLottie on the global object
-{
-    const { scene } = globalThis.TVFLottie.toScene(LOTTIE, { name: 'from Lottie' });
-    S['lottie-sample'] = Object.assign(scene, { _note: 'a Lottie file of four layers (lottie-sample.json), read by player/lottie.js: every frame drawn as exact paths and kept as keys where a straight blend cannot stand in' });
+for (const [id, L, name, note] of [
+    ['lottie-sample', LOTTIE, 'from Lottie', 'a Lottie file of four layers (lottie-sample.json), read by player/lottie.js: every frame drawn as exact paths and kept as keys where a straight blend cannot stand in'],
+    ['lottie-spinner', SPINNER, 'a spinner from Lottie', 'eight dots on a turning parent, each pulsing and fading a step behind the last (lottie-spinner.json): shapes that only move and fade, kept as one outline and a transform each'],
+    ['lottie-blob', BLOB, 'a blob from Lottie', 'a six-cornered outline breathing between round and a hexagon while its colour changes, inside a turning ring and a dot riding it (lottie-blob.json)']
+]) {
+    writeFileSync(join(OUT, id + '.json'), JSON.stringify(L) + '\n');
+    S[id] = Object.assign(globalThis.TVFLottie.toScene(L, { name }).scene, { _note: note });
 }
 
 const NOTES = {

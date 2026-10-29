@@ -794,8 +794,10 @@ line), the topmost first. With no target the whole canvas is the target.
 longer moves on from a stop.
 
 **One shape, moved** (`xform`, version 2). A morph of one key may hold its outline once and how it moves:
-`t` the times of the transform's keys on the morph's own clock (its clip, rate and phase; increasing), `v` a
-key's six parts `[tx, ty, θ, sx, sh, sy]` for the map x′ = R(θ)·[[sx, sh], [0, sy]]·x + (tx, ty) in page units,
+`t` the times of the transform's keys on the morph's own clock (its clip, rate and phase; increasing), `o` the
+pivot `[ox, oy]` (the outline's middle, in page units; `[0, 0]` if absent), `v` a key's six parts
+`[tx, ty, θ, sx, sh, sy]` for the map x′ = R(θ)·[[sx, sh], [0, sy]]·(x − o) + o + (tx, ty) in page units, so a shape
+that only turns about its middle has tx = ty = 0,
 `e` an ease per stretch between them (as `own.eases`, null for straight), and optionally `c`, each key's fill
 in linear light `[r, g, b, a]`. The parts blend straight between keys along the stretch's ease, and hold
 before the first key and after the last; a turn split out this way keeps a shape's size through the middle of

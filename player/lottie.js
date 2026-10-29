@@ -527,19 +527,22 @@ function fitBezier(U, Sv) {
         }
     return best.q.map(v => Math.round(v * 1000) / 1000);
 }
-// a 2×2 map with a move, [a, b, c, d, e, f] as x' = a·x + c·y + e, y' = b·x + d·y + f, as [tx, ty, θ, sx, sh, sy]:
-// a turn of θ times [[sx, sh], [0, sy]] (the QR split), θ kept near `near` so a turn unwinds rather than jumps
-function partsOf(M, near) {
+// a map [a, b, c, d, e, f] (x' = a·x + c·y + e, y' = b·x + d·y + f) taken about a pivot (cx, cy), the outline's middle:
+// x' = L·(x − pivot) + pivot + (tx, ty), as [tx, ty, θ, sx, sh, sy] with L a turn of θ times [[sx, sh], [0, sy]] (the QR
+// split), θ kept near `near` so a turn unwinds rather than jumps. About its own middle a shape that only turns has
+// tx = ty = 0, so it takes two keys, where about the page's origin its translation would go round a circle.
+function partsOf(M, near, cx, cy) {
     const sx = Math.hypot(M[0], M[1]);
     let th = sx > 1e-12 ? Math.atan2(M[1], M[0]) : (near || 0);
     if (near != null)
         th += Math.round((near - th) / (2 * Math.PI)) * 2 * Math.PI;
     const cs = Math.cos(th), sn = Math.sin(th);
-    return [M[4], M[5], th, sx, cs * M[2] + sn * M[3], -sn * M[2] + cs * M[3]];
+    return [M[0] * cx + M[2] * cy + M[4] - cx, M[1] * cx + M[3] * cy + M[5] - cy, th, sx, cs * M[2] + sn * M[3], -sn * M[2] + cs * M[3]];
 }
-function matOf(q) {
-    const [tx, ty, th, sx, sh, sy] = q, cs = Math.cos(th), sn = Math.sin(th);
-    return [cs * sx, sn * sx, cs * sh - sn * sy, sn * sh + cs * sy, tx, ty];
+function matOf(q, cx, cy) {
+    const [tx, ty, th, sx, sh, sy] = q, cs = Math.cos(th), sn = Math.sin(th),
+        a = cs * sx, b = sn * sx, c = cs * sh - sn * sy, d = sn * sh + cs * sy;
+    return [a, b, c, d, cx + tx - (a * cx + c * cy), cy + ty - (b * cx + d * cy)];
 }
 // A·B⁻¹ for maps given as Lottie's y-down affines, turned into the page's y-up frame (y → −y on both sides)
 function relOf(A, B) {
@@ -603,7 +606,7 @@ function toScene(L, opts) {
     }));
     order.sort((a, b) => pos.get(a) - pos.get(b));
     const items = [], morphs = [];
-    let keysAll = 0, stills = 0, xforms = 0;
+    let keysAll = 0, stills = 0, xforms = 0, xkeys = 0;
     for (const key of order) {
         const T = tracks.get(key);
         if (!T.frames.length)
@@ -678,13 +681,13 @@ function toScene(L, opts) {
                 const Q = [];
                 let near = null;
                 for (const q of R) {
-                    const part = partsOf(relOf(q.o.M, R[ref].o.M), near);
+                    const part = partsOf(relOf(q.o.M, R[ref].o.M), near, cx, cy);
                     near = part[2];
                     Q.push(part);
                 }
-                const truth = R.map((q, k) => { const m = matOf(Q[k]); return m; });
+                const truth = R.map((q, k) => matOf(Q[k], cx, cy));
                 const err = (k, v) => {
-                    const m = matOf(v), t = truth[k];
+                    const m = matOf(v, cx, cy), t = truth[k];
                     let e = 0;
                     for (let i = 0; i < P.length; i += 2) {
                         const x = P[i], y = P[i + 1];
@@ -702,6 +705,7 @@ function toScene(L, opts) {
                     const wt = [1 / tol, 1 / tol, rho / tol, rho / tol, rho / tol, rho / tol, 1 / ctol, 1 / ctol, 1 / ctol, 1 / ctol];
                     const K = keyframes(R.length, k => Float64Array.from([...Q[k], ...R[k].col]), err, wt);
                     const xform = {
+                        o: [r2(cx), r2(cy)], // the pivot: the key's middle, in page units
                         t: K.keep.map(tOf),
                         v: K.keep.map(i => [r2(Q[i][0]), r2(Q[i][1]), r6(Q[i][2]), r6(Q[i][3]), r6(Q[i][4]), r6(Q[i][5])])
                     };
@@ -715,6 +719,7 @@ function toScene(L, opts) {
                     items.push({ morph: morphs.length });
                     morphs.push(Object.assign({ exact: true, open: T.open, holes: null, keys: [key], inPlace: true, lag: 0, fx: null, own, xform }, style));
                     keysAll += 1;
+                    xkeys += xform.t.length;
                     xforms++;
                     continue;
                 }
@@ -777,7 +782,7 @@ function toScene(L, opts) {
         morphs,
         from: { lottie: L.v || '', w: +L.w, h: +L.h, fr, frames: N }
     };
-    return { scene, report: { frames: N, fr, tracks: tracks.size, morphs: morphs.length, stills, keys: keysAll, moved: xforms, unsupported: notes } };
+    return { scene, report: { frames: N, fr, tracks: tracks.size, morphs: morphs.length, stills, keys: keysAll, xkeys, moved: xforms, unsupported: notes } };
 }
 function same(A, B, tol, ctol) {
     for (let d = 0; d < A.g.length; d++)

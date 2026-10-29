@@ -133,16 +133,28 @@ publishes.
     lottie-web's canvas renderer (its repo's demos, MIT, not committed): within 0.1–1.5 of 255 on the files it reads
     whole; adrock's mask and happy2016's gradients are where it parts. For size: lottie-web's light player is 46 KB
     gzipped, ours with `tvf-core.js` about 48.
+    **The lottie page** (`gallery/lottie.html`, 29 Oct 2026, Tom: "Create a help gallery page the show the vtf viewer
+    processing a lottie file and animating it. One of the demos should let the user import a lottie file."; page 30 of
+    31, before `explained`, on `played`'s styles): two benches of one kind (`makeBench`), each a Lottie's frame as exact
+    paths (the importer's own `TVFLottie.drawingAt`, put through the player as a scene of stills: `frameScene`), the scene
+    played by the player, a strip of which frames were kept as keys for each path (gold: an outline key, teal: a
+    transform key), the tolerance and transform knobs, the numbers (sizes, gzipped through `CompressionStream`, keys,
+    time, what was left out), a frame slider and the `.tvfs` to take away. **Process it** replays the work in order
+    (every frame read, the conversion, the strip filling in as the scene plays). The first bench has three Lotties of
+    our own (`player/interactive/lottie-sample|spinner|blob.json`); the second opens or takes a dropped `.json`
+    (`.lottie` zips are not read). Hook `window.__lottie` (`benches.watch`, `benches.yours`: `info`, `set`, `process`,
+    `pick`, `readFile`, `load`). A chart page with no curve to edit, like `played`.
     **Smaller scenes** (29 Oct 2026, Tom: "Any options to reduce the size of the lottie to tvf convert.", then "Yes" to
     two of them): ONE SHAPE, MOVED: a path whose outline never changes in its own coordinates (`sig` in `emit`), only
-    its map, is one key and a morph's `xform` ({t, v: [tx, ty, θ, sx, sh, sy] per key, e, c}, the map split as a
-    turn times an upper triangle so a turn keeps its size between keys), the parts read from Lottie's matrices
+    its map, is one key and a morph's `xform` ({o, t, v: [tx, ty, θ, sx, sh, sy] per key, e, c}, the map split as a
+    turn times an upper triangle so a turn keeps its size between keys, taken about the outline's middle `o` so a
+    shape that only turns has no translation to key), the parts read from Lottie's matrices
     (`relOf`, `partsOf`), which needs the scene's version 2 (the player reads 1 and 2; `xformPose`, `fillOf`, the
     line width by √|det|). A CURVE OF ITS OWN: every stretch between kept frames (`keyframes`) is straight, or a
     cubic Bézier ease fitted to the frames between (`fitBezier`: x1, x2 on a grid, y1, y2 by least squares, on two
     dozen frames, every frame then checked), or split; the engine's `morphEase` takes `[x1, y1, x2, y2]` arrays
-    (`morphBezierEase`, `morphBezierOk`), for shape keys too. Gzipped against the Lottie file: gatin 36 → 5.9 KB
-    (Lottie 4.5), adrock 249 → 29 (12), bacon 210 → 105 (52), happy2016 94 → 79 (53), bodymovin 259 → 212 (135),
+    (`morphBezierEase`, `morphBezierOk`), for shape keys too. Gzipped against the Lottie file: gatin 36 → 7.1 KB
+    (Lottie 4.5), adrock 249 → 28 (12), bacon 210 → 106 (52), happy2016 94 → 80 (53), bodymovin 259 → 211 (135),
     the same pixels against lottie-web as before; conversion 0.4–2.4 s. A stretch has one ease for all its parts, so a
     shape whose position and scale Lottie keyed apart takes more keys (the sample's ball, 17 of 60 frames).
   - **Examples**: `player/interactive/` (a menu, play/pause, a switch, a button, a card, a line drawn by the scroll;
@@ -174,10 +186,10 @@ publishes.
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before
   anything else, typeset by KaTeX from cdnjs when that loads and shown as source when it does not.
-- `gallery/`: thirty teaching pages, in reading order: `gallery.html` (the catalogue),
+- `gallery/`: thirty-one teaching pages, in reading order: `gallery.html` (the catalogue),
   `bench`, `epicycles`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
   menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`
-  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`, `embedded`, `played`, `explained`. Also `playground.html` (sculpt
+  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`, `embedded`, `played`, `lottie`, `explained`. Also `playground.html` (sculpt
   a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
   library as an ES module, *generated* from the copy the pages inline: regenerate it from
   a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
@@ -196,15 +208,15 @@ publishes.
     `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
     a layout of their own have a section there scoped to their body class (`page-index`,
     `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`, `page-animated`, `page-embedded`, `page-played`, `page-explained`).
-  - Each page bundles its JavaScript so it runs from one file. All thirty, and the playground, carry the **same**
+  - Each page bundles its JavaScript so it runs from one file. All thirty-one, and the playground, carry the **same**
     `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
     snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
     (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
     mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
     names the page that differs.
-  - The other twenty-one have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
+  - The other twenty-two have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
     STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES, SITUATED, DEPTHPAGE, RECOVER, CORNER, LEVELS, STAND, BETWEEN, COMPILE), and no spectrum strip or predict mode. `spiral`,
-    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated`, `embedded`, `played` are *chart* pages (`body.page-chart`: a measurement and a
+    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated`, `embedded`, `played`, `lottie` are *chart* pages (`body.page-chart`: a measurement and a
     verdict line per tile); `motion`, `compose` and `epicycles` animate (`page-chart page-motion`; epicycles
     carries only tvf.js, FORMAT and EPICYCLES, and its dials may be selects);
     `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`).
@@ -460,7 +472,7 @@ publishes.
     map that best takes the key's corners to the pose's (`morphAffineOf`, `morphHolesAt`); saved, in the `.tvfs`
     (`holes`), drawn by the player, and written in the SVG export as keyhole bridges under `fill-rule="evenodd"`.
   - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 30" crumbs and "next" links in each page.
+    a page means updating it, and the "N of 31" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE

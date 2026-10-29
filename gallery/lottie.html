@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tvf — lottie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="page-chart page-played page-lottie">
+<!-- THE LOTTIE GALLERY (29 Oct 2026, Tom: "Create a help gallery page the show the vtf viewer processing a lottie file and
+     animating it. One of the demos should let the user import a lottie file."): player/lottie.js at work. A Lottie file
+     is a recipe (layers, shapes, keyframes); the importer evaluates it at every frame, keeps the result as the exact
+     paths the TVF player already draws, and writes a scene (.tvfs). Two benches below run the whole thing in the tab:
+     the first on three small Lotties of our own (player/interactive/lottie-*.json, written by tools/write-interactive.mjs),
+     the second on a file the visitor opens or drops. Each shows the Lottie's frame as exact paths, the scene playing,
+     which frames were kept as keys, and the numbers. Like played.html it loads the player with script tags, so it is
+     not a single file; it still carries tvf.js, as every gallery page does, though it draws nothing with it. -->
+
+<header>
+  <nav class="crumbs"><a href="index.html">← all galleries</a> · 30 of 31</nav>
+  <h1>tvf <em>lottie</em> <span class="pill">player/lottie.js</span></h1>
+  <p class="lede">
+    A Lottie file is a <b>recipe</b>: layers, shapes and keyframes that a renderer works out again at every frame.
+    The importer in <code>player/lottie.js</code> works it out itself, once per frame, keeps what it gets as the exact
+    paths the TVF player already draws (corners, curve handles, roundings), follows each path from frame to frame
+    and writes a <b>scene</b>: a <code>.tvfs</code> file the player poses with the editor's own engine, sharp at any
+    size, and open to everything a scene can do that a Lottie cannot, like being taken in the hand.
+  </p>
+  <p class="sub">
+    Below, watch one processed a frame at a time, change the two knobs that decide how small the scene comes out, and
+    drop in one of your own. Nothing is uploaded: the file is read in this tab, and what the importer cannot read
+    (masks, mattes, effects, text, images, gradients, trim paths) it names, it does not guess at.
+  </p>
+</header>
+
+<div class="bar"><div class="bar-in">
+  <span class="count" id="count"></span>
+  <div class="spacer"></div>
+  <a class="jump" href="#how">how it works</a>
+  <a class="jump" href="#watch">watch it</a>
+  <a class="jump" href="#yours">your own</a>
+  <a class="jump" href="#use">use it</a>
+</div></div>
+
+<main id="main">
+
+  <section id="how">
+    <div class="sec-head"><h2>how it works</h2><div class="rule"></div><span class="n">4 steps</span></div>
+    <div class="howto">
+      <div class="step-card">
+        <h3><span class="num">1</span> draw every frame</h3>
+        <p>The Lottie is parametric: a ball's position is two keyframes and an ease. The importer evaluates all of it,
+        as a Lottie renderer would (transforms, parents, precompositions, eases, opacity), at every frame, and keeps
+        the shapes as <b>exact paths</b>: corners, cubic handles, rounded corners. That is the left picture below.</p>
+      </div>
+      <div class="step-card">
+        <h3><span class="num">2</span> follow each path</h3>
+        <p>A path that is there in every frame is a <b>track</b>. If its outline never changes in its own coordinates,
+        only its matrix, it is kept <b>once</b> with a transform (teal below). If the outline itself moves, it is a
+        morph of exact keys (gold). A path that never changes at all is a still.</p>
+      </div>
+      <div class="step-card">
+        <h3><span class="num">3</span> keep what matters</h3>
+        <p>Of a track's frames only those a straight blend cannot stand in for are kept, to a <b>tolerance</b> in
+        pixels. A stretch between two kept frames is a straight blend, or a cubic-Bézier ease fitted to the frames
+        between them, so an eased move Lottie keyed once comes back as one stretch.</p>
+      </div>
+      <div class="step-card">
+        <h3><span class="num">4</span> play the scene</h3>
+        <p>The result is a <a href="played.html">.tvfs scene</a>. The player poses it at any time and draws the curves at
+        the canvas's size, with the same engine as the editor: the right picture below, and nothing is a frame. Scenes
+        can also be clicked and thrown, which a Lottie file has no way to say.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="watch">
+    <div class="sec-head"><h2>watch it processed</h2><div class="rule"></div><span class="n">3 Lotties of our own</span></div>
+    <p class="sec-note">Pick a Lottie and press <b>process it</b>: the importer reads the file frame by frame (the left
+    picture is each frame as exact paths), then follows and trims the paths, and the scene starts playing on the
+    right. The strip shows <b>which frames it kept</b> for each path: the fewer the ticks, the smaller the scene.
+    Drag the frame slider to compare one frame of the Lottie with the scene at the same moment, or move the
+    <b>tolerance</b> to see how much it can drop.</p>
+    <div class="tile wide bench" id="benchWatch"></div>
+  </section>
+
+  <section id="yours">
+    <div class="sec-head"><h2>your own</h2><div class="rule"></div><span class="n">open or drop a Lottie .json</span></div>
+    <p class="sec-note">The same bench on a file of yours: open a Lottie <code>.json</code> (Bodymovin's export, which
+    is what LottieFiles and After Effects write) or drop it on the panel. It is processed here, then you can scrub it,
+    change the tolerance, and take the <b>.tvfs</b> away. A <code>.lottie</code> file is a zip and is not read yet; unzip it and
+    use the <code>.json</code> inside.</p>
+    <div class="tile wide bench" id="benchYours"></div>
+  </section>
+
+  <section id="use">
+    <div class="sec-head"><h2>use it</h2><div class="rule"></div><span class="n">in a page, or from a shell</span></div>
+    <div class="howto">
+      <div class="step-card">
+        <h3><span class="num">1</span> in a page</h3>
+        <p>Three scripts, then convert and play:</p>
+        <pre class="code" id="snippet"></pre>
+        <div class="tools"><button class="copy" data-for="snippet">copy</button></div>
+        <p class="dim"><code>report</code> says what it made (<code>frames</code>, <code>morphs</code>, <code>moved</code>,
+        <code>keys</code>) and what it left out (<code>unsupported</code>). <code>tol</code> is in the composition's
+        pixels; <code>xform: false</code> keeps every moving shape as shape keys, as before version 2.</p>
+      </div>
+      <div class="step-card">
+        <h3><span class="num">2</span> from a shell</h3>
+        <p>The same conversion, written to <code>.tvfs</code> files, with what each one cost:</p>
+        <pre class="code" id="cli"></pre>
+        <div class="tools"><button class="copy" data-for="cli">copy</button></div>
+        <p class="dim"><code>player.html</code> opens a Lottie directly too, and its address takes <code>?src=</code>.</p>
+      </div>
+      <div class="step-card">
+        <h3><span class="num">3</span> what it reads, and what it leaves out</h3>
+        <p><b>Read:</b> shape layers (paths, rectangles with their roundness, ellipses, stars; fills and strokes;
+        groups and their transforms), solids, null layers, parenting, precompositions, opacity, eases, colours.</p>
+        <p><b>Named and left out:</b> masks and mattes, effects, text, images, gradients (drawn as their middle colour),
+        trim paths, repeaters, merged paths, expressions, 3D layers, skew, blend modes, time remapping, a stroke keyed
+        over time, a path whose vertex count changes.</p>
+        <p class="dim">Checked against lottie-web's canvas renderer on its repository's own demos: within 0.1 to 1.5 of
+        255 on the files it reads whole; the benches above compare the same way, 0.0 to 0.2 on these three.</p>
+      </div>
+      <div class="step-card">
+        <h3><span class="num">4</span> how big it comes out</h3>
+        <p>Gzipped, against the Lottie file, on lottie-web's demos (not shipped here):</p>
+        <table class="sizes">
+          <thead><tr><th>file</th><th>Lottie</th><th>scene</th></tr></thead>
+          <tbody>
+            <tr><td>gatin</td><td>4.5 KB</td><td>5.9 KB</td></tr>
+            <tr><td>adrock</td><td>12 KB</td><td>29 KB</td></tr>
+            <tr><td>bacon</td><td>52 KB</td><td>105 KB</td></tr>
+            <tr><td>happy2016</td><td>53 KB</td><td>79 KB</td></tr>
+            <tr><td>bodymovin</td><td>135 KB</td><td>212 KB</td></tr>
+          </tbody>
+        </table>
+        <p class="dim">A scene stores the shapes where a Lottie stores the recipe, so it comes out larger; what it buys is
+        no renderer to run, the editor's engine at any size, and scenes you can touch. The player with the curve library
+        is about 48 KB gzipped, about the size of lottie-web's light build.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  The importer is <code>player/lottie.js</code> (<code>TVFLottie.isLottie</code>, <code>toScene</code>), the player is
+  <code>player/tvf-player.js</code>, and the format they meet in is written up in <a href="../papers.html#tvf">the format
+  paper</a>, §2.10. The three Lotties here are written by <code>tools/write-interactive.mjs</code>, so they are ours.
+  <div class="next">Next: <a href="explained.html">explained</a>, one of these scenes as a scrolling explainer: how leaves become a curve.</div>
+</footer>
+
+<script>
+const TVF = (function () {
+// tvf.js — closed-curve sculpting on band-limited leaves
+// ============================================================================
+//
+// A shape is N samples of a closed curve, taken at the midpoints of N equal
+// arcs of the parameter circle:
+//
+//     theta_k = (k + 0.5) * 2*PI / N,   k = 0 .. N-1
+//
+// and stored as two flat Float64Arrays, x[] and y[]. That is the whole data
+// model. The curve between the samples is not stored — it is *recovered*, by
+// summing the samples against the periodic cardinal kernel
+//
+//     K_N(phi) = sin(N*phi/2) / (N * tan(phi/2))    N even
+//     K_N(phi) = sin(N*phi/2) / (N * sin(phi/2))    N odd
+//     K_N(0)   = 1                                  either way
+//
+// which is 1 at its own node and exactly 0 at every other node. So:
+//
+//   - Every leaf lies ON the curve. There are no off-curve control handles and
+//     no tangents to keep matched; moving a leaf moves the curve through it.
+//   - You cannot make a kink. The reconstruction is band-limited by
+//     construction, so the worst a single leaf can do is a smooth bump.
+//   - The curve is closed because the domain is a circle. There is no seam.
+//   - Resolution is a scalar: N up is finer, N down is smoother, same shape.
+//   - Every interesting operation is arithmetic on two arrays. Morph is a lerp.
+//     Smooth is a low-pass. Symmetry is an index map. Affine transforms are
+//     exact, because the kernel is a partition of unity.
+//
+// What it is bad at: true corners. A sharp vertex has infinite bandwidth, so
+// you approximate it by spending leaves, and leaves are uniform in parameter —
+// there is no local refinement. Great for organic, blobby, and typographic
+// curve work; awkward for a rounded rectangle. `reparameterize()` mitigates by
+// spending leaves proportional to arc length, but that is parameterization,
+// not adaptivity. Know which one you need.
+//
+// Two charts, one kernel. The angle chart (sin/tan) is what the code above runs
+// and what the Tangent Bridge paper proves in; the slope chart further down is
+// the same object as an algebraic function of the held slope, with no
+// trigonometry at all — the paper is emphatic that this is the observer's
+// actual operation and the trig form is only the display.
+//
+// The math core (kernel, node layout, reconstruction, arc-length resampling)
+// is ported from the tangent leaf editor; this module is the same numerics
+// with a sculpting API on top and no DOM.
+//
+// ----------------------------------------------------------------------------
+// Quick start
+//
+//     import { circle, Shape } from './tvf.js';
+//
+//     const s = circle(64, { r: 100 });
+//     s.push(12, { dx: 30, dy: 0 });   // thumb press at leaf 12
+//     s.smooth(0.3);                   // relax it
+//     s.blend(circle(64, { r: 60 }), 0.25);
+//     ctx.stroke(new Path2D(s.toPath()));
+//
+// ============================================================================
+
+const TAU = Math.PI * 2;
+const PI = Math.PI;
+
+// ────────────────────────────────────────────────────────────────────────────
+// KERNEL AND NODE LAYOUT
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Parameter angles of the N leaves: midpoints of N equal arcs. */
+function leafPositions(N) {
+  const out = new Float64Array(N);
+  for (let k = 0; k < N; k++) out[k] = (k + 0.5) * TAU / N;
+  return out;
+}
+
+/**
+ * The periodic cardinal kernel. K(0) = 1, K(2*PI*m/N) = 0 for integer m != 0,
+ * and sum_k K(phi - theta_k) = 1 for every phi (partition of unity).
+ *
+ * PARITY MATTERS, and getting it wrong is a quiet bug rather than a loud one.
+ * With an even number of nodes the Nyquist harmonic cos(N*phi/2) is real and
+ * shared between +N/2 and -N/2, and folding it in symmetrically turns the
+ * sin(phi/2) denominator into tan(phi/2):
+ *
+ *     N even:  sin(N*phi/2) / (N * tan(phi/2))
+ *     N odd:   sin(N*phi/2) / (N * sin(phi/2))
+ *
+ * Both are 1 at their own node and 0 at every other node, so the *interpolation*
+ * property holds either way — which is exactly why using the even form for odd N
+ * looks fine at the leaves and is wrong everywhere between them. The tell is that
+ * the weights stop summing to 1: a 33-leaf circle built with the even kernel
+ * misses its own radius by ~0.15 px between leaves, and a constant is no longer
+ * reproduced. The leaf editor this was ported from uses the tan form for every N;
+ * if it ever offers an odd N, that is a live bug there.
+ */
+function kernel(phi, N) {
+  while (phi > PI) phi -= TAU;
+  while (phi < -PI) phi += TAU;
+  if (Math.abs(phi) < 1e-12) return 1;
+  const half = phi / 2;
+  const denom = N * ((N & 1) ? Math.sin(half) : Math.tan(half));
+  if (Math.abs(denom) < 1e-12) return 1;
+  return Math.sin(N * half) / denom;
+}
+
+// Weight-matrix cache. out[i] = sum_k c[k] * K(phi_i - theta_k, N) has weights
+// that depend only on (i, k, N, M) and never on the data, yet the naive form
+// pays two transcendentals per inner step for every channel of every shape.
+// Build the M x N matrix once per (N, M) and the inner loop becomes a trig-free
+// multiply-accumulate. Output is bit-identical to the direct sum.
+const _matCache = new Map();
+let _matBytes = 0;
+const MAT_BUDGET = 64 * 1024 * 1024;   // 64 MB of cached weights, total
+
+function kernelMatrix(N, M) {
+  const key = N + 'x' + M;
+  const hit = _matCache.get(key);
+  if (hit) return hit;
+  const bytes = N * M * 8;
+  if (bytes > MAT_BUDGET) return null;          // too big to be worth caching
+  while (_matBytes + bytes > MAT_BUDGET && _matCache.size) {
+    const oldest = _matCache.keys().next().value;
+    const [on, om] = oldest.split('x').map(Number);
+    _matCache.delete(oldest);
+    _matBytes -= on * om * 8;
+  }
+  const leaves = leafPositions(N);
+  const W = new Float64Array(N * M);
+  for (let i = 0; i < M; i++) {
+    const phi = (i / M) * TAU;
+    const base = i * N;
+    for (let k = 0; k < N; k++) W[base + k] = kernel(phi - leaves[k], N);
+  }
+  _matCache.set(key, W);
+  _matBytes += bytes;
+  return W;
+}
+
+/** Drop all cached kernel weights. Only useful if you are cycling many N. */
+function clearCache() { _matCache.clear(); _matBytes = 0; }
+
+/**
+ * Reconstruct one channel: N leaf values -> M points uniformly spaced in the
+ * parameter, starting at phi = 0.
+ *
+ * `opts.matrix` lets a host supply its own weight-matrix cache — a function
+ * (N, M) => Float64Array | null, laid out row-major as W[i*N + k]. This exists
+ * so an application that already caches these weights (with its own memory
+ * budget, and its own decisions keyed off when the cache declines) can delegate
+ * the sum here without ending up with two caches holding the same numbers.
+ * Both branches produce identical output, so which one runs is a performance
+ * question only.
+ */
+function reconstruct(channel, M, opts) {
+  const N = channel.length;
+  const out = new Float64Array(M);
+  const W = (opts && opts.matrix ? opts.matrix : kernelMatrix)(N, M);
+  if (W) {
+    for (let i = 0; i < M; i++) {
+      const base = i * N;
+      let sum = 0;
+      for (let k = 0; k < N; k++) sum += channel[k] * W[base + k];
+      out[i] = sum;
+    }
+    return out;
+  }
+  const leaves = leafPositions(N);
+  for (let i = 0; i < M; i++) {
+    const phi = (i / M) * TAU;
+    let sum = 0;
+    for (let k = 0; k < N; k++) sum += channel[k] * kernel(phi - leaves[k], N);
+    out[i] = sum;
+  }
+  return out;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// THE SLOPE CHART — the same kernel, without trigonometry
+// ────────────────────────────────────────────────────────────────────────────
+// The Tangent Bridge paper (§11) makes an operational claim the angle-chart code
+// above does not honour: the kernel is only *displayed* in sin/tan, and the
+// observer that runs it holds slopes, where the same object is algebraic —
+//
+//     K_N = Im[(1+is)^N] / (N · s · (1+s²)^(N/2)),      s = tan(φ/2)
+//
+// — "rational in s with the single square root sqrt(1+s²) as its only
+// non-rational step... the count of sin/tan/arctan calls held at zero."
+//
+// It reduces, and the reduction is the point. |1+is|^N = (1+s²)^(N/2) and
+// arg(1+is) = arctan(s) = t, so Im[(1+is)^N] = (1+s²)^(N/2)·sin(Nt) and the
+// whole expression collapses to sin(Nt)/(N·s) — which is sin(Nφ/2)/(N·tan(φ/2)),
+// the EVEN-N kernel exactly.
+//
+// So the published slope form carries the same parity assumption the angle form
+// does, and for the same reason: in the paper N = 2^(d+1) is always even, so the
+// question never arises. Where it does arise, the correction is one character.
+// The odd kernel is sin(Nt)/(N·sin t) rather than sin(Nt)/(N·tan t), and
+// sin t = s/sqrt(1+s²), so the odd form is the same numerator over one lower
+// power of the Cauchy denominator. Both parities at once:
+//
+//     K_N = Im[(1+is)^N] / (N · s · (1+s²)^floor(N/2))
+//
+// The parity that cost a `tan` in §4.1 costs a floor here. Measured against the
+// angle form: as published, 2.6e-2 error at N=33; with the floor, 8.9e-16.
+//
+// Computed by binary powering of the unit-modulus z = (1+is)/sqrt(1+s²), which
+// is O(log N) multiplies rather than the O(N) of expanding the binomial — and
+// which keeps the paper's accounting honest, since sqrt is the one non-rational
+// step it allows and there is no other.
+
+/**
+ * The bridge kernel evaluated from a held slope. Zero trigonometric calls.
+ *
+ * @param {number} s   the slope tan(phi/2) — the quantity the observer holds
+ * @param {number} N   leaf count, either parity
+ */
+function kernelSlope(s, N) {
+  if (s === 0) return 1;
+  if (!isFinite(s)) {
+    // The antipode, phi = ±pi. Even N: the cos(phi/2) of the product form kills
+    // it. Odd N: sin(N·pi/2)/N, which alternates ±1/N.
+    if ((N & 1) === 0) return 0;
+    return ((N - 1) / 2 & 1 ? -1 : 1) / N;
+  }
+  const q = 1 / Math.sqrt(1 + s * s);      // = cos t. THE one non-rational step.
+  // z = e^{it} as a pair, never as an angle.
+  let zr = q, zi = s * q;
+  let wr = 1, wi = 0;                       // w = z^N by squaring
+  let n = N;
+  while (n > 0) {
+    if (n & 1) { const t = wr * zr - wi * zi; wi = wr * zi + wi * zr; wr = t; }
+    const t2 = zr * zr - zi * zi; zi = 2 * zr * zi; zr = t2;
+    n >>= 1;
+  }
+  const sinNt = wi;
+  return (N & 1) ? sinNt / (N * s * q) : sinNt / (N * s);
+}
+
+/**
+ * Tangent subtraction — the Möbius composition law, tan(t - t_k) from the two
+ * held slopes. This is how a slope-posed query reaches the kernel without ever
+ * becoming an angle.
+ */
+function slopeDiff(s, sk) {
+  // The horizon is a POINT here, not an edge — but it is a point the arithmetic
+  // has to be told about. (inf - sk)/(1 + inf*sk) is inf/inf = NaN, which then
+  // falls into kernelSlope's own antipode branch and returns silently wrong.
+  // §4.1 notes the antipodal argument does occur on this grid (j - k = ±N for
+  // odd j, k), so this is reachable, not hypothetical.
+  if (!isFinite(s)) return !isFinite(sk) ? 0 : (sk === 0 ? Infinity : 1 / sk);
+  if (!isFinite(sk)) return s === 0 ? Infinity : -1 / s;
+  const den = 1 + s * sk;
+  if (den === 0) return Infinity;
+  return (s - sk) / den;
+}
+
+// Seeds for the cascade below, keyed by the odd part of 2N: [tan(pi/M), log2 of
+// the M each seed is stated at]. Every one is a constructible ratio — 1 is the
+// gate where the run equals the rise, and the other two are the Fermat-prime
+// arcs that Gauss's condition admits alongside it.
+const _SEEDS = new Map([
+  [1, [1, 2]],                                  // tan(pi/4)  = 1
+  [3, [1 / Math.sqrt(3), 1]],                   // tan(pi/6)  = 1/sqrt(3)
+  [5, [Math.sqrt(1 - 2 / Math.sqrt(5)), 1]],    // tan(pi/10)
+]);
+
+/**
+ * The leaf lattice GENERATED rather than looked up: no trigonometry, no pi.
+ *
+ * The lattice is the dyadic cascade's orbit structure (§2.4, §5.3), so it can be
+ * built from a ratio. Start at the gate where the run equals the rise — s = 1,
+ * a statement about two lengths that needs no total to be meaningful — halve the
+ * arc algebraically, then step around by tangent addition:
+ *
+ *     halve:  tan(x/2) = t / (1 + sqrt(1 + t^2))      the one square root
+ *     step:   the unit-modulus pair, multiplied           pure rational
+ *
+ * The halving is written in the rationalized form on purpose. The textbook twin
+ * (sqrt(1+t^2) - 1)/t is the same number and subtracts near-equals: it drifts to
+ * 1.6e-9 by N = 2048 where this holds 1e-13. Identical on paper, four orders
+ * apart in the register — the algebraic chart has its own craft.
+ *
+ * Available exactly when pi/(2N) is constructible (Gauss: a power of two times
+ * distinct Fermat primes). The paper's N = 2^(d+1) sits inside that by
+ * construction, which is not luck — the radix forced in §2.4 is also the radix
+ * that keeps every leaf reachable by square roots. Returns null otherwise.
+ */
+function leafSlopesCascade(N) {
+  let odd = N * 2, j = 0;
+  while ((odd & 1) === 0) { odd >>= 1; j++; }
+  const seed = _SEEDS.get(odd);
+  if (!seed) return null;
+  const halvings = j - seed[1];
+  if (halvings < 0) return null;
+  let t = seed[0];
+  for (let i = 0; i < halvings; i++) t = t / (1 + Math.sqrt(1 + t * t));
+  // The base arc as a unit-modulus pair. The bare ratio would cancel badly as
+  // the running sum approaches the horizon; the pair never does.
+  const q = 1 / Math.sqrt(1 + t * t);
+  let cr = q, ci = t * q;
+  const sr = cr * cr - ci * ci, si = 2 * cr * ci;   // two base arcs
+  const out = new Float64Array(N);
+  for (let k = 0; k < N; k++) {
+    out[k] = cr === 0 ? Infinity : ci / cr;
+    const nr = cr * sr - ci * si; ci = cr * si + ci * sr; cr = nr;
+  }
+  return out;
+}
+
+/**
+ * Slopes of the N leaf positions, s_k = tan(theta_k / 2).
+ *
+ * Generated by the cascade where the leaf count allows it, which is every N the
+ * paper actually uses and most of the ones anyone picks by hand. Where it does
+ * not, this falls back to the boundary conversion the paper permits — "a lone
+ * tangent enters only to convert a query supplied as an angle" — which is now
+ * the exception rather than the setup path.
+ */
+function leafSlopes(N) {
+  const built = leafSlopesCascade(N);
+  if (built) return built;
+  const out = new Float64Array(N);
+  for (let k = 0; k < N; k++) out[k] = Math.tan((k + 0.5) * PI / N);
+  return out;
+}
+
+/**
+ * Reconstruct from held slopes, with no trigonometry in the per-leaf loop.
+ *
+ * Produces the same numbers as `reconstruct` (verified to ~1e-13 through
+ * N = 1024 in verify-slope.mjs, both parities) by a different route: Möbius-
+ * composed slopes into a rational kernel over a Cauchy denominator.
+ *
+ * With `leafSlopes` generated by the cascade, this path now runs with the
+ * trigonometric call count measured at zero — not argued at zero — for every N
+ * the cascade reaches. `verify-slope.mjs` replaces every trig entry point on
+ * Math with a counter before anything runs: 128 leaves, 512 queries, lattice
+ * built from scratch, 0 calls.
+ *
+ * It is still slower than `reconstruct`, but the comparison is not the one it
+ * looks like: the angle form gets a cached weight matrix and this does not. The
+ * weights depend only on (i, k, N) in either chart, so a slope-side matrix cache
+ * would close the gap entirely — after the matrix exists, neither chart runs.
+ *
+ * @param {ArrayLike<number>} channel  N leaf values
+ * @param {ArrayLike<number>} sQuery   slopes to evaluate at, tan(phi/2) each
+ */
+function reconstructSlope(channel, sQuery) {
+  const N = channel.length;
+  const sk = leafSlopes(N);                 // generated, not converted — see above
+  const out = new Float64Array(sQuery.length);
+  for (let i = 0; i < sQuery.length; i++) {
+    const s = sQuery[i];
+    let sum = 0;
+    for (let k = 0; k < N; k++) sum += channel[k] * kernelSlope(slopeDiff(s, sk[k]), N);
+    out[i] = sum;
+  }
+  return out;
+}
+
+/** Evaluate one channel at a single parameter angle. */
+function evalAt(channel, phi) {
+  const N = channel.length;
+  let sum = 0;
+  for (let k = 0; k < N; k++) sum += channel[k] * kernel(phi - (k + 0.5) * TAU / N, N);
+  return sum;
+}
+
+/**
+ * Resample a closed polyline to N points spaced equally in ARC LENGTH.
+ * Returns { x, y, srcCoV } where srcCoV is the coefficient of variation of the
+ * input's own gap lengths — a measure of how uneven the source sampling was.
+ */
+function arcLengthResample(polyX, polyY, N) {
+  const M = polyX.length;
+  const cum = new Float64Array(M + 1);
+  for (let i = 1; i <= M; i++) {
+    const j = i % M;
+    cum[i] = cum[i - 1] + Math.hypot(polyX[j] - polyX[i - 1], polyY[j] - polyY[i - 1]);
+  }
+  const total = cum[M];
+  let srcCoV = 0;
+  {
+    let n = 0, mean = 0;
+    for (let i = 1; i <= M; i++) { const g = cum[i] - cum[i - 1]; if (g > 1e-12) { n++; mean += g; } }
+    if (n > 1) {
+      mean /= n;
+      let v = 0;
+      for (let i = 1; i <= M; i++) { const g = cum[i] - cum[i - 1]; if (g > 1e-12) v += (g - mean) * (g - mean); }
+      srcCoV = Math.sqrt(v / n) / mean;
+    }
+  }
+  const outX = new Float64Array(N), outY = new Float64Array(N);
+  let seg = 0;
+  for (let k = 0; k < N; k++) {
+    const t = ((k + 0.5) / N) * total;
+    while (seg < M && cum[seg + 1] < t) seg++;
+    const sLen = cum[seg + 1] - cum[seg];
+    const u = sLen > 1e-12 ? (t - cum[seg]) / sLen : 0;
+    const j = (seg + 1) % M;
+    outX[k] = polyX[seg] * (1 - u) + polyX[j] * u;
+    outY[k] = polyY[seg] * (1 - u) + polyY[j] * u;
+  }
+  return { x: outX, y: outY, srcCoV };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SPECTRUM
+// ────────────────────────────────────────────────────────────────────────────
+// Leaves sit on a uniform grid, so their DFT *is* the curve's harmonic content.
+// Naive O(N^2) transforms: N here is a leaf count (tens to low thousands), not
+// an audio buffer, and keeping it dependency-free is worth more than the
+// asymptotics. Swap in an FFT if you ever push N past a few thousand.
+
+function dft(re, im) {
+  const N = re.length;
+  const outRe = new Float64Array(N), outIm = new Float64Array(N);
+  for (let m = 0; m < N; m++) {
+    let sr = 0, si = 0;
+    for (let k = 0; k < N; k++) {
+      const a = -TAU * m * k / N;
+      const c = Math.cos(a), s = Math.sin(a);
+      sr += re[k] * c - im[k] * s;
+      si += re[k] * s + im[k] * c;
+    }
+    outRe[m] = sr / N; outIm[m] = si / N;
+  }
+  return { re: outRe, im: outIm };
+}
+
+function idft(re, im) {
+  const N = re.length;
+  const outRe = new Float64Array(N), outIm = new Float64Array(N);
+  for (let k = 0; k < N; k++) {
+    let sr = 0, si = 0;
+    for (let m = 0; m < N; m++) {
+      const a = TAU * m * k / N;
+      const c = Math.cos(a), s = Math.sin(a);
+      sr += re[m] * c - im[m] * s;
+      si += re[m] * s + im[m] * c;
+    }
+    outRe[k] = sr; outIm[k] = si;
+  }
+  return { re: outRe, im: outIm };
+}
+
+// Deterministic PRNG, so a seeded noise() is reproducible across runs.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Circular index distance, in leaves. */
+function wrapDist(a, b, N) {
+  let d = a - b;
+  d -= N * Math.round(d / N);
+  return d;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SHAPE
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A closed curve as N leaves. Mutating methods change the shape in place and
+ * return `this`, so they chain. Use `clone()` first if you need the original.
+ */
+class Shape {
+  /**
+   * @param {ArrayLike<number>} x leaf x values
+   * @param {ArrayLike<number>} y leaf y values
+   */
+  constructor(x, y) {
+    if (!x || !y || x.length !== y.length) throw new Error('tvf: x and y must be the same length');
+    if (x.length < 3) throw new Error('tvf: a shape needs at least 3 leaves');
+    this.x = Float64Array.from(x);
+    this.y = Float64Array.from(y);
+    /** Free-form user data, carried through clone/resample. */
+    this.meta = {};
+  }
+
+  get N() { return this.x.length; }
+
+  clone() {
+    const s = new Shape(this.x, this.y);
+    s.meta = Object.assign({}, this.meta);
+    return s;
+  }
+
+  /** Build from a closed polyline, spending leaves equally along arc length. */
+  static fromPoints(points, N, opts = {}) {
+    const px = new Float64Array(points.length), py = new Float64Array(points.length);
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      px[i] = Array.isArray(p) ? p[0] : p.x;
+      py[i] = Array.isArray(p) ? p[1] : p.y;
+    }
+    const n = N || Math.min(256, Math.max(8, points.length));
+    if (opts.arcLength === false) {
+      const ox = new Float64Array(n), oy = new Float64Array(n);
+      for (let k = 0; k < n; k++) {
+        const t = (k + 0.5) / n * px.length;
+        const i0 = Math.floor(t) % px.length, i1 = (i0 + 1) % px.length, u = t - Math.floor(t);
+        ox[k] = px[i0] * (1 - u) + px[i1] * u;
+        oy[k] = py[i0] * (1 - u) + py[i1] * u;
+      }
+      return new Shape(ox, oy);
+    }
+    const r = arcLengthResample(px, py, n);
+    const s = new Shape(r.x, r.y);
+    s.meta.srcCoV = r.srcCoV;
+    return s;
+  }
+
+  /** Build from a parametric function f(t) with t in [0, 1). */
+  static fromFunction(f, N) {
+    const x = new Float64Array(N), y = new Float64Array(N);
+    for (let k = 0; k < N; k++) {
+      const p = f((k + 0.5) / N);
+      x[k] = Array.isArray(p) ? p[0] : p.x;
+      y[k] = Array.isArray(p) ? p[1] : p.y;
+    }
+    return new Shape(x, y);
+  }
+
+  // ── SAMPLING ──────────────────────────────────────────────────────────────
+
+  /** Dense polyline of the reconstructed curve: M points, uniform in parameter. */
+  sample(M) {
+    const m = M || Math.max(256, this.N * 8);
+    return { x: reconstruct(this.x, m), y: reconstruct(this.y, m) };
+  }
+
+  /** Point on the curve at parameter t in [0, 1). Exact, not interpolated. */
+  at(t) {
+    const phi = t * TAU;
+    return { x: evalAt(this.x, phi), y: evalAt(this.y, phi) };
+  }
+
+  /** Unit tangent at parameter t, by central difference on the reconstruction. */
+  tangentAt(t) {
+    const h = 1 / (this.N * 64);
+    const a = this.at(t - h), b = this.at(t + h);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1e-12;
+    return { x: dx / len, y: dy / len };
+  }
+
+  /**
+   * LEFT unit normal at t: the tangent rotated +90 degrees. Whether that points
+   * out of the shape or into it depends on the winding direction, which is why
+   * anything that means "outward" should ask `normals()` instead of guessing.
+   */
+  normalAt(t) {
+    const tg = this.tangentAt(t);
+    return { x: -tg.y, y: tg.x };
+  }
+
+  /** Parameter t in [0, 1) of leaf k. */
+  tOf(k) { return (k + 0.5) / this.N; }
+
+  /** Index of the leaf nearest to (x, y), with its distance. */
+  nearestLeaf(x, y) {
+    let best = -1, bestD = Infinity;
+    for (let k = 0; k < this.N; k++) {
+      const d = Math.hypot(this.x[k] - x, this.y[k] - y);
+      if (d < bestD) { bestD = d; best = k; }
+    }
+    return { index: best, distance: bestD };
+  }
+
+  // ── RESOLUTION ────────────────────────────────────────────────────────────
+
+  /**
+   * Change the leaf count. The curve is reconstructed and re-sampled uniformly
+   * in the parameter, which preserves the existing parameterization — so N down
+   * then N up is a smoothing pass, not a scramble.
+   *
+   * Evaluated with `evalAt` at each new leaf position, which is exact. It used
+   * to reconstruct onto an internal grid of M = max(2048, 16·max(N, N0)) points
+   * and interpolate linearly between them, and that had a failure mode worth
+   * recording because nothing about the call site hinted at it: the query
+   * positions are (k + 1/2)·M/N, so they land ON grid indices exactly when
+   * M/(2N) is an integer, and fall between them otherwise. Upsampling 96 → 128
+   * was exact to 2e-12; 96 → 127 was off by 1.5e-2, seven orders of magnitude
+   * worse from one leaf's difference — and because M is clamped at 2048, COARSER
+   * targets were the unreliable ones, which is backwards from every intuition
+   * anyone brings to a resampling call. Exactness should not depend on an
+   * arithmetic coincidence between the argument and a constant buried in the
+   * method, so it no longer does.
+   */
+  resample(N) {
+    if (N === this.N) return this;
+    if (N < 3) throw new Error('tvf: N must be at least 3');
+    const nx = new Float64Array(N), ny = new Float64Array(N);
+    for (let k = 0; k < N; k++) {
+      const phi = (k + 0.5) * TAU / N;
+      nx[k] = evalAt(this.x, phi);
+      ny[k] = evalAt(this.y, phi);
+    }
+    this.x = nx; this.y = ny;
+    return this;
+  }
+
+  /**
+   * Redistribute the same number of leaves so they are equally spaced in ARC
+   * LENGTH rather than in parameter. Same curve, better-spent leaves — worth
+   * running after a transform that stretched one region.
+   */
+  reparameterize() {
+    const d = this.sample(Math.max(2048, this.N * 16));
+    const r = arcLengthResample(d.x, d.y, this.N);
+    this.x = r.x; this.y = r.y;
+    return this;
+  }
+
+  // ── SCULPT ────────────────────────────────────────────────────────────────
+
+  /**
+   * Press the curve near leaf `k`. This is the thumb.
+   *
+   * A raised-cosine bump of half-width `radius` leaves is added to the leaf
+   * positions, so the deformation is smooth and local and the peak lands
+   * exactly on the leaf you grabbed.
+   *
+   * If `radius` is omitted it is derived from how far you pushed, relative to
+   * the typical leaf spacing: a raised-cosine bump of half-width R has peak
+   * inter-leaf slope PI/(2R) of its height, so holding that slope under a fixed
+   * threshold gives R proportional to |delta| / spacing. Small nudges stay
+   * tight, big shoves spread out, and the result does not depend on N.
+   *
+   * @param {number} k leaf index (fractional is fine)
+   * @param {{dx?: number, dy?: number, radius?: number, falloff?: string}} opts
+   */
+  push(k, opts = {}) {
+    const N = this.N;
+    const dx = opts.dx || 0, dy = opts.dy || 0;
+    const dist = Math.hypot(dx, dy);
+    if (dist === 0) return this;
+
+    let R = opts.radius;
+    if (R == null) {
+      let total = 0;
+      for (let i = 0; i < N; i++) {
+        const j = (i + 1) % N;
+        total += Math.hypot(this.x[j] - this.x[i], this.y[j] - this.y[i]);
+      }
+      const spacing = total / N || 1e-9;
+      R = (PI * PI / 2) * dist / spacing;
+    }
+    R = Math.max(1, Math.min(R, N / 2));
+
+    const falloff = opts.falloff || 'cosine';
+    for (let i = 0; i < N; i++) {
+      const d = Math.abs(wrapDist(i, k, N));
+      if (d > R) continue;
+      let w;
+      if (falloff === 'cosine') w = 0.5 * (1 + Math.cos(PI * d / R));
+      else if (falloff === 'linear') w = 1 - d / R;
+      else if (falloff === 'gauss') w = Math.exp(-4.5 * (d / R) * (d / R));
+      else w = 0.5 * (1 + Math.cos(PI * d / R));
+      this.x[i] += dx * w;
+      this.y[i] += dy * w;
+    }
+    return this;
+  }
+
+  /** Press at parameter t in [0, 1) instead of at a leaf index. */
+  pushAt(t, opts = {}) { return this.push(t * this.N - 0.5, opts); }
+
+  /** Push along the local normal — inflate or dent without choosing a direction. */
+  pushNormal(k, amount, opts = {}) {
+    const n = this.normalAt(this.tOf(k));
+    return this.push(k, Object.assign({}, opts, { dx: n.x * amount, dy: n.y * amount }));
+  }
+
+  /**
+   * Relax the curve. `amount` in [0, 1] mixes toward a circular [1,2,1]/4 blur
+   * of the leaves; `passes` repeats it for a wider, gentler result.
+   */
+  smooth(amount = 0.5, passes = 1) {
+    const N = this.N;
+    for (let p = 0; p < passes; p++) {
+      const bx = new Float64Array(N), by = new Float64Array(N);
+      for (let i = 0; i < N; i++) {
+        const a = (i - 1 + N) % N, b = (i + 1) % N;
+        bx[i] = 0.25 * this.x[a] + 0.5 * this.x[i] + 0.25 * this.x[b];
+        by[i] = 0.25 * this.y[a] + 0.5 * this.y[i] + 0.25 * this.y[b];
+      }
+      for (let i = 0; i < N; i++) {
+        this.x[i] += (bx[i] - this.x[i]) * amount;
+        this.y[i] += (by[i] - this.y[i]) * amount;
+      }
+    }
+    return this;
+  }
+
+  /**
+   * Keep only the lowest `keep` fraction of harmonics. This is the honest
+   * band-limit: keep = 1 is a no-op, keep = 0.1 leaves a soft blob, and unlike
+   * `smooth()` it removes detail exactly rather than attenuating it.
+   */
+  lowpass(keep = 0.5) {
+    const N = this.N;
+    const cut = Math.max(1, Math.floor(Math.max(0, Math.min(1, keep)) * N / 2));
+    const zero = new Float64Array(N);
+    const fx = dft(this.x, zero), fy = dft(this.y, new Float64Array(N));
+    for (let m = 0; m < N; m++) {
+      const h = Math.min(m, N - m);          // signed harmonic order
+      if (h > cut) {
+        fx.re[m] = fx.im[m] = 0;
+        fy.re[m] = fy.im[m] = 0;
+      }
+    }
+    const rx = idft(fx.re, fx.im), ry = idft(fy.re, fy.im);
+    this.x = rx.re; this.y = ry.re;
+    return this;
+  }
+
+  /** Drop the lowest harmonics instead — leaves the wobble, kills the body. */
+  highpass(cutFraction = 0.1) {
+    const N = this.N;
+    const cut = Math.floor(Math.max(0, Math.min(1, cutFraction)) * N / 2);
+    const fx = dft(this.x, new Float64Array(N)), fy = dft(this.y, new Float64Array(N));
+    for (let m = 0; m < N; m++) {
+      const h = Math.min(m, N - m);
+      if (h <= cut) { fx.re[m] = fx.im[m] = 0; fy.re[m] = fy.im[m] = 0; }
+    }
+    const rx = idft(fx.re, fx.im), ry = idft(fy.re, fy.im);
+    this.x = rx.re; this.y = ry.re;
+    return this;
+  }
+
+  /**
+   * Morph toward another shape. This is why the format is pleasant: a morph is
+   * a lerp of two arrays, with no correspondence problem to solve, because both
+   * shapes are sampled on the same parameter grid.
+   *
+   * If the leaf counts differ, the other shape is resampled to match. Set
+   * `align: true` to first rotate the other shape's leaf order to the offset
+   * that minimizes total travel — usually what you want when the two shapes
+   * were authored independently.
+   */
+  blend(other, t = 0.5, opts = {}) {
+    let o = other;
+    if (o.N !== this.N) o = o.clone().resample(this.N);
+    if (opts.align) o = alignTo(this, o);
+    const N = this.N;
+    for (let i = 0; i < N; i++) {
+      this.x[i] += (o.x[i] - this.x[i]) * t;
+      this.y[i] += (o.y[i] - this.y[i]) * t;
+    }
+    return this;
+  }
+
+  /**
+   * Fold the shape onto its own mirror image about a line through the centroid
+   * at `angle` radians, then average. The index correspondence is found by
+   * searching all N leaf offsets for the one that minimizes total travel, so
+   * this works on an arbitrary shape rather than only on a near-symmetric one.
+   *
+   * `strength` in [0, 1] controls how far to go: 1 is fully symmetric.
+   */
+  symmetrize(angle = 0, strength = 1) {
+    const N = this.N;
+    const c = this.centroid();
+    const ca = Math.cos(2 * angle), sa = Math.sin(2 * angle);
+    // Reflected leaves, in reversed order (reflection flips orientation).
+    const rx = new Float64Array(N), ry = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+      const j = (N - 1 - i) % N;
+      const px = this.x[j] - c.x, py = this.y[j] - c.y;
+      rx[i] = c.x + px * ca + py * sa;
+      ry[i] = c.y + px * sa - py * ca;
+    }
+    // Best circular offset between the original order and the reflected order.
+    let bestOff = 0, bestCost = Infinity;
+    for (let off = 0; off < N; off++) {
+      let cost = 0;
+      for (let i = 0; i < N; i++) {
+        const j = (i + off) % N;
+        const ddx = this.x[i] - rx[j], ddy = this.y[i] - ry[j];
+        cost += ddx * ddx + ddy * ddy;
+        if (cost >= bestCost) break;
+      }
+      if (cost < bestCost) { bestCost = cost; bestOff = off; }
+    }
+    for (let i = 0; i < N; i++) {
+      const j = (i + bestOff) % N;
+      this.x[i] += (0.5 * (this.x[i] + rx[j]) - this.x[i]) * strength;
+      this.y[i] += (0.5 * (this.y[i] + ry[j]) - this.y[i]) * strength;
+    }
+    return this;
+  }
+
+  /** Force n-fold rotational symmetry about the centroid, the same way. */
+  radialize(fold = 5, strength = 1) {
+    const N = this.N;
+    const c = this.centroid();
+    const acc = this.clone();
+    for (let f = 1; f < fold; f++) {
+      const rot = this.clone().rotate(TAU * f / fold, c);
+      const aligned = alignTo(this, rot);
+      for (let i = 0; i < N; i++) { acc.x[i] += aligned.x[i]; acc.y[i] += aligned.y[i]; }
+    }
+    for (let i = 0; i < N; i++) {
+      this.x[i] += (acc.x[i] / fold - this.x[i]) * strength;
+      this.y[i] += (acc.y[i] / fold - this.y[i]) * strength;
+    }
+    return this;
+  }
+
+  /**
+   * Band-limited displacement along the normal. Built from harmonics directly
+   * rather than from per-leaf white noise, so `detail` means something: it is
+   * the highest harmonic used, as a fraction of the Nyquist limit. Low detail
+   * gives lobes, high detail gives crinkle. Seeded, so it is reproducible.
+   */
+  noise(amp = 5, opts = {}) {
+    const N = this.N;
+    const detail = opts.detail == null ? 0.25 : opts.detail;
+    const rand = mulberry32(opts.seed == null ? 1 : opts.seed);
+    const maxH = Math.max(1, Math.floor(detail * N / 2));
+    const minH = Math.max(1, opts.minHarmonic || 2);
+    const disp = new Float64Array(N);
+    for (let h = minH; h <= maxH; h++) {
+      const phase = rand() * TAU;
+      const a = (rand() * 2 - 1) / h;            // 1/f falloff reads as organic
+      for (let i = 0; i < N; i++) disp[i] += a * Math.cos(h * (i + 0.5) * TAU / N + phase);
+    }
+    let peak = 0;
+    for (let i = 0; i < N; i++) peak = Math.max(peak, Math.abs(disp[i]));
+    const scale = peak > 0 ? amp / peak : 0;
+    // ALL the normals first, THEN move. Reading a normal off a curve you are
+    // halfway through displacing feeds each leaf's motion into the next one's
+    // direction, and the error compounds around the loop until the curve
+    // crosses itself — a 26 px wobble on a 132 px circle was producing ten
+    // self-intersections before this was two passes instead of one.
+    const { nx, ny } = this.normals();
+    for (let i = 0; i < N; i++) {
+      this.x[i] += nx[i] * disp[i] * scale;
+      this.y[i] += ny[i] * disp[i] * scale;
+    }
+    return this;
+  }
+
+  /**
+   * Unit normals at every leaf, sampled off the CURRENT curve and flipped so
+   * they all point OUT of the shape regardless of winding direction. Orientation
+   * is read once from the signed area, so a clockwise shape and its reversed
+   * twin inflate the same way — which is the only behaviour a caller can use.
+   */
+  normals() {
+    const N = this.N;
+    const nx = new Float64Array(N), ny = new Float64Array(N);
+    // Left normal points INTO a positively-wound curve, so flip there.
+    const sign = this.area() > 0 ? -1 : 1;
+    for (let i = 0; i < N; i++) {
+      const n = this.normalAt(this.tOf(i));
+      nx[i] = n.x * sign; ny[i] = n.y * sign;
+    }
+    return { nx, ny };
+  }
+
+  /** Move every leaf along its normal. Positive inflates (for CCW curves). */
+  inflate(amount) {
+    const N = this.N;
+    const { nx, ny } = this.normals();
+    for (let i = 0; i < N; i++) { this.x[i] += nx[i] * amount; this.y[i] += ny[i] * amount; }
+    return this;
+  }
+
+  /**
+   * Rotate the leaf ORDER without moving the curve. Same shape, different
+   * starting leaf — occasionally what you need before a blend.
+   */
+  roll(offset) {
+    const N = this.N;
+    const nx = new Float64Array(N), ny = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+      const j = ((i + offset) % N + N) % N;
+      nx[i] = this.x[j]; ny[i] = this.y[j];
+    }
+    this.x = nx; this.y = ny;
+    return this;
+  }
+
+  /** Reverse orientation (CW <-> CCW). */
+  reverse() {
+    this.x.reverse(); this.y.reverse();
+    return this;
+  }
+
+  // ── AFFINE ────────────────────────────────────────────────────────────────
+  // These are exact on the reconstructed curve, not just on the leaves: the
+  // kernel is linear and sums to 1, so an affine map of the leaves is the
+  // affine map of the whole curve.
+
+  translate(dx, dy) {
+    for (let i = 0; i < this.N; i++) { this.x[i] += dx; this.y[i] += dy; }
+    return this;
+  }
+
+  scale(sx, sy = sx, about) {
+    const c = about || this.centroid();
+    for (let i = 0; i < this.N; i++) {
+      this.x[i] = c.x + (this.x[i] - c.x) * sx;
+      this.y[i] = c.y + (this.y[i] - c.y) * sy;
+    }
+    return this;
+  }
+
+  rotate(angle, about) {
+    const c = about || this.centroid();
+    const ca = Math.cos(angle), sa = Math.sin(angle);
+    for (let i = 0; i < this.N; i++) {
+      const px = this.x[i] - c.x, py = this.y[i] - c.y;
+      this.x[i] = c.x + px * ca - py * sa;
+      this.y[i] = c.y + px * sa + py * ca;
+    }
+    return this;
+  }
+
+  /** Fit the shape into a box, preserving aspect ratio. */
+  fit(x, y, w, h) {
+    const b = this.bbox();
+    const s = Math.min(w / (b.w || 1e-9), h / (b.h || 1e-9));
+    this.translate(-b.x - b.w / 2, -b.y - b.h / 2);
+    this.scale(s, s, { x: 0, y: 0 });
+    this.translate(x + w / 2, y + h / 2);
+    return this;
+  }
+
+  // ── MEASURE ───────────────────────────────────────────────────────────────
+  // Measured on the reconstructed curve, not on the leaf polygon, since the
+  // curve is the shape.
+
+  centroid() {
+    let sx = 0, sy = 0;
+    for (let i = 0; i < this.N; i++) { sx += this.x[i]; sy += this.y[i]; }
+    return { x: sx / this.N, y: sy / this.N };
+  }
+
+  bbox(M) {
+    const d = this.sample(M);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < d.x.length; i++) {
+      if (d.x[i] < x0) x0 = d.x[i];
+      if (d.x[i] > x1) x1 = d.x[i];
+      if (d.y[i] < y0) y0 = d.y[i];
+      if (d.y[i] > y1) y1 = d.y[i];
+    }
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  /** Perimeter of the reconstructed curve. */
+  length(M) {
+    const d = this.sample(M);
+    let L = 0;
+    for (let i = 0; i < d.x.length; i++) {
+      const j = (i + 1) % d.x.length;
+      L += Math.hypot(d.x[j] - d.x[i], d.y[j] - d.y[i]);
+    }
+    return L;
+  }
+
+  /** Signed area (shoelace). Negative means clockwise in screen coordinates. */
+  area(M) {
+    const d = this.sample(M);
+    let a = 0;
+    for (let i = 0; i < d.x.length; i++) {
+      const j = (i + 1) % d.x.length;
+      a += d.x[i] * d.y[j] - d.x[j] * d.y[i];
+    }
+    return a / 2;
+  }
+
+  contains(px, py, M) {
+    const d = this.sample(M);
+    let inside = false;
+    for (let i = 0, j = d.x.length - 1; i < d.x.length; j = i++) {
+      const yi = d.y[i], yj = d.y[j];
+      if ((yi > py) !== (yj > py)) {
+        const xAt = (d.x[j] - d.x[i]) * (py - yi) / (yj - yi) + d.x[i];
+        if (px < xAt) inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  // ── OUTPUT ────────────────────────────────────────────────────────────────
+
+  /** Dense polyline as [[x, y], ...]. */
+  toPolygon(M) {
+    const d = this.sample(M);
+    const out = new Array(d.x.length);
+    for (let i = 0; i < d.x.length; i++) out[i] = [d.x[i], d.y[i]];
+    return out;
+  }
+
+  /**
+   * SVG path data. A polyline at M samples — honest rather than clever: the
+   * curve is band-limited, so enough samples IS the curve, and there is no
+   * cubic that reproduces it exactly anyway.
+   */
+  toPath(M, precision = 2) {
+    const d = this.sample(M);
+    const n = d.x.length;
+    const f = v => {
+      const s = v.toFixed(precision);
+      return s.replace(/\.?0+$/, '') || '0';
+    };
+    let out = `M${f(d.x[0])} ${f(d.y[0])}`;
+    for (let i = 1; i < n; i++) out += `L${f(d.x[i])} ${f(d.y[i])}`;
+    return out + 'Z';
+  }
+
+  /** Trace onto a canvas 2D context or Path2D. Does not stroke or fill. */
+  trace(ctx, M) {
+    const d = this.sample(M);
+    ctx.moveTo(d.x[0], d.y[0]);
+    for (let i = 1; i < d.x.length; i++) ctx.lineTo(d.x[i], d.y[i]);
+    ctx.closePath();
+    return ctx;
+  }
+
+  /** Plain object, for JSON. */
+  toJSON() {
+    return { N: this.N, x: Array.from(this.x), y: Array.from(this.y), meta: this.meta };
+  }
+
+  static fromJSON(o) {
+    const s = new Shape(o.x, o.y);
+    if (o.meta) s.meta = Object.assign({}, o.meta);
+    return s;
+  }
+}
+
+/**
+ * Return a copy of `b` whose leaf order is rolled to the offset that minimizes
+ * total travel from `a`. Both must share N.
+ */
+function alignTo(a, b) {
+  const N = a.N;
+  if (b.N !== N) b = b.clone().resample(N);
+  let bestOff = 0, bestCost = Infinity;
+  for (let off = 0; off < N; off++) {
+    let cost = 0;
+    for (let i = 0; i < N; i++) {
+      const j = (i + off) % N;
+      const dx = a.x[i] - b.x[j], dy = a.y[i] - b.y[j];
+      cost += dx * dx + dy * dy;
+      if (cost >= bestCost) break;
+    }
+    if (cost < bestCost) { bestCost = cost; bestOff = off; }
+  }
+  return b.clone().roll(bestOff);
+}
+
+/** Non-mutating morph: a new shape t of the way from a to b. */
+function mix(a, b, t, opts) {
+  return a.clone().blend(b, t, opts);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// PRIMITIVES
+// ────────────────────────────────────────────────────────────────────────────
+// Starting clay. Every one of these is exact at its own leaves; the ones with
+// corners (rect, polygon, star) are exact AT the leaves and rounded between
+// them, which is the band limit being honest rather than a bug. Raise N if you
+// want the corners crisper — or accept the rounding, which usually looks good.
+
+/** @param {{r?: number, cx?: number, cy?: number}} o */
+function circle(N = 64, o = {}) {
+  const r = o.r == null ? 100 : o.r, cx = o.cx || 0, cy = o.cy || 0;
+  return Shape.fromFunction(t => [cx + r * Math.cos(t * TAU), cy + r * Math.sin(t * TAU)], N);
+}
+
+function ellipse(N = 64, o = {}) {
+  const rx = o.rx == null ? 120 : o.rx, ry = o.ry == null ? 70 : o.ry;
+  const cx = o.cx || 0, cy = o.cy || 0, rot = o.rotation || 0;
+  const s = Shape.fromFunction(t => [cx + rx * Math.cos(t * TAU), cy + ry * Math.sin(t * TAU)], N);
+  return rot ? s.rotate(rot, { x: cx, y: cy }) : s;
+}
+
+/**
+ * Superellipse: |x/a|^n + |y/b|^n = 1. n = 2 is an ellipse, n = 4 is a squircle,
+ * large n approaches a rectangle. The most useful primitive in the set, because
+ * it gives you rectangle-ish without asking the band limit for corners.
+ */
+function superellipse(N = 96, o = {}) {
+  const a = o.rx == null ? 110 : o.rx, b = o.ry == null ? 110 : o.ry;
+  const n = o.n == null ? 4 : o.n, cx = o.cx || 0, cy = o.cy || 0;
+  return Shape.fromFunction(t => {
+    const th = t * TAU;
+    const c = Math.cos(th), s = Math.sin(th);
+    const p = 2 / n;
+    return [
+      cx + a * Math.sign(c) * Math.pow(Math.abs(c), p),
+      cy + b * Math.sign(s) * Math.pow(Math.abs(s), p),
+    ];
+  }, N);
+}
+
+/** Rectangle, sampled along its perimeter by arc length. Corners round off. */
+function rect(N = 96, o = {}) {
+  const w = o.w == null ? 200 : o.w, h = o.h == null ? 140 : o.h;
+  const cx = o.cx || 0, cy = o.cy || 0;
+  const pts = [];
+  const per = 2 * (w + h), steps = Math.max(256, N * 8);
+  for (let i = 0; i < steps; i++) {
+    let d = (i / steps) * per;
+    let x, y;
+    if (d < w) { x = -w / 2 + d; y = -h / 2; }
+    else if ((d -= w) < h) { x = w / 2; y = -h / 2 + d; }
+    else if ((d -= h) < w) { x = w / 2 - d; y = h / 2; }
+    else { d -= w; x = -w / 2; y = h / 2 - d; }
+    pts.push([cx + x, cy + y]);
+  }
+  return Shape.fromPoints(pts, N);
+}
+
+function polygon(N = 96, o = {}) {
+  const sides = o.sides == null ? 6 : o.sides;
+  const r = o.r == null ? 100 : o.r, cx = o.cx || 0, cy = o.cy || 0;
+  const rot = o.rotation == null ? -PI / 2 : o.rotation;
+  const verts = [];
+  for (let i = 0; i < sides; i++) {
+    const a = rot + i * TAU / sides;
+    verts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  const pts = [];
+  const per = Math.max(256, N * 8), each = Math.ceil(per / sides);
+  for (let i = 0; i < sides; i++) {
+    const [ax, ay] = verts[i], [bx, by] = verts[(i + 1) % sides];
+    for (let s = 0; s < each; s++) {
+      const u = s / each;
+      pts.push([ax + (bx - ax) * u, ay + (by - ay) * u]);
+    }
+  }
+  return Shape.fromPoints(pts, N);
+}
+
+function star(N = 128, o = {}) {
+  const points = o.points == null ? 5 : o.points;
+  const r1 = o.r == null ? 110 : o.r;
+  const r2 = o.innerR == null ? r1 * 0.45 : o.innerR;
+  const cx = o.cx || 0, cy = o.cy || 0;
+  const rot = o.rotation == null ? -PI / 2 : o.rotation;
+  const verts = [];
+  for (let i = 0; i < points * 2; i++) {
+    const a = rot + i * PI / points;
+    const r = i % 2 === 0 ? r1 : r2;
+    verts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  const pts = [];
+  const each = Math.ceil(Math.max(512, N * 8) / verts.length);
+  for (let i = 0; i < verts.length; i++) {
+    const [ax, ay] = verts[i], [bx, by] = verts[(i + 1) % verts.length];
+    for (let s = 0; s < each; s++) {
+      const u = s / each;
+      pts.push([ax + (bx - ax) * u, ay + (by - ay) * u]);
+    }
+  }
+  return Shape.fromPoints(pts, N);
+}
+
+/** A circle with seeded band-limited wobble. The default lump of clay. */
+function blob(N = 64, o = {}) {
+  const s = circle(N, { r: o.r == null ? 100 : o.r, cx: o.cx || 0, cy: o.cy || 0 });
+  return s.noise(o.amp == null ? 22 : o.amp, {
+    seed: o.seed == null ? 7 : o.seed,
+    detail: o.detail == null ? 0.12 : o.detail,
+    minHarmonic: o.minHarmonic || 2,
+  });
+}
+
+/** Rose curve r = r0 * (1 + k*cos(petals * theta)). Cheap organic variety. */
+function rose(N = 128, o = {}) {
+  const r0 = o.r == null ? 100 : o.r, petals = o.petals == null ? 5 : o.petals;
+  const k = o.depth == null ? 0.35 : o.depth;
+  const cx = o.cx || 0, cy = o.cy || 0;
+  return Shape.fromFunction(t => {
+    const th = t * TAU;
+    const r = r0 * (1 + k * Math.cos(petals * th));
+    return [cx + r * Math.cos(th), cy + r * Math.sin(th)];
+  }, N);
+}
+
+const primitives = { circle, ellipse, superellipse, rect, polygon, star, blob, rose };
+
+return { Shape, mix, alignTo, primitives, kernelMatrix, kernelSlope, slopeDiff, leafSlopes, leafSlopesCascade, reconstructSlope, circle, ellipse, superellipse, rect, polygon, star, blob, rose, kernel, leafPositions, reconstruct, evalAt, arcLengthResample, clearCache, TAU };
+
+})();
+</script>
+<script src="../tvf-core.js"></script>
+<script src="../player/tvf-player.js"></script>
+<script src="../player/lottie.js"></script>
+<script>
+// ── THE LOTTIE GALLERY ─────────────────────────────────────────────────────────────────────────────
+// Two benches of one kind. A bench holds a Lottie (L), the scene player/lottie.js makes of it, and three views of
+// one moment: the Lottie's frame f drawn as exact paths (the importer's own drawingAt, put through the player as a
+// scene of stills), the scene at t = f / frames, played by the player, and a strip of which frames were kept as
+// keys for each path. "Process it" replays the work in order: every frame read, then the conversion, then the
+// strip filling in as the scene starts to play.
+const PUBLIC = 'https://reportbase.github.io/draw/';
+const SAMPLES = [
+  { id: 'lottie-sample', name: 'balls and squares', note: 'a ball that bounces and squashes, a square that turns and changes colour, a path that morphs' },
+  { id: 'lottie-spinner', name: 'a spinner', note: 'eight dots that pulse and fade, on a parent that turns' },
+  { id: 'lottie-blob', name: 'a blob', note: 'an outline that breathes and changes colour inside a turning ring' }
+];
+const BG = '#0c0f16', GOLD = '#f2c14e', TEAL = '#4fd1c5';
+const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const kb = n => n < 1024 ? n + ' B' : (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB';
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const frame = () => new Promise(r => requestAnimationFrame(r));
+const hexOf = c => '#' + [0, 1, 2].map(i => Math.round(Math.max(0, Math.min(1, c[i])) * 255).toString(16).padStart(2, '0')).join('');
+async function gzipSize(text) {
+  try { return (await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer()).byteLength; }
+  catch (_) { return null; }
+}
+async function copyText(text) { try { await navigator.clipboard.writeText(text); return true; } catch (_) { return false; } }
+const flash = (b, text, back) => { b.classList.add('done'); b.textContent = text; setTimeout(() => { b.classList.remove('done'); b.textContent = back; }, 1400); };
+
+// the Lottie's frame f as a scene of stills: each path the importer drew at that frame, through the player
+function frameScene(L, f) {
+  const ops = TVFLottie.drawingAt(L, f, () => {});
+  return { format: 'tvf-scene', v: 1, loop: 1, ease: '', hold: 0, camera: [{ t: 0, box: [0, -(+L.h), +L.w, 0] }], morphs: [],
+    items: ops.map(o => Object.assign({
+      exact: { x: o.x, y: o.y, r: o.r.some(v => v > 0) ? o.r : null, smooth: null, ctrl: o.c.some(Boolean) ? o.c : null, holes: [] }, open: o.open,
+      fill: o.fill ? { color: hexOf(o.fill), opacity: o.a } : null, stroke: o.stroke ? hexOf(o.stroke) : null,
+      width: o.stroke ? o.w : 0, strokeOpacity: o.stroke ? o.a : 1, widthUnit: 'page' })) };
+}
+function fitCanvas(cv) {
+  const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1,
+    w = Math.max(1, Math.round(r.width * d)), h = Math.max(1, Math.round(r.height * d));
+  if (cv.width !== w) cv.width = w;
+  if (cv.height !== h) cv.height = h;
+  return { w, h };
+}
+
+function makeBench(root, o) {
+  const b = { root, o, L: null, name: '', scene: null, report: null, text: '', ms: 0, ctl: null, f: 0, N: 1, busy: false, tol: 0.2, xform: true,
+    srcBytes: 0, gz: [null, null], drawnF: -1, keyBg: null, sample: null };
+  root.innerHTML = `
+    <div class="bench-bar">
+      ${o.samples ? '<span class="picker">' + SAMPLES.map(s => `<button type="button" data-s="${s.id}" title="${esc(s.note)}">${esc(s.name)}</button>`).join('') + '</span>' : ''}
+      ${o.import ? '<label class="file">open a Lottie .json<input type="file" accept=".json,application/json" hidden></label>' : ''}
+      <button type="button" class="go" disabled>process it ▸</button>
+      <button type="button" class="pp" disabled>pause</button>
+      <input type="range" class="fr" min="0" max="0" value="0" disabled title="the frame">
+      <span class="frl"></span>
+      <span class="sep"></span>
+      <button type="button" class="dl" disabled title="the scene as a file, to keep or drop on the played page">.tvfs ⤓</button>
+    </div>
+    <div class="status"></div>
+    <div class="bench-grid">
+      <figure><canvas class="cvL"></canvas><figcaption><b>the Lottie</b>, frame by frame: every shape worked out as exact paths</figcaption></figure>
+      <figure><canvas class="cvR"></canvas><figcaption><b>the scene</b>, played by the player: no frames, the keys and a clock</figcaption></figure>
+    </div>
+    <div class="keys"><canvas class="cvK"></canvas>
+      <div class="legend"><span><i style="background:${GOLD}"></i>a key of the outline</span><span><i style="background:${TEAL}"></i>a key of the transform (the outline stored once)</span>
+      <span><i style="background:#26324f"></i>where the path exists</span><span class="stills"></span></div></div>
+    <div class="knobs">
+      <label>tolerance <input type="range" class="tol" min="0" max="100" value="38"> <b class="tolv">0.20 px</b></label>
+      <label><input type="checkbox" class="xf" checked> a shape that only moves is one outline and a transform</label>
+    </div>
+    <div class="read"></div>
+`;
+  const $ = s => root.querySelector(s);
+  const go = $('.go'), pp = $('.pp'), fr = $('.fr'), frl = $('.frl'), dl = $('.dl'), status = $('.status');
+  b.status = t => { status.textContent = t; };
+
+  function drawLeft(f) {
+    const cv = $('.cvL'), { w, h } = fitCanvas(cv), ctx = cv.getContext('2d');
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, w, h);
+    if (!b.L) return;
+    try { TVFPlayer.draw(ctx, TVFPlayer.load(frameScene(b.L, f)), 0, w, h); } catch (e) { b.status('could not draw frame ' + f + ': ' + e.message); }
+    b.drawnF = f;
+  }
+  // the strip: a row for each morph, its span, and where its keys are; the picture without the cursor is kept
+  function buildKeys(upTo) {
+    const cv = $('.cvK'), { w, h } = fitCanvas(cv), ctx = cv.getContext('2d'), S = b.scene;
+    ctx.fillStyle = '#0e131d';
+    ctx.fillRect(0, 0, w, h);
+    const d = window.devicePixelRatio || 1, padL = 6 * d, padT = 6 * d, padB = 16 * d, W = w - 2 * padL, H = h - padT - padB;
+    if (S) {
+      const rows = S.morphs.length, pitch = Math.min(14 * d, H / Math.max(1, rows)), rowH = Math.max(1, Math.min(8 * d, pitch * 0.72));
+      S.morphs.forEach((m, i) => {
+        const clip = m.own && m.own.clip, y = padT + i * pitch,
+          s0 = clip ? clip.start : 0, s1 = clip ? clip.start + clip.len : 1;
+        if (s0 > upTo) return;
+        ctx.fillStyle = '#26324f';
+        ctx.fillRect(padL + s0 * W, y, (Math.min(s1, upTo) - s0) * W, rowH);
+        const xf = !!m.xform, T = xf ? m.xform.t : (m.own && m.own.times) || [0];
+        ctx.fillStyle = xf ? TEAL : GOLD;
+        for (const tt of T) {
+          const x = s0 + tt * (s1 - s0);
+          if (x <= upTo) ctx.fillRect(padL + x * W - d, y - (rowH < 3 * d ? 0 : d), 2.5 * d, rowH + (rowH < 3 * d ? 0 : 2 * d));
+        }
+      });
+      ctx.fillStyle = '#8b95ab';
+      ctx.font = (10 * d) + 'px ' + getComputedStyle(document.body).fontFamily;
+      ctx.fillText('frame 0', padL, h - 4 * d);
+      ctx.textAlign = 'right';
+      ctx.fillText('frame ' + b.N, w - padL, h - 4 * d);
+      ctx.textAlign = 'left';
+    }
+    b.keyBg = document.createElement('canvas');
+    b.keyBg.width = w;
+    b.keyBg.height = h;
+    b.keyBg.getContext('2d').drawImage(cv, 0, 0);
+    b.keyGeom = { padL, W, padT, H };
+    drawCursor();
+  }
+  function drawCursor() {
+    const cv = $('.cvK');
+    if (!b.keyBg) return;
+    const ctx = cv.getContext('2d');
+    if (cv.width !== b.keyBg.width || cv.height !== b.keyBg.height) return buildKeys(1);
+    ctx.drawImage(b.keyBg, 0, 0);
+    const g = b.keyGeom, x = g.padL + (b.f / b.N) * g.W, d = window.devicePixelRatio || 1;
+    ctx.fillStyle = '#e8ecf5';
+    ctx.fillRect(x - d * 0.5, 0, d, cv.height);
+  }
+  function readout() {
+    const R = b.report, S = b.scene;
+    if (!S) { $('.read').innerHTML = ''; return; }
+    const out = Object.entries(R.unsupported).map(([k, n]) => k + (n > 1 ? ' ×' + n : '')).join(', ');
+    const sz = (n, g) => kb(n) + (g != null ? ' · ' + kb(g) + ' gzipped' : '');
+    const cell = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
+    $('.read').innerHTML = cell('the Lottie', sz(b.srcBytes, b.gz[0])) + cell('the scene', sz(b.text.length, b.gz[1]))
+      + cell('frames', R.frames + ' at ' + R.fr + ' a second') + cell('drawn as', R.morphs + ' morph' + (R.morphs === 1 ? '' : 's') + ', ' + R.stills + ' still' + (R.stills === 1 ? '' : 's'))
+      + cell('moved shapes', R.moved + ' (one outline and a transform)') + cell('keys kept', R.keys + ' outline' + (R.keys === 1 ? '' : 's') + (R.xkeys ? ' + ' + R.xkeys + ' transform' : '') + ' of ' + R.tracks * R.frames + ' path-frames')
+      + cell('converted in', Math.max(1, Math.round(b.ms)) + ' ms') + cell('left out', out || 'nothing it could not read');
+    $('.stills').textContent = R.stills ? R.stills + ' shape' + (R.stills === 1 ? '' : 's') + ' that never change, not shown' : '';
+  }
+  function convert() {
+    const t0 = performance.now();
+    const r = TVFLottie.toScene(b.L, { name: b.name, tol: b.tol, xform: b.xform });
+    b.ms = performance.now() - t0;
+    b.scene = r.scene;
+    b.report = r.report;
+    b.N = r.report.frames;
+    b.text = JSON.stringify(r.scene);
+    b.gz[1] = null;
+    gzipSize(b.text).then(g => { b.gz[1] = g; readout(); });
+    fr.max = Math.max(0, b.N - 1);
+  }
+  function show(t) {
+    if (b.ctl) b.ctl.pause();
+    const old = $('.cvR'), nv = old.cloneNode(false); // a fresh canvas drops the last controller's listeners
+    old.replaceWith(nv);
+    b.ctl = TVFPlayer.play(nv, b.scene, { background: BG, click: false });
+    if (t != null) b.ctl.seek(t);
+    pp.textContent = b.ctl.playing ? 'pause' : 'play';
+  }
+  function enable(on) {
+    go.disabled = pp.disabled = fr.disabled = dl.disabled = !on;
+    for (const x of root.querySelectorAll('.tol, .xf')) x.disabled = !on;
+  }
+  // load a Lottie (its text's size given) and show it, without the show
+  b.load = async (L, name, srcBytes, how) => {
+    b.L = L;
+    b.name = name;
+    b.srcBytes = srcBytes;
+    b.gz[0] = null;
+    gzipSize(JSON.stringify(L)).then(g => { b.gz[0] = g; readout(); });
+    convert();
+    show(0);
+    b.f = 0;
+    drawLeft(0);
+    buildKeys(1);
+    readout();
+    enable(true);
+    b.status(how || (name + ': ' + b.N + ' frames read, ' + (b.report.keys + b.report.xkeys) + ' keys kept'));
+    updateFrameLabel();
+  };
+  const updateFrameLabel = () => { fr.value = b.f; frl.textContent = 'frame ' + b.f + ' / ' + b.N; };
+  // the work in order: every frame read, the paths followed and trimmed, the scene starting to play, the strip filling in
+  b.process = async () => {
+    if (b.busy || !b.L) return;
+    b.busy = true;
+    enable(false);
+    if (b.ctl) b.ctl.pause();
+    const N = +b.L.op - +b.L.ip || 1, ip = Math.round(+b.L.ip || 0), steps = Math.min(N, 72);
+    b.N = N;
+    buildKeys(0);
+    { const cv = $('.cvR'), { w, h } = fitCanvas(cv), ctx = cv.getContext('2d'); ctx.fillStyle = BG; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#8b95ab'; ctx.font = (13 * (window.devicePixelRatio || 1)) + 'px ' + getComputedStyle(document.body).fontFamily; ctx.textAlign = 'center';
+      ctx.fillText('waiting for the scene', w / 2, h / 2); }
+    for (let i = 0; i < steps; i++) {
+      b.f = Math.min(N - 1, Math.floor(i / steps * N));
+      b.status('reading frame ' + (ip + b.f) + ' of ' + N + ': every shape worked out as exact paths');
+      drawLeft(b.f);
+      updateFrameLabel();
+      drawCursor();
+      await frame();
+    }
+    b.status('following each path from frame to frame, keeping the frames a straight blend or an ease cannot stand in for…');
+    await wait(60);
+    try { convert(); } catch (e) { b.status('could not convert it: ' + e.message); b.busy = false; enable(true); return; }
+    show(0);
+    b.f = 0;
+    readout();
+    for (let k = 0; k <= 12; k++) { buildKeys(k / 12); await frame(); }
+    b.status('done: ' + (b.report.keys + b.report.xkeys) + ' keys kept of ' + b.report.tracks * b.report.frames + ' path-frames, in ' + Math.max(1, Math.round(b.ms)) + ' ms; the scene is playing');
+    b.busy = false;
+    enable(true);
+  };
+  // the knobs: the same Lottie converted again, kept where it was
+  let again = 0;
+  const reconvert = () => {
+    clearTimeout(again);
+    again = setTimeout(() => {
+      if (!b.L || b.busy) return;
+      const t = b.ctl ? b.ctl.t : 0, playing = b.ctl ? b.ctl.playing : true;
+      try { convert(); } catch (e) { b.status('could not convert it: ' + e.message); return; }
+      show(t);
+      if (!playing) b.ctl.pause();
+      pp.textContent = b.ctl.playing ? 'pause' : 'play';
+      buildKeys(1);
+      readout();
+      b.status('tolerance ' + b.tol.toFixed(2) + ' px' + (b.xform ? '' : ', every shape as shape keys') + ': ' + (b.report.keys + b.report.xkeys) + ' keys kept');
+    }, 140);
+  };
+  $('.tol').addEventListener('input', e => {
+    b.tol = Math.round(0.05 * Math.pow(40, e.target.value / 100) * 100) / 100;
+    $('.tolv').textContent = b.tol.toFixed(2) + ' px';
+    reconvert();
+  });
+  $('.xf').addEventListener('change', e => { b.xform = e.target.checked; reconvert(); });
+  go.addEventListener('click', () => b.process());
+  pp.addEventListener('click', () => {
+    if (!b.ctl) return;
+    if (b.ctl.playing) b.ctl.pause(); else b.ctl.play();
+    pp.textContent = b.ctl.playing ? 'pause' : 'play';
+  });
+  fr.addEventListener('input', () => {
+    if (!b.ctl || b.busy) return;
+    b.ctl.pause();
+    pp.textContent = 'play';
+    b.f = +fr.value;
+    b.ctl.seek(b.f / b.N);
+    drawLeft(b.f);
+    updateFrameLabel();
+    drawCursor();
+  });
+  dl.addEventListener('click', () => {
+    if (!b.text) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([b.text], { type: 'application/json' }));
+    a.download = (b.name || 'scene') + '.tvfs';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+  // the picker of the first bench
+  const cache = new Map();
+  b.pick = async id => {
+    const s = SAMPLES.find(q => q.id === id);
+    if (!s) return;
+    b.sample = id;
+    for (const x of root.querySelectorAll('.picker button')) x.classList.toggle('on', x.dataset.s === id);
+    let got = cache.get(id);
+    if (!got) {
+      const text = await (await fetch('../player/interactive/' + id + '.json')).text();
+      got = { L: JSON.parse(text), bytes: text.length };
+      cache.set(id, got);
+    }
+    await b.load(got.L, s.name, got.bytes, s.name + ': ' + s.note);
+  };
+  for (const x of root.querySelectorAll('.picker button')) x.addEventListener('click', () => { if (!b.busy) b.pick(x.dataset.s); });
+  // the import of the second
+  b.readFile = async file => {
+    if (b.busy) return;
+    let text = '', L;
+    try { text = await file.text(); L = JSON.parse(text); } catch (e) { b.status('not a JSON file: ' + e.message); return; }
+    if (L && L.format === 'tvf-scene') { b.status('that is a scene already: play it on the played page, or open it in player.html'); return; }
+    if (!TVFLottie.isLottie(L)) { b.status('not a Lottie file: it needs layers, in and out frames and a size (Bodymovin\'s .json export)'); return; }
+    b.status('reading ' + file.name + '…');
+    await wait(30);
+    try { await b.load(L, file.name.replace(/\.json$/i, ''), text.length, 'opened ' + file.name); } catch (e) { b.status('could not read it: ' + e.message); return; }
+    b.process();
+  };
+  if (o.import) {
+    $('.file input').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) b.readFile(f); });
+    root.addEventListener('dragover', e => { e.preventDefault(); root.classList.add('over'); });
+    root.addEventListener('dragleave', () => root.classList.remove('over'));
+    root.addEventListener('drop', e => { e.preventDefault(); root.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) b.readFile(f); });
+    b.status('open or drop a Lottie .json');
+    drawLeft(0);
+    buildKeys(1);
+  }
+  b.relayout = () => { if (!b.L || b.busy) return; drawLeft(b.f); buildKeys(1); };
+  b.tick = () => {
+    if (!b.ctl || !b.scene || b.busy || !b.ctl.playing) return;
+    const f = Math.min(b.N - 1, Math.floor(b.ctl.t * b.N));
+    if (f === b.f && b.drawnF === f) return;
+    b.f = f;
+    updateFrameLabel();
+    if (b.drawnF !== f) drawLeft(f);
+    drawCursor();
+  };
+  b.info = () => ({ name: b.name, frames: b.N, scene: !!b.scene, report: b.report, sceneBytes: b.text.length, tol: b.tol, xform: b.xform, busy: b.busy,
+    f: b.f, playing: b.ctl ? b.ctl.playing : false, t: b.ctl ? b.ctl.t : 0, status: status.textContent });
+  b.set = o2 => { if (o2.tol != null) { b.tol = o2.tol; $('.tolv').textContent = b.tol.toFixed(2) + ' px'; } if (o2.xform != null) { b.xform = o2.xform; $('.xf').checked = b.xform; } return new Promise(r => { reconvert(); setTimeout(r, 400); }); };
+  return b;
+}
+
+const benches = {
+  watch: makeBench(document.getElementById('benchWatch'), { samples: true }),
+  yours: makeBench(document.getElementById('benchYours'), { import: true })
+};
+// the playhead and the frame slider follow the player's clock
+setInterval(() => { for (const b of Object.values(benches)) b.tick(); }, 40);
+// the left picture and the strip are drawn at the size they have, so a resize draws them again
+let resized = 0;
+addEventListener('resize', () => { clearTimeout(resized); resized = setTimeout(() => { for (const b of Object.values(benches)) b.relayout(); }, 150); });
+
+// the how-to's code, written once here so each block is exactly what it says
+document.getElementById('snippet').textContent =
+`<script src="${PUBLIC}tvf-core.js"><\/script>
+<script src="${PUBLIC}player/tvf-player.js"><\/script>
+<script src="${PUBLIC}player/lottie.js"><\/script>
+<canvas id="cv" style="width:480px;height:320px"></canvas>
+<script>
+  const L = await (await fetch('animation.json')).json();
+  if (TVFLottie.isLottie(L)) {
+    const { scene, report } = TVFLottie.toScene(L, { name: 'mine', tol: 0.2 });
+    TVFPlayer.play(document.getElementById('cv'), scene);
+    console.log(report.keys + ' keys, left out:', Object.keys(report.unsupported));
+  }
+<\/script>`;
+document.getElementById('cli').textContent =
+`node tools/lottie-to-tvfs.mjs animation.json other.json --out scenes/ --tol 0.5
+
+scenes/animation.tvfs: 80 frames, 34 morphs, 3 shapes, 66 keys; 62.7 KB (5.9 KB gzipped), 530 ms
+scenes/other.tvfs: 392 frames, 112 morphs, 1 shapes, 410 keys; 210.5 KB (28.7 KB gzipped), 2380 ms; left out: mask, merge paths ×25`;
+for (const b of document.querySelectorAll('.step-card .copy'))
+  b.addEventListener('click', async () => { if (await copyText(document.getElementById(b.dataset.for).textContent)) flash(b, 'copied', 'copy'); });
+
+benches.watch.pick(SAMPLES[0].id).then(() => {
+  document.getElementById('count').textContent = SAMPLES.length + ' Lotties here · or one of yours';
+});
+window.__lottie = { benches, SAMPLES, frameScene,
+  info: id => benches[id].info(), ready: () => !!benches.watch.scene };
+</script>
+</body>
+</html>

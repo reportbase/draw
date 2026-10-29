@@ -77,7 +77,23 @@
    "name": "from Lottie",
    "note": "a Lottie file of four layers (lottie-sample.json), read by player/lottie.js: every frame drawn as exact paths and kept as keys where a straight blend cannot stand in",
    "file": "lottie-sample.tvfs",
-   "bytes": 6449,
+   "bytes": 4504,
+   "kind": "lottie"
+  },
+  {
+   "id": "lottie-spinner",
+   "name": "a spinner from Lottie",
+   "note": "eight dots on a turning parent, each pulsing and fading a step behind the last (lottie-spinner.json): shapes that only move and fade, kept as one outline and a transform each",
+   "file": "lottie-spinner.tvfs",
+   "bytes": 7708,
+   "kind": "lottie"
+  },
+  {
+   "id": "lottie-blob",
+   "name": "a blob from Lottie",
+   "note": "a six-cornered outline breathing between round and a hexagon while its colour changes, inside a turning ring and a dot riding it (lottie-blob.json)",
+   "file": "lottie-blob.tvfs",
+   "bytes": 7429,
    "kind": "lottie"
   }
  ]

@@ -2154,7 +2154,8 @@ function poseOf(run, t, bare) {
 // ── ONE SHAPE, MOVED (29 Oct 2026, Tom: "Yes", to making Lottie's scenes smaller) ───────────────────────────
 // A morph of one key may carry `xform` (papers/tvf.md §2.10, version 2): its key moved, turned, sized and
 // sheared over time, the outline stored once. Each key of the transform is [tx, ty, θ, sx, sh, sy]: the map
-// x' = R(θ)·[[sx, sh], [0, sy]]·x + (tx, ty), the 2×2 part split as a turn times an upper triangle (QR), so a
+// x' = R(θ)·[[sx, sh], [0, sy]]·(x − o) + o + (tx, ty) about a pivot o (the outline's middle; 0 where `o` is absent),
+// the 2×2 part split as a turn times an upper triangle (QR), so a
 // shape that turns keeps its size between keys, where blending two matrices straight would shrink it through
 // the middle. The parts are blended straight between keys, each stretch with its own ease (a name or a cubic
 // Bézier, as a morph's own eases) on the morph's own clock (morphRunT: its clip, rate and phase), held before
@@ -2170,6 +2171,7 @@ function xformOf(v) {
     const n = t.length;
     return {
         t,
+        o: Array.isArray(v.o) && v.o.length === 2 && v.o.every(Number.isFinite) ? v.o.map(Number) : [0, 0],
         v: k,
         e: Array.isArray(v.e) && v.e.length === n - 1 ? v.e.map(e => e == null || e === 'linear' ? '' : e) : new Array(Math.max(0, n - 1)).fill(''),
         c: Array.isArray(v.c) && v.c.length === n && v.c.every(q => Array.isArray(q) && q.length === 4) ? v.c.map(q => q.map(Number)) : null
@@ -2207,18 +2209,21 @@ function xformPose(run, P, t) {
         sn = Math.sin(th),
         a = cs * sx, b = sn * sx, c = cs * sh - sn * sy, d = sn * sh + cs * sy,
         k = Math.sqrt(Math.abs(a * d - b * c)),
+        [ox, oy] = run.xform.o,
+        ex = ox + tx - (a * ox + c * oy), // the map as x' = a·x + c·y + ex
+        ey = oy + ty - (b * ox + d * oy),
         n = P.x.length,
         X = new Float64Array(n),
         Y = new Float64Array(n);
     for (let i = 0; i < n; i++) {
-        X[i] = a * P.x[i] + c * P.y[i] + tx;
-        Y[i] = b * P.x[i] + d * P.y[i] + ty;
+        X[i] = a * P.x[i] + c * P.y[i] + ex;
+        Y[i] = b * P.x[i] + d * P.y[i] + ey;
     }
     const out = { x: X, y: Y, wk: k };
     if (P.r)
         out.r = Float64Array.from(P.r, v => v * k);
     if (P.c)
-        out.c = P.c.map(e => e ? [a * e[0] + c * e[1] + tx, b * e[0] + d * e[1] + ty, a * e[2] + c * e[3] + tx, b * e[2] + d * e[3] + ty] : e);
+        out.c = P.c.map(e => e ? [a * e[0] + c * e[1] + ex, b * e[0] + d * e[1] + ey, a * e[2] + c * e[3] + ex, b * e[2] + d * e[3] + ey] : e);
     for (const key of Object.keys(P))
         if (!(key in out))
             out[key] = P[key];
