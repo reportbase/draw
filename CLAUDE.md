@@ -107,6 +107,38 @@ publishes.
   (`tools/measure-player.mjs`) times every example on an emulated phone (390 × 844 at DPR 3, CPU 1×, 4×, 6×),
   and `player/MEASURED.md` records the numbers before and after (grow 170 ms to 2.5 ms a frame at 1×; all under
   16.7 ms at 4×).
+  **Scenes that answer the hand, and Lottie** (29 Oct 2026, Tom: "Let's continue to explore what it can do", then
+  "1,2,4"; `papers/tvf.md` §2.10, "States and the hand", "Touch", "From Lottie"). In `player/runtime.js`, so a reader
+  that ignores them draws the scene as before:
+  - **States and rules**: a scene's `states` (named times), `start`, `autoplay` and `interact` rules (`statesOf`,
+    `rulesOf`): `click` (toggle between two states, play once or loop, or go to one), `hover`, `press` (there and
+    back), `scroll` (the clock follows the canvas through the window), `load`; a target is a morph's drawn pose
+    (`hitAt`: its fill, or a finger's width of its line). A state is only a time, the clock turned toward it at the
+    scene's pace (`ctl.goTo`). With two keys a pose ramps from the first at 0 to the second at 1, so two states are 0
+    and 1.
+  - **Touch**: a morph's `touch` (`touchOf`, `touchStep`) can be taken by the hand and let go: `throw` (gravity,
+    bouncing off its floor, the lowest its pose reaches, and the frame's sides, then home), `swing` (a pendulum
+    about its pivot) or `spring`, from the hand's speed over its last 100 ms; an offset on the pose
+    (`touchMapped`), riders carried by their parent's, the morph's clock going on from where it was taken.
+    `ctl.whereIs(k)` gives a morph's box in page pixels for tests.
+  - **`widthUnit: "page"`** on a morph or a still: its line's width in page units, scaled with the view.
+  - **Lottie**: `player/lottie.js` (`TVFLottie.isLottie`, `toScene`) reads Bodymovin's JSON (shape layers with
+    paths, rectangles, ellipses, stars, fills, strokes, groups, rounded corners; solids, nulls, parenting,
+    precompositions) by drawing each frame as exact paths, following each path from frame to frame and keeping the
+    frames a straight blend cannot stand in for (Douglas–Peucker in time, 0.2 px), coordinates to a hundredth.
+    What it cannot read (masks, mattes, effects, text, images, gradients, trim paths, repeaters, merged paths,
+    expressions, 3D, time remapping, a vertex count that changes) it leaves out and names in `report.unsupported`.
+    Colours from Bodymovin before 4.1.9 are 0–255. `player.html` and the played gallery's panel take a Lottie file;
+    `node tools/lottie-to-tvfs.mjs in.json … [--out dir] [--tol px]` writes `.tvfs` files. Measured against
+    lottie-web's canvas renderer (its repo's demos, MIT, not committed): within 0.1–1.5 of 255 on the files it reads
+    whole; adrock's mask and happy2016's gradients are where it parts. Baked keys are bigger than Lottie's
+    parametric ones (gzipped 1.8 to 21 times: the longer and more keyed by hand a file, the more). For size: lottie-web's light player is 46 KB gzipped, ours with
+    `tvf-core.js` about 48.
+  - **Examples**: `player/interactive/` (a menu, play/pause, a switch, a button, a card, a line drawn by the scroll;
+    the gallery's ball, lantern and jelly with touch on; `lottie-sample.json`, a Lottie of our own, and its scene),
+    written with `index.json` by `node tools/write-interactive.mjs`: after changing it or `player/lottie.js`, run it,
+    or `npm test` fails. `gallery/played.html` shows them as "you can click", "you can touch" and "from Lottie"; a
+    tile whose scene has states is not paused and played by the view. The smoke test drives them with real input.
 - `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
   specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
   and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and

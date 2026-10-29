@@ -3347,8 +3347,9 @@ await step('the played gallery', async () => {
   await gp.route(/fonts\.g/, r => r.abort());
   await gp.goto(new URL('gallery/played.html', base).href, { waitUntil: 'load' });
   await gp.waitForFunction(() => window.__played && window.__played.ids.length > 0, null, { timeout: 20000 });
-  const n = await gp.evaluate(() => window.__played.ids.length);
-  if (n !== files.length) throw new Error(n + ' tiles for ' + files.length + ' scenes');
+  const n = await gp.evaluate(() => window.__played.ids.length),
+    nIa = JSON.parse(await readFile(join(ROOT, 'player', 'interactive', 'index.json'), 'utf8')).scenes.length;
+  if (n !== files.length + nIa) throw new Error(n + ' tiles for ' + files.length + ' + ' + nIa + ' scenes');
   // each tile brought into view and held there until it has started (one scrolled past within a frame is never seen)
   await gp.evaluate(async () => {
     for (const id of window.__played.ids) {
@@ -3389,6 +3390,98 @@ await step('the played gallery', async () => {
     let n = 0; for (let i = 3; i < p.length; i += 4) if (p[i] > 8) n++; return { n, w: c.width }; });
   await xp.close();
   if (!(lit.w >= 480 && lit.n > 1000)) throw new Error('the embed code drew ' + JSON.stringify(lit));
+});
+
+/* SCENES THAT ANSWER THE HAND, AND LOTTIE (29 Oct 2026, Tom: "1,2,4"): player/interactive/ is what
+   tools/write-interactive.mjs writes, its Lottie scene is what player/lottie.js makes of lottie-sample.json now,
+   and on the played gallery, with real input: a click on the menu runs it to its other state and a second back;
+   a press on the button holds it down and the release lets it up; the pointer over the card lifts it; the ball
+   taken and thrown flies the way it was thrown; the lantern pulled aside swings; and player.html opens a Lottie
+   file as a scene. */
+await step('interactive scenes, touch and Lottie', async () => {
+  const dir = join(ROOT, 'player', 'interactive'),
+    ia = JSON.parse(await readFile(join(dir, 'index.json'), 'utf8'));
+  const tvfs = (await readdir(dir)).filter(f => f.endsWith('.tvfs')).sort();
+  if (ia.scenes.map(e => e.file).sort().join() !== tvfs.join()) throw new Error('interactive/index.json lists ' + ia.scenes.length + ' scenes for ' + tvfs.length + ' files');
+  for (const e of ia.scenes)
+    if ((await readFile(join(dir, e.file), 'utf8')).length !== e.bytes) throw new Error(e.file + ' is not the size index.json gives: run node tools/write-interactive.mjs');
+  const gp = await browser.newPage({ viewport: { width: 1300, height: 900 } });
+  gp.on('pageerror', e => failures.push(`[interactive] ${e.message}`));
+  await gp.route(/fonts\.g/, r => r.abort());
+  await gp.goto(new URL('gallery/played.html', base).href, { waitUntil: 'load' });
+  await gp.waitForFunction(() => window.__played && window.__played.ids.includes('lottie-sample'), null, { timeout: 20000 });
+  // the Lottie scene, made again in the page from its source
+  const same = await gp.evaluate(async () => {
+    const L = await (await fetch('../player/interactive/lottie-sample.json')).json(),
+      S = await (await fetch('../player/interactive/lottie-sample.tvfs')).json(),
+      { scene, report } = TVFLottie.toScene(L, { name: 'from Lottie' });
+    return { same: JSON.stringify(scene.morphs) === JSON.stringify(S.morphs) && JSON.stringify(scene.items) === JSON.stringify(S.items), report };
+  });
+  if (!same.same) throw new Error('lottie-sample.tvfs is not what player/lottie.js makes of lottie-sample.json now: run node tools/write-interactive.mjs');
+  if (!(same.report.morphs === 4 && same.report.frames === 60)) throw new Error('the Lottie sample read as ' + JSON.stringify(same.report));
+  const ready = async id => {
+    await gp.locator('#' + id).scrollIntoViewIfNeeded();
+    await gp.waitForFunction(id => window.__played.ready().includes(id), id, { timeout: 15000 });
+    await gp.waitForTimeout(100);
+    return gp.evaluate(id => window.__played.ctl(id).whereIs(0), id);
+  };
+  const tOf = id => gp.evaluate(id => window.__played.ctl(id).t, id);
+  // the menu: a click toggles it to its other state, a second back
+  let w = await ready('menu');
+  const m0 = await tOf('menu');
+  await gp.mouse.click(w.x, w.y);
+  await gp.waitForTimeout(1500);
+  const m1 = await tOf('menu');
+  await gp.mouse.click(w.x, w.y);
+  await gp.waitForTimeout(1500);
+  const m2 = await tOf('menu');
+  if (!(m0 === 0 && m1 === 1 && m2 === 0)) throw new Error('the menu went ' + [m0, m1, m2].join(' → ') + ', not 0 → 1 → 0');
+  // the button: held down while pressed
+  w = await ready('button');
+  await gp.mouse.move(w.x, w.y);
+  await gp.mouse.down();
+  await gp.waitForTimeout(900);
+  const b1 = await tOf('button');
+  await gp.mouse.up();
+  await gp.waitForTimeout(900);
+  const b2 = await tOf('button');
+  if (!(b1 > 0.9 && b2 < 0.1)) throw new Error('the button went to ' + b1 + ' pressed and ' + b2 + ' let go');
+  // the card: lifted while the pointer is over it
+  w = await ready('card');
+  await gp.mouse.move(w.x, w.y, { steps: 4 });
+  await gp.waitForTimeout(900);
+  const c1 = await tOf('card');
+  await gp.mouse.move(5, 5, { steps: 4 });
+  await gp.waitForTimeout(900);
+  const c2 = await tOf('card');
+  if (!(c1 > 0.9 && c2 < 0.1)) throw new Error('the card went to ' + c1 + ' under the pointer and ' + c2 + ' off it');
+  // the ball: thrown up and to the right, it flies that way
+  w = await ready('touch-bouncing-ball');
+  await gp.mouse.move(w.x, w.y);
+  await gp.mouse.down();
+  for (let i = 1; i <= 6; i++) { await gp.mouse.move(w.x + i * 20, w.y - i * 15); await gp.waitForTimeout(16); }
+  await gp.mouse.up();
+  const ball = await gp.evaluate(() => { const T = window.__played.ctl('touch-bouncing-ball').scene.runs[0].touch; return { phase: T.phase, vx: T.vx, vy: T.vy }; });
+  if (!(ball.phase === 'fly' && ball.vx > 0.5 && ball.vy > 0.5)) throw new Error('the ball thrown up and right: ' + JSON.stringify(ball));
+  // the lantern: pulled aside and let go, it swings
+  w = await ready('touch-lantern');
+  await gp.mouse.move(w.x, w.y + w.h * 0.3);
+  await gp.mouse.down();
+  await gp.mouse.move(w.x + 80, w.y + w.h * 0.3, { steps: 6 });
+  await gp.mouse.up();
+  await gp.waitForTimeout(200);
+  const lan = await gp.evaluate(() => window.__played.ctl('touch-lantern').scene.runs[0].touch.phase);
+  if (lan !== 'swing') throw new Error('the lantern let go is ' + lan + ', not swinging');
+  await gp.close();
+  // player.html opens a Lottie file as a scene
+  const pl = await browser.newPage();
+  pl.on('pageerror', e => failures.push(`[player: Lottie] ${e.message}`));
+  await pl.goto(new URL('player/player.html', base).href, { waitUntil: 'load' });
+  await pl.setInputFiles('#file', join(dir, 'lottie-sample.json'));
+  await pl.waitForFunction(() => window.__player.ctl() && window.__player.ctl().scene, null, { timeout: 10000 });
+  const info = await pl.evaluate(() => document.getElementById('info').textContent);
+  await pl.close();
+  if (!/from Lottie, 60 frames/.test(info)) throw new Error('player.html read the Lottie file as: ' + info);
 });
 
 /* THE SCROLLING EXPLAINER (gallery/explained.html): the scene's clock follows the reading. Scrolled down, the

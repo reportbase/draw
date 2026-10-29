@@ -1,0 +1,84 @@
+{
+ "scenes": [
+  {
+   "id": "menu",
+   "name": "a menu that closes",
+   "note": "a click: three bars become an ✕, and again",
+   "file": "menu.tvfs",
+   "bytes": 1613,
+   "kind": "interactive"
+  },
+  {
+   "id": "play-pause",
+   "name": "play and pause",
+   "note": "a click: the triangle splits into the two bars",
+   "file": "play-pause.tvfs",
+   "bytes": 1000,
+   "kind": "interactive"
+  },
+  {
+   "id": "switch",
+   "name": "a switch",
+   "note": "a click: the knob slides and the track turns green",
+   "file": "switch.tvfs",
+   "bytes": 1353,
+   "kind": "interactive"
+  },
+  {
+   "id": "button",
+   "name": "a button you press",
+   "note": "press and hold: it sinks; let go: it comes back",
+   "file": "button.tvfs",
+   "bytes": 1318,
+   "kind": "interactive"
+  },
+  {
+   "id": "card",
+   "name": "a card that lifts",
+   "note": "the pointer over it: it lifts; off it: it settles",
+   "file": "card.tvfs",
+   "bytes": 1653,
+   "kind": "interactive"
+  },
+  {
+   "id": "scroll-line",
+   "name": "a line the page draws",
+   "note": "scroll the page: the line is drawn as the page passes it",
+   "file": "scroll-line.tvfs",
+   "bytes": 1358,
+   "kind": "interactive"
+  },
+  {
+   "id": "touch-bouncing-ball",
+   "name": "throw the ball",
+   "note": "take it and throw it: it flies under gravity, bounces off the floor and the sides, and goes home to its bounce",
+   "file": "touch-bouncing-ball.tvfs",
+   "bytes": 1265,
+   "kind": "touch"
+  },
+  {
+   "id": "touch-lantern",
+   "name": "swing the lantern",
+   "note": "take it and pull it aside: let go and it swings back as a pendulum of its own length",
+   "file": "touch-lantern.tvfs",
+   "bytes": 1234,
+   "kind": "touch"
+  },
+  {
+   "id": "touch-jelly",
+   "name": "poke the jelly",
+   "note": "take it and pull: let go and it springs back, overshooting, while it wobbles on",
+   "file": "touch-jelly.tvfs",
+   "bytes": 1453,
+   "kind": "touch"
+  },
+  {
+   "id": "lottie-sample",
+   "name": "from Lottie",
+   "note": "a Lottie file of four layers (lottie-sample.json), read by player/lottie.js: every frame drawn as exact paths and kept as keys where a straight blend cannot stand in",
+   "file": "lottie-sample.tvfs",
+   "bytes": 23487,
+   "kind": "lottie"
+  }
+ ]
+}

@@ -23,29 +23,42 @@
      button, drop it on the page, or give its address: player.html?src=scene.tvfs. -->
 <header>
   <b>TVF player</b>
-  <label class="file">open .tvfs<input type="file" id="file" accept=".tvfs,.json,application/json" hidden></label>
+  <label class="file">open .tvfs or Lottie<input type="file" id="file" accept=".tvfs,.json,application/json" hidden></label>
   <button type="button" id="play">pause</button>
   <input type="range" id="t" min="0" max="1000" value="0" title="where in the loop">
   <span class="note" id="info">no scene</span>
 </header>
 <main>
   <canvas id="cv"></canvas>
-  <div class="drop" id="drop">drop a .tvfs file here, or open one: the leaf editor's morph bar writes them (its "tvfs" button)</div>
+  <div class="drop" id="drop">drop a .tvfs file or a Lottie .json here, or open one: the leaf editor's morph bar writes .tvfs (its "tvfs" button)</div>
 </main>
 <script src="../tvf-core.js"></script>
 <script src="tvf-player.js"></script>
+<script src="lottie.js"></script>
 <script>
   const cv = document.getElementById('cv'), info = document.getElementById('info'), drop = document.getElementById('drop'),
     tIn = document.getElementById('t'), playB = document.getElementById('play');
   let ctl = null;
+  // A Lottie file (29 Oct 2026, Tom: "1,2,4", the fourth being import from Lottie) is turned into a scene first:
+  // player/lottie.js samples it frame by frame and keeps the shapes as exact keys (TVFLottie.toScene).
+  let note = '';
   function show(d) {
+    note = '';
+    if (TVFLottie.isLottie(d)) {
+      try {
+        const { scene, report } = TVFLottie.toScene(d);
+        const out = Object.keys(report.unsupported);
+        note = ' · from Lottie, ' + report.frames + ' frames' + (out.length ? ' (left out: ' + out.join(', ') + ')' : '');
+        d = scene;
+      } catch (e) { info.textContent = 'could not read the Lottie file: ' + e.message; return; }
+    }
     try {
       if (ctl) ctl.pause();
       ctl = TVFPlayer.play(cv, d, { background: '#0c0f16' });
       ctl.ready.then(c => {
         const S = c.scene, leaves = S.runs.filter(r => !r.exact).length;
         info.textContent = (d.name || 'scene') + ' · ' + S.runs.length + ' morph' + (S.runs.length === 1 ? '' : 's') + ' (' + leaves + ' of leaves) · '
-          + S.items.filter(it => it.still).length + ' shapes · a ' + S.loop.toFixed(1) + ' s loop';
+          + S.items.filter(it => it.still).length + ' shapes · a ' + S.loop.toFixed(1) + ' s loop' + note;
         drop.style.display = 'none';
         playB.textContent = 'pause';
       }).catch(e => { info.textContent = 'could not play it: ' + e.message; });

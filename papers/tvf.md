@@ -683,6 +683,7 @@ by ignoring what is new.
 | `path` | a path every morph rides that has none of its own (below), or null | null |
 | `items` | the drawing, back to front | required |
 | `morphs` | the animated shapes | required |
+| `states`, `start`, `interact`, `autoplay` | named times, the time a scene opens at, what the viewer's hand does, and whether it plays by itself (below) | none, 0, `[]`, false with states or rules |
 
 **Page units.** Every coordinate is in one frame, the page's: x to the right,
 y up. The units are the tool's and carry no physical size; a reader fits what
@@ -718,6 +719,8 @@ or null, `width` (the line's width in screen pixels, 0 for none) and
 | `lag` | 0 to 0.9: the outline's detail arriving after its silhouette (leaves only) |
 | `fx` | `{kind: "shimmer" | "grow" | "boil", amount: 0–1}`: an effect on the leaves' detail, or null |
 | `own` | the rest of the morph's timing and motion (below) |
+| `touch` | `true` or `{kind, bounce, stiff, damp, pivot}`: the viewer can take it in the hand (below) |
+| `widthUnit` | `"page"`: `width` is in page units, scaled with the view, not in screen pixels (a still may have it too) |
 
 A pose blends the keys. With one key the pose is the key. With two, the
 blend runs from the first to the second over the loop and back. With three or
@@ -766,9 +769,60 @@ or, without one, in its fill's colour; its fill comes in over the window's last
 An `in` of kind `draw` draws on over its own `len`; an `out` of kind
 `undraw` takes the line back the same way over its `len`, the fill going first.
 
+**States and the hand** (29 Oct 2026). A scene can answer the viewer.
+`states` names times of the loop (`{"open": 0, "closed": 1}`); wherever a
+state is asked for, a time in [0, 1] may stand instead. `start` is where a
+scene with states or rules opens, and it waits there unless `autoplay` is
+true. Nothing is posed differently: a state is only a time, and the reader
+moves the clock toward it at the scene's pace. `interact` is a list of rules,
+each `{on, target, to, back, toggle, play, speed, from}`:
+
+| `on` | what it does |
+|---|---|
+| `click` | `toggle: [a, b]` goes to whichever of the two it is not at; `play: "once"` plays the loop from its start once, `"loop"` starts or stops it; else goes `to` |
+| `hover` | goes `to` while the pointer is over the target, `back` (the start) when it leaves |
+| `press` | goes `to` while pressed, `back` on release |
+| `scroll` | the clock follows the canvas's way through the window, from `from` (entering at the bottom) to `to` (leaving at the top) |
+| `load` | goes `to` once the scene is ready |
+
+`target` is a morph's index or a list of them; a pointer is over a target when
+it is over the morph's drawn pose (its fill, or within a finger's width of its
+line), the topmost first. With no target the whole canvas is the target.
+`speed` multiplies the pace (default 1). With rules for clicks, a click no
+longer moves on from a stop.
+
+**Touch.** A morph with `touch` can be taken: held, it stays posed where it
+was taken (its own clock stopped there) and goes with the hand; let go, it
+moves from the hand's speed as it let go by its `kind`, and gives itself back
+to its motion:
+- `throw` (the default for a bounce, fall, throw, roll or drift): flies under
+  the scene's gravity, keeping `bounce` (0.55) of its speed off its floor (the
+  lowest its pose reaches over the loop) and the frame's sides, rests, and
+  glides home;
+- `swing` (the default for a swing): turned about its `pivot` toward the
+  hand, let go it swings as a pendulum of its own length, damped by `damp`;
+- `spring` (otherwise): pulled from where its motion has it, it springs back
+  with `stiff` (60 a second²) and `damp` (5 a second).
+
+A touch is an offset on the pose, a move and a turn about a point, and a morph
+riding another (`parent`) is carried by its parent's. Once it has gone home
+the morph's clock goes on from where it stopped, so a touched scene plays on
+as it was written. A reader that cannot be touched draws the scene as if it
+never was.
+
+**From Lottie.** `player/lottie.js` reads Bodymovin's JSON (shape layers,
+solids, nulls, parenting, precompositions) and writes a scene: each frame is
+drawn as exact paths, each path followed from frame to frame becomes a morph
+whose keys are the frames a straight blend cannot stand in for (to 0.2 of the
+composition's pixel), with `straight`, `times`, `cols`, a `clip` for a path
+seen only part of the time, and `widthUnit: "page"`. The scene keeps the
+source in `from: {lottie, w, h, fr, frames}`. What it cannot read (masks,
+mattes, effects, text, images, gradients, trim paths, repeaters, merged paths,
+expressions, 3D layers) it leaves out and names.
+
 **What a scene does not hold.** The tool's editing state (selection,
 guides, handles), frames, fonts (text in a scene is shapes: §2.10 is
-font-free), and any interactivity beyond stops.
+font-free), and any interactivity beyond stops, states, rules and touch.
 
 ---
 
