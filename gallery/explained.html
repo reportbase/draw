@@ -25,7 +25,10 @@
     shows, in five steps, how a curve comes out of them and why moving them is all an animation needs.
   </p>
   <nav class="xs" id="xs">explainers: <a href="explained.html" data-x="">how leaves become a curve</a> ·
-    <a href="explained.html?x=bridge" data-x="bridge">the Tangent Bridge</a></nav>
+    <a href="explained.html?x=bridge" data-x="bridge">the Tangent Bridge</a> ·
+    <a href="explained.html?x=reading" data-x="reading">reading and writing</a> ·
+    <a href="explained.html?x=turned" data-x="turned">one length turned</a> ·
+    <a href="explained.html?x=addresses" data-x="addresses">addresses given, payloads met</a></nav>
 </header>
 
 <main class="explainer">
@@ -1312,6 +1315,36 @@ const EXPLAINERS = {
       + 'Tangent Bridge theorem says exactly what comes back, and this page shows it in six steps, every curve computed from '
       + 'the paper\'s own formulas.',
     paper: ['../papers.html#tb_classical', 'The Tangent Bridge Theorem']
+  },
+  // READING AND WRITING (29 Oct 2026, Tom: "proceed"): the first of wander's essays, the animated gallery's `reading` tile.
+  reading: {
+    src: '../player/examples/reading.tvfs',
+    title: 'reading and writing',
+    lede: 'Scroll, and the picture follows. Map a room from one corner with no ruler, and you get every direction for free '
+      + 'and no size at all. This page shows, in five steps, the test that sorts what you hold: scale the world, and see '
+      + 'what moves.',
+    paper: ['https://github.com/reportbase/wander/blob/main/papers/essays/01-reading-and-writing.md', 'Reading and writing (essay 1)']
+  },
+  // ONE LENGTH TURNED (29 Oct 2026, Tom: "proceed"; the explainers "exercise the features of the tvf viewer and also
+  // explain the essays"): the second of wander's essays, the animated gallery's `turned` tile.
+  turned: {
+    src: '../player/examples/turned.tvfs',
+    title: 'one length turned',
+    lede: 'Scroll, and the picture follows. Raise an arm through a quarter turn and its hand traces a circle: one length, '
+      + 'turning, is all a circle is from where you stand. This page shows, in five steps, what that one turn gives: the '
+      + 'corner, the two sweeps that read one point twice, and π/2 × 2/π = 1.',
+    paper: ['https://github.com/reportbase/wander/blob/main/papers/essays/02-one-length-turned.md', 'One length turned (essay 2)']
+  },
+  // ADDRESSES GIVEN, PAYLOADS MET (29 Oct 2026, Tom: "lets tryout our new explainer in draw repository for a topic in
+  // the essay folder"): the third of wander's essays, the animated gallery's `addresses` tile. Its paper is the essay
+  // itself, on GitHub, since wander keeps its papers off its pages.
+  addresses: {
+    src: '../player/examples/addresses.tvfs',
+    title: 'addresses given, payloads met',
+    lede: 'Scroll, and the picture follows. A hand held up to a window has two things on it: its fingers, laid by an even '
+      + 'turn before anything is seen, and the colour the window puts on them. This page shows, in six steps, why the '
+      + 'Cauchy belongs to the fingers and nothing the window does can move it.',
+    paper: ['https://github.com/reportbase/wander/blob/main/papers/essays/03-addresses-given-payloads-met.md', 'Addresses given, payloads met (essay 3)']
   }
 };
 const Q = new URLSearchParams(location.search),

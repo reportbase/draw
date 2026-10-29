@@ -32,7 +32,10 @@
    "ids": [
     "explainer",
     "leaves",
-    "bridge"
+    "bridge",
+    "reading",
+    "turned",
+    "addresses"
    ]
   },
   {
@@ -369,6 +372,38 @@
     "theorem"
    ]
   },
+  "addresses": {
+   "name": "addresses given, payloads met",
+   "note": "The third of wander's essays in six beats: twelve fingers laid evenly by a turn, painted by a stained-glass window, a window twice as far and twice as large painting them the same, another painting them otherwise; the fingers carried on to a line, landing as the Cauchy with half below the corner; the far ones running off with no mean; amounts arriving and changing while no landing moves. The scene of the explainer page's third explainer.",
+   "tags": [
+    "camera",
+    "stops",
+    "essay",
+    "Cauchy"
+   ]
+  },
+  "turned": {
+   "name": "one length turned",
+   "note": "The second of wander's essays in five beats: an arm raised through a quarter turn, its tip tracing the arc; lowered with its two shares drawn and v/h turning from ∞ through 1 to 0, the corner where they are equal; a ray from each end of a chord meeting on the circle, and the radius from the middle at twice the angle reaching the same point; the arc unrolled beside the arm, π/2 × 2/π = 1. The scene of the explainer page's fourth explainer.",
+   "tags": [
+    "path",
+    "echoes",
+    "camera",
+    "labels",
+    "essay"
+   ]
+  },
+  "reading": {
+   "name": "reading and writing",
+   "note": "The first of wander's essays in five beats: a room read from one corner, directions only, a room half the size on the same rays; the world scaled by 1.5 and no ray moving; one step, the second rays crossing at every thing, the room 3.57 steps wide; the step counted as six strides of 0.7 m, writing the room 15.0 m; the world scaled again, the steps unmoved and the metres moving. The scene of the explainer page's fifth explainer.",
+   "tags": [
+    "camera",
+    "Bézier eases",
+    "walk",
+    "labels",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -557,6 +592,9 @@
   "bridge": 203030,
   "word-morph": 17264,
   "word-draw": 12456,
-  "word-pop": 5412
+  "word-pop": 5412,
+  "addresses": 143520,
+  "turned": 124042,
+  "reading": 166525
  }
 }
