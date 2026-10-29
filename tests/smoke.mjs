@@ -3419,6 +3419,29 @@ await step('interactive scenes, touch and Lottie', async () => {
   });
   if (!same.same) throw new Error('lottie-sample.tvfs is not what player/lottie.js makes of lottie-sample.json now: run node tools/write-interactive.mjs');
   if (!(same.report.morphs === 4 && same.report.frames === 60)) throw new Error('the Lottie sample read as ' + JSON.stringify(same.report));
+  // ONE SHAPE, MOVED and A CURVE OF ITS OWN: the ball, which only moves and squashes, is one key and a transform with
+  // Lottie's eases (17 of its 60 frames: its position and its squash are keyed at different frames with different
+  // eases, and a stretch has one ease for all its parts); the scene is version 2; and the player poses the ball where
+  // lottie.js drew it at frames between keys
+  const moved = await gp.evaluate(async () => {
+    const L = await (await fetch('../player/interactive/lottie-sample.json')).json(),
+      { scene, report } = TVFLottie.toScene(L, { name: 'from Lottie' }),
+      S = TVFPlayer.load(scene),
+      ball = scene.morphs.findIndex(m => m.xform),
+      run = S.runs[ball];
+    let worst = 0;
+    for (const f of [7, 13, 29, 41, 53]) {
+      const ops = TVFLottie.drawingAt(L, f, () => {}),
+        o = ops.find(q => q.key.startsWith('ball') || q.fill && Math.abs(q.fill[0] - 0.98) < 1e-6),
+        P = TVFPlayer.poses(S, f / 60)[ball];
+      for (let i = 0; i < o.x.length; i++)
+        worst = Math.max(worst, Math.hypot(P.x[i] - o.x[i], P.y[i] - o.y[i]));
+    }
+    return { v: scene.v, moved: report.moved, keys: run ? run.keys.length : 0, xkeys: scene.morphs[ball] ? scene.morphs[ball].xform.t.length : 0,
+      eased: !!(scene.morphs[ball] && scene.morphs[ball].xform.e && scene.morphs[ball].xform.e.some(Array.isArray)), worst };
+  });
+  if (!(moved.v === 2 && moved.moved >= 1 && moved.keys === 1 && moved.xkeys < 20 && moved.eased && moved.worst < 0.25))
+    throw new Error('the Lottie sample\'s ball as one shape moved: ' + JSON.stringify(moved));
   const ready = async id => {
     await gp.locator('#' + id).scrollIntoViewIfNeeded();
     await gp.waitForFunction(id => window.__played.ready().includes(id), id, { timeout: 15000 });
@@ -3576,8 +3599,9 @@ await step('text in a scene, and beats', async () => {
     await pp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
     const pv = await pp.evaluate(() => [window.__explained.beats, window.__explained.titles.slice(0, 3).join()]);
     if (pv[0] !== 4 || pv[1] !== 'one,Step 2,second') throw new Error('the preview\'s beats: ' + JSON.stringify(pv));
-    const refused = await pp.evaluate(() => { try { TVFPlayer.load({ format: 'tvf-scene', v: 2, items: [], morphs: [] }); return false; } catch (e) { return /version 2/.test(e.message); } });
-    if (!refused) throw new Error('the player read a version 2 scene');
+    // (version 2, 29 Oct 2026, adds a morph's xform: the player reads 1 and 2, and refuses 3)
+    const refused = await pp.evaluate(() => { try { TVFPlayer.load({ format: 'tvf-scene', v: 3, items: [], morphs: [] }); return false; } catch (e) { return /version 3/.test(e.message); } });
+    if (!refused) throw new Error('the player read a version 3 scene');
     await pp.close();
     await bp.bringToFront();
     await bp.click('#bUndo');

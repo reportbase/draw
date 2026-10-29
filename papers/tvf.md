@@ -656,7 +656,8 @@ to within 10⁻⁶ of the scene's size, because its engine is the tool's own cod
 A scene is one JSON object, UTF-8, extension `.tvfs`, media type
 `application/json`.
 
-**Versions.** `format` is `"tvf-scene"` and `v` is `1`. A reader:
+**Versions.** `format` is `"tvf-scene"` and `v` is `1` or `2`; version 2 (29 Oct 2026) adds a morph's `xform`
+(below), and a writer writes `2` only when a morph has one. A reader:
 - refuses a document whose `v` it does not know (a larger `v` is a change a
   version-1 reader would get wrong);
 - ignores fields it does not know (a writer may add fields within a version,
@@ -670,7 +671,7 @@ by ignoring what is new.
 
 | Field | Value | Default |
 |---|---|---|
-| `format`, `v` | `"tvf-scene"`, `1` | required |
+| `format`, `v` | `"tvf-scene"`, `1` or `2` | required |
 | `name` | the scene's name | `"scene"` |
 | `loop` | the loop's length in seconds, > 0 | 4 |
 | `ease` | the ease between keys: `""` (linear), `inout`, `in`, `out`, `anticipate`, `overshoot`, `elastic` | `""` |
@@ -720,6 +721,7 @@ or null, `width` (the line's width in screen pixels, 0 for none) and
 | `fx` | `{kind: "shimmer" | "grow" | "boil", amount: 0–1}`: an effect on the leaves' detail, or null |
 | `own` | the rest of the morph's timing and motion (below) |
 | `touch` | `true` or `{kind, bounce, stiff, damp, pivot}`: the viewer can take it in the hand (below) |
+| `xform` | version 2, a morph of one key: `{t, v, e, c}`, the key moved, turned, sized and sheared over time (below) |
 | `widthUnit` | `"page"`: `width` is in page units, scaled with the view, not in screen pixels (a still may have it too) |
 
 A pose blends the keys. With one key the pose is the key. With two, the
@@ -735,7 +737,7 @@ Where the keys' colours differ they blend in linear light.
 | Field | Value |
 |---|---|
 | `rate`, `phase` | the morph plays `rate` (a whole number) times a loop, `phase` (0–1) ahead |
-| `times`, `eases`, `straight` | a time per key (increasing; under 1 for three keys or more), an ease per stretch, and whether stretches are blended pair by pair |
+| `times`, `eases`, `straight` | a time per key (increasing; under 1 for three keys or more), an ease per stretch (a name, or a cubic Bézier `[x1, y1, x2, y2]` from (0, 0) to (1, 1) as CSS's `cubic-bezier()`, x1 and x2 in [0, 1]), and whether stretches are blended pair by pair |
 | `clip` | `{start, len, show}`: the morph plays once, first key to last, in that window of the loop, holding either side. `show`: `""` always seen; `during` only in its window; `fade` fading in and out over the window's first and last sixth; `in` from its window on; `out` until its window ends; `draw` drawn on over its window (below). Optional `in: {kind, len}` and `out: {kind, len}` say how it comes and goes apart, each over its own length (a share of the loop): `in` is `fade`, `draw` or `cut` (unseen before the window), `out` is `fade`, `undraw` or `cut` (gone after it); with either, `show` is not read. With no `in` the morph is there from the loop's start; with no `out` it stays |
 | `spin` | whole turns a loop |
 | `path`, `laps`, `start` | its own path (below), ridden `laps` times a loop from `start` (0–1) |
@@ -791,6 +793,15 @@ line), the topmost first. With no target the whole canvas is the target.
 `speed` multiplies the pace (default 1). With rules for clicks, a click no
 longer moves on from a stop.
 
+**One shape, moved** (`xform`, version 2). A morph of one key may hold its outline once and how it moves:
+`t` the times of the transform's keys on the morph's own clock (its clip, rate and phase; increasing), `v` a
+key's six parts `[tx, ty, θ, sx, sh, sy]` for the map x′ = R(θ)·[[sx, sh], [0, sy]]·x + (tx, ty) in page units,
+`e` an ease per stretch between them (as `own.eases`, null for straight), and optionally `c`, each key's fill
+in linear light `[r, g, b, a]`. The parts blend straight between keys along the stretch's ease, and hold
+before the first key and after the last; a turn split out this way keeps a shape's size through the middle of
+a stretch, which two matrices blended entry by entry do not. Radii and a `page` line width scale with the
+map's size, √|det|. A version-1 reader would draw such a morph still, which is why it is version 2.
+
 **Touch.** A morph with `touch` can be taken: held, it stays posed where it
 was taken (its own clock stopped there) and goes with the hand; let go, it
 moves from the hand's speed as it let go by its `kind`, and gives itself back
@@ -815,7 +826,10 @@ solids, nulls, parenting, precompositions) and writes a scene: each frame is
 drawn as exact paths, each path followed from frame to frame becomes a morph
 whose keys are the frames a straight blend cannot stand in for (to 0.2 of the
 composition's pixel), with `straight`, `times`, `cols`, a `clip` for a path
-seen only part of the time, and `widthUnit: "page"`. The scene keeps the
+seen only part of the time, and `widthUnit: "page"`. Each stretch between kept frames is a straight blend, or
+failing that a blend along a cubic Bézier ease fitted to the frames between, so a stretch Lottie keyed once with
+an ease comes back as one stretch. A path whose outline never changes in its own coordinates, only its map, is
+one key and an `xform` read from Lottie's own matrices. The scene keeps the
 source in `from: {lottie, w, h, fr, frames}`. What it cannot read (masks,
 mattes, effects, text, images, gradients, trim paths, repeaters, merged paths,
 expressions, 3D layers) it leaves out and names.

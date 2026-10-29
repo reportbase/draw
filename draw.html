@@ -49209,9 +49209,34 @@
         // (the weights 1 − v and v); three or more do it in morphWeightsOf, along the stretch.
         const MORPH_EASES = ['inout', 'in', 'out', 'anticipate', 'overshoot', 'elastic'],
             MORPH_BACK = 1.70158; // the classic back ease's constant: about a tenth past (or behind)
+        // A CURVE OF ITS OWN (29 Oct 2026, Tom: "Yes", to keeping Lottie's own eases when it is read into a scene): a
+        // stretch's ease may also be a cubic Bézier [x1, y1, x2, y2] from (0, 0) to (1, 1), as CSS's cubic-bezier()
+        // and After Effects' keyframe handles are: x the stretch's time, y how far along. x1 and x2 are kept in
+        // [0, 1] so time only goes forward; y may leave it, overshooting as 'overshoot' does.
+        function morphBezierEase(u, q) {
+            if (u <= 0)
+                return 0;
+            if (u >= 1)
+                return 1;
+            const B = (s, a, b) => 3 * (1 - s) * (1 - s) * s * a + 3 * (1 - s) * s * s * b + s * s * s;
+            let lo = 0,
+                hi = 1,
+                s = u;
+            for (let i = 0; i < 40; i++) { // x(s) is increasing in s, so halving finds the s with x(s) = u
+                s = (lo + hi) / 2;
+                if (B(s, q[0], q[2]) < u)
+                    lo = s;
+                else
+                    hi = s;
+            }
+            return B(s, q[1], q[3]);
+        }
+        const morphBezierOk = q => Array.isArray(q) && q.length === 4 && q.every(v => Number.isFinite(+v)) && q[0] >= 0 && q[0] <= 1 && q[2] >= 0 && q[2] <= 1;
         function morphEase(u, e) {
             if (e === undefined)
                 e = state.morphEase;
+            if (Array.isArray(e))
+                return morphBezierEase(u, e);
             if (e === 'inout')
                 return u * u * (3 - 2 * u);
             if (e === 'in')
@@ -49254,7 +49279,7 @@
             return true;
         }
         function morphEasesOk(E, K) {
-            return Array.isArray(E) && E.length === (K === 2 ? 1 : K) && E.every(e => e == null || e === 'linear' || MORPH_EASES.includes(e));
+            return Array.isArray(E) && E.length === (K === 2 ? 1 : K) && E.every(e => e == null || e === 'linear' || MORPH_EASES.includes(e) || morphBezierOk(e));
         }
         // the stretch t is in (from key k), and how far along it, on the morph's own clock
         function morphStretchOf(run, t) {
@@ -51985,8 +52010,8 @@
             for (let k = 0; k < n; k++) {
                 const e = E[k],
                     cls = 'mr-step' + (e != null ? ' own' : ''),
-                    lab = e != null ? MR_EASE_LABEL[e] : '',
-                    tip = 'from key ' + (k + 1) + ' to key ' + ((k + 1) % K + 1) + ': ' + (e != null ? (e === 'linear' ? 'linear' : e === 'inout' ? 'in and out' : e) : "the bar's ease") + ' · click for the next, shift-click the one before';
+                    lab = e != null ? (Array.isArray(e) ? '∿' : MR_EASE_LABEL[e]) : '',
+                    tip = 'from key ' + (k + 1) + ' to key ' + ((k + 1) % K + 1) + ': ' + (e != null ? (Array.isArray(e) ? 'a curve of its own (' + e.join(', ') + ')' : e === 'linear' ? 'linear' : e === 'inout' ? 'in and out' : e) : "the bar's ease") + ' · click for the next, shift-click the one before';
                 html += `<button type="button" class="${cls}" data-s="${k}" data-part="0" title="${tip}">${lab}</button>`;
                 if (K > 2 && k === K - 1)
                     html += `<button type="button" class="${cls}" data-s="${k}" data-part="1" title="${tip}">${lab}</button>`;
@@ -74894,7 +74919,7 @@
                         for (const [k, K] of r.keys.entries()) {
                             take(K.x, K.y);
                             // ANTICIPATION AND OVERSHOOT: a pose goes up to about a sixth past a key, either way
-                            if (r.keys.length > 1 && (LEAVE.includes(state.morphEase) || (r.eases || []).some(e => LEAVE.includes(e)))) {
+                            if (r.keys.length > 1 && (LEAVE.includes(state.morphEase) || (r.eases || []).some(e => LEAVE.includes(e) || (Array.isArray(e) && (e[1] < 0 || e[1] > 1 || e[3] < 0 || e[3] > 1))))) {
                                 const N = r.keys[(k + 1) % r.keys.length];
                                 if (N !== K && N.x.length === K.x.length) {
                                     take(Float64Array.from(K.x, (v, i) => v + 0.16 * (v - N.x[i])), Float64Array.from(K.y, (v, i) => v + 0.16 * (v - N.y[i])));

@@ -31,6 +31,7 @@ const r3 = v => Math.round(v * 1000) / 1000;
 // coordinates to a hundredth of the composition's pixel: a twentieth of a device pixel on a 4K screen showing an 800 px
 // composition, and a tenth less to send than thousandths
 const r2 = v => Math.round(v * 100) / 100;
+const r6 = v => Math.round(v * 1e6) / 1e6;
 
 // ── a property at a frame ──
 // A cubic ease: the y of the curve (0,0) (x1,y1) (x2,y2) (1,1) where its x is u.
@@ -358,7 +359,9 @@ function drawingAt(L, f, note) {
         }
         for (let k = 0; k < n; k++)
             R.push(round > 0 ? round * S : 0);
-        ops.push({ key, x: X, y: Y, c: C, r: R, open: !closed, flat, fill: style.fill || null, stroke: style.stroke || null, w: (style.w || 0) * S, a: style.a });
+        // the map and the outline in its own coordinates, so a path that only moves can be told apart (ONE SHAPE, MOVED)
+        const sig = JSON.stringify([p.v, p.i, p.o, closed, round, style.w || 0].map(q => Array.isArray(q) ? q.map(e => Array.isArray(e) ? e.map(r6) : e) : q));
+        ops.push({ key, x: X, y: Y, c: C, r: R, open: !closed, flat, fill: style.fill || null, stroke: style.stroke || null, w: (style.w || 0) * S, a: style.a, M: M.slice(), sig });
     }
     // colours in 0–1, as files from Bodymovin 4.1.9 on write them; older ones wrote 0–255 (lottie-web converts them too)
     const old = (() => {
@@ -385,47 +388,169 @@ function gradMiddle(s, f) {
     return [k[m + 1], k[m + 2], k[m + 3], 1];
 }
 
-// ── frames to keys: Douglas–Peucker in time over each op's numbers ──
-function simplify(frames, tol, ctol) {
-    const n = frames.length;
+// ── frames to keys: Douglas–Peucker in time, each stretch straight or eased ──
+// (29 Oct 2026, Tom: "Yes", to keeping Lottie's own eases.) A stretch between two kept frames is first tried as a
+// straight blend; failing that, as a blend along a cubic Bézier ease fitted to the frames between (Lottie's own
+// keyframes are mostly such eases, so a stretch Lottie keyed once comes back as one stretch, not a frame every few);
+// failing both, it is split at its worst frame. `vec(k)` is frame k's numbers, `err(k, v)` how far numbers v are
+// from frame k in tolerances (1 is at the limit), `wt` how much each number moves the drawing, for fitting.
+function keyframes(n, vec, err, wt) {
     if (n <= 2)
-        return frames.map((_, i) => i);
-    const keep = new Uint8Array(n);
+        return { keep: n === 1 ? [0] : [0, 1], eases: n === 2 ? [''] : [] };
+    const V = [];
+    for (let k = 0; k < n; k++)
+        V.push(vec(k));
+    const D = V[0].length,
+        lerp = (A, B, s) => { const o = new Float64Array(D); for (let d = 0; d < D; d++) o[d] = A[d] + (B[d] - A[d]) * s; return o; };
+    function worst(a, b, ease) {
+        let w = 0, at = -1;
+        for (let k = a + 1; k < b; k++) {
+            const u = (k - a) / (b - a),
+                e = err(k, lerp(V[a], V[b], ease ? bez(u, ease) : u));
+            if (e > w) { w = e; at = k; }
+        }
+        return { w, at };
+    }
+    function fit(a, b) { // the ease through the frames between, as how far along each one is
+        let dd = 0;
+        for (let d = 0; d < D; d++) dd += wt[d] * wt[d] * (V[b][d] - V[a][d]) ** 2;
+        if (!(dd > 1e-18))
+            return null;
+        const U = [], Sv = [],
+            step = Math.max(1, Math.floor((b - a - 1) / 24)); // fitted on two dozen frames at most: every frame is checked after
+        for (let k = a + 1; k < b; k += step) {
+            let p = 0;
+            for (let d = 0; d < D; d++) p += wt[d] * wt[d] * (V[k][d] - V[a][d]) * (V[b][d] - V[a][d]);
+            U.push((k - a) / (b - a));
+            Sv.push(p / dd);
+        }
+        return fitBezier(U, Sv);
+    }
+    const keep = new Uint8Array(n), easeAt = new Map();
     keep[0] = keep[n - 1] = 1;
-    const err = (a, b, k) => {
-        const u = (k - a) / (b - a),
-            A = frames[a], B = frames[b], Q = frames[k];
-        let e = 0;
-        for (let d = 0; d < Q.g.length; d++)
-            e = Math.max(e, Math.abs(A.g[d] + (B.g[d] - A.g[d]) * u - Q.g[d]));
-        let ec = 0;
-        for (let d = 0; d < Q.col.length; d++)
-            ec = Math.max(ec, Math.abs(A.col[d] + (B.col[d] - A.col[d]) * u - Q.col[d]));
-        return Math.max(e / tol, ec / ctol);
-    };
     const stack = [[0, n - 1]];
     while (stack.length) {
         const [a, b] = stack.pop();
-        if (b - a < 2)
+        if (b - a < 2) {
+            easeAt.set(a, '');
             continue;
-        let worst = 0, at = -1;
-        for (let k = a + 1; k < b; k++) {
-            const e = err(a, b, k);
-            if (e > worst) {
-                worst = e;
-                at = k;
-            }
         }
-        if (worst > 1) {
-            keep[at] = 1;
-            stack.push([a, at], [at, b]);
+        const lin = worst(a, b, null);
+        if (lin.w <= 1) {
+            easeAt.set(a, '');
+            continue;
         }
+        const q = b - a >= 3 ? fit(a, b) : null,
+            bz = q ? worst(a, b, q) : null;
+        if (bz && bz.w <= 1) {
+            easeAt.set(a, q);
+            continue;
+        }
+        const at = bz && bz.w < lin.w ? bz.at : lin.at;
+        keep[at] = 1;
+        stack.push([a, at], [at, b]);
     }
     const out = [];
     for (let i = 0; i < n; i++)
         if (keep[i])
             out.push(i);
-    return out;
+    return { keep: out, eases: out.slice(0, -1).map(i => easeAt.get(i) || '') };
+}
+// a cubic Bézier ease from (0, 0) to (1, 1) with handles (x1, y1), (x2, y2), as CSS's cubic-bezier(): the morph
+// engine's own (morphBezierEase), written again here so this file stands alone
+function bez(u, q) {
+    if (u <= 0) return 0;
+    if (u >= 1) return 1;
+    const B = (s, a, b) => 3 * (1 - s) * (1 - s) * s * a + 3 * (1 - s) * s * s * b + s * s * s;
+    let lo = 0, hi = 1, s = u;
+    for (let i = 0; i < 40; i++) {
+        s = (lo + hi) / 2;
+        if (B(s, q[0], q[2]) < u) lo = s; else hi = s;
+    }
+    return B(s, q[1], q[3]);
+}
+// handles for points (u, s): x1 and x2 on a grid and then a finer one about the best, y1 and y2 by least squares
+function fitBezier(U, Sv) {
+    const solveTau = (u, x1, x2) => { // Newton's way from t = u, halving where the slope is too flat to trust
+        let t = u;
+        for (let i = 0; i < 6; i++) {
+            const x = 3 * (1 - t) * (1 - t) * t * x1 + 3 * (1 - t) * t * t * x2 + t * t * t - u,
+                dx = 3 * (1 - t) * (1 - t) * x1 + 6 * (1 - t) * t * (x2 - x1) + 3 * t * t * (1 - x2);
+            if (Math.abs(x) < 1e-7)
+                return t;
+            if (Math.abs(dx) < 1e-6)
+                break;
+            t = Math.max(0, Math.min(1, t - x / dx));
+        }
+        let lo = 0, hi = 1;
+        for (let i = 0; i < 30; i++) {
+            t = (lo + hi) / 2;
+            const x = 3 * (1 - t) * (1 - t) * t * x1 + 3 * (1 - t) * t * t * x2 + t * t * t;
+            if (x < u) lo = t; else hi = t;
+        }
+        return t;
+    };
+    let best = null;
+    const tryXs = (x1, x2) => {
+        let a11 = 0, a12 = 0, a22 = 0, b1 = 0, b2 = 0;
+        const T = U.map(u => solveTau(u, x1, x2));
+        for (let i = 0; i < U.length; i++) {
+            const t = T[i], p = 3 * (1 - t) * (1 - t) * t, q = 3 * (1 - t) * t * t, r = Sv[i] - t * t * t;
+            a11 += p * p; a12 += p * q; a22 += q * q; b1 += p * r; b2 += q * r;
+        }
+        const det = a11 * a22 - a12 * a12;
+        let y1, y2;
+        if (Math.abs(det) > 1e-12) {
+            y1 = (b1 * a22 - b2 * a12) / det;
+            y2 = (a11 * b2 - a12 * b1) / det;
+        } else
+            y1 = y2 = 0.5;
+        y1 = Math.max(-1, Math.min(2, y1));
+        y2 = Math.max(-1, Math.min(2, y2));
+        let e = 0;
+        for (let i = 0; i < U.length; i++) {
+            const t = T[i], v = 3 * (1 - t) * (1 - t) * t * y1 + 3 * (1 - t) * t * t * y2 + t * t * t;
+            e += (v - Sv[i]) ** 2;
+        }
+        if (!best || e < best.e)
+            best = { e, q: [x1, y1, x2, y2] };
+    };
+    for (let i = 0; i <= 10; i++)
+        for (let j = 0; j <= 10; j++)
+            tryXs(i / 10, j / 10);
+    const [c1, , c2] = best.q;
+    for (let i = -2; i <= 2; i++)
+        for (let j = -2; j <= 2; j++) {
+            const x1 = c1 + i / 40, x2 = c2 + j / 40;
+            if (x1 >= 0 && x1 <= 1 && x2 >= 0 && x2 <= 1)
+                tryXs(x1, x2);
+        }
+    return best.q.map(v => Math.round(v * 1000) / 1000);
+}
+// a 2×2 map with a move, [a, b, c, d, e, f] as x' = a·x + c·y + e, y' = b·x + d·y + f, as [tx, ty, θ, sx, sh, sy]:
+// a turn of θ times [[sx, sh], [0, sy]] (the QR split), θ kept near `near` so a turn unwinds rather than jumps
+function partsOf(M, near) {
+    const sx = Math.hypot(M[0], M[1]);
+    let th = sx > 1e-12 ? Math.atan2(M[1], M[0]) : (near || 0);
+    if (near != null)
+        th += Math.round((near - th) / (2 * Math.PI)) * 2 * Math.PI;
+    const cs = Math.cos(th), sn = Math.sin(th);
+    return [M[4], M[5], th, sx, cs * M[2] + sn * M[3], -sn * M[2] + cs * M[3]];
+}
+function matOf(q) {
+    const [tx, ty, th, sx, sh, sy] = q, cs = Math.cos(th), sn = Math.sin(th);
+    return [cs * sx, sn * sx, cs * sh - sn * sy, sn * sh + cs * sy, tx, ty];
+}
+// A·B⁻¹ for maps given as Lottie's y-down affines, turned into the page's y-up frame (y → −y on both sides)
+function relOf(A, B) {
+    const flip = m => [m[0], -m[1], -m[2], m[3], m[4], -m[5]],
+        a = flip(A), b = flip(B),
+        det = b[0] * b[3] - b[1] * b[2];
+    if (Math.abs(det) < 1e-12)
+        return null;
+    const bi = [b[3] / det, -b[1] / det, -b[2] / det, b[0] / det, (b[2] * b[5] - b[3] * b[4]) / det, (b[1] * b[4] - b[0] * b[5]) / det];
+    return [a[0] * bi[0] + a[2] * bi[1], a[1] * bi[0] + a[3] * bi[1], a[0] * bi[2] + a[2] * bi[3], a[1] * bi[2] + a[3] * bi[3],
+        a[0] * bi[4] + a[2] * bi[5] + a[4], a[1] * bi[4] + a[3] * bi[5] + a[5]];
 }
 const toLin = c => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
 const hexOf = rgb => '#' + rgb.slice(0, 3).map(v => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
@@ -478,7 +603,7 @@ function toScene(L, opts) {
     }));
     order.sort((a, b) => pos.get(a) - pos.get(b));
     const items = [], morphs = [];
-    let keysAll = 0, stills = 0;
+    let keysAll = 0, stills = 0, xforms = 0;
     for (const key of order) {
         const T = tracks.get(key);
         if (!T.frames.length)
@@ -496,8 +621,7 @@ function toScene(L, opts) {
         if (cur.length)
             runs.push(cur);
         for (const R of runs) {
-            const ks = simplify(R, tol, ctol),
-                o0 = R[0].o,
+            const o0 = R[0].o,
                 whole = R.length === N,
                 style = {
                     fill: o0.fill ? { color: hexOf(o0.fill), opacity: r3(o0.a) } : null,
@@ -506,8 +630,6 @@ function toScene(L, opts) {
                     strokeOpacity: o0.stroke ? r3(o0.a) : 1,
                     widthUnit: 'page' // a Lottie stroke's width is in the composition's units, so it scales with the drawing
                 };
-            if (o0.stroke && R.some(q => Math.abs(q.o.w - o0.w) > 1e-3 || Math.abs(q.o.a - o0.a) > 1e-3 || q.o.stroke.some((v, i) => Math.abs(v - o0.stroke[i]) > 1e-3)))
-                note('stroke keyed over time');
             const keyOf = q => ({ x: q.o.x.map(r2), y: q.o.y.map(r2), r: q.o.r.map(r2), c: q.o.c.map(e => e ? e.map(r2) : null) });
             if (whole && staticRun(R, tol, ctol)) { // drawn the whole time and never changing: a still
                 const k = keyOf(R[0]);
@@ -515,31 +637,123 @@ function toScene(L, opts) {
                 stills++;
                 continue;
             }
-            const keys = ks.map(i => keyOf(R[i]));
-            let times;
             const span = whole ? N : R.length,
-                f0 = whole ? ip : R[0].f;
-            times = ks.map(i => (R[i].f - f0) / span);
-            const kIdx = ks.slice();
-            if (keys.length > 2) { // the last pose held to the end of its window, not blended back to the first
-                if (times[times.length - 1] < 0.9998) {
-                    keys.push(keys[keys.length - 1]);
-                    kIdx.push(kIdx[kIdx.length - 1]);
-                    times.push(0.9999);
-                }
-            } else if (keys.length === 2)
-                times[1] = Math.min(1, times[1]);
-            const own = { straight: true };
-            if (keys.length > 1)
-                own.times = times.map(v => Math.round(v * 1e6) / 1e6);
-            const cols = kIdx.map(i => R[i].col);
-            if (cols.some(c => c.some((v, d) => Math.abs(v - cols[0][d]) > ctol)))
-                own.cols = cols.map(c => ({ r: r3(c[0]), g: r3(c[1]), b: r3(c[2]), a: r3(c[3]) }));
+                f0 = whole ? ip : R[0].f,
+                tOf = i => Math.round((R[i].f - f0) / span * 1e6) / 1e6,
+                colVar = R.some(q => q.col.some((v, d) => Math.abs(v - R[0].col[d]) > ctol)),
+                own = { straight: true };
             if (!whole) { // a layer that is not there the whole time: a clip, cut in and out
                 const start = (R[0].f - ip) / N,
                     len = Math.min(1 - start, R.length / N);
                 own.clip = { start: Math.round(start * 1e6) / 1e6, len: Math.round(len * 1e6) / 1e6, show: '', in: { kind: 'cut', len: 0 }, out: { kind: 'cut', len: 0 } };
             }
+            // ONE SHAPE, MOVED (29 Oct 2026, Tom: "Yes", to making these scenes smaller): an outline that never changes in
+            // its own coordinates, only its map, is one key (at the frame where the map is largest) and the map's parts
+            // by frame, read from Lottie's own matrices, not fitted
+            let ref = -1, refDet = 0;
+            if (opts.xform !== false && R.length > 1 && R.every(q => q.o.sig === o0.sig))
+                R.forEach((q, i) => {
+                    const d = Math.abs(q.o.M[0] * q.o.M[3] - q.o.M[1] * q.o.M[2]);
+                    if (d > refDet + 1e-12) {
+                        refDet = d;
+                        ref = i;
+                    }
+                });
+            if (ref >= 0 && refDet > 1e-9) {
+                const key = keyOf(R[ref]),
+                    P = []; // the points the map moves: corners and handles, to measure a blend in pixels
+                for (let i = 0; i < key.x.length; i++) {
+                    P.push(R[ref].o.x[i], R[ref].o.y[i]);
+                    const e = R[ref].o.c[i];
+                    if (e)
+                        P.push(e[0], e[1], e[2], e[3]);
+                }
+                let cx = 0, cy = 0;
+                for (let i = 0; i < P.length; i += 2) { cx += P[i]; cy += P[i + 1]; }
+                cx /= P.length / 2;
+                cy /= P.length / 2;
+                let rho = 1e-6;
+                for (let i = 0; i < P.length; i += 2)
+                    rho = Math.max(rho, Math.hypot(P[i] - cx, P[i + 1] - cy));
+                const Q = [];
+                let near = null;
+                for (const q of R) {
+                    const part = partsOf(relOf(q.o.M, R[ref].o.M), near);
+                    near = part[2];
+                    Q.push(part);
+                }
+                const truth = R.map((q, k) => { const m = matOf(Q[k]); return m; });
+                const err = (k, v) => {
+                    const m = matOf(v), t = truth[k];
+                    let e = 0;
+                    for (let i = 0; i < P.length; i += 2) {
+                        const x = P[i], y = P[i + 1];
+                        e = Math.max(e, Math.hypot(m[0] * x + m[2] * y + m[4] - (t[0] * x + t[2] * y + t[4]), m[1] * x + m[3] * y + m[5] - (t[1] * x + t[3] * y + t[5])));
+                    }
+                    e /= tol;
+                    for (let d = 0; d < 4; d++)
+                        e = Math.max(e, Math.abs(v[6 + d] - R[k].col[d]) / ctol);
+                    if (o0.stroke) // a line keeps its width only as the map's size: a stroke keyed apart from the map is not this
+                        e = Math.max(e, Math.abs(Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) * R[ref].o.w - R[k].o.w) / tol);
+                    return e;
+                };
+                const stroked = !o0.stroke || R.every((q, k) => { const m = truth[k]; return Math.abs(Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) * R[ref].o.w - q.o.w) <= tol && Math.abs(q.o.a - o0.a) <= ctol && q.o.stroke.every((v, i) => Math.abs(v - o0.stroke[i]) <= ctol); });
+                if (stroked) {
+                    const wt = [1 / tol, 1 / tol, rho / tol, rho / tol, rho / tol, rho / tol, 1 / ctol, 1 / ctol, 1 / ctol, 1 / ctol];
+                    const K = keyframes(R.length, k => Float64Array.from([...Q[k], ...R[k].col]), err, wt);
+                    const xform = {
+                        t: K.keep.map(tOf),
+                        v: K.keep.map(i => [r2(Q[i][0]), r2(Q[i][1]), r6(Q[i][2]), r6(Q[i][3]), r6(Q[i][4]), r6(Q[i][5])])
+                    };
+                    if (K.eases.some(Boolean))
+                        xform.e = K.eases.map(e => e || null);
+                    if (colVar)
+                        xform.c = K.keep.map(i => R[i].col.map(r3));
+                    if (o0.fill) // its colour where its key is; `c` carries it where it changes
+                        style.fill = { color: hexOf(R[ref].o.fill), opacity: r3(R[ref].o.a) };
+                    style.width = o0.stroke ? r3(R[ref].o.w) : 0;
+                    items.push({ morph: morphs.length });
+                    morphs.push(Object.assign({ exact: true, open: T.open, holes: null, keys: [key], inPlace: true, lag: 0, fx: null, own, xform }, style));
+                    keysAll += 1;
+                    xforms++;
+                    continue;
+                }
+            }
+            if (o0.stroke && R.some(q => Math.abs(q.o.w - o0.w) > 1e-3 || Math.abs(q.o.a - o0.a) > 1e-3 || q.o.stroke.some((v, i) => Math.abs(v - o0.stroke[i]) > 1e-3)))
+                note('stroke keyed over time');
+            // any other path: its frames as keys, each stretch straight or eased
+            const K = keyframes(R.length, k => Float64Array.from([...R[k].g, ...R[k].col]), (k, v) => {
+                const g = R[k].g, c = R[k].col;
+                let e = 0;
+                for (let d = 0; d < g.length; d++)
+                    e = Math.max(e, Math.abs(v[d] - g[d]));
+                e /= tol;
+                for (let d = 0; d < c.length; d++)
+                    e = Math.max(e, Math.abs(v[g.length + d] - c[d]) / ctol);
+                return e;
+            }, [...R[0].g.map(() => 1 / tol), ...R[0].col.map(() => 1 / ctol)]);
+            const ks = K.keep,
+                keys = ks.map(i => keyOf(R[i]));
+            const times = ks.map(tOf),
+                kIdx = ks.slice(),
+                eases = K.eases.map(e => e || null);
+            if (keys.length > 2) { // the last pose held to the end of its window, not blended back to the first
+                if (times[times.length - 1] < 0.9998) {
+                    keys.push(keys[keys.length - 1]);
+                    kIdx.push(kIdx[kIdx.length - 1]);
+                    times.push(0.9999);
+                    eases.push(null);
+                }
+                eases.push(null); // the stretch from the last key round to the first, never played
+            } else if (keys.length === 2)
+                times[1] = Math.min(1, times[1]);
+            if (keys.length > 1)
+                own.times = times;
+            if (keys.length > 1 && eases.some(Boolean))
+                own.eases = eases;
+            const cols = kIdx.map(i => R[i].col);
+            if (cols.some(c => c.some((v, d) => Math.abs(v - cols[0][d]) > ctol)))
+                own.cols = cols.map(c => ({ r: r3(c[0]), g: r3(c[1]), b: r3(c[2]), a: r3(c[3]) }));
             items.push({ morph: morphs.length });
             morphs.push(Object.assign({ exact: true, open: T.open, holes: null, keys, inPlace: true, lag: 0, fx: null, own }, style));
             keysAll += keys.length;
@@ -547,7 +761,7 @@ function toScene(L, opts) {
     }
     const scene = {
         format: 'tvf-scene',
-        v: 1,
+        v: xforms ? 2 : 1, // version 2 when a morph carries xform (papers/tvf.md §2.10)
         name: opts.name || L.nm || 'lottie',
         loop: N / fr,
         ease: '',
@@ -563,7 +777,7 @@ function toScene(L, opts) {
         morphs,
         from: { lottie: L.v || '', w: +L.w, h: +L.h, fr, frames: N }
     };
-    return { scene, report: { frames: N, fr, tracks: tracks.size, morphs: morphs.length, stills, keys: keysAll, unsupported: notes } };
+    return { scene, report: { frames: N, fr, tracks: tracks.size, morphs: morphs.length, stills, keys: keysAll, moved: xforms, unsupported: notes } };
 }
 function same(A, B, tol, ctol) {
     for (let d = 0; d < A.g.length; d++)

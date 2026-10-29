@@ -77,7 +77,7 @@
    "name": "from Lottie",
    "note": "a Lottie file of four layers (lottie-sample.json), read by player/lottie.js: every frame drawn as exact paths and kept as keys where a straight blend cannot stand in",
    "file": "lottie-sample.tvfs",
-   "bytes": 23487,
+   "bytes": 6449,
    "kind": "lottie"
   }
  ]

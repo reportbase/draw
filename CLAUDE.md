@@ -131,9 +131,20 @@ publishes.
     Colours from Bodymovin before 4.1.9 are 0–255. `player.html` and the played gallery's panel take a Lottie file;
     `node tools/lottie-to-tvfs.mjs in.json … [--out dir] [--tol px]` writes `.tvfs` files. Measured against
     lottie-web's canvas renderer (its repo's demos, MIT, not committed): within 0.1–1.5 of 255 on the files it reads
-    whole; adrock's mask and happy2016's gradients are where it parts. Baked keys are bigger than Lottie's
-    parametric ones (gzipped 1.8 to 21 times: the longer and more keyed by hand a file, the more). For size: lottie-web's light player is 46 KB gzipped, ours with
-    `tvf-core.js` about 48.
+    whole; adrock's mask and happy2016's gradients are where it parts. For size: lottie-web's light player is 46 KB
+    gzipped, ours with `tvf-core.js` about 48.
+    **Smaller scenes** (29 Oct 2026, Tom: "Any options to reduce the size of the lottie to tvf convert.", then "Yes" to
+    two of them): ONE SHAPE, MOVED: a path whose outline never changes in its own coordinates (`sig` in `emit`), only
+    its map, is one key and a morph's `xform` ({t, v: [tx, ty, θ, sx, sh, sy] per key, e, c}, the map split as a
+    turn times an upper triangle so a turn keeps its size between keys), the parts read from Lottie's matrices
+    (`relOf`, `partsOf`), which needs the scene's version 2 (the player reads 1 and 2; `xformPose`, `fillOf`, the
+    line width by √|det|). A CURVE OF ITS OWN: every stretch between kept frames (`keyframes`) is straight, or a
+    cubic Bézier ease fitted to the frames between (`fitBezier`: x1, x2 on a grid, y1, y2 by least squares, on two
+    dozen frames, every frame then checked), or split; the engine's `morphEase` takes `[x1, y1, x2, y2]` arrays
+    (`morphBezierEase`, `morphBezierOk`), for shape keys too. Gzipped against the Lottie file: gatin 36 → 5.9 KB
+    (Lottie 4.5), adrock 249 → 29 (12), bacon 210 → 105 (52), happy2016 94 → 79 (53), bodymovin 259 → 212 (135),
+    the same pixels against lottie-web as before; conversion 0.4–2.4 s. A stretch has one ease for all its parts, so a
+    shape whose position and scale Lottie keyed apart takes more keys (the sample's ball, 17 of 60 frames).
   - **Examples**: `player/interactive/` (a menu, play/pause, a switch, a button, a card, a line drawn by the scroll;
     the gallery's ball, lantern and jelly with touch on; `lottie-sample.json`, a Lottie of our own, and its scene),
     written with `index.json` by `node tools/write-interactive.mjs`: after changing it or `player/lottie.js`, run it,
