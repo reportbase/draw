@@ -63,6 +63,16 @@
    ]
   },
   {
+   "id": "text",
+   "title": "vector text",
+   "note": "Text as shapes: a word is its letters' outlines, so it can be drawn on, popped in or morphed like anything else. SVG text in a scene is traced when the scene opens, so no font is needed to play it; a morph between two words wants letters of the same kind (no counters, or the same number of them), since a hole rides one key and does not morph.",
+   "ids": [
+    "word-morph",
+    "word-draw",
+    "word-pop"
+   ]
+  },
+  {
    "id": "corners",
    "title": "first steps: corners kept",
    "note": "Exact shapes morph as exact shapes: their corners, radii and curve edges blended, so a sharp corner stays sharp the whole way. A key with fewer corners is given more on its edges, which draws it the same.",
@@ -475,6 +485,33 @@
     "drift",
     "spin"
    ]
+  },
+  "word-morph": {
+   "name": "one word into another",
+   "note": "SUNSET and ZENITH, letter for letter: each of the six is a shape of its own, and the S, U, N, S, E and T become Z, E, N, I, T and H and back. Each pair is paired corner to corner by the editor, with more corners given to the letter that has fewer, and the letters turn a beat apart so the change runs along the word like a wave. The letters have no counters, so none has a hole to lose.",
+   "tags": [
+    "letters",
+    "morph",
+    "phase"
+   ]
+  },
+  "word-draw": {
+   "name": "written, then filled",
+   "note": "A word set in the scene as ordinary SVG text. The editor traces it into letter shapes, so no font travels with the scene, and a draw-on clip takes the letters in turn, each outlined as a pen would go and filled as it ends.",
+   "tags": [
+    "text",
+    "draw on",
+    "stagger"
+   ]
+  },
+  "word-pop": {
+   "name": "letters popping in",
+   "note": "ZENITH, each letter its own shape with its own pop: from nothing to its size, overshooting, a little after the one before. A motion is computed, not keyed, so there is a key to set per letter and nothing else.",
+   "tags": [
+    "letters",
+    "pop",
+    "stagger"
+   ]
   }
  },
  "bytes": {
@@ -517,6 +554,9 @@
   "lag": 17194,
   "explainer": 3611,
   "leaves": 33573,
-  "bridge": 203030
+  "bridge": 203030,
+  "word-morph": 17264,
+  "word-draw": 12456,
+  "word-pop": 5412
  }
 }

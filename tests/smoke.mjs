@@ -809,6 +809,15 @@ current = 'examples';
     if (!s || s.K !== 2 || !s.exact || !s.play) throw new Error('square to star did not open as a live exact morph of two keys: ' + JSON.stringify(s));
     s = await open('procession');
     if (!s || !s.path || !s.path.closed || s.runs !== 3 || s.trail !== 'echoes') throw new Error('the procession did not open as three shapes on a closed path: ' + JSON.stringify(s));
+    // VECTOR TEXT (29 Oct 2026, Tom: "Tvf would be good for vector text effects and morphs"): a word's letters, each its own
+    // shape. SUNSET into ZENITH is six morphs of three keys (word, word, back), no letter with a hole to lose; the popping
+    // word six one-key letters; the written word comes in as the editor's traced letters.
+    s = await open('word-morph');
+    if (!s || s.runs !== 7 || s.K !== 3 || !s.exact) throw new Error('SUNSET into ZENITH did not open as six exact letters (and the paper) of three keys: ' + JSON.stringify(s));
+    s = await open('word-pop');
+    if (!s || s.runs !== 7) throw new Error('the popping letters opened as ' + (s && s.runs) + ' shapes');
+    s = await open('word-draw');
+    if (!s || s.runs !== 6) throw new Error('the written word opened as ' + (s && s.runs) + ' shapes, not the paper and five letters');
     s = await open('shimmer');
     const fx = await ep.evaluate(() => document.getElementById('morphFx').value);
     if (!s || s.K !== 1 || s.exact || fx !== 'shimmer') throw new Error('the shimmering leaf did not open as a leaf still with shimmer: ' + JSON.stringify(s) + ' ' + fx);

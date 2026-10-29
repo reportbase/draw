@@ -74146,6 +74146,7 @@
             // a morph naming a label made once a part: every key a label with as many parts (or one key), each copy
             // taking the next part of each; drawn on, the parts take the window in turn, left to right
             window.__sceneLabelMorphs = (d, L) => sceneLabelMorphs(d, L);
+            window.__sceneTextRings = sceneTextRings; // the glyph rings of a text, for tools/write-glyphs.mjs (29 Oct 2026, text effects)
             window.__sceneTextBox = str => { // the vertical extent of a label's rings at 40 px, baseline 100 (the smoke test)
                 let y0 = Infinity, y1 = -Infinity;
                 for (const r of sceneTextRings(str, 40, 'sans-serif', '', 'start', 0, 100))

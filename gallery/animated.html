@@ -1991,6 +1991,34 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     scene: { loop: 4, morphs: [1, 2, 3].map((k, i) => ({ keys: [k], spin: [2, -3, 3][i], motion: { kind: 'drift', to: [[-6, 6, 2][i], -30], amount: 1.2 }, emit: { count: 20, spread: [16, 2], vary: 0.7, seed: 3 + i } })) }
   });
 }
+// 14. VECTOR TEXT (29 Oct 2026, Tom: "Tvf would be good for vector text effects and morphs"): letters as shapes.
+// The outlines are baked (tools/glyph-rings.mjs traced them from a bold sans-serif at 100 px), so these examples need
+// no font. SUNSET and ZENITH have no counters, so every letter is one ring and morphs whole; a letter with a hole
+// (O, A, B, R) keeps its hole only as a still, and would have to fade where the other word has none.
+const GLYPH_WORDS = {"SUNSET":["M49.6 70.1L61.6 71.2L69.0 74.1L74.3 79.6L77.1 86.9L63.5 89.1L60.6 84.0L57.5 81.7L46.7 80.4L38.4 83.3L36.8 85.8L36.8 91.1L38.0 93.2L43.2 96.3L63.8 101.5L73.8 106.7L77.7 112.5L78.9 122.6L76.1 130.9L69.6 136.8L61.0 139.8L46.4 140.9L35.9 139.3L27.2 135.1L22.5 130.2L19.3 122.4L32.7 119.8L38.3 127.5L48.4 130.1L58.1 129.1L64.1 124.9L64.7 118.5L61.3 114.4L31.4 105.1L26.6 101.5L23.0 94.8L23.1 83.6L27.9 76.2L36.8 71.6Z","M89.0 71.4L103.2 71.4L104.0 119.2L106.5 124.5L109.8 127.5L114.8 129.3L120.4 129.6L125.5 128.5L129.5 126.1L132.6 122.3L134.1 117.8L134.7 71.4L148.8 71.3L148.6 119.1L146.3 126.7L140.5 134.1L131.9 138.9L115.6 140.9L102.5 137.9L94.9 132.3L91.9 127.9L89.3 119.7Z","M161.9 71.4L178.4 71.4L208.5 124.1L207.9 71.5L220.6 71.4L220.6 139.7L203.6 139.6L174.0 87.6L174.6 139.6L161.9 139.7Z","M260.8 70.1L272.7 71.2L280.2 74.1L285.5 79.6L288.2 86.9L274.6 89.1L271.7 84.0L268.7 81.7L257.8 80.4L252.3 81.5L248.6 84.5L247.5 89.4L249.2 93.2L254.3 96.3L274.9 101.5L281.9 104.5L287.8 110.4L290.0 117.4L288.5 128.6L282.9 135.4L276.0 138.8L264.0 140.9L253.1 140.4L242.0 137.3L234.9 131.9L230.4 122.4L243.8 119.8L249.5 127.5L259.5 130.1L269.2 129.1L275.2 124.9L275.8 118.5L272.5 114.4L242.5 105.1L237.8 101.5L234.1 94.8L234.3 83.6L239.0 76.2L247.9 71.6Z","M300.9 71.4L354.8 71.4L354.6 82.2L315.4 82.5L315.5 99.4L351.6 99.5L352.0 109.7L351.3 110.6L315.5 110.7L315.3 128.1L356.5 128.8L356.5 139.8L300.9 139.7Z","M362.1 71.4L420.6 71.4L420.5 82.2L398.5 82.6L398.1 139.8L384.1 139.6L383.9 82.5L362.2 82.2Z"],"ZENITH":["M48.2 71.4L97.6 71.4L97.4 81.4L60.7 128.3L99.3 128.6L99.3 139.8L44.5 139.7L44.6 129.5L81.3 82.7L48.4 82.4Z","M109.3 71.4L163.2 71.4L162.9 82.2L123.8 82.5L123.9 99.4L160.0 99.5L160.4 109.7L159.7 110.6L123.9 110.7L123.6 128.1L164.9 128.8L164.9 139.8L109.3 139.7Z","M175.9 71.4L192.5 71.4L222.6 124.1L221.9 71.5L234.7 71.4L234.7 139.7L217.6 139.6L188.0 87.6L188.6 139.6L175.9 139.7Z","M248.2 71.4L262.5 71.7L261.8 139.9L248.1 139.4Z","M270.4 71.4L329.2 71.4L328.9 82.2L307.1 82.6L306.7 139.8L292.6 139.6L292.5 82.5L270.5 82.2Z","M337.0 71.4L351.3 71.4L351.4 97.8L352.3 98.5L381.0 98.4L381.4 71.4L395.6 71.4L395.4 139.8L381.4 139.7L381.0 110.5L352.3 110.4L351.4 111.1L351.3 139.7L337.0 139.7Z"]};
+{
+  const COLS = ['#e0475a', '#e8833a', '#f2c14e', '#4fae7a', '#4f8fd6', '#7c5cff'],
+    paper = rectP(0, 0, 440, 200, '#f4f1ea'),
+    letters = (word, fills) => GLYPH_WORDS[word].map((d, i) => `<path d="${d}" fill="${fills[i % fills.length]}"/>`).join('');
+  SHOWPIECES.push({
+    id: 'word-morph', name: 'one word into another', section: 'text', tags: ['letters', 'morph', 'phase'],
+    note: 'SUNSET and ZENITH, letter for letter: each of the six is a shape of its own, and the S, U, N, S, E and T become Z, E, N, I, T and H and back. Each pair is paired corner to corner by the editor, with more corners given to the letter that has fewer, and the letters turn a beat apart so the change runs along the word like a wave. The letters have no counters, so none has a hole to lose.',
+    svg: svg(440, 200, paper + letters('SUNSET', COLS) + letters('ZENITH', COLS)),
+    scene: { loop: 4, ease: 'inout', hold: 0.25, morphs: Array.from({ length: 6 }, (_, i) => ({ keys: [1 + i, 7 + i, 1 + i], phase: +(i * 0.07).toFixed(2) })) }
+  });
+  SHOWPIECES.push({
+    id: 'word-draw', name: 'written, then filled', section: 'text', tags: ['text', 'draw on', 'stagger'],
+    note: 'A word set in the scene as ordinary SVG text. The editor traces it into letter shapes, so no font travels with the scene, and a draw-on clip takes the letters in turn, each outlined as a pen would go and filled as it ends.',
+    svg: svg(440, 200, paper + '<text x="220" y="136" font-size="104" font-family="sans-serif" font-weight="700" text-anchor="middle" fill="#3b4256">Morph</text>'),
+    scene: { loop: 5, ease: 'inout', morphs: [{ keys: [1], clip: { start: 0.04, len: 0.86, in: { kind: 'draw', len: 0.6 }, out: { kind: 'fade', len: 0.08 } } }] }
+  });
+  SHOWPIECES.push({
+    id: 'word-pop', name: 'letters popping in', section: 'text', tags: ['letters', 'pop', 'stagger'],
+    note: 'ZENITH, each letter its own shape with its own pop: from nothing to its size, overshooting, a little after the one before. A motion is computed, not keyed, so there is a key to set per letter and nothing else.',
+    svg: svg(440, 200, paper + letters('ZENITH', COLS)),
+    scene: { loop: 3, morphs: Array.from({ length: 6 }, (_, i) => ({ keys: [1 + i], motion: { kind: 'pop', amount: 0.8 }, clip: { start: +(0.04 + i * 0.08).toFixed(2), len: +(0.96 - 0.04 - i * 0.08).toFixed(2), in: { kind: 'cut', len: 0 }, out: { kind: 'fade', len: 0.04 } } })) }
+  });
+}
 EXAMPLES.push(...SHOWPIECES);
 
 const SECTIONS = [
@@ -2004,6 +2032,8 @@ const SECTIONS = [
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
   { id: 'more', title: 'chains, contact and emitters', ids: ['one-after', 'onto', 'snow', 'confetti'],
     note: 'Motions one after another (a chain, each step from where the last ended), motions set onto other shapes (a table, a shelf, a wall), and one shape made many times over with its own phase and a little variation (emit), which is how rain, snow and confetti are drawn: one drop, one flake, one scrap.' },
+  { id: 'text', title: 'vector text', ids: ['word-morph', 'word-draw', 'word-pop'],
+    note: 'Text as shapes: a word is its letters\' outlines, so it can be drawn on, popped in or morphed like anything else. SVG text in a scene is traced when the scene opens, so no font is needed to play it; a morph between two words wants letters of the same kind (no counters, or the same number of them), since a hole rides one key and does not morph.' },
   { id: 'corners', title: 'first steps: corners kept', ids: ['square-star', 'shape-loop', 'heartbeat'],
     note: 'Exact shapes morph as exact shapes: their corners, radii and curve edges blended, so a sharp corner stays sharp the whole way. A key with fewer corners is given more on its edges, which draws it the same.' },
   { id: 'feel', title: 'first steps: anticipation and overshoot', ids: ['snap', 'boing'],
