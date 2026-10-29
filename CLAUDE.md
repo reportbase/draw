@@ -113,6 +113,12 @@ publishes.
   **corner** (π/4) and the **horizon** (π/2), the reader's **unit circle** (not the virtual circle), the
   **reconstruction** (not the presentation), the reader's and the writer's (not inside and outside). Other papers
   are cited by their own titles (*The Observation Atom* keeps its name).
+  Since 29 Oct 2026 (Tom: "update the tb paper with new wander framing") both Tangent Bridge presentations follow
+  wander's *Observation from Somewhere* where they touch it: the Cauchy is the one **rotation-invariant** law, the
+  Möbius maps carrying its family into itself (never "the unique Möbius-invariant distribution": no probability law
+  is); the leaf positions are **addresses** and $F$'s values there the **payload**; and §15.2's pan × tilt torus is a
+  parametrization whose even grid is not the uniform measure on directions (on an octant $v \le h$ 0.34258 against
+  ½, the near field 0.23263 against ⅓), with turns of space not commuting and the plane's one law parting on $S^2$.
   The editor's and the gallery's words follow (28 Oct 2026, Tom: "yes"): what draw.html called an atom is a **leaf**
   where it meant a place read, a **reader** where it meant one of the labs' instruments (the radial, angular and area
   readers; the two- and three-reader tests), a **quarter** where it meant a quarter-turn of the line of sight (the
