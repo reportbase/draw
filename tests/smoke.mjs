@@ -3679,6 +3679,27 @@ await step('the scrolling explainer', async () => {
   }
   await bp.close();
   if (bt.some((t, i) => i && !(t > bt[i - 1])) || !(bt[3] > 0.99)) throw new Error('the Tangent Bridge clock against the scroll: ' + bt.join(' '));
+  // WHERE IT SHOWS UP (?x=pictures, 1 Nov 2026): essay 7's three pictures in six beats and a closing one, the switcher on
+  // it, the clock following the reading, and the scene's own features there: a beam spun in a clip, two paths ridden,
+  // two plotted laws as one morph's keys, eases given as cubic Béziers, and labels into labels
+  const pp = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+  pp.on('pageerror', e => failures.push(`[explained ?x=pictures] ${e.message}`));
+  await pp.route(/fonts\.g/, r => r.abort());
+  await pp.goto(new URL('gallery/explained.html?x=pictures', base).href, { waitUntil: 'load' });
+  await pp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
+  const xq = await pp.evaluate(async () => { const sc = await (await fetch('../player/examples/pictures.tvfs')).json(), M = sc.morphs || [];
+    return [window.__explained.beats, window.__explained.titles[0], document.querySelector('#xs a.on') && document.querySelector('#xs a.on').dataset.x,
+      M.filter(m => m.own && m.own.spin).length, M.filter(m => m.own && m.own.path != null).length, (sc.stops || []).length, (sc.camera || []).length]; });
+  const pt = [];
+  for (const f of [0.15, 0.5, 0.85]) {
+    await pp.evaluate(f => scrollTo({ top: f * (document.documentElement.scrollHeight - innerHeight), behavior: 'instant' }), f);
+    await pp.waitForTimeout(120);
+    pt.push(await pp.evaluate(() => window.__explained.ctl.t));
+  }
+  await pp.close();
+  if (xq[0] !== 7 || xq[1] !== 'A lamp turns over a straight shore' || xq[2] !== 'pictures' || xq[3] < 1 || xq[4] < 2 || xq[5] !== 5 || xq[6] < 10)
+    throw new Error('the where-it-shows-up explainer: ' + JSON.stringify(xq));
+  if (pt.some((t, i) => i && !(t > pt[i - 1]))) throw new Error('the where-it-shows-up clock against the scroll: ' + pt.join(' '));
 });
 
 /* TEXT IN A SCENE, AND AN EXPLAINER'S BEATS. A scene link's <text> comes in as exact shapes, one a part of each

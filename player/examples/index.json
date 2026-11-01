@@ -37,7 +37,8 @@
     "turned",
     "addresses",
     "nearfar",
-    "standpoints"
+    "standpoints",
+    "pictures"
    ]
   },
   {
@@ -428,6 +429,18 @@
     "essay"
    ]
   },
+  "pictures": {
+   "name": "where it shows up",
+   "note": "The seventh of wander's essays, and the pictures of Readers and Writers §3, in six beats: a lamp turning evenly over a straight shore, its flashes landing as the Cauchy with half within one lamp-distance; the shore drawn at twice the sea's scale and the corner sliding off; a globe opened into Mercator's chart, the rhumb line straightening and Greenland swelling; a sky of stars crowding toward the motion and brightening ahead; then all three at once. The scene of the explainer page's eighth explainer.",
+   "tags": [
+    "spin",
+    "path",
+    "plot",
+    "camera",
+    "labels",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -621,6 +634,7 @@
   "turned": 124042,
   "reading": 166525,
   "nearfar": 198335,
-  "standpoints": 135539
+  "standpoints": 135539,
+  "pictures": 250668
  }
 }

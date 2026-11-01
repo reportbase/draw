@@ -485,7 +485,17 @@ publishes.
     the crossing, the target walked through the circle on the baseline with its error patch, the four crossings of the
     rays turned ±ε, round at the corner and stretched elsewhere, opening into a ray past about 10 half-baselines at
     ε = 0.1, then one counted baseline writing the distance in cm or AU). The new warning caught a fault in the second
-    while it was made: a walk whose first time equalled its second, its times dropped. Beat
+    while it was made: a walk whose first time equalled its second, its times dropped.
+    `?x=pictures` is WHERE IT SHOWS UP (1 Nov 2026, Tom: "lets do a top quality explainer with the best features, to test
+    high end explainiers."; essay 7 and wander's *Readers and Writers* §3), six beats across three panels laid side by side:
+    a lamp's two-sided beam spun half a turn in a clip with echoes, its twelve flashes popping onto the shore as it passes
+    (at α + β·tan θ), half within one lamp-distance, the Cauchy plotted under the shore; the shore drawn at c = 2 (marks,
+    corner rays and law as keys, the corner at arctan 2) and back; a globe's grid, two countries and a rhumb line opened
+    point for point into Mercator's chart (open lines morphing, a ship riding each path turned along it); twelve stars
+    crowding forward under aberration at η = 0.8 and 1.6, drawn larger by √D; then all three. Cubic Bézier eases, labels
+    into labels with a superscript, a camera of 12 keys. Found making it: labels into labels cannot repeat a key (each key
+    is its own clip, so A, B, A needs a second A); a clip's key times are relative to its own window; a clip holding its
+    first pose before its window needs an `in` (a path rider given `cut`). Beat
     words take a blank line between paragraphs, `**bold**`, `*italic*` and `[a link](address)`, a link into
     `papers.html` drawn as the paper pill.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
