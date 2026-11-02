@@ -2563,25 +2563,42 @@ function drawStill(ctx, V, st) {
     }
     ctx.restore();
 }
-function drawScene(ctx, S, t, w, h) {
-    const V = viewOf(S, w, h, t);
+// HIGHLIGHTS TIED TO THE WORDS (2 Nov 2026, Tom: "proceed", the last of the explainer recommendations: the part
+// of the picture the text is talking about lights up). `lit`, a list of morph indices (or none), dims every other
+// morph and the trails to LIT_DIM (stills, mostly the ground, are left as they are) and rings the lit morphs'
+// drawn poses in gold, over what they paint. Nothing in the scene says what is lit: a page asks
+// (ctl.highlight), so a scene file is unchanged and a reader that ignores it loses nothing.
+const LIT_DIM = 0.22, LIT_RING = 'rgba(214, 156, 18, 0.95)';
+function drawScene(ctx, S, t, w, h, lit) {
+    const V = viewOf(S, w, h, t),
+        L = lit && lit.length ? new Set(lit) : null;
     use(S);
     morphLive.t = t;
+    if (L) {
+        ctx.save();
+        ctx.globalAlpha = LIT_DIM;
+    }
     drawTrails(ctx, S, V, t);
+    if (L)
+        ctx.restore();
+    const rings = [];
     for (const it of S.items) {
         ctx.beginPath();
-        if (it.still) {
+        if (it.still) { // a still is left as it is: it is mostly the ground the rest stands on
             drawStill(ctx, V, it.still);
             continue;
         }
         const run = it.run,
+            on = L && L.has(S.runs.indexOf(run)),
             sf = morphShowFactor(run, t), // undefined: always seen
-            fade = sf == null ? 1 : sf;
+            fade = (sf == null ? 1 : sf) * (L && !on ? LIT_DIM : 1);
         if (!(fade > 0))
             continue;
         const P = poseOf(run, t),
             fill = fillOf(run, t),
             f = morphDrawFactor(run, t);
+        if (on)
+            rings.push([run, P]);
         if (f != null && f < 1) { // DRAWING A LINE ON
             drawOn(ctx, V, run, P, f, fade, fill);
             continue;
@@ -2593,6 +2610,21 @@ function drawScene(ctx, S, t, w, h) {
         } else
             traceLeaves(ctx, V, P.x, P.y);
         paint(ctx, fill, run.sp.stroke, run.sp.lineWidth * (run.sp.page ? V.k * (P.wk || 1) : 1), run.sp.strokeOpacity, fade, run.open);
+    }
+    if (rings.length) {
+        ctx.save();
+        ctx.strokeStyle = LIT_RING;
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = Math.max(2, Math.min(w, h) / 260);
+        for (const [run, P] of rings) {
+            ctx.beginPath();
+            if (run.exact)
+                traceExactPose(ctx, V, P, run.open);
+            else
+                traceLeaves(ctx, V, P.x, P.y);
+            ctx.stroke();
+        }
+        ctx.restore();
     }
 }
 // ── INTERACTIVE SCENES (29 Oct 2026, Tom: "1,2,4", the first "interactive scenes") ──────────────────────────
@@ -2909,7 +2941,7 @@ function playOn(canvas, src, opts) {
             ctx.fillStyle = opts.background;
             ctx.fillRect(0, 0, w, h);
         }
-        drawScene(ctx, S, ctl.t, w, h);
+        drawScene(ctx, S, ctl.t, w, h, ctl.lit);
         if (ctl.playing || ctl.goal || busy || held)
             ctl.raf = requestAnimationFrame(frame);
         else
@@ -2946,6 +2978,14 @@ function playOn(canvas, src, opts) {
             sx = r.width / w,
             sy = r.height / h;
         return { x: r.left + V.px((B.x0 + B.x1) / 2) * sx, y: r.top + V.py((B.y0 + B.y1) / 2) * sy, w: (B.x1 - B.x0) * V.k * sx, h: (B.y1 - B.y0) * V.k * sy };
+    };
+    // HIGHLIGHTS: morph indices to light (the rest dimmed), or none
+    ctl.lit = null;
+    ctl.highlight = v => {
+        const n = ctl.scene ? ctl.scene.runs.length : Infinity,
+            a = v == null ? [] : (Array.isArray(v) ? v : [v]).map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < n);
+        ctl.lit = a.length ? a : null;
+        kick();
     };
     ctl.playOnce = () => { ctl.t = 0; ctl.goal = null; ctl.once = true; ctl.playing = true; kick(); };
     // STOPS: go on from one (from the end, start again), or back to the one before and wait there

@@ -680,7 +680,7 @@ by ignoring what is new.
 | `trail` | `{kind: "echoes" | "ribbon", len: 0–1}` for morphs with none of their own, or null | null |
 | `camera` | keys `{t, box: [x0, y0, x1, y1]}` in page units: the view fits the box (below) | `[]` |
 | `stops` | times in (0, 1) where playing waits (below) | `[]` |
-| `beats` | one more than the stops: `{title, text}` for each stretch between them, the words an explainer page shows beside it (`**bold**` allowed, nothing else read as markup) | none |
+| `beats` | one more than the stops: `{title, text}` for each stretch between them, the words an explainer page shows beside it (`**bold**`, `*italic*` and `[words](address)` allowed; `[words](#lit:6-17,19)` names morphs by index, a-b a range, which the page lights while the phrase is pointed at, the player's `ctl.highlight`; a reader that does not know it keeps the words) | none |
 | `path` | a path every morph rides that has none of its own (below), or null | null |
 | `items` | the drawing, back to front | required |
 | `morphs` | the animated shapes | required |

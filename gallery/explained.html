@@ -1400,7 +1400,11 @@ function beatsOf(scene, E) {
     edges = [0, ...st, 1],
     B = scene.beats || [],
     esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
-    link = (t, u) => /^(\.\.?\/|https:\/\/|#)[^\s"'<>]*$/.test(u)
+    // HIGHLIGHTS TIED TO THE WORDS (2 Nov 2026): [words](#lit:6-17,19) is a phrase that lights those morphs of the
+    // scene (by index, a-b a range) while it is pointed at, touched or focused; any other reader of the beats
+    // (the video's subtitles, an older page) keeps the words and loses only the light
+    link = (t, u) => /^#lit:[\d,-]+$/.test(u) ? `<span class="lit" tabindex="0" data-lit="${u.slice(5)}">${t}</span>`
+      : /^(\.\.?\/|https:\/\/|#)[^\s"'<>]*$/.test(u)
       ? `<a${/papers\.html/.test(u) ? ' class="paper"' : ''} href="${u}">${t}</a>` : t,
     words = v => esc(v).split(/\n\s*\n/).map(p => '<p>' + p.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, u) => link(t, u))
       .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*([^*\s][^*]*?)\*/g, '<em>$1</em>') + '</p>').join('');
@@ -1601,9 +1605,29 @@ beats.forEach(b => {
   }
   requestAnimationFrame(tick);
 })();
+// the lit phrases: pointed at, touched or focused, their morphs light and the rest dims
+const litOf = v => v.split(',').flatMap(r => { const [a, b] = r.split('-').map(Number); return Number.isInteger(b) && b >= a ? Array.from({ length: b - a + 1 }, (_, i) => a + i) : [a]; });
+document.querySelectorAll('.beat .lit').forEach(el => {
+  const beat = el.closest('.beat'), to = +beat.dataset.to, from = +beat.dataset.from;
+  const on = () => { // the clock to the end of the phrase's beat, where what it names has come, unless it is in the
+    // beat's last part already; the scroll leaves it there until the reader scrolls on, as the dial's
+    if (!ctl.playing && !(ctl.t > from + 0.6 * (to - from) && ctl.t <= to)) {
+      watching && stopWatch();
+      dialAt = scrollY;
+      ctl.seek(Math.max(from, to - 0.002));
+    }
+    ctl.highlight(litOf(el.dataset.lit));
+  }, off = () => ctl.highlight(null);
+  el.addEventListener('pointerenter', on);
+  el.addEventListener('pointerleave', off);
+  el.addEventListener('focus', on);
+  el.addEventListener('blur', off);
+  el.addEventListener('touchstart', on, { passive: true });
+  el.addEventListener('touchend', () => setTimeout(off, 1600), { passive: true });
+});
 ctl.ready.then(() => { follow(); if (Q.get('watch') === '1') startWatch(); });
 window.__explained = { ctl, tFromScroll, beats: beats.length, titles: beats.map(b => (b.querySelector('h2') || {}).textContent), playing: () => playing,
-  watching: () => watching, startWatch, stopWatch }; // for the smoke test
+  watching: () => watching, startWatch, stopWatch, litOf }; // for the smoke test
 }
 </script>
 </body>
