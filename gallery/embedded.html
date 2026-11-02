@@ -2426,6 +2426,174 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 21. WHERE IT SHOWS UP (1 Nov 2026, Tom: "what explainers should we do. lets do a top quality explainer with the best
+// features, to test high end explainiers."): essay 7 (papers/essays/07-where-it-shows-up.md) and the four pictures of
+// Readers and Writers §3, in six beats, the scene of explained.html?x=pictures. Three pictures that already make the
+// split between where a thing is seen and what arrives there, each computed: a lamp turning evenly over a straight
+// shore, its twelve flashes at (k + ½)·15° from the shore's perpendicular landing at α + β·tan θ, half of them within
+// one lamp-distance of the foot, and the landings' law, β/π(β² + (x − α)²), plotted from its formula under the shore;
+// the shore drawn at twice the sea's scale, every mark twice as far out, the law twice as wide and the halfway flash
+// landing where the lamp sees arctan 2, 63.4°, so the corner slides off; a globe (an orthographic view: meridians every
+// 30°, parallels at 0°, ±30°, ±60°, Greenland and Africa as rough ovals in longitude and latitude, a rhumb line at one
+// bearing spiralling up it) opened into Mercator's chart, x = R·λ, y = R·ln tan(π/4 + φ/2), every line and outline
+// carried point for point, the rhumb line straight and Greenland swollen by sec² of its latitude while Africa barely
+// grows; and a sky of twelve stars seen by an observer moving up the page at rapidity η = 0, 0.8 and 1.6, each moved
+// by aberration, cos θ′ = (cos θ + β)/(1 + β cos θ) with β = tanh η, and drawn larger by the square root of the Doppler
+// factor D = √(1 − β²)/(1 − β cos θ′), the arriving light. Features it exercises: a beam spun once within a clip with
+// echoes, marks popped in as it passes, two plotted curves as the keys of one morph, keys at chosen times with
+// straight stretches and cubic Bézier eases, open lines morphing point for point (a sphere's grid into a chart's),
+// two paths ridden by ships turned along them with echoes, labels into labels with a superscript, and a camera that
+// pans across three panels, zooms in and pulls back to hold all three.
+{
+  const f1 = v => +v.toFixed(2), seq = n => Array.from({ length: n }, (_, j) => j), D2R = Math.PI / 180,
+    line = (P, stroke, w, extra = '') => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"${extra}/>`,
+    label = (x, y, s, fill, size = 15) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#b9b2a6', SEA = '#dfe8ef',
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/07-where-it-shows-up.md',
+    RW = 'https://github.com/reportbase/wander/blob/main/papers/readers-and-writers.md';
+  // THE LIGHTHOUSE: the lamp at L, the shore's foot α straight below it, β the lamp's distance out
+  const L = [200, 240], BETA = 80, SH = L[1] + BETA, N = 12,
+    TH = seq(N).map(k => (-90 + (k + 0.5) * 15) * D2R), // the flashes, from the perpendicular, evenly over the half turn
+    markAt = (k, c) => [L[0] + c * BETA * Math.tan(TH[k]), SH],
+    // the beam: a thin double wedge through the lamp, so it turns about the lamp; it starts lying along the shore
+    beam = (() => { const r = 300, w = 0.022; return [[L[0] - r, L[1] - r * w], [L[0], L[1]], [L[0] - r, L[1] + r * w], [L[0] + r, L[1] + r * w], [L[0], L[1]], [L[0] + r, L[1] - r * w]]; })();
+  // MERCATOR: the globe of radius R seen square on at (0°, 0°), and the chart beside where it opens, the same R
+  const G = [1500, 290], R = 110, LAT = [-60, -30, 0, 30, 60], LON = [-60, -30, 0, 30, 60], PHI_TOP = 82,
+    merc = phi => Math.log(Math.tan(Math.PI / 4 + phi * D2R / 2)),
+    onGlobe = (lon, lat) => [G[0] + R * Math.cos(lat * D2R) * Math.sin(lon * D2R), G[1] - R * Math.sin(lat * D2R)],
+    onChart = (lon, lat) => [G[0] + R * lon * D2R, G[1] - R * merc(lat)],
+    curveBy = (fn, n) => seq(n).map(i => fn(i / (n - 1))),
+    // a rhumb line: straight on the chart, from (−70°, −60°) to (70°, 75°), so λ is a straight function of Mercator's y
+    rhumb = (to, n) => curveBy(s => { const y0 = merc(-60), y1 = merc(75), y = y0 + s * (y1 - y0),
+      lat = (2 * Math.atan(Math.exp(y)) - Math.PI / 2) / D2R, lon = -70 + 140 * s; return to(lon, lat); }, n),
+    oval = (lon0, lat0, a, b, to) => seq(24).map(i => { const t = i * 2 * Math.PI / 24; return to(lon0 + a * Math.cos(t), lat0 + b * Math.sin(t)); }),
+    GREEN = [-42, 72, 20, 9], AFRICA = [17, 2, 25, 35],
+    chartX = R * Math.PI / 2, chartTop = R * merc(PHI_TOP);
+  // THE SKY: an observer at S moving up the page; twelve stars on its sky at rest, then seen at rapidity 0.8 and 1.6
+  const S = [2150, 280], RS = 120, NS = 12, ETAS = [0, 0.8, 1.6],
+    star0 = seq(NS).map(k => (k + 0.5) * 2 * Math.PI / NS), // the angle from the direction of motion, at rest
+    seen = (t, eta) => { const b = Math.tanh(eta), c = (Math.cos(t) + b) / (1 + b * Math.cos(t)), s = Math.sign(Math.sin(t)) || 1,
+      tp = s * Math.acos(Math.max(-1, Math.min(1, c))), D = Math.sqrt(1 - b * b) / (1 - b * Math.cos(tp)); return { tp, D }; },
+    starAt = (k, eta) => { const { tp, D } = seen(star0[k], eta); return { p: [S[0] + RS * Math.sin(tp), S[1] - RS * Math.cos(tp)], r: 4 * Math.sqrt(D) }; };
+  const PICTURE_BEATS = [
+    { title: 'A lamp turns over a straight shore',
+      text: 'A lamp on a rock turns evenly and throws a flash along each direction. Someone on the beach marks where each one lands. Here twelve flashes, 15° apart, from flat along the shore to flat the other way.\n\nThe flash at angle θ from the shore\'s perpendicular lands at α + β·tan θ: α the foot of the lamp, β its distance out. The angles were laid by the turn before anything landed. **The lamp is the reader; the marks are its addresses carried onto the sand.**' },
+    { title: 'Half within one lamp-distance',
+      text: 'Half the turn lies within 45° of the perpendicular, so **half the marks land within β of the foot**: the corner, at the foot plus or minus one lamp-distance. The law of the marks, drawn under the shore from its formula, is the Cauchy, β ⁄ π(β² + (x − α)²).\n\nThe walker finds the lamp from the marks alone: α is their median, β half the spread of their middle half. **Never their mean**: the far flashes run off toward the shore\'s ends, and the running mean of the marks never settles. [The lighthouse, §1](' + ESSAY + ')' },
+    { title: 'Drawn with the shore stretched',
+      text: 'Now draw the scene with the shore at twice the scale of the sea, *c* = 2. Every mark lands twice as far out, and the law widens with them. The halfway flash, the true 45° one, now sits where the lamp would see 63.4°, arctan 2: **the corner slides off.**\n\nDraw it back at one length and the corner returns. Only at *c* = 1, shore and sea drawn at one length, is the turn still a turn on the drawing. The lamp itself never holds a *c*: it has one length, its own, and the stretch is the drawing\'s, the writer\'s.' },
+    { title: 'Mercator\'s chart keeps the bearings',
+      text: 'A navigator wants a course at one compass bearing to be a straight line. On a globe it is a spiral, the rhumb line. Open the globe into **Mercator\'s chart**, *x* = *R*λ, *y* = *R* ln tan(π/4 + φ/2), and every meridian stands straight, the parallels spread apart toward the poles, and the rhumb line is straight: bearings are true everywhere because a step north is drawn at the same scale as a step east, *c* = 1, at every place.\n\nIt pays in area. Greenland, near 72°, swells by sec² of its latitude, about ten times; Africa, across the equator, much less. **Bearings are directions, the reader\'s; areas are amounts, the writer\'s.** Only the globe keeps both. [Mercator\'s chart, §2](' + ESSAY + ')' },
+    { title: 'A moving sky',
+      text: 'An observer moving through a field of stars sees each star change in two ways, and relativity writes them as two formulas. **Where it is seen moves**: aberration, the same at every frequency, crowds the stars toward the motion. On the sky\'s stereographic chart it is *z* ↦ *z*/*k* with *k* = e^η, a map of the directions alone.\n\n**What arrives changes**: the Doppler factor *D* scales each photon\'s energy and its rate, a weighting of the payload that moves no star. The stars ahead are drawn larger by it. The brightening ahead, *D*⁴, is *D*² of directions crowding and *D*² of what arrives. [A moving sky, §7](' + ESSAY + ')' },
+    { title: 'Three pictures, one split',
+      text: 'The lamp\'s angles, the chart\'s bearings, the sky\'s directions: each is where a thing is seen, laid by a turn, and each is unmoved by scaling the world. The marks in paces, the countries\' areas, the stars\' light: each is an amount, and each is written in a unit someone carried in.\n\nEvery picture here was already drawn this way long before anyone named the split. That is the essay\'s claim: practice already keeps the address apart from the payload, and the median, the true bearing and the boosted sky are what it looks like when it does. [Readers and Writers, §3](' + RW + ')' }
+  ];
+  // shapes, in order: 0 the paper; 1 the sea; 2 the shore; 3 the corner's wedge; 4 the lamp's perpendicular; 5 the beam;
+  // 6 the lamp; 7–18 the marks at c = 1, 19–30 at c = 2; 31, 32 the corner's rays at c = 1, 33, 34 at c = 2; 35, 36 the
+  // law at c = 1 and c = 2; 37 the globe's rim, 38 the chart's frame; 39–43 the meridians, 44–48 the chart's verticals;
+  // 49–53 the parallels, 54–58 the chart's horizontals; 59 the rhumb line on the globe, 60 on the chart, 61, 62 their
+  // paths; 63, 64 the ships; 65, 66 Greenland on the globe and the chart, 67, 68 Africa; 69 the sky's circle, 70 the
+  // observer, 71 the motion's arrow; 72–83 the stars at rest, 84–95 at η = 0.8, 96–107 at η = 1.6; 108 β; 109, 110
+  // c = 1, c = 2; 111–113 η = 0, η = 0.8, η = 1.6; 114 D⁴ = D²·D²; 115 c = 1 again
+  // (labels into labels cannot repeat a key: each key is its own clip). Under 150 shapes, a label's glyphs counted
+  const ship = (p, fill) => polyOf([[p[0] + 9, p[1]], [p[0] - 6, p[1] - 5], [p[0] - 3, p[1]], [p[0] - 6, p[1] + 5]], fill),
+    st = (k, e, fill) => { const { p, r } = starAt(k, e); return circ4(p[0], p[1], f1(r), fill); },
+    gridGlobe = { mer: LON.map(lon => curveBy(s => onGlobe(lon, -PHI_TOP + 2 * PHI_TOP * s), 17)),
+      par: LAT.map(lat => curveBy(s => onGlobe(-90 + 180 * s, lat), 17)) },
+    gridChart = { mer: LON.map(lon => curveBy(s => onChart(lon, -PHI_TOP + 2 * PHI_TOP * s), 17)),
+      par: LAT.map(lat => curveBy(s => onChart(-90 + 180 * s, lat), 17)) },
+    plotLaw = (c, col) => `<path data-plot="x = ${f1(c * BETA)}t; y = -${f1(70 / c)}/(1 + t^2)" data-t0="-2.6" data-t1="2.6" data-n="80" data-cx="${L[0]}" data-cy="${SH}" fill="none" stroke="${col}" stroke-width="2.2"/>`;
+  const body = rectP(-1600, -900, 3300, 1500, '#f4f1ea')
+    + rectP(-430, 40, 830, SH, SEA)
+    + line([[-430, SH], [830, SH]], INK, 2) + polyOf([L, [L[0] - BETA, SH], [L[0] + BETA, SH]], '#f3e3c2')
+    + line([L, [L[0], SH]], GREY, 1.2) + polyOf(beam, '#f0c96a') + circ4(...L, 8, INK)
+    + seq(N).map(k => circ4(...markAt(k, 1), 4.2, VIOLET)).join('') + seq(N).map(k => circ4(...markAt(k, 2), 4.2, VIOLET)).join('')
+    + line([L, [L[0] - BETA, SH]], GOLD, 2) + line([L, [L[0] + BETA, SH]], GOLD, 2)
+    + line([L, [L[0] - 2 * BETA, SH]], GOLD, 2) + line([L, [L[0] + 2 * BETA, SH]], GOLD, 2)
+    + plotLaw(1, VIOLET) + plotLaw(2, VIOLET)
+    + circ4(...G, R, '#e9eef3') + rectP(G[0] - chartX, G[1] - chartTop, G[0] + chartX, G[1] + chartTop, '#e9eef3')
+    + gridGlobe.mer.map(P => line(P, GREY, 1.2)).join('') + gridChart.mer.map(P => line(P, GREY, 1.2)).join('')
+    + gridGlobe.par.map(P => line(P, GREY, 1.2)).join('') + gridChart.par.map(P => line(P, GREY, 1.2)).join('')
+    + line(rhumb(onGlobe, 33), TEAL, 2.2) + line(rhumb(onChart, 33), TEAL, 2.2)
+    + `<path d="${smoothOpenD(rhumb(onGlobe, 33))}" fill="none" stroke="${TEAL}" stroke-width="1"/>`
+    + `<path d="${smoothOpenD(rhumb(onChart, 33))}" fill="none" stroke="${TEAL}" stroke-width="1"/>`
+    + ship(rhumb(onGlobe, 2)[0], INK) + ship(rhumb(onChart, 2)[0], INK)
+    + smooth(oval(...GREEN, onGlobe), '#8fb39a') + smooth(oval(...GREEN, onChart), '#8fb39a')
+    + smooth(oval(...AFRICA, onGlobe), '#c9a46b') + smooth(oval(...AFRICA, onChart), '#c9a46b')
+    + `<path d="${smoothD(seq(48).map(i => [S[0] + RS * Math.cos(i * Math.PI / 24), S[1] + RS * Math.sin(i * Math.PI / 24)]))}" fill="none" stroke="${GREY}" stroke-width="1.4"/>`
+    + circ4(...S, 6, INK) + polyOf([[S[0], S[1] - 44], [S[0] - 9, S[1] - 26], [S[0] - 3, S[1] - 26], [S[0] - 3, S[1] - 12], [S[0] + 3, S[1] - 12], [S[0] + 3, S[1] - 26], [S[0] + 9, S[1] - 26]], INK)
+    + ETAS.map(e => seq(NS).map(k => st(k, e, GOLD)).join('')).join('')
+    + label(L[0] + 6, SH - 34, 'β', INK)
+    + label(L[0] - 190, L[1] - 150, 'c = 1', INK, 18) + label(L[0] - 190, L[1] - 150, 'c = 2', INK, 18)
+    + label(S[0] - 40, S[1] + 170, 'η = 0', INK, 18) + label(S[0] - 40, S[1] + 170, 'η = 0.8', INK, 18) + label(S[0] - 40, S[1] + 170, 'η = 1.6', INK, 18)
+    + label(S[0] - 70, S[1] + 200, 'D^4 = D^2·D^2', VIOLET, 16)
+    + label(L[0] - 190, L[1] - 150, 'c = 1', INK, 18);
+  const rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)),
+    span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    inOut = (a, c) => ({ in: { kind: 'fade', len: a }, out: { kind: 'fade', len: c } }),
+    drawOut = (a, c) => ({ in: { kind: 'draw', len: a }, out: { kind: 'fade', len: c } }),
+    BEAM0 = 0.03, BEAM1 = 0.15, // the beam turns half a turn (its two ends each sweep the shore once) over this window
+    // a flash lands when the beam's shoreward end passes its angle: θ from −90° to 90° over the window
+    landT = k => +(BEAM0 + (BEAM1 - BEAM0) * (TH[k] / Math.PI + 0.5)).toFixed(4),
+    A_END = 0.99, // the lighthouse stays for the last look at all three
+    // the stretch: c = 1 until 0.39, to c = 2 by 0.45, held, and back to one length by 0.53
+    CT = [0.39, 0.45, 0.49, 0.53], OPEN = [0.625, 0.675], // the globe opens into the chart
+    SKY = [0.79, 0.83, 0.88, 0.99], SKYK = [0, 1, 2, 2], BZ = [0.45, 0, 0.25, 1];
+  SHOWPIECES.push({
+    id: 'pictures', name: 'where it shows up', section: 'explainers', tags: ['spin', 'path', 'plot', 'camera', 'labels', 'essay'],
+    note: 'The seventh of wander\'s essays, and the pictures of Readers and Writers §3, in six beats: a lamp turning evenly over a straight shore, its flashes landing as the Cauchy with half within one lamp-distance; the shore drawn at twice the sea\'s scale and the corner sliding off; a globe opened into Mercator\'s chart, the rhumb line straightening and Greenland swelling; a sky of stars crowding toward the motion and brightening ahead; then all three at once. The scene of the explainer page\'s eighth explainer.',
+    svg: svg(2400, 640, body),
+    scene: {
+      loop: 48, ease: 'inout', stops: [0.17, 0.35, 0.52, 0.75, 0.9],
+      camera: [{ t: 0, fit: [7, 18, 6], pad: 0.12 }, { t: 0.02, fit: [8, 17, 5], pad: 0.08 }, { t: 0.35, fit: [8, 17, 5, 35], pad: 0.08 },
+        { t: 0.4, fit: [20, 29, 5, 36], pad: 0.06 }, { t: 0.52, fit: [20, 29, 5, 36], pad: 0.06 },
+        { t: 0.57, fit: [37], pad: 0.18 }, { t: 0.625, fit: [37], pad: 0.18 }, { t: 0.68, fit: [38], pad: 0.08 }, { t: 0.75, fit: [38], pad: 0.08 },
+        { t: 0.79, fit: [69, 111, 114], pad: 0.12 }, { t: 0.9, fit: [69, 111, 114], pad: 0.12 }, { t: 0.95, fit: [8, 17, 38, 69], pad: 0.05 }],
+      beats: PICTURE_BEATS,
+      morphs: [
+        // the lighthouse
+        { keys: [1], clip: span(0.005, 0.99, fadeIn(0.02)) },
+        { keys: [2], clip: span(0.008, 0.99, drawIn(0.03)) },
+        { keys: [6], motion: { kind: 'pop', amount: 0.5 }, clip: span(0.012, 0.035, { show: 'in' }) },
+        { keys: [4], clip: span(0.02, 0.99, drawIn(0.02)) },
+        { keys: [108], clip: span(0.025, 0.99, fadeIn(0.02)) },
+        { keys: [5], spin: 0.5, trail: { kind: 'echoes', len: 0.1 }, clip: span(BEAM0, BEAM1, inOut(0.01, 0.01)) },
+        ...seq(N).map(k => { const a = landT(k);
+          return { keys: [7 + k, 7 + k, 19 + k, 19 + k, 7 + k, 7 + k], times: rel(a, 0.99, [a, ...CT, 0.99]), straight: true, eases: [null, BZ, null, BZ, null, null],
+            clip: span(a, 0.99, fadeIn(0.008)) }; }),
+        // the corner: the wedge, its rays, the law under the shore
+        { keys: [3], clip: span(0.18, A_END, inOut(0.02, 0.02)) },
+        ...[31, 32].map(k => ({ keys: [k, k, k + 2, k + 2, k, k], times: rel(0.19, A_END, [0.19, ...CT, A_END]), straight: true, eases: [null, BZ, null, BZ, null, null],
+          clip: span(0.19, A_END, drawOut(0.025, 0.02)) })),
+        { keys: [35, 35, 36, 36, 35, 35], times: rel(0.23, A_END, [0.23, ...CT, A_END]), straight: true, eases: [null, BZ, null, BZ, null, null],
+          clip: span(0.23, A_END, drawOut(0.05, 0.02)) },
+        { keys: [109, 110, 115], times: rel(0.37, 0.56, [0.37, 0.42, 0.51]), clip: span(0.37, 0.56, inOut(0.015, 0.02)) },
+        // Mercator: the globe drawn, its grid, the two countries, the rhumb line ridden; then the globe opens into the chart
+        { keys: [37, 37, 38, 38], times: rel(0.55, 0.99, [0.55, OPEN[0], OPEN[1], 0.99]), straight: true, eases: [null, BZ, null, null], clip: span(0.55, 0.99, fadeIn(0.02)) },
+        ...seq(5).map(i => ({ keys: [39 + i, 39 + i, 44 + i, 44 + i], times: rel(0.555 + 0.004 * i, 0.99, [0.555 + 0.004 * i, OPEN[0], OPEN[1], 0.99]),
+          straight: true, eases: [null, BZ, null, null], clip: span(0.555 + 0.004 * i, 0.99, drawIn(0.02)) })),
+        ...seq(5).map(i => ({ keys: [49 + i, 49 + i, 54 + i, 54 + i], times: rel(0.565 + 0.004 * i, 0.99, [0.565 + 0.004 * i, OPEN[0], OPEN[1], 0.99]),
+          straight: true, eases: [null, BZ, null, null], clip: span(0.565 + 0.004 * i, 0.99, drawIn(0.02)) })),
+        ...[[65, 66], [67, 68]].map(([a, b], i) => ({ keys: [a, a, b, b], times: rel(0.575 + 0.004 * i, 0.99, [0.575 + 0.004 * i, OPEN[0], OPEN[1], 0.99]),
+          straight: true, eases: [null, BZ, null, null], clip: span(0.575 + 0.004 * i, 0.99, fadeIn(0.015)) })),
+        { keys: [59, 59, 60, 60], times: rel(0.585, 0.99, [0.585, OPEN[0], OPEN[1], 0.99]), straight: true, eases: [null, BZ, null, null], clip: span(0.585, 0.99, drawIn(0.02)) },
+        { keys: [63], path: 61, at: 0, turn: true, trail: { kind: 'echoes', len: 0.1 }, clip: span(0.59, 0.62, { in: { kind: 'cut', len: 0 }, out: { kind: 'fade', len: 0.004 } }) },
+        { keys: [64], path: 62, at: 0, turn: true, trail: { kind: 'echoes', len: 0.1 }, clip: span(0.69, 0.735, { in: { kind: 'cut', len: 0 }, out: { kind: 'fade', len: 0.006 } }) },
+        // the sky: the stars at rest, then seen moving at η = 0.8 and 1.6
+        { keys: [69], clip: span(0.765, 0.99, drawIn(0.02)) },
+        { keys: [70], motion: { kind: 'pop', amount: 0.5 }, clip: span(0.765, 0.785, { show: 'in' }) },
+        { keys: [71], clip: span(0.775, 0.99, fadeIn(0.015)) },
+        ...seq(NS).map(k => { const a = +(0.77 + 0.0015 * k).toFixed(4);
+          return { keys: SKYK.map(j => 72 + 12 * j + k), times: rel(a, 0.99, [a, ...SKY.slice(1)]), straight: true, eases: [BZ, BZ, null, null],
+            clip: span(a, 0.99, fadeIn(0.008)) }; }),
+        { keys: [111, 112, 113], times: rel(0.785, 0.99, [0.785, SKY[1], SKY[2]]), clip: span(0.785, 0.99, fadeIn(0.015)) },
+        { keys: [114], clip: span(0.86, 0.99, fadeIn(0.02)) }
+      ]
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -2555,7 +2723,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
