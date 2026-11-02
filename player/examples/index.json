@@ -38,7 +38,8 @@
     "addresses",
     "nearfar",
     "standpoints",
-    "pictures"
+    "pictures",
+    "rates"
    ]
   },
   {
@@ -441,6 +442,17 @@
     "essay"
    ]
   },
+  "rates": {
+   "name": "rates, not angles",
+   "note": "The fourteenth of wander's essays in six beats: a roof's pitch, six in twelve, as a rate of rise per run; a point run over the circle on a chord while the two running rates are drawn from their formulas, arc over chord to π/2 and chord over arc to 2/π, the writer's 1 between them; the corner at twelve in twelve; a ray turned by equal steps from the eave, its marks crowding below the corner and running away above it, the Cauchy as a speed; six in twelve turned on by four in twelve landing on twelve in twelve, ½ ⊕ ⅓ = 1, with no π. The scene of the explainer page's ninth explainer.",
+   "tags": [
+    "plot",
+    "echoes",
+    "camera",
+    "labels",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -635,6 +647,7 @@
   "reading": 166525,
   "nearfar": 198335,
   "standpoints": 135539,
-  "pictures": 249051
+  "pictures": 249051,
+  "rates": 108267
  }
 }

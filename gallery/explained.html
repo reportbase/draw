@@ -31,7 +31,8 @@
     <a href="explained.html?x=addresses" data-x="addresses">addresses given, payloads met</a> ·
     <a href="explained.html?x=nearfar" data-x="nearfar">near and far</a> ·
     <a href="explained.html?x=standpoints" data-x="standpoints">many standpoints</a> ·
-    <a href="explained.html?x=pictures" data-x="pictures">where it shows up</a></nav>
+    <a href="explained.html?x=pictures" data-x="pictures">where it shows up</a> ·
+    <a href="explained.html?x=rates" data-x="rates">rates, not angles</a></nav>
   <p class="watchbar"><button id="watch" class="go" type="button">▶ watch it through</button>
     <span class="hint">or scroll, and the picture follows</span></p>
 </header>
@@ -1377,6 +1378,19 @@ const EXPLAINERS = {
     dial: { beat: 2, name: 'c', min: 1, max: 2, step: 0.01, t0: 0.39, t1: 0.45,
       read: c => { const n = [7.5, 22.5, 37.5, 52.5, 67.5, 82.5].filter(a => c * Math.tan(a * Math.PI / 180) <= 1 + 1e-9).length * 2;
         return `c = ${c.toFixed(2)} · the halfway flash seen at ${(Math.atan(c) * 180 / Math.PI).toFixed(1)}° · ${n} of 12 marks within β`; } }
+  },
+  rates: {
+    src: '../player/examples/rates.tvfs',
+    title: 'rates, not angles',
+    lede: 'Scroll, and the picture follows. A roof\'s pitch, six in twelve, is a rate and needs no angle. This page shows, '
+      + 'in six steps, the sweep\'s own rates, the corner where they meet, the Cauchy as a speed, and pitches composed '
+      + 'with no π, every mark and curve computed from its formula.',
+    paper: ['https://github.com/reportbase/wander/blob/main/papers/essays/14-rates-not-angles.md', 'Rates, not angles (essay 14)'],
+    // the pitch on the first beat: the roof and its rise are keyed straight and linear from flat to twenty-four in twelve
+    // over [t0, t1], so the roof sits exactly at the pitch dialled; the readout gives the reader's v/h beside the writer's
+    // angle (worked here with atan, the writer's tool, which is the point)
+    dial: { beat: 0, name: 'pitch', min: 0, max: 24, step: 0.5, t0: 0.03, t1: 0.13,
+      read: p => `${p} in 12 · v/h = ${+(p / 12).toFixed(4)} · the writer's angle ${(Math.atan(p / 12) * 180 / Math.PI).toFixed(2)}°, a share of the whole turn` }
   },
   // ADDRESSES GIVEN, PAYLOADS MET (29 Oct 2026, Tom: "lets tryout our new explainer in draw repository for a topic in
   // the essay folder"): the third of wander's essays, the animated gallery's `addresses` tile. Its paper is the essay
