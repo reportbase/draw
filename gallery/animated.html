@@ -2480,19 +2480,20 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     starAt = (k, eta) => { const { tp, D } = seen(star0[k], eta); return { p: [S[0] + RS * Math.sin(tp), S[1] - RS * Math.cos(tp)], r: 4 * Math.sqrt(D) }; };
   // the words beside each beat: one idea and two or three sentences each (2 Nov 2026, Tom: "proceed with your
   // recomendations", the second being fewer words a beat; the essay holds the argument)
+  // a phrase linked to #lit:… lights those morphs of the scene (by index in its morph list) on the explainer page
   const PICTURE_BEATS = [
     { title: 'A lamp turns over a straight shore',
-      text: 'A lamp turns evenly and throws twelve flashes, 15° apart. Each lands at α + β·tan θ: α the foot of the lamp, β its distance out.\n\n**The angles were laid by the turn before anything landed**: the marks are the lamp\'s addresses carried onto the sand.' },
+      text: '[A lamp](#lit:2,5) turns evenly and throws [twelve flashes](#lit:6-17), 15° apart. Each lands at α + β·tan θ: α the [foot of the lamp](#lit:3), β its distance out.\n\n**The angles were laid by the turn before anything landed**: the marks are the lamp\'s addresses carried onto the sand.' },
     { title: 'Half within one lamp-distance',
-      text: 'Half the turn lies within 45° of the perpendicular, so **half the marks land within β of the foot**. Their law, drawn under the shore from its formula, is the Cauchy.\n\nFind the lamp by the marks\' median, never their mean: the far flashes run off toward the shore\'s ends. [The lighthouse, §1](' + ESSAY + ')' },
+      text: 'Half the turn lies [within 45° of the perpendicular](#lit:18-20), so **half the marks land within β of the foot**. [Their law](#lit:21), drawn under the shore from its formula, is the Cauchy.\n\nFind the lamp by the marks\' median, never their mean: the far flashes run off toward the shore\'s ends. [The lighthouse, §1](' + ESSAY + ')' },
     { title: 'Drawn with the shore stretched',
-      text: 'Draw the shore at twice the sea\'s scale, *c* = 2, and the halfway flash is seen at 63.4°: **the corner slides off.** Drag *c* and watch the count within β leave six.\n\nOnly at *c* = 1, one length, is the turn still a turn. The lamp never holds a *c*; the stretch is the drawing\'s.' },
+      text: 'Draw the shore at twice the sea\'s scale, *c* = 2, and the halfway flash is seen at 63.4°: **[the corner](#lit:19,20) slides off.** Drag *c* and watch [the count within β](#lit:6-17) leave six.\n\nOnly at *c* = 1, one length, is the turn still a turn. The lamp never holds a *c*; the stretch is the drawing\'s.' },
     { title: 'Mercator\'s chart keeps the bearings',
-      text: 'Open the globe into Mercator\'s chart and the rhumb line, a spiral on the globe, is straight: **a step north is drawn at the scale of a step east**, *c* = 1, everywhere.\n\nIt pays in area: Greenland swells about ten times. Bearings are directions; areas are amounts. [Mercator\'s chart, §2](' + ESSAY + ')' },
+      text: 'Open the globe into Mercator\'s chart and [the rhumb line](#lit:35), a spiral on the globe, is straight: **a step north is drawn at the scale of a step east**, *c* = 1, everywhere.\n\nIt pays in area: [Greenland](#lit:33) swells about ten times. Bearings are directions; areas are amounts. [Mercator\'s chart, §2](' + ESSAY + ')' },
     { title: 'A moving sky',
-      text: 'Move through the stars and two things change. **Where each is seen moves** (aberration, a map of the directions); **what arrives changes** (the Doppler factor, drawn here as size).\n\nThe brightening ahead, *D*⁴, is *D*² of directions crowding and *D*² of what arrives. [A moving sky, §7](' + ESSAY + ')' },
+      text: 'Move through the stars and two things change. **Where each is seen moves** (aberration, a map of [the directions](#lit:41-52)); **what arrives changes** (the Doppler factor, drawn here as size).\n\nThe brightening ahead, *D*⁴, is *D*² of directions crowding and *D*² of what arrives. [A moving sky, §7](' + ESSAY + ')' },
     { title: 'Three pictures, one split',
-      text: 'The lamp\'s angles, the chart\'s bearings, the sky\'s directions are where things are seen, unmoved by scaling the world. The paces, the areas, the light are amounts, written in a unit someone carried in.\n\nPractice already keeps them apart. [Readers and Writers, §3](' + RW + ')' }
+      text: 'The [lamp\'s angles](#lit:6-17), the [chart\'s bearings](#lit:35), the [sky\'s directions](#lit:41-52) are where things are seen, unmoved by scaling the world. The paces, the areas, the light are amounts, written in a unit someone carried in.\n\nPractice already keeps them apart. [Readers and Writers, §3](' + RW + ')' }
   ];
   // shapes, in order: 0 the paper; 1 the sea; 2 the shore; 3 the corner's wedge; 4 the lamp's perpendicular; 5 the beam;
   // 6 the lamp; 7–18 the marks at c = 1, 19–30 at c = 2; 31, 32 the corner's rays at c = 1, 33, 34 at c = 2; 35, 36 the

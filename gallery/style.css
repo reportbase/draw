@@ -623,3 +623,6 @@ a.paper:hover{background:rgba(124,92,255,.22);color:#d9cfff}
   .page-explained .stage-wrap{order:-1;top:0;height:44vh;z-index:5;background:var(--bg);padding:8px 0}
   .page-explained .beat{min-height:70vh;padding-top:12vh}
 }
+/* a phrase in a beat that lights its part of the picture (explained.html, 2 Nov 2026) */
+.page-explained .beat .lit { border-bottom: 2px dotted #d69c12; cursor: help; border-radius: 2px; }
+.page-explained .beat .lit:hover, .page-explained .beat .lit:focus { background: rgba(214, 156, 18, 0.18); outline: none; }

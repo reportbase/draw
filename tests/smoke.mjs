@@ -60,6 +60,7 @@ page.on('console', m => { if (m.type() === 'error') console.log(`  console (${cu
 page.on('dialog', d => d.dismiss().catch(() => {}));
 
 async function step(name, fn){
+  if (process.env.ONLY && !process.env.ONLY.split('|').some(o => name.includes(o))) return; // ONLY='a|b': just those steps
   current = name;
   const before = failures.length;
   try { await fn(); } catch (e){ failures.push(`[${name}] ${e.message.split('\n')[0]}`); }
@@ -3716,7 +3717,23 @@ await step('the scrolling explainer', async () => {
   await pp.keyboard.press('ArrowDown');
   await pp.waitForTimeout(200);
   const wStop = await pp.evaluate(() => window.__explained.watching());
+  // a lit phrase (2 Nov 2026): pointed at by the real mouse it takes the clock into its beat and lights its morphs,
+  // the canvas ringed in gold; moved away, the light goes
+  const ph = pp.locator('.beat .lit', { hasText: 'Greenland' });
+  await ph.scrollIntoViewIfNeeded();
+  await pp.waitForTimeout(900);
+  await ph.hover();
+  await pp.waitForTimeout(500);
+  const gold = () => pp.evaluate(() => { const c = document.querySelector('#stage canvas') || document.querySelector('canvas'),
+    x = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0;
+    for (let i = 0; i < x.length; i += 4) if (x[i] > 190 && x[i + 1] > 130 && x[i + 1] < 175 && x[i + 2] < 60) n++; return n; });
+  const lq = [await pp.evaluate(() => window.__explained.ctl.lit), await pp.evaluate(() => window.__explained.ctl.t), await gold()];
+  await pp.mouse.move(3, 3);
+  await pp.waitForTimeout(300);
+  lq.push(await pp.evaluate(() => window.__explained.ctl.lit), await gold());
   await pp.close();
+  if (JSON.stringify(lq[0]) !== '[33]' || !(lq[1] > 0.52 && lq[1] <= 0.75) || !(lq[2] > 100) || lq[3] !== null || !(lq[4] < lq[2] / 4))
+    throw new Error('the lit phrase: ' + JSON.stringify(lq));
   if (!/6 of 12/.test(dq[0][0]) || !/4 of 12/.test(dq[1][0]) || !(dq[0][1] < dq[1][1]) || Math.abs(dq[1][1] - 0.45) > 0.01)
     throw new Error('the where-it-shows-up dial: ' + JSON.stringify(dq));
   if (!wq[0] || !(wq[1] > 0.12) || !(wq[2] > 100) || wStop) throw new Error('the watch: ' + JSON.stringify([wq, wStop]));

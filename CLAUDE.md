@@ -512,6 +512,14 @@ publishes.
     Chromium, the clock through each beat at the loop's pace and held at each stop, ffmpeg encodes it, each beat a
     chapter titled by the scene's beats and its words a soft subtitle track (no narration). `pictures`: 57 s, 6
     chapters, 1.3 MB, about 90 s to make. Hooks `__explained.watching()`, `startWatch`, `stopWatch`.
+    HIGHLIGHTS TIED TO THE WORDS (2 Nov 2026, Tom: "proceed"): a beat's `[words](#lit:6-17,19)` names morphs of the
+    scene by index (a-b a range); on the page it is a dotted phrase (`.lit`) that, pointed at, touched or focused,
+    takes the clock to the end of its beat (unless in the beat's last part already; the scroll leaves it there as the
+    dial's does) and calls the player's `ctl.highlight(indices)`: every other morph and the trails dimmed to `LIT_DIM`
+    (stills, the ground, left as they are), the lit poses ringed in gold (`drawScene`'s `lit`). The scene file is
+    unchanged by it; the video's subtitles keep the words. `?x=pictures` has thirteen (the flashes, the corner, the
+    law, the rhumb line, Greenland, the stars …): the indices are the morph list's order, so a morph added before them
+    in `animated.html` moves them. Hook `__explained.litOf`.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
     `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
     than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI
