@@ -498,6 +498,20 @@ publishes.
     first pose before its window needs an `in` (a path rider given `cut`). Beat
     words take a blank line between paragraphs, `**bold**`, `*italic*` and `[a link](address)`, a link into
     `papers.html` drawn as the paper pill.
+    WATCH IT THROUGH, A DIAL, AND A VIDEO (2 Nov 2026, Tom: "whats your take on these explainers. can be a web page or a
+    video.", then "proceed with your recomendations": the page stays the source, a video is an output of the scene).
+    **▶ watch it through** (`#watch`, or `?watch=1`) plays every beat in turn, holds `WATCH_HOLD` (1.8 s) at each stop,
+    then goes on (`ctl.next()`), scrolling the beat played into view; its own scrolling is guarded (`guard`), and a
+    wheel, a touch or a key stops it. An explainer may carry a `dial` (`{beat, name, min, max, step, t0, t1, read}`):
+    a range in that beat that pauses the clock and sets it within [t0, t1], its readout `read(value)`; the scroll leaves
+    it be until the reader scrolls 120 px on (`dialAt`), and it follows the clock through its stretch otherwise.
+    `?x=pictures` has one for c on the shore (its marks, corner rays and law given linear eases, so c moves evenly; the
+    count within β 6 of 12 at c = 1, 4 at c = 2). The pictures' beats were cut to one idea and two or three sentences
+    each. `npm run video -- <id | scene.tvfs> [--out f.mp4] [--size 1280x720] [--fps 30] [--hold 1.5] [--speed 1]`
+    (`tools/explainer-video.mjs`) writes any scene with stops as an MP4: the player draws each frame in headless
+    Chromium, the clock through each beat at the loop's pace and held at each stop, ffmpeg encodes it, each beat a
+    chapter titled by the scene's beats and its words a soft subtitle track (no narration). `pictures`: 57 s, 6
+    chapters, 1.3 MB, about 90 s to make. Hooks `__explained.watching()`, `startWatch`, `stopWatch`.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
     `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
     than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI

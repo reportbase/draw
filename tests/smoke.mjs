@@ -3696,7 +3696,30 @@ await step('the scrolling explainer', async () => {
     await pp.waitForTimeout(120);
     pt.push(await pp.evaluate(() => window.__explained.ctl.t));
   }
+  // the dial on the third beat (2 Nov 2026): a real click at each end of c sets the clock within its stretch and reads
+  // the count within β; then the watch, started by a real click, plays on through the stops by itself and scrolls the
+  // beat played into view, and a key stops it
+  const dial = pp.locator('.beat .dial input');
+  await dial.scrollIntoViewIfNeeded();
+  await pp.waitForTimeout(900);
+  const db = await dial.boundingBox(), dq = [];
+  for (const f of [0, 1]) {
+    await pp.mouse.click(db.x + 4 + f * (db.width - 8), db.y + db.height / 2);
+    await pp.waitForTimeout(250);
+    dq.push([await pp.locator('.beat .dial output').textContent(), await pp.evaluate(() => window.__explained.ctl.t)]);
+  }
+  await pp.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+  await pp.waitForTimeout(300);
+  await pp.click('#watch');
+  await pp.waitForTimeout(9000);
+  const wq = await pp.evaluate(() => [window.__explained.watching(), window.__explained.ctl.t, scrollY]);
+  await pp.keyboard.press('ArrowDown');
+  await pp.waitForTimeout(200);
+  const wStop = await pp.evaluate(() => window.__explained.watching());
   await pp.close();
+  if (!/6 of 12/.test(dq[0][0]) || !/4 of 12/.test(dq[1][0]) || !(dq[0][1] < dq[1][1]) || Math.abs(dq[1][1] - 0.45) > 0.01)
+    throw new Error('the where-it-shows-up dial: ' + JSON.stringify(dq));
+  if (!wq[0] || !(wq[1] > 0.12) || !(wq[2] > 100) || wStop) throw new Error('the watch: ' + JSON.stringify([wq, wStop]));
   if (xq[0] !== 7 || xq[1] !== 'A lamp turns over a straight shore' || xq[2] !== 'pictures' || xq[3] < 1 || xq[4] < 2 || xq[5] !== 5 || xq[6] < 10)
     throw new Error('the where-it-shows-up explainer: ' + JSON.stringify(xq));
   if (pt.some((t, i) => i && !(t > pt[i - 1]))) throw new Error('the where-it-shows-up clock against the scroll: ' + pt.join(' '));
