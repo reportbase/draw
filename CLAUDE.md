@@ -520,6 +520,14 @@ publishes.
     unchanged by it; the video's subtitles keep the words. `?x=pictures` has thirteen (the flashes, the corner, the
     law, the rhumb line, Greenland, the stars …): the indices are the morph list's order, so a morph added before them
     in `animated.html` moves them. Hook `__explained.litOf`.
+    `?x=rates` is RATES, NOT ANGLES (2 Nov 2026, Tom: "what explainer do you want to do next", then "yes, build 14"; essay
+    14), six beats over three panels: a roof's pitch rising flat to twenty-four in twelve and settling at six (a `pitch`
+    dial on that linear stretch, its readout v/h beside the writer's angle), a point run over the circle on a chord with the
+    ray from one end and the radius from the middle while θ/sin θ and sin θ/θ are plotted, drawn on in step, toward π/2
+    and 2/π with keyed dots riding them; the corner at twelve in twelve; a ray swept by equal steps of 7.5° from the eave
+    popping marks on the post at 12·tan(kπ/24), the Cauchy as a speed; ½ ⊕ ⅓ = 1. Its morphs are added through a helper
+    that names them, so the beats' `#lit:` indices are worked from the names; a label's later glyphs are appended after
+    every other morph, so labels are never lit.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
     `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
     than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI

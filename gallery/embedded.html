@@ -2597,6 +2597,146 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 22. RATES, NOT ANGLES (2 Nov 2026, Tom: "what explainer do you want to do next", then "yes, build 14"): essay 14
+// (papers/essays/14-rates-not-angles.md) in six beats, the scene of explained.html?x=rates. A roof rising from flat to
+// twenty-four in twelve and settling at six in twelve, its rise and run drawn as the of and the per (a dial on it); a
+// point run over the circle on a chord, the ray from one end and the radius from the middle reaching it, while the two
+// running rates are drawn beside it from their formulas, arc over chord θ/sin θ climbing to π/2 and chord over arc
+// sin θ/θ falling to 2/π, the writer's 1 between them; back to the corner, where the roof is twelve in twelve and the
+// rates read 1.1107 and 0.9003; a ray turned by equal steps from the eave marking the post, the marks close together
+// below the corner and running away above it (the Cauchy as a speed, turn per reading); a pitch of six in twelve turned
+// on by four in twelve landing on twelve in twelve, ½ ⊕ ⅓ = 1, by tangent addition with no π; and all three at once.
+// Every mark and curve computed from its formula. Features: a dial on a linear stretch, plotted curves drawn on in step
+// with a keyed sweep, keyed dots riding them, a swept ray with echoes, labels into labels, highlights in the beat text.
+{
+  const E = [40, 400], PX = 280, U = 20, A = [600, 400], B = [900, 400], M0 = [750, 400], r = 150, X0 = 990, Y0 = 400,
+    f1 = v => +v.toFixed(2), rad = d => d * Math.PI / 180, seq = n => Array.from({ length: n }, (_, j) => j),
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 17) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    plot = (prog, stroke, w, t1, cx, cy, n = 64, t0 = 0) => `<path data-plot="${prog}" data-t0="${t0}" data-t1="${t1}" data-n="${n}" data-cx="${cx}" data-cy="${cy}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#b9b2a6', WOOD = '#c98f5a',
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/14-rates-not-angles.md',
+    top = rise => [PX, E[1] - U * rise], // the post at a rise per twelve of run
+    roof = rise => polyOf([E, [PX, E[1]], top(rise)], WOOD),
+    riseBar = rise => rectP(PX - 3, E[1] - U * Math.max(rise, 0.05), PX + 3, E[1], GOLD),
+    // the ray from the eave at the k-th of 24 equal steps of the half turn (7.5° each), meeting the post
+    RK = seq(9).map(k => 12 * Math.tan(k * Math.PI / 24)),
+    // the circle on the chord: the ray from A at θ, the radius from the middle at 2θ, meeting at one point
+    TH = [0, 15, 30, 45, 60, 75, 86].map(rad),
+    meet = t => [M0[0] + r * Math.cos(2 * t), M0[1] - r * Math.sin(2 * t)],
+    outer = t => t < 1e-9 ? 1 : t / Math.sin(t), inner = t => t < 1e-9 ? 1 : Math.sin(t) / t,
+    chart = (t, val) => [X0 + 600 / Math.PI * t, Y0 - 200 * (val - 0.5)];
+  // shapes, in order: 0 the paper; 1 the ground; 2 the post; 3 the run; 4–7 the roof at rises 0.3, 6, 12, 24; 8–11 the
+  // rise likewise; 12–20 the rays from the eave at 0, 7.5° … 60°; 21–28 their marks on the post (k = 1 … 8); 29 the
+  // corner's ring at twelve in twelve; 30 the ray at six in twelve; 31 the ray at twelve in twelve; 32 the chord; 33 its
+  // circle; 34, 35 the end A and the middle; 36–42 the rays from A; 43–49 the radii; 50–56 the meeting point; 57, 58 the
+  // axes; 59 the writer's 1; 60 arc over chord; 61 chord over arc; 62–68 a dot riding the first, 69–75 the second; then
+  // the labels: 76 "6 in 12", 77 "12 in 12", 78 θ, 79 2θ, 80 π/2, 81 2/π, 82 1, 83 ½ ⊕ ⅓ = 1
+  const body = rectP(-600, -500, 1800, 1300, '#f4f1ea')
+    + line([[E[0] - 20, E[1]], [PX + 30, E[1]]], '#9a927f', 1.4) + line([[PX, E[1]], [PX, E[1] - U * 25]], '#9a927f', 1.4)
+    + rectP(E[0], E[1] + 5, PX, E[1] + 11, TEAL)
+    + [0.3, 6, 12, 24].map(roof).join('') + [0.3, 6, 12, 24].map(riseBar).join('')
+    + RK.map(s => line([E, top(s)], INK, 1.6)).join('')
+    + RK.slice(1).map(s => circ4(...top(s), 5, VIOLET)).join('')
+    + `<circle cx="${PX}" cy="${E[1] - U * 12}" r="11" fill="none" stroke="${GOLD}" stroke-width="2.4"/>`
+    + line([E, top(6)], VIOLET, 2.6) + line([E, top(12)], GOLD, 2.6)
+    + line([A, B], '#9a927f', 1.4) + plot(`x = ${r}cos(t); y = ${r}sin(t)`, GREY, 2, 'π', M0[0], M0[1])
+    + circ4(...A, 4.5, INK) + circ4(...M0, 4.5, INK)
+    + TH.map(t => line([A, meet(t)], INK, 2)).join('') + TH.map(t => line([M0, meet(t)], VIOLET, 2.4)).join('')
+    + TH.map(t => circ4(...meet(t), 6, GOLD)).join('')
+    + line([[X0, Y0], [X0 + 320, Y0]], '#9a927f', 1.4) + line([[X0, Y0], [X0, Y0 - 230]], '#9a927f', 1.4)
+    + line([[X0, Y0 - 100], [X0 + 310, Y0 - 100]], GREY, 1.4)
+    + plot(`x = ${f1(600 / Math.PI)}t; y = 200(t/sin(t) - 0.5)`, TEAL, 3, 'π/2', X0, Y0)
+    + plot(`x = ${f1(600 / Math.PI)}t; y = 200(sin(t)/t - 0.5)`, VIOLET, 3, 'π/2', X0, Y0)
+    + TH.map(t => circ4(...chart(t, outer(t)), 6, TEAL)).join('') + TH.map(t => circ4(...chart(t, inner(t)), 6, VIOLET)).join('')
+    + label(PX - 150, E[1] - U * 6 - 26, '6 in 12', INK, 20) + label(PX - 168, E[1] - U * 12 - 26, '12 in 12', INK, 20)
+    + label(A[0] + 34, A[1] - 8, 'θ', INK, 15) + label(M0[0] + 16, M0[1] - 8, '2θ', VIOLET, 15)
+    + label(X0 + 312, Y0 - 216, 'π/2', TEAL) + label(X0 + 312, Y0 - 34, '2/π', VIOLET) + label(X0 - 22, Y0 - 94, '1', INK)
+    + label(E[0] + 6, E[1] - U * 18, '½ ⊕ ⅓ = 1', INK, 22);
+  const rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)),
+    span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    inOut = (a, c) => ({ in: { kind: 'fade', len: a }, out: { kind: 'fade', len: c } }),
+    even = (a, b, n) => seq(n).map(j => +(a + (b - a) * j / (n - 1)).toFixed(4)),
+    BZ = [0.45, 0, 0.25, 1],
+    // the roof: flat to twenty-four in twelve (the dial's stretch, linear), back to six; twelve for the corner; six, then
+    // twelve again for the composition
+    ROOF_K = [0, 3, 1, 1, 2, 2, 1, 1, 2, 2], ROOF_T = [0.03, 0.13, 0.16, 0.42, 0.46, 0.71, 0.73, 0.76, 0.79, 0.99],
+    ROOF_E = [ 'linear', BZ, null, BZ, null, BZ, null, BZ, null, null],
+    // the point on the circle: up over beat 2, back to the corner in beat 3, held
+    PK = [...seq(7), 5, 4, 3, 3], PT = [...even(0.22, 0.33, 7), 0.41, 0.42, 0.43, 0.99],
+    // the swept ray of beat 4: one step of turn at a time from the eave
+    SWEEP_T = even(0.57, 0.66, 9);
+  const morphs = [], at = {};
+  const add = (name, m) => { at[name] = at[name] || []; at[name].push(morphs.length); morphs.push(m); };
+  add('ground', { keys: [1], clip: span(0.005, 0.99, drawIn(0.025)) });
+  add('post', { keys: [2], clip: span(0.008, 0.99, drawIn(0.025)) });
+  add('run', { keys: [3], clip: span(0.012, 0.99, fadeIn(0.02)) });
+  add('roof', { keys: ROOF_K.map(j => 4 + j), times: rel(0.03, 0.99, ROOF_T), straight: true, eases: ROOF_E, clip: span(0.03, 0.99, fadeIn(0.008)) });
+  add('rise', { keys: ROOF_K.map(j => 8 + j), times: rel(0.03, 0.99, ROOF_T), straight: true, eases: ROOF_E, clip: span(0.03, 0.99, fadeIn(0.008)) });
+  add('six', { keys: [76], clip: span(0.155, 0.43, inOut(0.01, 0.01)) });
+  add('twelve', { keys: [77], clip: span(0.45, 0.7, inOut(0.01, 0.01)) });
+  add('cornerRing', { keys: [29], clip: span(0.46, 0.99, fadeIn(0.015)) });
+  // the circle on the chord, and the point run over it
+  add('chord', { keys: [32], clip: span(0.19, 0.99, drawIn(0.02)) });
+  add('circle', { keys: [33], clip: span(0.195, 0.99, drawIn(0.025)) });
+  add('ends', { keys: [34], clip: span(0.2, 0.99, fadeIn(0.01)) });
+  add('ends', { keys: [35], clip: span(0.2, 0.99, fadeIn(0.01)) });
+  add('ray', { keys: PK.map(j => 36 + j), times: rel(0.22, 0.99, PT), straight: true, clip: span(0.22, 0.99, fadeIn(0.008)) });
+  add('radius', { keys: PK.map(j => 43 + j), times: rel(0.22, 0.99, PT), straight: true, clip: span(0.22, 0.99, fadeIn(0.008)) });
+  add('point', { keys: PK.map(j => 50 + j), times: rel(0.22, 0.99, PT), straight: true, trail: { kind: 'echoes', len: 0.08 }, clip: span(0.22, 0.99, fadeIn(0.008)) });
+  add('thetas', { keys: [78], clip: span(0.21, 0.99, fadeIn(0.01)) });
+  add('thetas', { keys: [79], clip: span(0.21, 0.99, fadeIn(0.01)) });
+  // the chart of the two running rates, drawn on in step with the sweep (a plot draws along its own t, here θ)
+  add('axes', { keys: [57], clip: span(0.2, 0.99, drawIn(0.015)) });
+  add('axes', { keys: [58], clip: span(0.2, 0.99, drawIn(0.015)) });
+  add('one', { keys: [59], clip: span(0.205, 0.99, drawIn(0.015)) });
+  add('oneLabel', { keys: [82], clip: span(0.21, 0.99, fadeIn(0.01)) });
+  add('outer', { keys: [60], clip: span(0.22, 0.99, drawIn(0.11)) });
+  add('inner', { keys: [61], clip: span(0.22, 0.99, drawIn(0.11)) });
+  add('outer', { keys: PK.map(j => 62 + j), times: rel(0.22, 0.99, PT), straight: true, clip: span(0.22, 0.99, fadeIn(0.008)) });
+  add('inner', { keys: PK.map(j => 69 + j), times: rel(0.22, 0.99, PT), straight: true, clip: span(0.22, 0.99, fadeIn(0.008)) });
+  add('outerLabel', { keys: [80], clip: span(0.33, 0.99, fadeIn(0.015)) });
+  add('innerLabel', { keys: [81], clip: span(0.33, 0.99, fadeIn(0.015)) });
+  // the ray swept by equal steps from the eave, and the marks it leaves on the post
+  add('sweep', { keys: [...seq(9), 8].map(k => 12 + k), times: rel(0.57, 0.7, [...SWEEP_T, 0.7]), straight: true, eases: seq(10).map(() => 'linear'),
+    trail: { kind: 'echoes', len: 0.04 }, clip: span(0.57, 0.7, inOut(0.005, 0.01)) });
+  seq(8).forEach(k => add(k < 5 ? 'below' : k === 5 ? 'atCorner' : 'above', { keys: [21 + k], motion: { kind: 'pop', amount: 0.5 },
+    clip: span(SWEEP_T[k + 1], SWEEP_T[k + 1] + 0.012, { show: 'in' }) }));
+  // composing two pitches: six in twelve turned on by four in twelve
+  add('rayHalf', { keys: [30], clip: span(0.72, 0.99, drawIn(0.02)) });
+  add('rayOne', { keys: [31], clip: span(0.77, 0.99, drawIn(0.02)) });
+  add('sum', { keys: [83], clip: span(0.79, 0.99, fadeIn(0.02)) });
+  // a label's later glyphs are appended after every other morph (sceneLabelMorphs), so only shapes, never labels, are lit
+  const lit = (...names) => names.flatMap(n => at[n]).join(',');
+  const RATES_BEATS = [
+    { title: 'Six in twelve',
+      text: `A carpenter calls a roof *six in twelve*: it [rises six](#lit:${lit('rise')}) for every [twelve it runs](#lit:${lit('run')}). Nobody on the site needs the angle; the pitch is had with a level and a tape.\n\nThe pitch is a rate, **of** something **per** something: rise per run. Drag the pitch and watch the roof.` },
+    { title: 'The hand\'s two rates',
+      text: `A [point runs over the circle](#lit:${lit('point')}) on a chord. From one end the [ray](#lit:${lit('ray')}) turns a quarter; from the middle the [radius](#lit:${lit('radius')}) turns a half.\n\nAgainst the straight chord, the sweep comes at [arc over chord](#lit:${lit('outer')}), climbing to **π/2**, or [chord over arc](#lit:${lit('inner')}), falling to **2/π**. Never at [the writer's 1](#lit:${lit('one')}).` },
+    { title: 'The corner, where three meet',
+      text: `At the corner the roof is [twelve in twelve](#lit:${lit('roof', 'rise', 'cornerRing')}): v fills exactly as fast as h empties, and their ratio is 1.\n\nThe running rates there are 1.1107 and 0.9003, not 1. The writer's 1 sits **between** them: the geometric mean of π/2 and 2/π.` },
+    { title: 'The Cauchy is a speed',
+      text: `Turn a ray from the eave in equal steps and mark where it meets the post. Below the corner the [marks crowd](#lit:${lit('below')}); past it they [run away](#lit:${lit('above')}), the last at the horizon.\n\nHalf the steps lie [below the corner](#lit:${lit('atCorner')}). That is the Cauchy: **turn per reading**, the per against itself, no payload in it.` },
+    { title: 'Readers compose, writers count the turn',
+      text: `A pitch of [six in twelve](#lit:${lit('rayHalf')}) turned on by four in twelve lands on [twelve in twelve](#lit:${lit('rayOne')}): **½ ⊕ ⅓ = 1**, by tangent addition, (s + t)/(1 − st). Every number stays rational.\n\nThe degrees, 26.57° + 18.43° = 45°, need π: a share of the whole turn, which only the writer holds.` },
+    { title: 'Writers have angles; readers have sweeps',
+      text: `The roof's pitch and the protractor's degree name the same direction. The pitch is the reader's; the degree, π/2 and 2/π are the writer's measure of the sweep, and the writer's 1 is had only by joining both.\n\nThe carpenter's is the one the reader has. [The essay, §11](${ESSAY})` }
+  ];
+  SHOWPIECES.push({
+    id: 'rates', name: 'rates, not angles', section: 'explainers', tags: ['plot', 'echoes', 'camera', 'labels', 'essay'],
+    note: 'The fourteenth of wander\'s essays in six beats: a roof\'s pitch, six in twelve, as a rate of rise per run; a point run over the circle on a chord while the two running rates are drawn from their formulas, arc over chord to π/2 and chord over arc to 2/π, the writer\'s 1 between them; the corner at twelve in twelve; a ray turned by equal steps from the eave, its marks crowding below the corner and running away above it, the Cauchy as a speed; six in twelve turned on by four in twelve landing on twelve in twelve, ½ ⊕ ⅓ = 1, with no π. The scene of the explainer page\'s ninth explainer.',
+    svg: svg(1360, 540, body),
+    scene: {
+      loop: 54, ease: 'inout', stops: [0.17, 0.36, 0.52, 0.7, 0.86],
+      camera: [{ t: 0, fit: [1, 2, 7], pad: 0.14 }, { t: 0.17, fit: [1, 2, 7], pad: 0.14 }, { t: 0.2, fit: [33, 57, 58, 80], pad: 0.1 },
+        { t: 0.36, fit: [33, 57, 58, 80], pad: 0.1 }, { t: 0.4, fit: [1, 7, 33, 57, 80], pad: 0.06 }, { t: 0.52, fit: [1, 7, 33, 57, 80], pad: 0.06 },
+        { t: 0.55, fit: [1, 2, 7], pad: 0.12 }, { t: 0.86, fit: [1, 2, 7], pad: 0.12 }, { t: 0.9, fit: [1, 7, 33, 57, 80], pad: 0.06 }],
+      beats: RATES_BEATS,
+      morphs
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -2726,7 +2866,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },

@@ -3740,6 +3740,34 @@ await step('the scrolling explainer', async () => {
   if (xq[0] !== 7 || xq[1] !== 'A lamp turns over a straight shore' || xq[2] !== 'pictures' || xq[3] < 1 || xq[4] < 2 || xq[5] !== 5 || xq[6] < 10)
     throw new Error('the where-it-shows-up explainer: ' + JSON.stringify(xq));
   if (pt.some((t, i) => i && !(t > pt[i - 1]))) throw new Error('the where-it-shows-up clock against the scroll: ' + pt.join(' '));
+  // RATES, NOT ANGLES (?x=rates, 2 Nov 2026): essay 14 in six beats, the switcher on it; the pitch dial on the first beat
+  // reads six in twelve as v/h 0.5 and the writer's 26.57°, and sets the clock on its linear stretch; a lit phrase
+  // ("the radius") lights the radius's morph
+  const rp = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+  rp.on('pageerror', e => failures.push(`[explained ?x=rates] ${e.message}`));
+  await rp.route(/fonts\.g/, r => r.abort());
+  await rp.goto(new URL('gallery/explained.html?x=rates', base).href, { waitUntil: 'load' });
+  await rp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
+  const rq = await rp.evaluate(() => [window.__explained.beats, window.__explained.titles[0], document.querySelector('#xs a.on') && document.querySelector('#xs a.on').dataset.x,
+    document.querySelectorAll('.beat .lit').length]);
+  const rdial = rp.locator('.beat .dial input');
+  await rdial.scrollIntoViewIfNeeded();
+  await rp.waitForTimeout(700);
+  await rdial.fill('6');
+  await rdial.dispatchEvent('input');
+  await rp.waitForTimeout(200);
+  const rd = [await rp.locator('.beat .dial output').textContent(), await rp.evaluate(() => window.__explained.ctl.t)];
+  const rl = rp.locator('.beat .lit', { hasText: 'radius' });
+  await rl.scrollIntoViewIfNeeded();
+  await rp.waitForTimeout(700);
+  await rl.hover();
+  await rp.waitForTimeout(300);
+  const rlit = await rp.evaluate(() => window.__explained.ctl.lit);
+  await rp.close();
+  if (rq[0] !== 7 || rq[1] !== 'Six in twelve' || rq[2] !== 'rates' || rq[3] < 10) throw new Error('the rates explainer: ' + JSON.stringify(rq));
+  if (!/6 in 12 · v\/h = 0\.5 · the writer's angle 26\.57°/.test(rd[0]) || Math.abs(rd[1] - 0.055) > 0.003)
+    throw new Error('the rates dial: ' + JSON.stringify(rd));
+  if (!rlit || rlit.length !== 1) throw new Error('the rates lit phrase: ' + JSON.stringify(rlit));
 });
 
 /* TEXT IN A SCENE, AND AN EXPLAINER'S BEATS. A scene link's <text> comes in as exact shapes, one a part of each
