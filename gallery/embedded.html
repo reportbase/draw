@@ -2475,19 +2475,21 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     seen = (t, eta) => { const b = Math.tanh(eta), c = (Math.cos(t) + b) / (1 + b * Math.cos(t)), s = Math.sign(Math.sin(t)) || 1,
       tp = s * Math.acos(Math.max(-1, Math.min(1, c))), D = Math.sqrt(1 - b * b) / (1 - b * Math.cos(tp)); return { tp, D }; },
     starAt = (k, eta) => { const { tp, D } = seen(star0[k], eta); return { p: [S[0] + RS * Math.sin(tp), S[1] - RS * Math.cos(tp)], r: 4 * Math.sqrt(D) }; };
+  // the words beside each beat: one idea and two or three sentences each (2 Nov 2026, Tom: "proceed with your
+  // recomendations", the second being fewer words a beat; the essay holds the argument)
   const PICTURE_BEATS = [
     { title: 'A lamp turns over a straight shore',
-      text: 'A lamp on a rock turns evenly and throws a flash along each direction. Someone on the beach marks where each one lands. Here twelve flashes, 15° apart, from flat along the shore to flat the other way.\n\nThe flash at angle θ from the shore\'s perpendicular lands at α + β·tan θ: α the foot of the lamp, β its distance out. The angles were laid by the turn before anything landed. **The lamp is the reader; the marks are its addresses carried onto the sand.**' },
+      text: 'A lamp turns evenly and throws twelve flashes, 15° apart. Each lands at α + β·tan θ: α the foot of the lamp, β its distance out.\n\n**The angles were laid by the turn before anything landed**: the marks are the lamp\'s addresses carried onto the sand.' },
     { title: 'Half within one lamp-distance',
-      text: 'Half the turn lies within 45° of the perpendicular, so **half the marks land within β of the foot**: the corner, at the foot plus or minus one lamp-distance. The law of the marks, drawn under the shore from its formula, is the Cauchy, β ⁄ π(β² + (x − α)²).\n\nThe walker finds the lamp from the marks alone: α is their median, β half the spread of their middle half. **Never their mean**: the far flashes run off toward the shore\'s ends, and the running mean of the marks never settles. [The lighthouse, §1](' + ESSAY + ')' },
+      text: 'Half the turn lies within 45° of the perpendicular, so **half the marks land within β of the foot**. Their law, drawn under the shore from its formula, is the Cauchy.\n\nFind the lamp by the marks\' median, never their mean: the far flashes run off toward the shore\'s ends. [The lighthouse, §1](' + ESSAY + ')' },
     { title: 'Drawn with the shore stretched',
-      text: 'Now draw the scene with the shore at twice the scale of the sea, *c* = 2. Every mark lands twice as far out, and the law widens with them. The halfway flash, the true 45° one, now sits where the lamp would see 63.4°, arctan 2: **the corner slides off.**\n\nDraw it back at one length and the corner returns. Only at *c* = 1, shore and sea drawn at one length, is the turn still a turn on the drawing. The lamp itself never holds a *c*: it has one length, its own, and the stretch is the drawing\'s, the writer\'s.' },
+      text: 'Draw the shore at twice the sea\'s scale, *c* = 2, and the halfway flash is seen at 63.4°: **the corner slides off.** Drag *c* and watch the count within β leave six.\n\nOnly at *c* = 1, one length, is the turn still a turn. The lamp never holds a *c*; the stretch is the drawing\'s.' },
     { title: 'Mercator\'s chart keeps the bearings',
-      text: 'A navigator wants a course at one compass bearing to be a straight line. On a globe it is a spiral, the rhumb line. Open the globe into **Mercator\'s chart**, *x* = *R*λ, *y* = *R* ln tan(π/4 + φ/2), and every meridian stands straight, the parallels spread apart toward the poles, and the rhumb line is straight: bearings are true everywhere because a step north is drawn at the same scale as a step east, *c* = 1, at every place.\n\nIt pays in area. Greenland, near 72°, swells by sec² of its latitude, about ten times; Africa, across the equator, much less. **Bearings are directions, the reader\'s; areas are amounts, the writer\'s.** Only the globe keeps both. [Mercator\'s chart, §2](' + ESSAY + ')' },
+      text: 'Open the globe into Mercator\'s chart and the rhumb line, a spiral on the globe, is straight: **a step north is drawn at the scale of a step east**, *c* = 1, everywhere.\n\nIt pays in area: Greenland swells about ten times. Bearings are directions; areas are amounts. [Mercator\'s chart, §2](' + ESSAY + ')' },
     { title: 'A moving sky',
-      text: 'An observer moving through a field of stars sees each star change in two ways, and relativity writes them as two formulas. **Where it is seen moves**: aberration, the same at every frequency, crowds the stars toward the motion. On the sky\'s stereographic chart it is *z* ↦ *z*/*k* with *k* = e^η, a map of the directions alone.\n\n**What arrives changes**: the Doppler factor *D* scales each photon\'s energy and its rate, a weighting of the payload that moves no star. The stars ahead are drawn larger by it. The brightening ahead, *D*⁴, is *D*² of directions crowding and *D*² of what arrives. [A moving sky, §7](' + ESSAY + ')' },
+      text: 'Move through the stars and two things change. **Where each is seen moves** (aberration, a map of the directions); **what arrives changes** (the Doppler factor, drawn here as size).\n\nThe brightening ahead, *D*⁴, is *D*² of directions crowding and *D*² of what arrives. [A moving sky, §7](' + ESSAY + ')' },
     { title: 'Three pictures, one split',
-      text: 'The lamp\'s angles, the chart\'s bearings, the sky\'s directions: each is where a thing is seen, laid by a turn, and each is unmoved by scaling the world. The marks in paces, the countries\' areas, the stars\' light: each is an amount, and each is written in a unit someone carried in.\n\nEvery picture here was already drawn this way long before anyone named the split. That is the essay\'s claim: practice already keeps the address apart from the payload, and the median, the true bearing and the boosted sky are what it looks like when it does. [Readers and Writers, §3](' + RW + ')' }
+      text: 'The lamp\'s angles, the chart\'s bearings, the sky\'s directions are where things are seen, unmoved by scaling the world. The paces, the areas, the light are amounts, written in a unit someone carried in.\n\nPractice already keeps them apart. [Readers and Writers, §3](' + RW + ')' }
   ];
   // shapes, in order: 0 the paper; 1 the sea; 2 the shore; 3 the corner's wedge; 4 the lamp's perpendicular; 5 the beam;
   // 6 the lamp; 7–18 the marks at c = 1, 19–30 at c = 2; 31, 32 the corner's rays at c = 1, 33, 34 at c = 2; 35, 36 the
@@ -2561,13 +2563,13 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
         { keys: [108], clip: span(0.025, 0.99, fadeIn(0.02)) },
         { keys: [5], spin: 0.5, trail: { kind: 'echoes', len: 0.1 }, clip: span(BEAM0, BEAM1, inOut(0.01, 0.01)) },
         ...seq(N).map(k => { const a = landT(k);
-          return { keys: [7 + k, 7 + k, 19 + k, 19 + k, 7 + k, 7 + k], times: rel(a, 0.99, [a, ...CT, 0.99]), straight: true, eases: [null, BZ, null, BZ, null, null],
+          return { keys: [7 + k, 7 + k, 19 + k, 19 + k, 7 + k, 7 + k], times: rel(a, 0.99, [a, ...CT, 0.99]), straight: true, eases: [null, 'linear', null, BZ, null, null],
             clip: span(a, 0.99, fadeIn(0.008)) }; }),
         // the corner: the wedge, its rays, the law under the shore
         { keys: [3], clip: span(0.18, A_END, inOut(0.02, 0.02)) },
-        ...[31, 32].map(k => ({ keys: [k, k, k + 2, k + 2, k, k], times: rel(0.19, A_END, [0.19, ...CT, A_END]), straight: true, eases: [null, BZ, null, BZ, null, null],
+        ...[31, 32].map(k => ({ keys: [k, k, k + 2, k + 2, k, k], times: rel(0.19, A_END, [0.19, ...CT, A_END]), straight: true, eases: [null, 'linear', null, BZ, null, null],
           clip: span(0.19, A_END, drawOut(0.025, 0.02)) })),
-        { keys: [35, 35, 36, 36, 35, 35], times: rel(0.23, A_END, [0.23, ...CT, A_END]), straight: true, eases: [null, BZ, null, BZ, null, null],
+        { keys: [35, 35, 36, 36, 35, 35], times: rel(0.23, A_END, [0.23, ...CT, A_END]), straight: true, eases: [null, 'linear', null, BZ, null, null],
           clip: span(0.23, A_END, drawOut(0.05, 0.02)) },
         { keys: [109, 110, 115], times: rel(0.37, 0.56, [0.37, 0.42, 0.51]), clip: span(0.37, 0.56, inOut(0.015, 0.02)) },
         // Mercator: the globe drawn, its grid, the two countries, the rhumb line ridden; then the globe opens into the chart

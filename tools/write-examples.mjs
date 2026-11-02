@@ -60,9 +60,11 @@ export async function writeExamples(base, ids) {
 export function serveRoot() {
   const server = createServer(async (req, res) => {
     const p = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^([/\\])+/, '');
-    try { const ext = p.slice(p.lastIndexOf('.'));
-          res.writeHead(200, { 'Content-Type': TYPES[ext] || 'text/html' }); res.end(await readFile(join(ROOT, p))); }
-    catch { res.writeHead(404); res.end(); }
+    // the file read before the headers go: a missing one (a favicon) is a 404, not a second writeHead
+    let body;
+    try { body = await readFile(join(ROOT, p)); } catch { res.writeHead(404); res.end(); return; }
+    const ext = p.slice(p.lastIndexOf('.'));
+    res.writeHead(200, { 'Content-Type': TYPES[ext] || 'text/html' }); res.end(body);
   });
   return new Promise(ok => server.listen(0, '127.0.0.1', () => ok(server)));
 }

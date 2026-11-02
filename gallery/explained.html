@@ -30,8 +30,10 @@
     <a href="explained.html?x=turned" data-x="turned">one length turned</a> ·
     <a href="explained.html?x=addresses" data-x="addresses">addresses given, payloads met</a> ·
     <a href="explained.html?x=nearfar" data-x="nearfar">near and far</a> ·
-    <a href="explained.html?x=standpoints" data-x="standpoints">many standpoints</a>
+    <a href="explained.html?x=standpoints" data-x="standpoints">many standpoints</a> ·
     <a href="explained.html?x=pictures" data-x="pictures">where it shows up</a></nav>
+  <p class="watchbar"><button id="watch" class="go" type="button">▶ watch it through</button>
+    <span class="hint">or scroll, and the picture follows</span></p>
 </header>
 
 <main class="explainer">
@@ -1365,7 +1367,16 @@ const EXPLAINERS = {
     lede: 'Scroll, and the picture follows. A lighthouse over a beach, Mercator\'s chart and the sky seen from a moving ship '
       + 'all keep the same thing apart: where something is seen, laid by a turn, and what arrives there. This page shows, '
       + 'in six steps, each picture doing it, every mark and line computed from its formula.',
-    paper: ['https://github.com/reportbase/wander/blob/main/papers/essays/07-where-it-shows-up.md', 'Where it shows up (essay 7)']
+    paper: ['https://github.com/reportbase/wander/blob/main/papers/essays/07-where-it-shows-up.md', 'Where it shows up (essay 7)'],
+    // A DIAL IN A BEAT (2 Nov 2026, Tom: "proceed with your recomendations", the third being "one interactive control where
+    // a parameter is the point"): beat 3's stretch from c = 1 to c = 2 is keyed straight and linear, so every mark and
+    // corner ray, which are linear in c (x = α + c·β·tan θ), sits exactly where c puts it at the clock's place in the
+    // stretch; the law under the shore is near it (its height goes as 1/c, its keys blend straight). The readout is
+    // worked here from c itself: where the halfway flash lands as the lamp sees it, and how many of the twelve marks
+    // land within one lamp-distance (six only at c = 1, as the even turn gives).
+    dial: { beat: 2, name: 'c', min: 1, max: 2, step: 0.01, t0: 0.39, t1: 0.45,
+      read: c => { const n = [7.5, 22.5, 37.5, 52.5, 67.5, 82.5].filter(a => c * Math.tan(a * Math.PI / 180) <= 1 + 1e-9).length * 2;
+        return `c = ${c.toFixed(2)} · the halfway flash seen at ${(Math.atan(c) * 180 / Math.PI).toFixed(1)}° · ${n} of 12 marks within β`; } }
   },
   // ADDRESSES GIVEN, PAYLOADS MET (29 Oct 2026, Tom: "lets tryout our new explainer in draw repository for a topic in
   // the essay folder"): the third of wander's essays, the animated gallery's `addresses` tile. Its paper is the essay
@@ -1407,6 +1418,12 @@ function beatsOf(scene, E) {
       + `between two of its stops, and its words are the scene's own beats. The paper: <a class="paper" href="${E.paper[0]}">${esc(E.paper[1])}</a></p></section>`
     : `<section class="beat last" data-from="1" data-to="1"><h2>${esc(scene.name || 'scene')}</h2>`
       + `<p>A scene played by the <a href="played.html">TVF player</a>, its clock set by scrolling.</p></section>`);
+  if (E && E.dial) {
+    const sec = host.querySelectorAll('section.beat')[E.dial.beat], D = E.dial;
+    if (sec)
+      sec.querySelector('.go').insertAdjacentHTML('beforebegin', `<div class="dial"><label>${esc(D.name)} <input type="range" `
+        + `min="${D.min}" max="${D.max}" step="${D.step}" value="${D.min}"></label><output>${esc(D.read(D.min))}</output></div>`);
+  }
   const h1 = document.querySelector('header h1'), lede = document.querySelector('header .lede');
   const name = E ? E.title : scene.name || 'scene';
   if (h1) h1.innerHTML = `tvf <em>explained</em> <span class="pill">${esc(name)}</span>`;
@@ -1476,7 +1493,63 @@ function follow() {
     ctl.seek(t);
   }
 }
+// WATCH IT THROUGH (2 Nov 2026, Tom: "proceed with your recomendations", the first being a watch mode, so the page
+// plays as a video would): the clock runs from the start, waits at each stop for WATCH_HOLD, goes on, and the beat being
+// played is scrolled into view. The page's own scrolling is not the reader's (guarded for a moment after each); a
+// wheel, a touch or a key is, and hands the clock back to the scroll.
+const WATCH_HOLD = 1800, watchBtn = document.getElementById('watch');
+let watching = false, guard = 0, waitSince = 0, shown = -1;
+function stopWatch() {
+  if (!watching)
+    return;
+  watching = false;
+  playing = false;
+  ctl.pause();
+  if (watchBtn)
+    watchBtn.textContent = '▶ watch it through';
+}
+function startWatch() {
+  watching = true;
+  playing = true;
+  shown = -1;
+  waitSince = 0;
+  ctl.seek(0);
+  ctl.play();
+  if (watchBtn)
+    watchBtn.textContent = '■ stop';
+}
+if (watchBtn)
+  watchBtn.addEventListener('click', () => watching ? stopWatch() : startWatch());
+for (const ev of ['wheel', 'touchstart', 'keydown'])
+  addEventListener(ev, e => { // the button's own touch, and Enter or Space on it (its click), toggle it there
+    const onBtn = e.target && e.target.closest && e.target.closest('#watch');
+    if (watching && !(onBtn && (ev !== 'keydown' || e.key === 'Enter' || e.key === ' ')))
+      stopWatch();
+  }, { passive: true });
+// the dial in a beat: it sets the clock within its stretch, and the scroll leaves it be until the reader scrolls on
+let dialAt = null;
+const dialIn = document.querySelector('.beat .dial input'), dialOut = document.querySelector('.beat .dial output'),
+  DIAL = X && EXPLAINERS[X] && EXPLAINERS[X].dial;
+if (dialIn && DIAL)
+  dialIn.addEventListener('input', () => {
+    stopWatch();
+    playing = false;
+    ctl.pause();
+    const c = +dialIn.value;
+    dialAt = scrollY;
+    ctl.seek(DIAL.t0 + (c - DIAL.min) / (DIAL.max - DIAL.min) * (DIAL.t1 - DIAL.t0));
+    dialOut.textContent = DIAL.read(c);
+  });
 addEventListener('scroll', () => {
+  if (performance.now() < guard)
+    return; // the watch's own scrolling
+  if (dialAt != null) {
+    if (Math.abs(scrollY - dialAt) < 120)
+      return;
+    dialAt = null;
+  }
+  if (watching)
+    stopWatch();
   if (playing) { // the reader took the clock back
     playing = false;
     ctl.pause();
@@ -1499,12 +1572,38 @@ beats.forEach(b => {
   beats.forEach((b, k) => b.classList.toggle('on', k === i));
   beatNo.textContent = String(Math.min(beats.filter(b => !b.classList.contains('last')).length, i + 1));
   tNow.textContent = t.toFixed(2);
-  if (playing && !ctl.playing)
+  if (watching) {
+    if (i !== shown) {
+      shown = i;
+      guard = performance.now() + 1200;
+      beats[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    if (!ctl.playing) {
+      if (!waitSince)
+        waitSince = performance.now();
+      else if (performance.now() - waitSince > WATCH_HOLD) {
+        waitSince = 0;
+        if (t > 1 - 1e-3 || i >= beats.length - 2 && t > +beats[beats.length - 2].dataset.to - 1e-3)
+          stopWatch();
+        else
+          ctl.next();
+      }
+    } else
+      waitSince = 0;
+  } else if (playing && !ctl.playing)
     playing = false;
+  if (dialIn && DIAL && dialAt == null && !watching) { // the dial follows the clock through its stretch
+    const c = DIAL.min + Math.max(0, Math.min(1, (t - DIAL.t0) / (DIAL.t1 - DIAL.t0))) * (DIAL.max - DIAL.min);
+    if (t >= DIAL.t0 - 0.02 && t <= DIAL.t1 + 0.06 && Math.abs(+dialIn.value - c) > 0.005) {
+      dialIn.value = c.toFixed(2);
+      dialOut.textContent = DIAL.read(+dialIn.value);
+    }
+  }
   requestAnimationFrame(tick);
 })();
-ctl.ready.then(follow);
-window.__explained = { ctl, tFromScroll, beats: beats.length, titles: beats.map(b => (b.querySelector('h2') || {}).textContent), playing: () => playing }; // for the smoke test
+ctl.ready.then(() => { follow(); if (Q.get('watch') === '1') startWatch(); });
+window.__explained = { ctl, tFromScroll, beats: beats.length, titles: beats.map(b => (b.querySelector('h2') || {}).textContent), playing: () => playing,
+  watching: () => watching, startWatch, stopWatch }; // for the smoke test
 }
 </script>
 </body>
