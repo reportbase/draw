@@ -2,7 +2,7 @@
 
 ### *What each lab in the editor's drawer measured, what it found, what the result is called elsewhere, and what in it looks new*
 
-*Written 28 October 2026, from a run of every lab on that day. Revised the same day: the labs moved to `labs/`, the seeded generator mended and every lab run again (§§ "What the run found wrong", "The run again, after the generator"), six faults dealt with, and the seven items that look new searched for in print. Revised 29 October: three labs added from the essays (§§55–57).*
+*Written 28 October 2026, from a run of every lab on that day. Revised the same day: the labs moved to `labs/`, the seeded generator mended and every lab run again (§§ "What the run found wrong", "The run again, after the generator"), six faults dealt with, and the seven items that look new searched for in print. Revised 29 October: three labs added from the essays (§§55–57). Revised 3 November: one added from wander's EPI test (§58).*
 
 > **Status: a record.** Every number below was read off the editor by `tools/run-labs.mjs`, which opens `draw.html?lab=CODE` for each lab in headless Chromium and keeps what the lab reports: its status line, and the caption and verdict of each cell it lays on the page. Nothing here was copied from a lab's own notes without being run again, except where a section says so (the interactive labs, which report nothing to read back). Where a classical source is named from memory rather than checked, the section says *to check*.
 
@@ -1146,6 +1146,36 @@ Essay 4 §10 and OFS §8: *a thing that spans n of the reader's places is resolv
 **Ours.** The essay's count is a ceiling, not a measure. Doubling the places opens one more level (prediction 2 held). How many of those levels hold depends on the figure: its coarse levels carry finer detail folded down unless the reader reads from a height, and it resolves no more levels than it has. The essay and OFS §8 should say so.
 
 **In the editor.** `?lab=ssl`. Its code: `labs/size-sets-the-level.js`.
+
+## 58. Terms aimed at the detail against the even leaves (*aimed terms against even leaves*)
+
+wander's EPI test (`plans/epi-plan.md` there) found, on four outlines written in closed form, that terms aimed at standpoints inside the disc drew a dent in 11 terms where the 85 best Fourier circles were needed, and lost on a broad shape. Those terms were Szegő kernels √(1−|a|²)/(1−āz), the Takenaka–Malmquist basis, chosen one at a time by Qian's adaptive Fourier decomposition with a = 0 first on each part. Here the same greedy is put against this editor's own reader: N even leaves reconstructed by the library's kernel. The test runs on the library's figures (40, evenly through the list), each walked by arc length at 512 samples, and is counted in reals: 2N for the leaves, 4n + 2 for the mean and n aimed terms. Errors are relative L2. The aimed terms stop at 60 and the leaves at 256.
+
+**Predictions, written before the run.**
+1. To 10⁻³, the aimed terms take fewer reals on at least two thirds of the figures not marked round.
+2. On the round figures they take fewer on at most a third.
+3. The deep standpoints (|a| > 0.5, the first ten) sit where the even reader fails: the median, over figures, of their median percentile in the error of 32 leaves is 75 or more.
+
+**Found** (3 November, run 1). Two of the three were killed.
+- (1) killed: 12/24. On the polygons with few corners the aimed terms won by about half:
+  - square, 186 reals against 312;
+  - triangle, 150 against 296;
+  - pie, 130 against 272.
+  On nine of the twelve they lost, they ran into their cap of 60 terms (242 reals) where the leaves needed 198 to over 256 leaves. These were the stars, arrows, the cross, the bolt, the fork and the snowflake: detail at many places. Running into the cap is a limit of my set-up as much as a result, but at four reals a term it would take more than 60 terms to win there anyway.
+- (2) killed: 8/16. The library's *round* is a drawing category (curved, not straight-edged), not smoothness, so it holds the heart, the astroid and the grazing figures, which have cusps; the aimed terms won on those, by 2.5 to 3 times on the grazing ones. This was killed by my set-up: I read the category as smoothness. On the smooth ones the leaves won, as predicted:
+  - circle, 8 reals against 14;
+  - egg, 16 against 26;
+  - rounded square, 52 against 138;
+  - blob, 64 against 170;
+  - rose, 96 against 158.
+- (3) held: median percentile 83. On 27 of 39 figures the deep standpoints sit in the worst quarter of the 32 leaves' error, and in its worst hundredth on the ellipse, the grazing figures and the heart.
+- Counted in terms, not reals, the aimed terms reached 10⁻³ with fewer than the leaves on 26/40 figures (the twelve that ran into the cap aside). To 10⁻², counted in reals, the leaves won on 36/40: coarse fidelity is the even reader's at any outline.
+
+**Classical.** The Takenaka–Malmquist system (Takenaka 1925, Malmquist 1926); adaptive Fourier decomposition (Qian and Wang 2011); the slow 1/k² decay of a corner's Fourier coefficients and its L2 tail.
+
+**Ours.** The geometry's reading of it is that the even leaves are one standpoint, the centre, turning evenly, and an aimed term is a standpoint stepped toward the detail. A standpoint costs twice a leaf. Stepping wins where the detail is in a few places (corners and cusps, to fine tolerance) and loses where it is everywhere or nowhere. The standpoints go where the leaves fail without being told (prediction 3). For the format this suggests a mixed reader, even leaves for the broad form and a few aimed terms at the corners; it is untested.
+
+**In the editor.** `?lab=aim`. Its code: `labs/aimed-terms.js`.
 
 ---
 
