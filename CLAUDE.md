@@ -528,6 +528,16 @@ publishes.
     popping marks on the post at 12·tan(kπ/24), the Cauchy as a speed; ½ ⊕ ⅓ = 1. Its morphs are added through a helper
     that names them, so the beats' `#lit:` indices are worked from the names; a label's later glyphs are appended after
     every other morph, so labels are never lit.
+    `?x=cauchymap` is THE CAUCHY MAP (5 Nov 2026; wander's essay 17, "heat given, paint met"), six beats over six panels:
+    cos⁴α and cos³α plotted (0.25 and 0.35 at 45°) beside a flat screen one thumb out; a fan at equal angles drawn on ray
+    by ray as one open line, its marks at s = tan θ crowding at the middle, the half-Cauchy along the screen; evenly spaced
+    tiles on the same screen and the rays to them, sec²θ against cos²θ = dθ/ds; five seeded random walkers drawn on to a
+    wall and twenty thousand walk-on-spheres landings (seeded, the exact law) binned under (1/π)·d/(d² + y²); a wall
+    pattern of three waves seen from d and 2d (each wave × e^(−d|k|), plotted curves as keys, the pattern kept faint
+    behind), the kernel widening, the amplitudes as bars; (1/π)·sech(ln(d/H)) with dots at one in two, four, eight and
+    two, four, eight thumbs, and the two maps multiplied over a field of directions and distance ratios. Its shapes and
+    morphs are put down through helpers that name them (`put`, `add`), so the camera's fits and the `#lit:` indices are
+    worked from names; it has its own seeded stream, so it takes nothing from the shared `rnd`.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
     `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
     than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI

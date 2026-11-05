@@ -32,7 +32,8 @@
     <a href="explained.html?x=nearfar" data-x="nearfar">near and far</a> ·
     <a href="explained.html?x=standpoints" data-x="standpoints">many standpoints</a> ·
     <a href="explained.html?x=pictures" data-x="pictures">where it shows up</a> ·
-    <a href="explained.html?x=rates" data-x="rates">rates, not angles</a></nav>
+    <a href="explained.html?x=rates" data-x="rates">rates, not angles</a> ·
+    <a href="explained.html?x=cauchymap" data-x="cauchymap">the Cauchy map</a></nav>
   <p class="watchbar"><button id="watch" class="go" type="button">▶ watch it through</button>
     <span class="hint">or scroll, and the picture follows</span></p>
 </header>
@@ -1391,6 +1392,18 @@ const EXPLAINERS = {
     // angle (worked here with atan, the writer's tool, which is the point)
     dial: { beat: 0, name: 'pitch', min: 0, max: 24, step: 0.5, t0: 0.03, t1: 0.13,
       read: p => `${p} in 12 · v/h = ${+(p / 12).toFixed(4)} · the writer's angle ${(Math.atan(p / 12) * 180 / Math.PI).toFixed(2)}°, a share of the whole turn` }
+  },
+  // THE CAUCHY MAP (5 Nov 2026): wander's essay 17, the animated gallery's `cauchymap` tile, in six beats: the dark
+  // corners of a photograph, the map on a flat screen, the tiles it is not, a walker's landings, stepping back, and the
+  // second map in distance multiplied with the first
+  cauchymap: {
+    src: '../player/examples/cauchymap.tvfs',
+    title: 'the Cauchy map',
+    lede: 'Scroll, and the picture follows. The darkened corners of a photograph are mostly geometry: a map of where the '
+      + 'looking is, given before any light arrives. This page shows, in six steps, that map on a flat screen, what it is '
+      + 'not, the same map from a random walker, what stepping back does to it, and the second map laid by the thumb, every '
+      + 'curve and landing computed from its formula or its seeded walk.',
+    paper: ['https://github.com/reportbase/wander/blob/main/papers/essays/17-the-cauchy-map.md', 'The Cauchy map (essay 17)']
   },
   // ADDRESSES GIVEN, PAYLOADS MET (29 Oct 2026, Tom: "lets tryout our new explainer in draw repository for a topic in
   // the essay folder"): the third of wander's essays, the animated gallery's `addresses` tile. Its paper is the essay
