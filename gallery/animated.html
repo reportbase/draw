@@ -2740,6 +2740,236 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 23. THE CAUCHY MAP (5 Nov 2026, Tom, via the session: an explainer for wander's essay 17, papers/essays/17-the-cauchy-map.md,
+// "The Cauchy map: heat given, paint met"): the scene of explained.html?x=cauchymap, in six beats over six panels. A flat
+// screen one thumb in front of a point, and beside it cos⁴α (a photograph's darkened corners) and cos³α (the map) plotted
+// from their formulas, 0.25 and 0.35 at 45°; a fan of directions at equal angles landing on the screen at s = tan θ,
+// crowding at the middle, with (2/π)/(1 + s²) plotted along the screen; evenly spaced tiles on the same screen, the rays to
+// them crowding toward the horizon, sec²θ against cos²θ = dθ/ds plotted, the Cauchy the turn per tile; five seeded random
+// walkers from the standpoint to a straight wall d away, drawn on as they walk, and twenty thousand walk-on-spheres landings
+// (the exact law, seeded) binned against (1/π)·d/(d² + y²); a wall pattern of three waves seen from d and from 2d, each wave
+// damped by e^(−d|k|) and none lost, the kernel widening and the three amplitudes as bars; and the second map, (1/π)·sech
+// of ln(d/H) along distance, 0.8, 0.47, 0.25 of the peak at two, four and eight thumbs, with the two maps multiplied over a
+// field of directions and ratios of distance, hottest on the look one thumb out. Every curve, mark and landing is computed
+// here from its formula or its seeded walk. Features: plotted curves drawn on, a fan drawn on ray by ray as one open line,
+// walkers drawn on like a pen, marks popped in, plotted curves as the keys of one morph, a camera across six panels,
+// highlights in the beat text.
+{
+  const f1 = v => +v.toFixed(2), seq = n => Array.from({ length: n }, (_, j) => j), D2R = Math.PI / 180,
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 17) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    plot = (prog, stroke, w, t0, t1, cx, cy, n = 96) => `<path data-plot="${prog}" data-t0="${t0}" data-t1="${t1}" data-n="${n}" data-cx="${cx}" data-cy="${cy}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#9a927f', PALE = '#cfe6e1',
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/17-the-cauchy-map.md',
+    // a small seeded stream of its own (mulberry32), so this scene never draws on another example's random numbers
+    rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  // the shapes, named as they are put down, so the camera and the beats' highlights are worked from the names
+  const S = [], idx = {};
+  const put = (name, s) => { (idx[name] = idx[name] || []).push(S.length); S.push(s); };
+  put('paper', rectP(-600, -500, 2500, 1300, '#f4f1ea'));
+  // THE SCREEN: the eye at E, the screen one thumb U out, square to the look; a direction θ off the look crosses it at
+  // s = tan θ thumbs from the middle (y up on the page is s up)
+  const E = [60, 330], U = 60, SX = E[0] + U, onScreen = s => [SX, E[1] - U * s];
+  put('eye', circ4(...E, 6, INK));
+  put('screen', line([onScreen(-4), onScreen(4)], GREY, 2));
+  put('look', line([E, [SX + 175, E[1]]], '#c9c2b4', 1.4));
+  // the fan: directions at equal angles, 7.5° apart to ±75°, one open line out to each crossing and back to the eye, so
+  // drawn on it is drawn ray by ray
+  const FAN = seq(21).map(k => (-75 + 7.5 * k) * D2R), zig = Q => Q.flatMap(p => [E, p]).concat([E]);
+  put('fan', line(zig(FAN.map(t => onScreen(Math.tan(t)))), VIOLET, 1.3));
+  // its marks on the screen, a comb of ticks to the left
+  put('marks', line(FAN.flatMap(t => { const [x, y] = onScreen(Math.tan(t)); return [[x, y], [x - 9, y], [x, y]]; }), VIOLET, 2.2));
+  // the half-Cauchy along the screen, drawn as the screen's own distance (2/π)/(1 + s²), 160 px for 1/(1 + s²) at its middle
+  put('cauchy', plot('x = 160/(1 + t^2); y = 60t', TEAL, 3, -4, 4, SX, E[1], 128));
+  // the tiles: evenly spaced, every half thumb, a comb to the right, and the rays from the eye to each
+  const TILE = seq(17).map(k => -4 + 0.5 * k);
+  put('tiles', line(TILE.flatMap(s => { const [x, y] = onScreen(s); return [[x, y], [x + 9, y], [x, y]]; }), GOLD, 2.4));
+  put('tileRays', line(zig(TILE.map(onScreen)), GOLD, 1.1));
+  // THE CORNERS OF A PHOTOGRAPH: cos³α and cos⁴α against α from 0 to 90°, one unit 200 px
+  const C = [360, 300], CK = 300 / (Math.PI / 2), cosAt = (a, p) => [C[0] + CK * a, C[1] - 200 * Math.cos(a) ** p];
+  put('axesC', line([[C[0], C[1] - 215], C, [C[0] + 315, C[1]]], GREY, 1.4));
+  put('guide45', line([[C[0] + CK * Math.PI / 4, C[1]], [C[0] + CK * Math.PI / 4, C[1] - 200]], '#c9c2b4', 1.2));
+  put('cos3', plot(`x = ${f1(CK)}t; y = 200cos(t)^3`, TEAL, 3, 0, 'π/2', C[0], C[1]));
+  put('cos4', plot(`x = ${f1(CK)}t; y = 200cos(t)^4`, INK, 2.4, 0, 'π/2', C[0], C[1]));
+  put('dots45', circ4(...cosAt(Math.PI / 4, 3), 6, TEAL));
+  put('dots45', circ4(...cosAt(Math.PI / 4, 4), 6, INK));
+  // THE TILES PER ANGLE AND THE TURN PER TILE: sec²θ and cos²θ against θ to atan 2 (sec² 5), 40 px a unit
+  const T = [360, 640], TK = 250;
+  put('axesT', line([[T[0], T[1] - 215], T, [T[0] + 290, T[1]]], GREY, 1.4));
+  put('sec2', plot(`x = ${TK}t; y = 40/cos(t)^2`, GOLD, 3, 0, f1(Math.atan(2) * 1000) / 1000, T[0], T[1]));
+  put('cos2', plot(`x = ${TK}t; y = 40cos(t)^2`, TEAL, 3, 0, f1(Math.atan(2) * 1000) / 1000, T[0], T[1]));
+  // THE WALKER: the standpoint W, a straight wall d to its right. Five walkers, steps of d/25 in a random direction each,
+  // seeded, the first five that reach the wall within 2d of its foot in 6,000 steps, drawn every fourth step
+  const W = [780, 330], d = 120, WALL = W[0] + d, STEP = d / 25;
+  put('wall', line([[WALL, W[1] - 300], [WALL, W[1] + 300]], INK, 2.4));
+  put('stand', circ4(...W, 6, INK));
+  const walks = [];
+  for (let seed = 1; walks.length < 5 && seed < 400; seed++) {
+    const r = rng(seed * 7919);
+    let x = W[0], y = W[1], P = [[x, y]], hit = null;
+    for (let n = 0; n < 6000 && !hit; n++) {
+      const a = 2 * Math.PI * r(), nx = x + STEP * Math.cos(a), ny = y + STEP * Math.sin(a);
+      if (nx >= WALL) { const u = (WALL - x) / (nx - x); hit = [WALL, y + u * (ny - y)]; break; }
+      x = nx; y = ny; if (n % 4 === 3) P.push([x, y]);
+    }
+    if (hit && Math.abs(hit[1] - W[1]) < 2 * d && P.length > 12 && P.length < 260) { P.push(hit); walks.push(P); }
+  }
+  walks.forEach(P => put('paths', line(P, [VIOLET, TEAL, GOLD, '#c4593d', INK][walks.indexOf(P)], 1.5)));
+  walks.forEach(P => put('landings', circ4(...P[P.length - 1], 5.5, '#c4593d')));
+  // twenty thousand landings by walk-on-spheres (the exact law of a walker's first meeting with the wall: from where it
+  // stands, a jump to a point at random on the largest circle that does not cross the wall, until it is within d/10⁴),
+  // binned by d/4 over ±2.5d, drawn as a skyline out from the wall, 150 px for the peak density 1/(πd)
+  const N = 20000, BIN = d / 4, NB = 20, count = new Array(NB).fill(0), rw = rng(17);
+  for (let i = 0; i < N; i++) {
+    let x = 0, y = 0;
+    while (d - x > d * 1e-4) { const R = d - x, a = 2 * Math.PI * rw(); x += R * Math.cos(a); y += R * Math.sin(a); }
+    const b = Math.floor((y + 2.5 * d) / BIN);
+    if (b >= 0 && b < NB) count[b]++;
+  }
+  const xOf = c => WALL + 150 * Math.PI * d * c / (N * BIN), sky = [[WALL, W[1] - 2.5 * d]];
+  count.forEach((c, b) => { const y0 = W[1] - 2.5 * d + b * BIN; sky.push([xOf(c), y0], [xOf(c), y0 + BIN]); });
+  sky.push([WALL, W[1] + 2.5 * d]);
+  put('histogram', polyOf(sky, PALE));
+  put('harmonic', plot(`x = ${150 * d * d}/(${d * d} + t^2); y = t`, TEAL, 3, -2.5 * d, 2.5 * d, WALL, W[1], 128));
+  // STEPPING BACK: a wall pattern of three waves, 0.5cos y + 0.35cos 3y + 0.25cos 7y over one period, and the same seen from
+  // d = 0.15 and 2d = 0.3 of the period's radian, each wave damped by e^(−d|k|); 60 px a unit
+  const B = [1300, 230], BK = 180 / Math.PI, WAVES = [[1, 0.5], [3, 0.35], [7, 0.25]], DS = [0, 0.15, 0.3],
+    pattern = dd => `x = ${f1(BK)}t; y = 60(${WAVES.map(([k, a]) => `${+(a * Math.exp(-dd * k)).toFixed(4)}cos(${k}t)`).join(' + ')})`;
+  put('axisB', line([[B[0] - 185, B[1]], [B[0] + 185, B[1]]], GREY, 1.4));
+  // the pattern as it is, kept faint behind the views, so what each step back dims can be seen
+  put('ghost', plot(pattern(0), '#cdc6b8', 2, '-π', 'π', B[0], B[1], 112));
+  DS.forEach(dd => put('pattern', plot(pattern(dd), INK, 2.6, '-π', 'π', B[0], B[1], 112)));
+  // the kernel, the Cauchy of half-width d, (1/π)·d/(d² + y²), 30 px a unit, at d and 2d
+  const KB = [1300, 440];
+  put('axisK', line([[KB[0] - 185, KB[1]], [KB[0] + 185, KB[1]]], GREY, 1.4));
+  DS.slice(1).forEach(dd => put('kernel', plot(`x = ${f1(BK)}t; y = ${+(30 / Math.PI * dd).toFixed(4)}/(${+(dd * dd).toFixed(4)} + t^2)`, TEAL, 3, '-π', 'π', KB[0], KB[1], 96)));
+  // each wave's amplitude, 1, then e^(−dk) and e^(−2dk), as bars: none reaches zero
+  const BB = 640;
+  WAVES.forEach(([k], j) => DS.forEach(dd => put('bars', rectP(B[0] - 90 + 75 * j, BB - 120 * Math.exp(-dd * k), B[0] - 60 + 75 * j, BB, VIOLET))));
+  put('axisBars', line([[B[0] - 110, BB], [B[0] + 105, BB]], GREY, 1.4));
+  // THE SECOND MAP, IN DISTANCE: (1/π)·sech(ln(d/H)) against ln(d/H), 70 px a unit of ln, 180 px for the peak; dots at one
+  // in eight, four and two, one thumb, and two, four and eight thumbs
+  const DD = [1690, 400], DK = 70, sech = x => 2 / (Math.exp(x) + Math.exp(-x)), RAT = [-3, -2, -1, 0, 1, 2, 3].map(j => j * Math.LN2);
+  put('axisD', line([[DD[0] - 175, DD[1]], [DD[0] + 175, DD[1]], [DD[0], DD[1]], [DD[0], DD[1] - 195]], GREY, 1.4));
+  put('sech', plot(`x = ${DK}t; y = 360/(exp(t) + exp(-t))`, GOLD, 3, -2.4, 2.4, DD[0], DD[1], 128));
+  RAT.forEach(l => put(l < 0 ? 'nearDots' : l > 0 ? 'farDots' : 'thumbDot', circ4(DD[0] + DK * l, DD[1] - 180 * sech(l), 6, l ? GOLD : '#c4593d')));
+  // the two maps multiplied over a field: directions every 15° to ±45° (the plane's heat cos²θ) and distances in ratio
+  // (one in four, one in two, one thumb, two, four), laid a ratio apart; each dot as large and as warm as the product
+  const P0 = [1540, 600], RINGS = [-2, -1, 0, 1, 2], ANG = [-45, -30, -15, 0, 15, 30, 45];
+  put('look2', line([[P0[0] - 8, P0[1]], [P0[0] + 230, P0[1]]], '#c9c2b4', 1.4));
+  put('eye2', circ4(...P0, 6, INK));
+  RINGS.forEach(j => ANG.forEach(a => {
+    const v = Math.cos(a * D2R) ** 2 * sech(j * Math.LN2), r = 40 * (j + 3);
+    put(j === 0 && a === 0 ? 'hot' : 'field', circ4(P0[0] + r * Math.cos(a * D2R), P0[1] - r * Math.sin(a * D2R), 2 + 9 * v, hsl(44 - 34 * v, 0.8, 0.86 - 0.4 * v)));
+  }));
+  // labels, last
+  put('lCos3', label(C[0] + 230, C[1] - 92, 'cos^3α', TEAL));
+  put('lCos4', label(C[0] + 40, C[1] - 70, 'cos^4α', INK));
+  put('l35', label(C[0] + CK * Math.PI / 4 + 12, C[1] - 200 * 0.3536 - 4, '0.35', TEAL, 15));
+  put('l25', label(C[0] + CK * Math.PI / 4 - 44, C[1] - 200 * 0.25 + 20, '0.25', INK, 15));
+  put('lSec', label(T[0] + 205, T[1] - 200, 'sec^2θ', GOLD));
+  put('lCos2', label(T[0] + 205, T[1] - 40, 'cos^2θ', TEAL));
+  [[1, '2'], [2, '4'], [3, '8']].forEach(([j, s]) => put('lRat', label(DD[0] + DK * j * Math.LN2 - 4, DD[1] + 22, s, INK, 15)));
+  put('lRat', label(DD[0] - 4, DD[1] + 22, '1', '#c4593d', 15));
+  const body = S.join('');
+  const one = n => idx[n][0], many = (...ns) => ns.flatMap(n => idx[n]);
+  // THE MORPHS: each shape comes in within its beat and stays; the stretches of the loop are the beats
+  const span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    pop = t => ({ keys: [], motion: { kind: 'pop', amount: 0.5 }, clip: span(t, t + 0.012, { show: 'in' }) }),
+    rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)), BZ = [0.45, 0, 0.25, 1];
+  const morphs = [], at = {};
+  const add = (name, m) => { (at[name] = at[name] || []).push(morphs.length); morphs.push(m); };
+  const shows = (name, i, m) => add(name, Object.assign({ keys: [i] }, m));
+  // beat 1, 0–0.16: the screen, and the corners of a photograph
+  shows('eye', one('eye'), { clip: span(0.004, 0.99, fadeIn(0.01)) });
+  shows('screen', one('screen'), { clip: span(0.008, 0.99, drawIn(0.02)) });
+  shows('look', one('look'), { clip: span(0.012, 0.99, drawIn(0.02)) });
+  shows('axesC', one('axesC'), { clip: span(0.03, 0.99, drawIn(0.02)) });
+  shows('cos4', one('cos4'), { clip: span(0.05, 0.99, drawIn(0.04)) });
+  shows('cos3', one('cos3'), { clip: span(0.07, 0.99, drawIn(0.04)) });
+  shows('guide45', one('guide45'), { clip: span(0.11, 0.99, drawIn(0.012)) });
+  idx.dots45.forEach((i, j) => add('dots45', Object.assign(pop(0.12 + 0.01 * j), { keys: [i] })));
+  // beat 2, 0.16–0.33: the fan at equal angles, its marks crowding at the middle, the half-Cauchy along the screen
+  shows('fan', one('fan'), { clip: span(0.19, 0.355, Object.assign(drawIn(0.07), { out: { kind: 'fade', len: 0.01 } })) });
+  shows('marks', one('marks'), { clip: span(0.2, 0.99, drawIn(0.07)) });
+  shows('cauchy', one('cauchy'), { clip: span(0.27, 0.99, drawIn(0.04)) });
+  // beat 3, 0.33–0.5: the tiles, the rays to them, and the two rates against the angle
+  shows('tiles', one('tiles'), { clip: span(0.36, 0.99, drawIn(0.03)) });
+  shows('tileRays', one('tileRays'), { clip: span(0.38, 0.99, drawIn(0.05)) });
+  shows('axesT', one('axesT'), { clip: span(0.42, 0.99, drawIn(0.015)) });
+  shows('sec2', one('sec2'), { clip: span(0.43, 0.99, drawIn(0.035)) });
+  shows('cos2', one('cos2'), { clip: span(0.45, 0.99, drawIn(0.035)) });
+  // beat 4, 0.5–0.67: the wall, the walkers drawn on as they walk, their landings, the many landings and the law
+  shows('wall', one('wall'), { clip: span(0.52, 0.99, drawIn(0.015)) });
+  shows('stand', one('stand'), { clip: span(0.525, 0.99, fadeIn(0.01)) });
+  idx.paths.forEach((i, j) => shows('paths', i, { clip: span(0.54 + 0.012 * j, 0.99, drawIn(0.03)) }));
+  idx.landings.forEach((i, j) => add('landings', Object.assign(pop(0.57 + 0.012 * j), { keys: [i] })));
+  shows('histogram', one('histogram'), { clip: span(0.62, 0.99, fadeIn(0.015)) });
+  shows('harmonic', one('harmonic'), { clip: span(0.63, 0.99, drawIn(0.025)) });
+  // beat 5, 0.67–0.84: the pattern as it is, seen from d, seen from 2d; the kernel widening; the amplitudes falling
+  // each holds its first key while it is drawn, then steps back to d and to 2d, and holds there
+  const BT = [0.7, 0.715, 0.75, 0.8, 0.99], hold2 = K => [K[0], ...K, K[K.length - 1]];
+  shows('axisB', one('axisB'), { clip: span(0.685, 0.99, drawIn(0.012)) });
+  shows('ghost', one('ghost'), { clip: span(0.72, 0.99, fadeIn(0.015)) });
+  add('pattern', { keys: hold2(idx.pattern), times: rel(0.69, 0.99, [0.69, ...BT.slice(1)]), straight: true, eases: [null, BZ, BZ, null],
+    clip: span(0.69, 0.99, drawIn(0.02)) });
+  shows('axisK', one('axisK'), { clip: span(0.735, 0.99, drawIn(0.012)) });
+  add('kernel', { keys: hold2(idx.kernel), times: rel(0.74, 0.99, [0.74, 0.755, 0.8, 0.99]), straight: true, eases: [null, BZ, null],
+    clip: span(0.74, 0.99, fadeIn(0.012)) });
+  shows('axisBars', one('axisBars'), { clip: span(0.69, 0.99, drawIn(0.012)) });
+  [0, 1, 2].forEach(j => add('bars', { keys: hold2(idx.bars.slice(3 * j, 3 * j + 3)), times: rel(0.7, 0.99, BT), straight: true,
+    eases: [null, BZ, BZ, null], clip: span(0.7, 0.99, fadeIn(0.01)) }));
+  // beat 6, 0.84–1: the second map, in distance, and the two multiplied
+  shows('axisD', one('axisD'), { clip: span(0.855, 0.99, drawIn(0.015)) });
+  shows('sech', one('sech'), { clip: span(0.865, 0.99, drawIn(0.03)) });
+  [...idx.nearDots, ...idx.thumbDot, ...idx.farDots].forEach(i => {
+    const name = idx.thumbDot.includes(i) ? 'thumbDot' : idx.nearDots.includes(i) ? 'nearDots' : 'farDots',
+      j = Math.abs(idx.thumbDot[0] - i);
+    add(name, Object.assign(pop(0.9 + 0.008 * j), { keys: [i] }));
+  });
+  shows('look2', one('look2'), { clip: span(0.925, 0.99, drawIn(0.01)) });
+  shows('eye2', one('eye2'), { clip: span(0.925, 0.99, fadeIn(0.01)) });
+  idx.field.forEach((i, j) => shows('field', i, { clip: span(0.93 + 0.0006 * j, 0.99, fadeIn(0.012)) }));
+  add('hot', Object.assign(pop(0.955), { keys: [one('hot')] }));
+  // the labels, each fading in with what it names
+  [['lCos3', 0.1], ['lCos4', 0.08], ['l35', 0.125], ['l25', 0.13], ['lSec', 0.46], ['lCos2', 0.475]].forEach(([n, t]) => shows(n, one(n), { clip: span(t, 0.99, fadeIn(0.012)) }));
+  idx.lRat.forEach(i => shows('lRat', i, { clip: span(0.9, 0.99, fadeIn(0.012)) }));
+  // a label's later glyphs are appended after every other morph (sceneLabelMorphs), so only shapes, never labels, are lit
+  const lit = (...names) => names.flatMap(n => at[n]).join(',');
+  const CAUCHYMAP_BEATS = [
+    { title: 'The dark corners',
+      text: `A photograph's corners are darker than its middle, even of a white wall evenly lit: [cos⁴α](#lit:${lit('cos4')}), a quarter of the light at 45°. Three of those four cosines are not about light. They are how the directions from one point spread over a [flat screen](#lit:${lit('screen')}) held in front of it.\n\nTake the light away and [cos³α](#lit:${lit('cos3')}) remains, [0.35 at 45°](#lit:${lit('dots45')}): a map of where the looking is.` },
+    { title: 'A map of where the looking is',
+      text: `Directions [even by angle](#lit:${lit('fan')}) cross a screen one thumb out at s = tan θ. On the screen they [crowd at the middle](#lit:${lit('marks')}) and thin toward the edge; the rim never lands at all.\n\nCount them per unit of s and you have [the half-Cauchy](#lit:${lit('cauchy')}), (2/π)/(1 + s²), hottest where the look points. It is there before anything arrives. *The heat is given; the paint is met.*` },
+    { title: 'Not a grid seen from home',
+      text: `[Tiles](#lit:${lit('tiles')}) evenly spaced on a wall are flat in s. Per unit of angle they are not: the [rays to them](#lit:${lit('tileRays')}) crowd toward the horizon, as [sec²θ](#lit:${lit('sec2')}).\n\nThe Cauchy is the other way round, [dθ/ds = cos²θ](#lit:${lit('cos2')}): the turn per unit of the writer's grid, how much of the looking per tile. It is a rate, not the layout of the world.` },
+    { title: 'The same map, from a walker',
+      text: `Let a [walker](#lit:${lit('paths')}) leave the standpoint, a step in a random direction, then another, until it [meets a wall](#lit:${lit('landings')}) d away. [Twenty thousand landings](#lit:${lit('histogram')}) pile up as [(1/π)·d/(d² + y²)](#lit:${lit('harmonic')}): the Cauchy again, its scale the distance.\n\nThis is harmonic measure, Laplace's steady state, with no time in it: not the heat equation, whose kernel is the Gaussian.` },
+    { title: 'Stepping back',
+      text: `A [pattern on the wall](#lit:${lit('pattern')}) seen from d, then from 2d. Each wave is damped by e^(−d|k|), the fine ones first; the [kernel widens](#lit:${lit('kernel')}), and the [amplitudes](#lit:${lit('bars')}) fall without reaching zero.\n\nThe steps compose, d₁ then d₂ the same as d₁ + d₂: the Poisson semigroup, the cleanest level of detail there is. Nothing is lost; the Cauchy only dims.` },
+    { title: 'The second map, in distance',
+      text: `Near and far are a second map, laid by one length, the thumb. Per ratio of distance it is [(1/π)·sech(ln(d/H))](#lit:${lit('sech')}), hottest at [one thumb](#lit:${lit('thumbDot')}), and [0.8, 0.47, 0.25](#lit:${lit('farDots')}) of that at two, four and eight thumbs, [the same at one in two, four and eight](#lit:${lit('nearDots')}).\n\n[Multiply the two maps](#lit:${lit('field')}) and the heat is [hottest at one point](#lit:${lit('hot')}): on the look, one thumb out, the thing looked at. [The essay, §7](${ESSAY})` }
+  ];
+  SHOWPIECES.push({
+    id: 'cauchymap', name: 'the Cauchy map', section: 'explainers', tags: ['plot', 'camera', 'labels', 'random walk', 'essay'],
+    note: 'The seventeenth of wander\'s essays in six beats: a photograph\'s darkened corners, cos⁴α, and the map left when the light is taken away, cos³α, 0.25 and 0.35 at 45°; directions even by angle crossing a screen one thumb out at s = tan θ, crowding at its middle, the half-Cauchy along it; evenly spaced tiles on the same screen, crowding per angle as sec²θ, the Cauchy the turn per tile, cos²θ; seeded walkers from the standpoint to a wall and twenty thousand landings on (1/π)·d/(d² + y²), harmonic measure; a wall pattern seen from d and 2d, each wave damped by e^(−d|k|), none lost; and the second map, (1/π)·sech(ln(d/H)) along distance, multiplied with the first, hottest at the thing looked at. The scene of the explainer page\'s tenth explainer.',
+    svg: svg(1900, 780, body),
+    scene: {
+      loop: 56, ease: 'inout', stops: [0.16, 0.33, 0.5, 0.67, 0.84],
+      camera: [
+        { t: 0, fit: many('screen', 'axesC', 'cos3'), pad: 0.12 }, { t: 0.16, fit: many('screen', 'axesC', 'cos3'), pad: 0.12 },
+        { t: 0.19, fit: many('screen', 'look', 'eye'), pad: 0.1 }, { t: 0.33, fit: many('screen', 'look', 'eye'), pad: 0.1 },
+        { t: 0.36, fit: many('screen', 'look', 'axesT', 'axesC'), pad: 0.06 }, { t: 0.5, fit: many('screen', 'look', 'axesT', 'axesC'), pad: 0.06 },
+        { t: 0.53, fit: many('wall', 'stand', 'histogram'), pad: 0.08 }, { t: 0.67, fit: many('wall', 'stand', 'histogram'), pad: 0.08 },
+        { t: 0.7, fit: many('ghost', 'axisK', 'axisBars'), pad: 0.1 }, { t: 0.84, fit: many('ghost', 'axisK', 'axisBars'), pad: 0.1 },
+        { t: 0.87, fit: many('axisD', 'eye2', 'field'), pad: 0.08 }],
+      beats: CAUCHYMAP_BEATS,
+      morphs
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -2869,7 +3099,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates', 'cauchymap'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },

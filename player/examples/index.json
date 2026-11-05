@@ -39,7 +39,8 @@
     "nearfar",
     "standpoints",
     "pictures",
-    "rates"
+    "rates",
+    "cauchymap"
    ]
   },
   {
@@ -453,6 +454,17 @@
     "essay"
    ]
   },
+  "cauchymap": {
+   "name": "the Cauchy map",
+   "note": "The seventeenth of wander's essays in six beats: a photograph's darkened corners, cos⁴α, and the map left when the light is taken away, cos³α, 0.25 and 0.35 at 45°; directions even by angle crossing a screen one thumb out at s = tan θ, crowding at its middle, the half-Cauchy along it; evenly spaced tiles on the same screen, crowding per angle as sec²θ, the Cauchy the turn per tile, cos²θ; seeded walkers from the standpoint to a wall and twenty thousand landings on (1/π)·d/(d² + y²), harmonic measure; a wall pattern seen from d and 2d, each wave damped by e^(−d|k|), none lost; and the second map, (1/π)·sech(ln(d/H)) along distance, multiplied with the first, hottest at the thing looked at. The scene of the explainer page's tenth explainer.",
+   "tags": [
+    "plot",
+    "camera",
+    "labels",
+    "random walk",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -648,6 +660,7 @@
   "nearfar": 198335,
   "standpoints": 135539,
   "pictures": 249051,
-  "rates": 108267
+  "rates": 108267,
+  "cauchymap": 341174
  }
 }
