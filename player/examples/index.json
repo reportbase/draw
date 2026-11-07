@@ -42,7 +42,8 @@
     "rates",
     "cauchymap",
     "plane",
-    "special"
+    "special",
+    "parties"
    ]
   },
   {
@@ -487,6 +488,16 @@
     "essay"
    ]
   },
+  "parties": {
+   "name": "three parties",
+   "note": "The fifth of wander's essays in six beats: a room's corner, three edges and the octant a direction crosses, cut by its sum into the flat triangle; the triangle face on, the reader's triple corner at its centre and a true point off it; six orderings a sixth each, each pair's corner a median, the near field a third; Lambert's map, the two angles swept evenly crowding toward the vertical and swept evenly in height spacing out; the heat on a flat screen carried to the equal-area screen, half at 37.5°; and more parties, 1/(n + 1), with a sphere in a cube of any size. The scene of the explainer page's thirteenth explainer.",
+   "tags": [
+    "camera",
+    "labels",
+    "morph",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -685,6 +696,7 @@
   "rates": 108267,
   "cauchymap": 341174,
   "plane": 345695,
-  "special": 224386
+  "special": 224386,
+  "parties": 137839
  }
 }

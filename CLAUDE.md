@@ -559,6 +559,16 @@ publishes.
     thirteen poses, home turned 90°; a flat wall where the turn and the walker are one curve, a ball where they part
     (0.482 against 0.359 within 45°), and the wedge's corners and near-field third. A scene keeps no stroke widths (every
     morph's line is 2), so a curve that another lies on is drawn as a pale filled area under it, not a wider line.
+    `?x=parties` is THREE PARTIES (7 Nov 2026, Tom: "proceed"; wander's essay 5), six beats over six panels: home's three
+    edges h, v, v₂ seen from outside and the octant of the sphere a direction crosses, carried point by point (each over
+    its sum) into the flat triangle h + v + v₂ = 1; the triangle face on, the triple corner at its centre and a true point
+    (2/9, 2/3, 1/9) off it; its six chambers, the pairs' corners as medians, the near field (h largest) a third; the octant
+    on Lambert's equal-area map, height lines even in altitude (crowding upward, v ≤ h 0.343) carried to even in height
+    (½), the three corner curves drawn; rings holding a sixth of the hemisphere each on a flat screen (stretching out of
+    frame) carried to the equal-area screen (packed under the rim at √2), cos³α beside it with half at 37.5°; the near
+    field 1/(n + 1) as bars, and a circle in a square grown from 0.7 to 1.3, its sixteen landings keeping their
+    directions. 47 morphs. A scene draws its morphs in the order they are added, so what must lie under (the chambers)
+    is added first, whatever its time.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
     `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
     than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI
