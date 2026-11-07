@@ -45,7 +45,11 @@
     "special",
     "parties",
     "array",
-    "kn"
+    "kn",
+    "writer",
+    "free",
+    "order",
+    "paradox"
    ]
   },
   {
@@ -520,6 +524,46 @@
     "essay"
    ]
   },
+  "writer": {
+   "name": "What only a writer holds",
+   "note": "The fifteenth of wander's essays in six beats: Bernoulli's bank climbing toward e, every stage a fraction; Machin's four fifths landing exactly on the corner beside Madhava's sums about π/4; a turn coming back and a rescaling going on; (1 + iπ/n)ⁿ closing on −1, only the limit on the arc; tan 1 and one in e met in order among fractions; and a machine's π, a fraction, with π 0.276 of the way to the next double. The scene of the explainer page's sixteenth explainer.",
+   "tags": [
+    "camera",
+    "labels",
+    "morph",
+    "essay"
+   ]
+  },
+  "free": {
+   "name": "What the geometry gives free",
+   "note": "The eighth of wander's essays in six beats: a scrollbar against a dial, its hand at arctan(sinh ζ) inside the quarter turn whatever the list's length; a depth buffer's sixteen steps in three lays, the standard buffer's corner at the near plane, log depth, the turn about a focus; a cube's face of equal pixels against one laid by turn; Math.floor's cell, the binary tiling its remainder lives in and the reader's soft cut against the floor's wall; hash % n against keys on a hash's turn, a fifth machine moving 4 keys of 24 against 21; and a Kalman filter's variances, a reciprocal pair about √(qr). The scene of the explainer page's free explainer.",
+   "tags": [
+    "camera",
+    "labels",
+    "morph",
+    "essay"
+   ]
+  },
+  "order": {
+   "name": "Holding in order",
+   "note": "The eleventh of wander's essays in six beats: a stream through an unknown gain, the amounts moving and each arrival over the last not; one slot, the reading a ray from home across a post one hold out, the corner where nothing changed, the register's steps odd then even; the unit rule on a walk, the hold moved only when the reading leaves ±1 step; the side bit settling on a median of 10 while the mean wanders; a tide's turns at its highs and lows, a trend rule's at its inflections; and the same tide in feet and cubed, every turn where it was.",
+   "tags": [
+    "camera",
+    "labels",
+    "morph",
+    "essay"
+   ]
+  },
+  "paradox": {
+   "name": "Paradoxes as vantages",
+   "note": "The ninth of wander's essays in six beats: two people a field apart, each seeing the other smaller than its own hand, the readings set on one line; the exchange, their ratio the sizes' ratio and their product the distance; Simpson's kidney stones, A ahead in every group and behind pooled, ahead again against one mix; Zeno, finite by length and endless by count; Benford's first digits, an even spread against no scale preferred; and the first test, the world scaled, the readings unmoved and the metres moved.",
+   "tags": [
+    "camera",
+    "labels",
+    "morph",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -721,6 +765,10 @@
   "special": 224386,
   "parties": 137839,
   "array": 128481,
-  "kn": 109148
+  "kn": 109148,
+  "writer": 117993,
+  "free": 108592,
+  "order": 142768,
+  "paradox": 194879
  }
 }

@@ -567,8 +567,8 @@ publishes.
     (½), the three corner curves drawn; rings holding a sixth of the hemisphere each on a flat screen (stretching out of
     frame) carried to the equal-area screen (packed under the rim at √2), cos³α beside it with half at 37.5°; the near
     field 1/(n + 1) as bars, and a circle in a square grown from 0.7 to 1.3, its sixteen landings keeping their
-    directions. 47 morphs. A scene draws its morphs in the order they are added, so what must lie under (the chambers)
-    is added first, whatever its time.
+    directions. 47 morphs. A scene draws its morphs in the order their first keys stand in its svg (not the order the
+    morphs are added), so what must lie under (the chambers) is put down first, whatever its time.
     `?x=array` is WHAT AN ARRAY IS (7 Nov 2026, Tom: "1,2"; wander's essay 12), six beats over five panels: `int a[10]`'s
     ten slots, the writer's, each a share i/10 of the way and moving when the array grows; a reader two slots out from
     its foot, equal steps of turn landing thick near it and thin far along, half the quarter turn within two slots; where
@@ -585,6 +585,37 @@ publishes.
     a register switch, x below a and 1/x above, bounded by 1 only at a = 1; a running median of v/h settling at 1 while
     the mean wanders (a seeded mulberry32 stream, its checkpoints held in the scene); and the cull, sixteen places at
     H·tan(kπ/32) sliding a decade as the thumb grows tenfold, half inside it at every H. 53 morphs.
+    `?x=writer` is WHAT ONLY A WRITER HOLDS (7 Nov 2026, Tom: "1,2,3,4"; wander's essay 15), six beats over six panels:
+    Bernoulli's bank, (1 + 1/n)ⁿ against log₁₀ n climbing toward e (2, 2.25, monthly 2.6130, daily 2.7146, every minute
+    2.718279), every stage a fraction; Machin's rays on a post, 1/5 composed four times by tangent addition (5/12, 37/55,
+    120/119) less 1/239 landing exactly on the corner, Madhava's partial sums zigzagging about π/4; a radius turned once
+    round coming home against a square growing 20 → 320 and never coming back; (1 + iπ/n)ⁿ for n = 1 … 64 morphing toward
+    −1; ratios met (1, 3/2, 8/5, 2) with tan 1 and one in e among them, made by none; and the doubles near π, Math.PI
+    = 884279719003555/2⁴⁸ with π 0.276 of the gap past it. 64 morphs.
+    `?x=free` is WHAT THE GEOMETRY GIVES FREE (7 Nov 2026, Tom: "1,2,3,4"; wander's essay 8), six beats: a scrollbar's thumb
+    shrinking with its list beside a quarter-turn dial pushed evenly in ζ and drawn at arctan(sinh ζ) (a thousand records in
+    7.6/r, 2⁵³ in 37.4/r); sixteen stored depth steps three ways on d/n from 1 to 10⁴ (the standard buffer half within 2n,
+    log depth even in ratio, the turn about a focus at 100n finest there); a cube face's equal pixels morphing to the grid
+    laid by turn, each cell's share 1/(1 + u²)^{3/2} (1/5.2 at a corner) against 1/√(1 + u²) (√2); Math.floor's cell for
+    0.8125 = 0.1101₂ and the binary tiling above it, the soft cut (half kept 3.09 depths coarser, 90% to 10% over 5.5)
+    against the floor's wall (DYH run 2); 24 seeded keys restacked by hash % 4 → % 5 (21 move) against a hash's circle
+    (a fifth machine takes 4); and the Kalman variances μ, 1/μ about √(qr) (1.618, 1.133, 4.236). 87 morphs. A key's colour
+    does not change between two exact keys, so the moved keys are shapes of their own faded in.
+    `?x=order` is HOLDING IN ORDER (7 Nov 2026, Tom: "1,2,3,4"; wander's essay 11), six beats: sixteen arrivals through an
+    unknown gain, the gain doubled and each arrival over the last unmoved; one slot, [hold : arrival] a ray crossing a post
+    one hold out, resting at the corner, the register's steps odd then even; a seeded walk of 80 looks read by the unit
+    rule, 13 moves and 67 holds; 2,000 arrivals of 10·tan((π/2)U), the hold settling near 10 while the running mean wanders
+    past 40; a tide of two sines made for the picture (not NOAA's record), the unit rule's turns at its highs and lows and
+    a trend rule's corners at its inflections; the tide in feet from another datum and cubed, the turns unmoved, read every
+    look and every third. The essay's own figures (1,622/378, 9.25/16.09, 3.01%/60.58%) are quoted in the words only. 43
+    morphs.
+    `?x=paradox` is PARADOXES AS VANTAGES (7 Nov 2026, Tom: "1,2,3,4"; wander's essay 9), six beats: two people a field
+    apart each reading the other against a hand at arm's length (1/8 and 1/2, both under 1 on one line); the exchange,
+    √(ratio) ½ and √(product) ¼; Simpson's paradox on Charig et al. 1986's stones (A ahead in each size, behind pooled,
+    ahead again once both take one mix); the in-place lay's stretches at H·(2 − 2⁻ᵏ), all inside 2H, spread to equal room
+    and running on; leading digits even (11.1%) against log₁₀(1 + 1/d) (30.1% … 4.6%) and a ruler going logarithmic; the
+    field scaled by 1.8, the readings unmoved and the metres moving. 102 morphs. The essay's "more points, less seen" entry
+    was left out: its formula counts N/2 for small N where the essay says every point is seen apart.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
     `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
     than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI

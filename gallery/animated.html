@@ -3937,6 +3937,810 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 29. WHAT ONLY A WRITER HOLDS (7 Nov 2026, Tom, via the session: "1,2,3,4", the first; wander's essay 15,
+// papers/essays/15-what-only-a-writer-holds.md): the scene of explained.html?x=writer, in six beats. Bernoulli's bank,
+// (1 + 1/n)ⁿ against the count of payments, every stage a fraction, climbing toward e and never on it; π: Machin's
+// directions composed by tangent addition, 1/5 four times over and back one part in 239, landing exactly on the corner,
+// beside Madhava's partial sums zigzagging about π/4 and never on it; the two groups, a turn by a whole revolution coming
+// back (its period 2π) and a rescaling going on (twice, twice again, never home); where they meet, (1 + iπ/n)ⁿ for n = 1,
+// 2, 4, 8, 16, 64 closing on −1 and only the limit on the writer's arc; met, not made: the direction tan 1 between 3/2 and
+// 8/5, and one in e between one in two and one in four; and a machine's π, a fraction with 2⁴⁸ below the line, with π
+// itself 0.276 of the way to the next double, 2⁻⁵¹ on.
+{
+  const f1 = v => +v.toFixed(2), D2R = Math.PI / 180,
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 17) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#9a927f', PALE = '#cfe6e1', RED = '#c4593d',
+    SAND = '#efdcb0', ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/15-what-only-a-writer-holds.md',
+    samp = (a, b, n) => Array.from({ length: n + 1 }, (_, j) => a + (b - a) * j / n);
+  const S = [], idx = {};
+  const put = (name, s) => { (idx[name] = idx[name] || []).push(S.length); S.push(s); };
+  put('paper', rectP(-400, -400, 7300, 1500, '#f4f1ea'));
+  // BERNOULLI'S BANK: (1 + 1/n)ⁿ against log10 n from 0 to 6 (110 px a decade), 600 px a unit from 1.9 up; e drawn as
+  // the line it closes on; the payments of the essay as dots: once, twice, monthly, daily, hourly, every minute
+  const A0 = [100, 760], onA = (lx, v) => [A0[0] + 110 * lx, A0[1] - 600 * (v - 1.9)], E = Math.E,
+    bank = n => (1 + 1 / n) ** n, PAY = [1, 2, 12, 365, 8760, 525600];
+  put('axesA', line([onA(0, 2.82), onA(0, 1.9), onA(6.3, 1.9)], GREY, 1.4));
+  put('eLine', line([onA(0, E), onA(6.3, E)], GOLD, 2));
+  put('curveA', line(samp(0, 6, 150).map(lx => onA(lx, bank(10 ** lx))), TEAL, 2.8));
+  PAY.forEach(n => put('dotsA', circ4(...onA(Math.log10(n), bank(n)), 7, INK)));
+  // π COMPLETES THE TURN: home at B0, a post one unit (380 px) across; rays read 1/5, 5/12, 37/55, 120/119 (Machin's four
+  // fifths composed by tangent addition), then 1, the corner (120/119 less 1/239); beside it Madhava's partial sums
+  // 1 − 1/3 + 1/5 − …, twelve terms, 45 px a term, 1100 px a unit from 0.6 up, about π/4
+  const B0 = [1300, 760], BU = 380, onPost = s => [B0[0] + BU, B0[1] - BU * s],
+    ray = s => [B0, [B0[0] + 1.22 * BU, B0[1] - 1.22 * BU * s]], MACHIN = [1 / 5, 5 / 12, 37 / 55, 120 / 119];
+  put('baseB', line([B0, [B0[0] + 1.25 * BU, B0[1]]], GREY, 1.4));
+  put('postB', line([[B0[0] + BU, B0[1] + 10], [B0[0] + BU, B0[1] - 1.3 * BU]], INK, 2.4));
+  MACHIN.forEach(s => put('raysB', line(ray(s), VIOLET, 1.8)));
+  put('marksB', line(MACHIN.flatMap(s => { const p = onPost(s); return [p, [p[0] + 14, p[1]], p]; }), VIOLET, 2.4));
+  put('cornerRay', line(ray(1), GOLD, 2.4));
+  put('cornerB', circ4(...onPost(1), 8, GOLD));
+  put('homeB', circ4(...B0, 6, INK));
+  const M0 = [1900, 760], onM = (k, v) => [M0[0] + 45 * (k - 1), M0[1] - 1100 * (v - 0.6)],
+    MAD = samp(0, 11, 11).reduce((a, k) => (a.push((a.length ? a[a.length - 1] : 0) + (-1) ** k / (2 * k + 1)), a), []);
+  put('axesM', line([onM(1, 1.02), onM(1, 0.6), onM(12.5, 0.6)], GREY, 1.4));
+  put('quarterM', line([onM(1, Math.PI / 4), onM(12.5, Math.PI / 4)], GOLD, 2));
+  put('zigM', line(MAD.map((v, j) => onM(j + 1, v)), VIOLET, 2.6));
+  // THE TURN COMES BACK, THE SCALE GOES ON: a circle about Cc and a radius turned once round, 15° a key, back where it
+  // started; beside it a square from one corner twice as wide each time, 20 to 320, never home
+  const C0 = [2950, 760], Cc = [C0[0] + 200, C0[1] - 230], CR = 170,
+    spoke = t => { const c = Math.cos(t), s = Math.sin(t); return polyOf([[Cc[0] - 4 * s, Cc[1] - 4 * c], [Cc[0] + 4 * s, Cc[1] + 4 * c], [Cc[0] + CR * c, Cc[1] - CR * s]], TEAL); };
+  put('circleC', line(samp(0, 2 * Math.PI, 96).map(t => [Cc[0] + CR * Math.cos(t), Cc[1] - CR * Math.sin(t)]), INK, 2.2));
+  samp(0, 360, 24).forEach(d => put('spokeC', spoke(d * D2R)));
+  const SQ = [C0[0] + 470, C0[1]];
+  [20, 40, 80, 160, 320].forEach(w => put('squareC', rectP(SQ[0], SQ[1] - w, SQ[0] + w, SQ[1], '#c9bcff')));
+  put('nestC', line([20, 40, 80, 160, 320].flatMap(w => [[SQ[0], SQ[1]], [SQ[0], SQ[1] - w], [SQ[0] + w, SQ[1] - w], [SQ[0] + w, SQ[1]]]), INK, 1.6));
+  put('groundC', line([[SQ[0] - 20, SQ[1]], [SQ[0] + 360, SQ[1]]], GREY, 1.4));
+  // WHERE THEY MEET: the plane about O (150 px a unit); (1 + iπ/n)^k, k = 0 … n, for n = 1, 2, 4, 8, 16, 64, each laid
+  // as 65 points at k = n·j/64 (between vertices by straight lines), then the limit e^(iπ·j/64), the half circle to −1
+  const O = [4500, 760], DU = 150, onO = z => [O[0] + DU * z[0], O[1] - DU * z[1]],
+    cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]],
+    poly = n => { const V = [[1, 0]]; for (let k = 0; k < n; k++) V.push(cmul(V[k], [1, Math.PI / n]));
+      return samp(0, n, 64).map(x => { const k = Math.min(n - 1, Math.floor(x)), f = x - k; return [V[k][0] + f * (V[k + 1][0] - V[k][0]), V[k][1] + f * (V[k + 1][1] - V[k][1])]; }); },
+    arcAt = r => samp(0, Math.PI, 64).map(t => [r * Math.cos(t), r * Math.sin(t)]);
+  put('axesD', line([onO([-2.6, 0]), onO([1.4, 0])], GREY, 1.4)); put('axesD', line([onO([0, -0.15]), onO([0, 3.4])], GREY, 1.4));
+  put('arcD', polyOf([...arcAt(1.035), ...arcAt(0.965).reverse()].map(onO), PALE));
+  [1, 2, 4, 8, 16, 64].forEach(n => put('polyD', line(poly(n).map(onO), VIOLET, 2.4)));
+  put('polyD', line(arcAt(1).map(onO), VIOLET, 2.4));
+  put('oneD', circ4(...onO([1, 0]), 7, INK));
+  put('minusD', circ4(...onO([-1, 0]), 8, GOLD));
+  // MET, NOT MADE: home at E0, a post one unit (260 px) across; grey rays reading 1, 3/2, 8/5 and 2, the gold one tan 1 =
+  // 1.5574…; under it a strip of readings from 0 to 1 (500 px), one in two, one in four, and one in e between them
+  const E0 = [5300, 720], EU = 260, onPostE = s => [E0[0] + EU, E0[1] - EU * s],
+    rayE = s => [E0, [E0[0] + 1.18 * EU, E0[1] - 1.18 * EU * s]], RAT = [1, 3 / 2, 8 / 5, 2];
+  put('baseE', line([E0, [E0[0] + 1.25 * EU, E0[1]]], GREY, 1.4));
+  put('postE', line([[E0[0] + EU, E0[1] + 10], [E0[0] + EU, E0[1] - 2.2 * EU]], INK, 2.4));
+  put('ratE', line(RAT.flatMap(s => [...rayE(s), E0]), GREY, 1.6));
+  put('ratMarks', line(RAT.flatMap(s => { const p = onPostE(s); return [p, [p[0] + 14, p[1]], p]; }), GREY, 2.4));
+  put('tanE', line(rayE(Math.tan(1)), GOLD, 2.6));
+  put('tanMark', line([onPostE(Math.tan(1)), [onPostE(Math.tan(1))[0] + 18, onPostE(Math.tan(1))[1]]], GOLD, 3));
+  put('homeE', circ4(...E0, 6, INK));
+  const SY = E0[1] + 110, onS = r => [E0[0] + 500 * r, SY];
+  put('stripE', line([onS(0), onS(1)], INK, 2));
+  put('halvesE', line([0.5, 0.25].flatMap(r => { const p = onS(r); return [p, [p[0], p[1] - 28], p]; }), GREY, 2.6));
+  put('oneInE', line([onS(1 / E), [onS(1 / E)[0], SY - 44]], GOLD, 3));
+  // A MACHINE HOLDS FRACTIONS: a ruler from 3.10 to 3.18 (8000 px a unit) with π on it; below, the same place 1.4·10¹⁴
+  // times closer, the doubles near π 2⁻⁵¹ apart (120 px), Math.PI = 884279719003555/2⁴⁸ among them and π 0.2758 of the
+  // way from it to the next
+  const F0 = [6300, 560], onF = x => [F0[0] + 8000 * (x - 3.10), F0[1]], GY = F0[1] + 330, MP = Math.PI,
+    GAP = 0.27576594341502452, onG = k => [F0[0] + 320 + 120 * k, GY];
+  put('rulerF', line([onF(3.10), onF(3.18)], INK, 2));
+  put('ticksF', line(samp(3.10, 3.18, 4).flatMap(x => { const p = onF(x); return [p, [p[0], p[1] + 14], p]; }), GREY, 2));
+  put('zoomF', line([[onG(-2.4)[0], GY - 40], [onF(MP)[0] - 6, F0[1] + 30], [onF(MP)[0] + 6, F0[1] + 30], [onG(3.4)[0], GY - 40]], '#c9c2b4', 1.4));
+  put('rulerG', line([onG(-2.4), onG(3.4)], INK, 2));
+  put('doublesG', line([-2, -1, 1, 2, 3].flatMap(k => { const p = onG(k); return [p, [p[0], p[1] - 26], p]; }), TEAL, 2.4));
+  put('mathPi', line([onG(0), [onG(0)[0], GY - 46]], TEAL, 3.4));
+  put('piTop', polyOf([[onF(MP)[0], F0[1] - 4], [onF(MP)[0] - 8, F0[1] - 22], [onF(MP)[0] + 8, F0[1] - 22]], GOLD));
+  put('piG', polyOf([[onG(GAP)[0], GY + 4], [onG(GAP)[0] - 9, GY + 24], [onG(GAP)[0] + 9, GY + 24]], GOLD));
+  // labels, last
+  put('lE', label(onA(6.3, E)[0] + 12, onA(6.3, E)[1] + 9, 'e', GOLD, 28));
+  put('lQ', label(onM(12.5, Math.PI / 4)[0] + 10, onM(12.5, Math.PI / 4)[1] + 8, 'π/4', GOLD, 24));
+  put('l2pi', label(Cc[0] - 22, Cc[1] - CR - 22, '2π', INK, 26));
+  put('lMinus', label(onO([-1, 0])[0] - 18, O[1] + 38, '−1', GOLD, 26));
+  put('lTan', label(rayE(Math.tan(1))[1][0] + 10, rayE(Math.tan(1))[1][1] + 4, 'tan 1', GOLD, 22));
+  put('lPi', label(onG(GAP)[0] - 8, GY + 54, 'π', GOLD, 26));
+  const body = S.join('');
+  const one = n => idx[n][0], many = (...ns) => ns.flatMap(n => idx[n]);
+  const span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)), BZE = [0.45, 0, 0.25, 1];
+  const morphs = [], at = {};
+  const add = (name, m) => { (at[name] = at[name] || []).push(morphs.length); morphs.push(m); };
+  const shows = (name, i, m) => add(name, Object.assign({ keys: [i] }, m));
+  const steps = (name, K, start, end, T, io) => add(name, { keys: K.flatMap(k => [k, k]), straight: true,
+    times: rel(start, end, [start, ...T, end]), eases: [...K.flatMap((_, j) => j ? [BZE, null] : [null]), null], clip: span(start, end, io) });
+  // beat 1, 0–0.16: the bank; the curve drawn on from one payment to a minute's, each payment's dot as the pen passes
+  shows('axesA', one('axesA'), { clip: span(0.004, 0.99, drawIn(0.01)) });
+  shows('eLine', one('eLine'), { clip: span(0.012, 0.99, fadeIn(0.012)) });
+  shows('curveA', one('curveA'), { clip: span(0.025, 0.99, drawIn(0.1)) });
+  PAY.forEach((n, j) => shows('dotsA', idx.dotsA[j], { clip: span(0.025 + 0.1 * Math.log10(n) / 6, 0.99, fadeIn(0.006)) }));
+  // beat 2, 0.16–0.33: Machin's four fifths, ray by ray, then the corner; Madhava's sums about π/4
+  shows('baseB', one('baseB'), { clip: span(0.17, 0.99, drawIn(0.008)) });
+  shows('postB', one('postB'), { clip: span(0.172, 0.99, drawIn(0.01)) });
+  shows('homeB', one('homeB'), { clip: span(0.17, 0.99, fadeIn(0.006)) });
+  idx.raysB.forEach((i, j) => shows('raysB', i, { clip: span(0.18 + 0.012 * j, 0.99, drawIn(0.008)) }));
+  shows('marksB', one('marksB'), { clip: span(0.22, 0.99, fadeIn(0.01)) });
+  shows('cornerRay', one('cornerRay'), { clip: span(0.235, 0.99, drawIn(0.01)) });
+  shows('cornerB', one('cornerB'), { clip: span(0.245, 0.99, fadeIn(0.006)) });
+  shows('axesM', one('axesM'), { clip: span(0.255, 0.99, drawIn(0.008)) });
+  shows('quarterM', one('quarterM'), { clip: span(0.26, 0.99, fadeIn(0.01)) });
+  shows('zigM', one('zigM'), { clip: span(0.268, 0.99, drawIn(0.04)) });
+  // beat 3, 0.33–0.5: a whole turn, back where it began; then the square, twice as wide each time, never home
+  shows('circleC', one('circleC'), { clip: span(0.34, 0.99, drawIn(0.012)) });
+  add('spokeC', { keys: [idx.spokeC[0], ...idx.spokeC, idx.spokeC[24]], straight: true, times: rel(0.355, 0.99, [0.355, ...samp(0.36, 0.42, 24), 0.99]),
+    eases: [null, ...idx.spokeC.slice(1).map(() => 'linear'), null, null], clip: span(0.355, 0.99, fadeIn(0.005)) });
+  shows('groundC', one('groundC'), { clip: span(0.425, 0.99, drawIn(0.008)) });
+  steps('squareC', idx.squareC, 0.43, 0.99, [0.437, 0.443, 0.45, 0.456, 0.463, 0.469, 0.476, 0.482], fadeIn(0.006));
+  shows('nestC', one('nestC'), { clip: span(0.43, 0.99, drawIn(0.05)) });
+  // beat 4, 0.5–0.67: (1 + iπ/n)ⁿ for n = 1 … 64, then the limit on the arc
+  shows('axesD', idx.axesD[0], { clip: span(0.505, 0.99, drawIn(0.01)) });
+  shows('axesD', idx.axesD[1], { clip: span(0.505, 0.99, drawIn(0.01)) });
+  shows('arcD', one('arcD'), { clip: span(0.51, 0.99, fadeIn(0.012)) });
+  shows('oneD', one('oneD'), { clip: span(0.51, 0.99, fadeIn(0.006)) });
+  shows('minusD', one('minusD'), { clip: span(0.515, 0.99, fadeIn(0.006)) });
+  steps('polyD', idx.polyD, 0.52, 0.99, [0.54, 0.551, 0.559, 0.57, 0.578, 0.589, 0.597, 0.608, 0.616, 0.627, 0.637, 0.65], drawIn(0.012));
+  // beat 5, 0.67–0.84: the rational rays and tan 1 among them; the strip of readings and one in e
+  shows('baseE', one('baseE'), { clip: span(0.675, 0.99, drawIn(0.008)) });
+  shows('postE', one('postE'), { clip: span(0.677, 0.99, drawIn(0.01)) });
+  shows('homeE', one('homeE'), { clip: span(0.675, 0.99, fadeIn(0.006)) });
+  shows('ratE', one('ratE'), { clip: span(0.685, 0.99, drawIn(0.02)) });
+  shows('ratMarks', one('ratMarks'), { clip: span(0.7, 0.99, fadeIn(0.008)) });
+  shows('tanE', one('tanE'), { clip: span(0.71, 0.99, drawIn(0.01)) });
+  shows('tanMark', one('tanMark'), { clip: span(0.72, 0.99, fadeIn(0.006)) });
+  shows('stripE', one('stripE'), { clip: span(0.74, 0.99, drawIn(0.01)) });
+  shows('halvesE', one('halvesE'), { clip: span(0.75, 0.99, fadeIn(0.008)) });
+  shows('oneInE', one('oneInE'), { clip: span(0.765, 0.99, fadeIn(0.008)) });
+  // beat 6, 0.84–1: the ruler, then the doubles near π, Math.PI among them and π between two
+  shows('rulerF', one('rulerF'), { clip: span(0.845, 0.99, drawIn(0.01)) });
+  shows('ticksF', one('ticksF'), { clip: span(0.85, 0.99, fadeIn(0.008)) });
+  shows('piTop', one('piTop'), { clip: span(0.855, 0.99, fadeIn(0.006)) });
+  shows('zoomF', one('zoomF'), { clip: span(0.865, 0.99, drawIn(0.012)) });
+  shows('rulerG', one('rulerG'), { clip: span(0.875, 0.99, drawIn(0.01)) });
+  shows('doublesG', one('doublesG'), { clip: span(0.885, 0.99, fadeIn(0.008)) });
+  shows('mathPi', one('mathPi'), { clip: span(0.89, 0.99, fadeIn(0.008)) });
+  shows('piG', one('piG'), { clip: span(0.905, 0.99, fadeIn(0.008)) });
+  [['lE', 0.02], ['lQ', 0.265], ['l2pi', 0.345], ['lMinus', 0.52], ['lTan', 0.72], ['lPi', 0.91]].forEach(([n, t]) => shows(n, one(n), { clip: span(t, 0.99, fadeIn(0.01)) }));
+  const lit = (...names) => names.flatMap(n => at[n]).join(',');
+  const litOf = (name, ...js) => js.map(j => at[name][j]).join(',');
+  const WRITER_BEATS = [
+    { title: "Bernoulli's bank",
+      text: `Lend one coin at a hundred per cent a year. Paid [once](#lit:${litOf('dotsA', 0)}), it gives 2; twice, 2.25; monthly, 2.6130; daily, 2.7146; hourly, 2.71813; [every minute](#lit:${litOf('dotsA', 5)}), 2.718279. [The amounts climb](#lit:${lit('curveA')}) and the climb slows, closing on [a number no count of payments reaches](#lit:${lit('eLine')}): e, 2.71828…\n\nEvery step is a fraction, (n + 1)ⁿ/nⁿ, whatever the count. To have e you must have made every payment there could be: it is the end of a process that does not end.` },
+    { title: 'π completes the turn',
+      text: `A reader composes directions by tangent addition, in fractions. [One fifth, four times over](#lit:${lit('raysB')}), reads 1/5, 5/12, 37/55, 120/119; take back one part in 239 and it lands [on the corner](#lit:${lit('cornerRay', 'cornerB')}), exactly 1. Machin's identity among directions is finite, and the reader's.\n\nThe corner's angle is π/4, and π/4 is [1 − 1/3 + 1/5 − 1/7 + …](#lit:${lit('zigM')}): every partial sum a fraction, five terms 0.8349, a thousand within a two-thousandth, none of them [π/4](#lit:${lit('quarterM')}). The number is the sum finished, and finishing it is the writer's.` },
+    { title: 'The turn comes back, the scale goes on',
+      text: `The reader's ignorance is two groups, turns and rescalings. [A turn](#lit:${lit('spokeC')}) by a whole revolution is no turn at all: its exponential map, e^(iθ), has a period, [2π](#lit:${lit('circleC')}). π is the measure of the turn closing.\n\n[A rescaling](#lit:${lit('squareC')}) never comes back: twice, twice again, never home. Its map, κ = eᵗ, has no period, only a base, and e is the base that counts growth at a rate of one. π says the turn returns; e says how the scale goes on.` },
+    { title: 'Where they meet',
+      text: `Compound the turn as Bernoulli compounded the coin: (1 + iπ/n)ⁿ, [n steps](#lit:${lit('polyD')}) of a fraction of a half turn each. One step overshoots far up; two, four, eight, sixteen, sixty-four close in on [−1](#lit:${lit('minusD')}), every stage finitely many pieces.\n\nOnly the limit lies on [the writer's arc](#lit:${lit('arcD')}): e^(iπ) = −1, the scale's base raised to the turn's half total. The reader holds that place as a pair, the horizon [0 : 1], with nothing infinite in it; Lindemann's proof that π is not algebraic goes through this point.` },
+    { title: 'Met, not made',
+      text: `Transcendental numbers are in the reader's world, and the reader meets them. [The direction tan 1](#lit:${lit('tanE', 'tanMark')}), 1.5574…, is a direction like any other: paint arrives along it, and it sits in order between [3/2 and 8/5](#lit:${lit('ratE', 'ratMarks')}).\n\nA thing e times the thumb away reads [one in e](#lit:${lit('oneInE')}), between [one in two and one in four](#lit:${lit('halvesE')}), held there by order. The reader holds the direction and the reading; 1.5574… and "e times" are the writer's account of where they are.` },
+    { title: 'A machine holds fractions',
+      text: `Every floating-point number is an integer over a power of two. The machine's π is [884279719003555/2⁴⁸](#lit:${lit('mathPi')}); [the doubles near it](#lit:${lit('doublesG')}) are 2⁻⁵¹ apart, and [π](#lit:${lit('piG')}) falls 0.276 of the way to the next one. Running Machin's series for a billion digits, the machine holds a fraction at every moment, as the reader does.\n\nAsked for the writer's numbers it keeps their names, pi and E, and proves exp(iπ) = −1 by rules about the names. The turn comes back and the scale goes on, and to say either in a number you have to have held all of it. [The essay](${ESSAY})` }
+  ];
+  SHOWPIECES.push({
+    id: 'writer', name: 'What only a writer holds', section: 'explainers', tags: ['camera', 'labels', 'morph', 'essay'],
+    note: 'The fifteenth of wander\'s essays in six beats: Bernoulli\'s bank climbing toward e, every stage a fraction; Machin\'s four fifths landing exactly on the corner beside Madhava\'s sums about π/4; a turn coming back and a rescaling going on; (1 + iπ/n)ⁿ closing on −1, only the limit on the arc; tan 1 and one in e met in order among fractions; and a machine\'s π, a fraction, with π 0.276 of the way to the next double. The scene of the explainer page\'s sixteenth explainer.',
+    svg: svg(7100, 1100, body),
+    scene: {
+      loop: 56, ease: 'inout', stops: [0.16, 0.33, 0.5, 0.67, 0.84],
+      camera: [
+        { t: 0, fit: many('axesA', 'curveA', 'eLine', 'lE'), pad: 0.1 }, { t: 0.16, fit: many('axesA', 'curveA', 'eLine', 'lE'), pad: 0.1 },
+        { t: 0.19, fit: many('baseB', 'postB', 'cornerRay', 'axesM', 'quarterM', 'lQ'), pad: 0.08 }, { t: 0.33, fit: many('baseB', 'postB', 'cornerRay', 'axesM', 'quarterM', 'lQ'), pad: 0.08 },
+        { t: 0.36, fit: many('circleC', 'squareC', 'l2pi'), pad: 0.1 }, { t: 0.5, fit: many('circleC', 'squareC', 'l2pi'), pad: 0.1 },
+        { t: 0.53, fit: many('axesD', 'arcD'), pad: 0.1 }, { t: 0.67, fit: many('axesD', 'arcD'), pad: 0.1 },
+        { t: 0.70, fit: many('postE', 'baseE', 'stripE', 'lTan'), pad: 0.1 }, { t: 0.84, fit: many('postE', 'baseE', 'stripE', 'lTan'), pad: 0.1 },
+        { t: 0.87, fit: many('rulerF', 'rulerG', 'piG', 'lPi'), pad: 0.12 }],
+      beats: WRITER_BEATS,
+      morphs
+    }
+  });
+}
+// 30. WHAT THE GEOMETRY GIVES FREE (7 Nov 2026, Tom, via the session: "1,2,3,4", the second; wander's essay 8,
+// papers/essays/08-what-the-geometry-gives-free.md): the scene of explained.html?x=free, in six beats, each an engineered
+// structure read against the geometry. A scrollbar's thumb shrinking with its list beside a dial whose hand is pushed in ζ,
+// stands at x = sinh ζ and is drawn at arctan x, inside the quarter turn for ever; a depth buffer's sixteen stored steps on
+// a ruler of distance in three lays (the standard buffer, the in-place lay with its corner at the near plane; log depth,
+// the reader's lay; the turn about a focus); a cube's face of equal pixels against one laid by turn, with each cell's share
+// of directions across the face; Math.floor keeping one cell, the binary tiling of the half-plane that its remainder lives
+// in, a descent through the cells holding 0.8125, and the reader's soft cut against the floor's wall; hash % n against keys
+// and machines on a hash's turn, 4 machines to 5; and a Kalman filter's two variances, a reciprocal pair about √(qr).
+// Every number drawn is computed here from its formula, or (the soft cut) written in from DYH run 2, wander's
+// runs/dyh/dyh-run2.txt.
+{
+  const f1 = v => +v.toFixed(2), D2R = Math.PI / 180, Q = Math.PI / 2,
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 17) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#9a927f', RED = '#c4593d',
+    SAND = '#efdcb0', ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/08-what-the-geometry-gives-free.md',
+    samp = (a, b, n) => Array.from({ length: n + 1 }, (_, j) => a + (b - a) * j / n),
+    comb = (P, dx, dy) => P.flatMap(p => [p, [p[0] + dx, p[1] + dy], p]);
+  const S = [], idx = {};
+  const put = (name, s) => { (idx[name] = idx[name] || []).push(S.length); S.push(s); };
+  put('paper', rectP(-400, -400, 7500, 1500, '#f4f1ea'));
+  // A DIAL: a scrollbar's track (700 tall) and its thumb, 700/N for a list of N windows, N = 1, 10, 100, 1000; beside it
+  // the dial, home at A0, radius 600: the quarter turn, the rungs at arctan x for x = ¼, ½, ¾, 1 (in proportion, to the
+  // corner) and x = 2, 4 … 256, the corner's ray at 45°, and the hand at arctan(sinh ζ), ζ = 0, ½ … 6 (thirteen keys)
+  const TR = [60, 150, 100, 850], A0 = [300, 850], AR = 600, at0 = t => [A0[0] + AR * Math.cos(t), A0[1] - AR * Math.sin(t)],
+    atR = (t, r) => [A0[0] + r * Math.cos(t), A0[1] - r * Math.sin(t)];
+  put('track', rectP(...TR, '#e3ddd0'));
+  [1, 10, 100, 1000].forEach(N => put('thumb', rectP(TR[0], TR[1], TR[2], TR[1] + Math.max(3, 700 / N), INK)));
+  put('arcA', line([atR(Q, AR), A0, ...samp(0, Q, 60).map(t => at0(t))].reverse(), INK, 2));
+  const XN = [0.25, 0.5, 0.75], XF = [2, 4, 8, 16, 32, 64, 128, 256];
+  put('nearA', line(XN.flatMap(x => { const t = Math.atan(x); return [atR(t, AR), atR(t, AR - 60), atR(t, AR)]; }), TEAL, 2.4));
+  put('farA', line(XF.flatMap(x => { const t = Math.atan(x); return [atR(t, AR), atR(t, AR - 60), atR(t, AR)]; }), VIOLET, 2.4));
+  put('cornerA', line([A0, atR(Math.PI / 4, AR + 30)], GOLD, 2));
+  const ZETA = samp(0, 6, 12);
+  ZETA.forEach(z => put('hand', line([A0, atR(Math.atan(Math.sinh(z)), AR - 20)], RED, 3)));
+  put('homeA', circ4(...A0, 9, INK));
+  // THE DEPTH BUFFER: a ruler of distance on log10(d/n) from 0 to 4, 170 px a decade; three rows, the sixteen equal steps
+  // of what each stores carried back to distance (k = 1 … 15; k = 16 is the far plane f = 10,000 n): the standard buffer
+  // d = n/(1 − (k/16)·(f − n)/f) on top, log depth d = n·10^(k/4) in the middle, the turn about a focus F = 100 n,
+  // d = F·tan(kπ/32), below; the near plane marked on the top row, the focus on the bottom
+  const B0 = [1300, 880], onB = (d, row) => [B0[0] + 170 * Math.log10(d), B0[1] - 170 * row], FAR = 1e4, FOC = 100;
+  const rowsB = [k => 1 / (1 - (k / 16) * (FAR - 1) / FAR), k => 10 ** (k / 4), k => FOC * Math.tan(k * Math.PI / 32)];
+  const nameB = ['zbuf', 'logd', 'turnd'], colB = [RED, TEAL, VIOLET];
+  [2, 1, 0].forEach((row, j) => {
+    const f = rowsB[j];
+    put(nameB[j] + 'Base', line([onB(1, row), onB(FAR, row)], INK, 2));
+    put(nameB[j], line(comb(samp(1, 15, 14).map(k => onB(f(k), row)), 0, -60), colB[j], 2.4));
+  });
+  put('nearB', polyOf([[-7, 0], [7, 0], [7, -95], [-7, -95]].map(([x, y]) => [onB(1, 2)[0] + x, onB(1, 2)[1] + y]), GOLD));
+  put('focusB', polyOf([[-7, 0], [7, 0], [7, -95], [-7, -95]].map(([x, y]) => [onB(FOC, 0)[0] + x, onB(FOC, 0)[1] + y]), GOLD));
+  // THE FLAT SCREEN: a cube's face, u and v from −1 to 1, 520 px; nine lines each way, at equal steps (equal pixels) and
+  // at u = tan a, a in equal steps over ±45° (laid by turn); both families as one open line run back and forth. Beside it
+  // each cell's share of directions along the face's middle row against a middle cell's: 1/(1 + u²)^(3/2) for equal
+  // pixels (0.354 at the edge), 1/√(1 + u²) laid by turn (0.707 there)
+  const C0 = [2450, 300], CW = 520, onC = (u, v) => [C0[0] + CW * (u + 1) / 2, C0[1] + CW * (1 - (v + 1) / 2)];
+  const gridC = U => { const P = []; U.forEach((u, i) => { const a = onC(u, i % 2 ? 1 : -1), b = onC(u, i % 2 ? -1 : 1); P.push(a, b); });
+    U.forEach((v, i) => { const a = onC(i % 2 ? -1 : 1, v), b = onC(i % 2 ? 1 : -1, v); P.push(a, b); }); return P; };
+  put('faceC', polyOf([onC(-1, -1), onC(1, -1), onC(1, 1), onC(-1, 1)], '#fbf8f1'));
+  put('gridC', line(gridC(samp(-1, 1, 8)), INK, 1.4));
+  put('gridC', line(gridC(samp(-Math.PI / 4, Math.PI / 4, 8).map(Math.tan)), INK, 1.4));
+  const C1 = [3150, 820], onC1 = (u, y) => [C1[0] + 240 * (u + 1), C1[1] - 440 * y], UU = samp(-1, 1, 80);
+  put('axesC', line([[C1[0], C1[1] - 460], C1, [C1[0] + 480, C1[1]]], GREY, 1.4));
+  put('oneC', line([onC1(-1, 1), onC1(1, 1)], '#c9c2b4', 1.4));
+  put('eqC', line(UU.map(u => onC1(u, (1 + u * u) ** -1.5)), RED, 2.8));
+  put('turnC', line(UU.map(u => onC1(u, (1 + u * u) ** -0.5)), TEAL, 2.8));
+  // WHAT MATH.FLOOR THROWS AWAY: the line from 0 to 1, 640 px; the binary tiling of depths 0 … 5 above it, each cell of
+  // depth j from kw to (k + 1)w across and from w/2 to w up (w = 2^−j, y linear); x = 0.8125 = 0.1101 in binary; the cell
+  // Math.floor(x / w) keeps at w = ¼ (cell 3); the cells holding x at every depth (indices 0, 1, 3, 6, 13, 26) and their
+  // points m + iγ; the descent through them. Beside it the share of a step kept by a reader at its own cell's point,
+  // depth by depth against its own (−7 … +2), and the floor's wall
+  const D0 = [3850, 880], DW = 640, onD = (x, y) => [D0[0] + DW * x, D0[1] - DW * y], XD = 0.8125;
+  put('lineD', line([onD(0, 0), onD(1, 0)], INK, 2.4));
+  const tiling = [];
+  for (let j = 0; j <= 5; j++) {
+    const w = 2 ** -j;
+    tiling.push(onD(0, w), onD(1, w), onD(1, w / 2), onD(0, w / 2));
+    for (let k = 0; k <= 2 ** j; k++) tiling.push(onD(k * w, w / 2), onD(k * w, w), onD(k * w, w / 2));
+  }
+  put('floorD', rectP(...onD(0.75, 0.25), ...onD(1, 0.125), SAND));
+  put('tilingD', line(tiling, INK, 1.2));
+  put('xD', line([onD(XD, 0), onD(XD, -0.06)], GOLD, 3));
+  const DESC = samp(0, 5, 5).map(j => { const w = 2 ** -j, k = Math.floor(XD / w); return onD((k + 0.5) * w, w / 2); });
+  put('pathD', line(DESC, VIOLET, 2.4));
+  DESC.forEach(p => put('dotD', circ4(...p, 8, VIOLET)));
+  const SHARE = [0.9265, 0.8736, 0.7886, 0.6596, 0.4824, 0.2788, 0.11, 0.02685, 0.004428, 0.0006029],
+    D1 = [4700, 880], onD1 = (j, y) => [D1[0] + 55 * (j + 7), D1[1] - 440 * y];
+  put('axesD1', line([[D1[0], D1[1] - 460], D1, [D1[0] + 495, D1[1]]], GREY, 1.4));
+  put('ownD1', line([onD1(0, 0), onD1(0, 1)], '#c9c2b4', 1.4));
+  put('wallD1', line([onD1(-7, 1), onD1(-1, 1), onD1(-0.5, 1), onD1(-0.5, 0), onD1(0, 0), onD1(2, 0)], RED, 2.8));
+  put('softD1', line(SHARE.map((s, j) => onD1(j - 7, s)), TEAL, 3));
+  // ADDRESSES ON A TURN: 24 keys and 5 machines from this scene's own seeded stream (mulberry32, seed 9; the keys first,
+  // then the machines). Left, hash % n: each key a dash stacked in the column of its integer hash ⌊u·10⁶⌋ mod 4, then
+  // mod 5 (21 of the 24 move); right, keys and machines at angles 2πu on a hash's turn, each key joined to the next
+  // machine round, four machines, then the fifth (4 of the 24 move)
+  const rs = (s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; })(9);
+  const KEYS = Array.from({ length: 24 }, () => rs()), MACH = Array.from({ length: 5 }, () => rs()), HK = KEYS.map(k => Math.floor(k * 1e6));
+  // each state one open line: five columns, each up its rail through its dashes and back to the base, so both states have
+  // the same number of corners (a column a key does not use is its base alone)
+  const E0 = [5450, 880], colX = b => E0[0] + 80 * b, rowY = r => E0[1] - 24 * (r + 1),
+    slotOf = n => { const fill = Array(n).fill(0); return HK.map(h => { const b = h % n; return [b, fill[b]++]; }); },
+    stacks = n => { const sl = slotOf(n), P = [];
+      for (let b = 0; b < 5; b++) { const rows = sl.filter(q => q[0] === b).length; P.push([colX(b), E0[1]]);
+        for (let r = 0; r < 24; r++) { if (r < rows) P.push([colX(b), rowY(r)], [colX(b) + 40, rowY(r)], [colX(b), rowY(r)]); }
+        P.push([colX(b), E0[1]]); }
+      return P; };
+  const s4 = slotOf(4), s5 = slotOf(5), stayMod = HK.map(h => h % 4 === h % 5);
+  put('colsE', line(comb(samp(0, 4, 4).map(b => [colX(b) - 6, E0[1]]), 52, 0), INK, 2.4));
+  put('keysE', line(stacks(4), INK, 2.6)); put('keysE', line(stacks(5), INK, 2.6));
+  s5.forEach((q, i) => { if (stayMod[i]) put('stayE', line([[colX(q[0]) - 4, rowY(q[1])], [colX(q[0]) + 44, rowY(q[1])]], GOLD, 7)); });
+  const RC = [6250, 560], RR = 220, onR = (u, r) => [RC[0] + r * Math.sin(2 * Math.PI * u), RC[1] - r * Math.cos(2 * Math.PI * u)],
+    owner = (k, M) => { let best = -1, bd = 9; M.forEach((m, i) => { const d = (m - k + 1) % 1; if (d < bd) { bd = d; best = i; } }); return best; },
+    own4 = KEYS.map(k => owner(k, MACH.slice(0, 4))), own5 = KEYS.map(k => owner(k, MACH)), movedRing = own4.map((o, i) => o !== own5[i]);
+  put('ringE', line(samp(0, 1, 96).map(u => onR(u, RR)), INK, 2));
+  MACH.slice(0, 4).forEach(m => put('machE', line([onR(m, RR), onR(m, RR + 46)], INK, 6)));
+  put('mach5E', line([onR(MACH[4], RR), onR(MACH[4], RR + 46)], GOLD, 6));
+  KEYS.forEach((k, i) => put(movedRing[i] ? 'movedR' : 'keysR', line([onR(k, RR - 18), onR(k, RR + 18)], TEAL, 4)));
+  KEYS.forEach((k, i) => { if (movedRing[i]) put('movedR', line([onR(k, RR - 18), onR(k, RR + 18)], RED, 4)); });
+  // A FILTER'S STEADY STATE: on log10 from −0.8 to 0.8 (300 px a unit), √(qr) = 1 at the corner; the noises q = n and
+  // r = 1/n on the upper row, the two variances μ and 1/μ, μ = (n + √(n² + 4))/2, on the lower, for n = 1, ¼, 4
+  const F0 = [6800, 760], onF = (v, row) => [F0[0] + 300 * (Math.log10(v) + 0.8), F0[1] - 200 * row],
+    MU = n => (n + Math.sqrt(n * n + 4)) / 2, NS = [1, 0.25, 4];
+  put('rulerF', line([onF(10 ** -0.8, 0), onF(10 ** 0.8, 0)], INK, 2)); put('rulerF', line([onF(10 ** -0.8, 1), onF(10 ** 0.8, 1)], INK, 2));
+  put('cornerF', line([onF(1, -0.15), onF(1, 1.35)], GOLD, 2.4));
+  NS.forEach(n => put('noiseF', line([onF(1 / n, 1), onF(1 / n, 1.25), onF(1 / n, 1), onF(n, 1), onF(n, 1.25), onF(n, 1)], GREY, 4)));
+  NS.forEach(n => put('varF', line([onF(1 / MU(n), 0), onF(1 / MU(n), 0.25), onF(1 / MU(n), 0), onF(MU(n), 0), onF(MU(n), 0.25), onF(MU(n), 0)], TEAL, 5)));
+  // labels, last
+  put('lX', label(onD(XD, 0)[0] - 8, D0[1] + 50, 'x', GOLD, 26));
+  put('lN', label(onB(1, 2)[0] - 8, onB(1, 2)[1] - 108, 'n', GOLD, 26));
+  put('lF', label(onB(FOC, 0)[0] - 8, onB(FOC, 0)[1] - 108, 'F', GOLD, 26));
+  put('lQR', label(onF(1, 1.4)[0] - 26, onF(1, 1.4)[1], '√qr', GOLD, 24));
+  const body = S.join('');
+  const one = n => idx[n][0], many = (...ns) => ns.flatMap(n => idx[n]);
+  const span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    pop = t => ({ keys: [], motion: { kind: 'pop', amount: 0.5 }, clip: span(t, t + 0.012, { show: 'in' }) }),
+    rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)), BZE = [0.45, 0, 0.25, 1];
+  const morphs = [], at = {};
+  const add = (name, m) => { (at[name] = at[name] || []).push(morphs.length); morphs.push(m); };
+  const shows = (name, i, m) => add(name, Object.assign({ keys: [i] }, m));
+  const steps = (name, K, start, end, T, io) => add(name, { keys: K.flatMap(k => [k, k]), straight: true,
+    times: rel(start, end, [start, ...T, end]), eases: [...K.flatMap((_, j) => j ? [BZE, null] : [null]), null], clip: span(start, end, io) });
+  // keys passed through at the given times, linearly, the last held to the window's end
+  const sweep = (name, K, start, end, T, io) => add(name, { keys: [...K, K[K.length - 1]], straight: true,
+    times: rel(start, end, [...T, end]), eases: [...K.map(() => 'linear'), 'linear'], clip: span(start, end, io) });
+  // beat 1, 0–0.16: the scrollbar's thumb shrinking; the dial, its rungs, the corner; the hand pushed out, ζ 0 to 6
+  shows('track', one('track'), { clip: span(0.004, 0.99, fadeIn(0.008)) });
+  steps('thumb', idx.thumb, 0.006, 0.99, [0.02, 0.025, 0.035, 0.04, 0.05, 0.055], fadeIn(0.008));
+  shows('arcA', one('arcA'), { clip: span(0.03, 0.99, drawIn(0.015)) });
+  shows('nearA', one('nearA'), { clip: span(0.05, 0.99, fadeIn(0.01)) });
+  shows('farA', one('farA'), { clip: span(0.06, 0.99, fadeIn(0.01)) });
+  shows('cornerA', one('cornerA'), { clip: span(0.07, 0.99, drawIn(0.008)) });
+  shows('homeA', one('homeA'), { clip: span(0.03, 0.99, fadeIn(0.008)) });
+  sweep('hand', idx.hand, 0.085, 0.99, samp(0.09, 0.15, 12), fadeIn(0.005));
+  // beat 2, 0.16–0.33: the three rows of a depth buffer's places
+  ['zbuf', 'logd', 'turnd'].forEach((n, j) => {
+    shows(n + 'Base', one(n + 'Base'), { clip: span(0.17 + 0.035 * j, 0.99, drawIn(0.01)) });
+    shows(n, one(n), { clip: span(0.18 + 0.035 * j, 0.99, drawIn(0.02)) });
+  });
+  shows('nearB', one('nearB'), { clip: span(0.2, 0.99, fadeIn(0.01)) });
+  shows('focusB', one('focusB'), { clip: span(0.27, 0.99, fadeIn(0.01)) });
+  // beat 3, 0.33–0.5: a face of equal pixels laid by turn; each cell's share across the face
+  shows('faceC', one('faceC'), { clip: span(0.34, 0.99, fadeIn(0.01)) });
+  steps('gridC', idx.gridC, 0.345, 0.99, [0.42, 0.45], drawIn(0.02));
+  shows('axesC', one('axesC'), { clip: span(0.37, 0.99, drawIn(0.01)) });
+  shows('oneC', one('oneC'), { clip: span(0.375, 0.99, fadeIn(0.01)) });
+  shows('eqC', one('eqC'), { clip: span(0.385, 0.99, drawIn(0.02)) });
+  shows('turnC', one('turnC'), { clip: span(0.45, 0.99, drawIn(0.02)) });
+  // beat 4, 0.5–0.67: the floor's cell, the tiling, the descent to x; the soft cut and the wall
+  shows('lineD', one('lineD'), { clip: span(0.505, 0.99, drawIn(0.01)) });
+  shows('xD', one('xD'), { clip: span(0.51, 0.99, fadeIn(0.008)) });
+  shows('floorD', one('floorD'), { clip: span(0.515, 0.99, fadeIn(0.01)) });
+  shows('tilingD', one('tilingD'), { clip: span(0.525, 0.99, drawIn(0.025)) });
+  shows('pathD', one('pathD'), { clip: span(0.56, 0.99, drawIn(0.02)) });
+  idx.dotD.forEach((i, j) => shows('dotD', i, { clip: span(0.56 + 0.004 * j, 0.99, fadeIn(0.006)) }));
+  shows('axesD1', one('axesD1'), { clip: span(0.6, 0.99, drawIn(0.01)) });
+  shows('ownD1', one('ownD1'), { clip: span(0.605, 0.99, fadeIn(0.01)) });
+  shows('wallD1', one('wallD1'), { clip: span(0.61, 0.99, drawIn(0.015)) });
+  shows('softD1', one('softD1'), { clip: span(0.625, 0.99, drawIn(0.02)) });
+  // beat 5, 0.67–0.84: hash % n, 4 to 5; the hash's turn, a fifth machine
+  shows('colsE', one('colsE'), { clip: span(0.675, 0.99, drawIn(0.01)) });
+  steps('keysE', idx.keysE, 0.68, 0.99, [0.715, 0.735], fadeIn(0.01));
+  idx.stayE.forEach(i => shows('stayE', i, { clip: span(0.74, 0.99, fadeIn(0.01)) }));
+  shows('ringE', one('ringE'), { clip: span(0.75, 0.99, drawIn(0.012)) });
+  idx.machE.forEach(i => shows('machE', i, { clip: span(0.755, 0.99, fadeIn(0.008)) }));
+  idx.keysR.forEach(i => shows('keysR', i, { clip: span(0.76, 0.99, fadeIn(0.008)) }));
+  const nMoved = idx.movedR.length / 2;
+  for (let j = 0; j < nMoved; j++) shows('movedR', idx.movedR[j], { clip: span(0.76, 0.99, fadeIn(0.008)) });
+  for (let j = 0; j < nMoved; j++) shows('movedR', idx.movedR[j + nMoved], { clip: span(0.81, 0.99, fadeIn(0.008)) });
+  shows('mach5E', one('mach5E'), { clip: span(0.79, 0.99, fadeIn(0.008)) });
+  // beat 6, 0.84–1: the noises and the variances, n = 1, ¼, 4
+  shows('rulerF', idx.rulerF[0], { clip: span(0.85, 0.99, drawIn(0.01)) });
+  add('rulerF', { keys: [idx.rulerF[1]], clip: span(0.85, 0.99, drawIn(0.01)) });
+  shows('cornerF', one('cornerF'), { clip: span(0.855, 0.99, drawIn(0.008)) });
+  steps('noiseF', idx.noiseF, 0.86, 0.99, [0.9, 0.915, 0.94, 0.955], fadeIn(0.008));
+  steps('varF', idx.varF, 0.865, 0.99, [0.9, 0.915, 0.94, 0.955], fadeIn(0.008));
+  [['lX', 0.512], ['lN', 0.205], ['lF', 0.275], ['lQR', 0.86]].forEach(([n, t]) => shows(n, one(n), { clip: span(t, 0.99, fadeIn(0.01)) }));
+  const lit = (...names) => names.flatMap(n => at[n]).join(',');
+  const FREE_BEATS = [
+    { title: 'A dial',
+      text: `A scrollbar lays a list on the writer's line, so [its thumb](#lit:${lit('thumb')}) shrinks as the list grows: for a billion rows, each pixel of the bar is a million rows wide. A dial lays the list on a turn. [Its hand](#lit:${lit('hand')}) is pushed in ζ at a steady rate, stands at record x = sinh ζ, and is drawn at arctan x, inside [the quarter turn](#lit:${lit('arcA')}) however far it goes.\n\nWithin one window of home the records are [laid in proportion](#lit:${lit('nearA')}); past [the corner](#lit:${lit('cornerA')}), one window out, [they come in ratios](#lit:${lit('farA')}), two windows, four, eight, crowding toward the edge. Held at rate r, the hand reaches x after asinh(x)/r: a thousand records in 7.6/r, 2⁵³ in 37.4/r, a googol in 231/r. The list's length is never asked.` },
+    { title: 'The depth buffer',
+      text: `A depth buffer stores (f/(f − n))·(1 − n/d), the in-place lay with its corner at [the near plane](#lit:${lit('nearB')}): setting the near plane is choosing the thumb. Of [the sixteen equal steps it stores](#lit:${lit('zbuf')}), half land within twice the near plane and fifteen within sixteen times it, leaving one for the rest of the way to 10,000 n.\n\n[Log depth](#lit:${lit('logd')}) spaces them evenly in ratio, the reader's lay. [The turn laid about a focus](#lit:${lit('turnd')}), F·tan(kπ/32), puts half each side of [the thing looked at](#lit:${lit('focusB')}), finest there. None was designed from the geometry; the geometry says where each put its corner.` },
+    { title: 'The flat screen',
+      text: `Equal pixels on a plane are not equal turns. On [a cube's face of equal pixels](#lit:${lit('gridC')}), [a pixel at the middle of an edge](#lit:${lit('eqC')}) holds 0.35 of a middle pixel's directions, and a corner pixel 0.19, one part in 5.2.\n\nLaid by turn, an arctangent on each coordinate, the face still varies, but [its worst cell holds 0.71](#lit:${lit('turnC')}): a factor of √2. The flat screen's weighting, sec³α, is the design's, added to the geometry: three of the four cosines of a photograph's dark corners.` },
+    { title: 'What Math.floor throws away',
+      text: `Math.floor(x / w) keeps [one cell](#lit:${lit('floorD')}) and drops where in it [x](#lit:${lit('xD')}) was. The remainder is address, not data: its binary digits are the place halved, and halved again. Give each cell [its point](#lit:${lit('dotD')}), m + iγ, and [the cells of every depth](#lit:${lit('tilingD')}) tile the hyperbolic plane, every tile of area 1. x = 0.8125 is 0.1101, cell 13 of 16, [reached one digit a step](#lit:${lit('pathD')}).\n\nThrough a reader at a height each depth [fades smoothly](#lit:${lit('softD1')}): half of a step is kept 3.09 depths coarser than its own cell, and it takes 5.5 depths to go from 90% kept to 10%. [The floor](#lit:${lit('wallD1')}) keeps every coarser depth whole and none finer: a wall.` },
+    { title: 'Addresses on a turn',
+      text: `[hash(key) % n](#lit:${lit('keysE')}) divides by a count. Add a machine, four to five, and 21 of these 24 keys move: [only three stay](#lit:${lit('stayE')}) where they were.\n\nPut keys and [machines](#lit:${lit('machE')}) at angles on a hash's turn, each key served by the next machine round, and [a fifth machine](#lit:${lit('mach5E')}) takes over [only 4 of the 24](#lit:${lit('movedR')}), those just before it. The angles carry no count; the machines are the payload painted on them.` },
+    { title: 'A steady state, and an origin',
+      text: `A Kalman filter with process noise q and measurement noise r settles with [its two variances](#lit:${lit('varF')}) at √(qr)·μ and √(qr)/μ, a reciprocal pair about [the noises' geometric mean](#lit:${lit('cornerF')}). As [the noises](#lit:${lit('noiseF')}) part, q/r from 1 to 1/16 to 16, μ goes 1.62, 1.13, 4.24, and the product stays qr: the corner, met by a recursion that knows nothing of corners.\n\nThe tests came out as ties and trades, never wins: the geometry names these schemes and adds none. What it adds is where each one put its corner, and the one amount each had to carry in. [The essay](${ESSAY})` }
+  ];
+  SHOWPIECES.push({
+    id: 'free', name: 'What the geometry gives free', section: 'explainers', tags: ['camera', 'labels', 'morph', 'essay'],
+    note: 'The eighth of wander\'s essays in six beats: a scrollbar against a dial, its hand at arctan(sinh ζ) inside the quarter turn whatever the list\'s length; a depth buffer\'s sixteen steps in three lays, the standard buffer\'s corner at the near plane, log depth, the turn about a focus; a cube\'s face of equal pixels against one laid by turn; Math.floor\'s cell, the binary tiling its remainder lives in and the reader\'s soft cut against the floor\'s wall; hash % n against keys on a hash\'s turn, a fifth machine moving 4 keys of 24 against 21; and a Kalman filter\'s variances, a reciprocal pair about √(qr). The scene of the explainer page\'s free explainer.',
+    svg: svg(7200, 1100, body),
+    scene: {
+      loop: 60, ease: 'inout', stops: [0.16, 0.33, 0.5, 0.67, 0.84],
+      camera: [
+        { t: 0, fit: many('track', 'arcA', 'homeA'), pad: 0.08 }, { t: 0.16, fit: many('track', 'arcA', 'homeA'), pad: 0.08 },
+        { t: 0.19, fit: many('zbufBase', 'turndBase', 'nearB', 'lN'), pad: 0.1 }, { t: 0.33, fit: many('zbufBase', 'turndBase', 'nearB', 'lN'), pad: 0.1 },
+        { t: 0.36, fit: many('faceC', 'axesC'), pad: 0.08 }, { t: 0.5, fit: many('faceC', 'axesC'), pad: 0.08 },
+        { t: 0.53, fit: many('tilingD', 'axesD1', 'lX'), pad: 0.08 }, { t: 0.67, fit: many('tilingD', 'axesD1', 'lX'), pad: 0.08 },
+        { t: 0.70, fit: many('colsE', 'keysE', 'ringE', 'machE'), pad: 0.1 }, { t: 0.84, fit: many('colsE', 'keysE', 'ringE', 'machE'), pad: 0.1 },
+        { t: 0.87, fit: many('rulerF', 'cornerF'), pad: 0.25 }],
+      beats: FREE_BEATS,
+      morphs
+    }
+  });
+}
+// 31. HOLDING IN ORDER (7 Nov 2026, Tom, via the session: "1,2,3,4", the explainers for wander's essays 15, 8, 11 and 9;
+// this one papers/essays/11-holding-in-order.md): the scene of explained.html?x=order, in six beats. A stream of sixteen
+// arrivals through an unknown gain, the gain doubled, the amounts moving and each arrival over the last not; one slot,
+// the reading [hold : arrival] a ray from home crossing a post one hold out, the corner where nothing changed, the
+// register's steps on the post, odd (a step centred on the corner) then even (a boundary on it); a walk of 80 looks read
+// by the unit rule, the hold moved only when the reading leaves ±1 step, stretches of agreement between; the side bit, a
+// hold stepped toward whichever side wins settling on a heavy-tailed stream's median of 10 while the running mean wanders;
+// a tide read every look, the unit rule's corners at its highs and lows and a trend rule's at its inflections; and the
+// same tide in feet from another datum and then cubed, every turn where it was, and found again looking every third look.
+// The tide is two sines made here, not NOAA's record. Every position is computed here.
+{
+  const f1 = v => +v.toFixed(2),
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 17) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#9a927f', PALE = '#cfe6e1', RED = '#c4593d',
+    SAND = '#efdcb0', ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/11-holding-in-order.md',
+    samp = (a, b, n) => Array.from({ length: n + 1 }, (_, j) => a + (b - a) * j / n),
+    mk = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; },
+    ticks = (P, up, dn) => P.flatMap(p => [p, [p[0], p[1] - up], [p[0], p[1] + dn], p]);
+  const S = [], idx = {};
+  const put = (name, s) => { (idx[name] = idx[name] || []).push(S.length); S.push(s); };
+  put('paper', rectP(-400, -400, 7700, 1500, '#f4f1ea'));
+  // A STREAM THROUGH AN UNKNOWN GAIN: sixteen arrivals as bars 30 wide, 46 apart, 80 px a unit, then the gain doubled; the
+  // first arrival (gold) founds the hold and has no reading; under them each arrival over the last, 140 px a unit of its
+  // natural logarithm about a midline, the same at either gain
+  const A0 = [80, 640], AV = samp(0, 15, 15).map(i => 1.6 + 0.9 * Math.sin(2 * Math.PI * i / 13) + 0.25 * Math.sin(2 * Math.PI * i / 4.3)),
+    skyline = (x0, b, hs, from) => { const P = [[x0 + 46 * from, b]];
+      for (let j = from; j < hs.length; j++) { const x = x0 + 46 * j; P.push([x, b], [x, b - hs[j]], [x + 30, b - hs[j]], [x + 30, b]); }
+      return P; },
+    AM = A0[1] + 220;
+  put('barsA', polyOf(skyline(A0[0], A0[1], AV.map(v => 80 * v), 1), '#9fd3c9'));
+  put('barsA', polyOf(skyline(A0[0], A0[1], AV.map(v => 160 * v), 1), '#9fd3c9'));
+  put('firstA', rectP(A0[0], A0[1] - 80 * AV[0], A0[0] + 30, A0[1], GOLD));
+  put('firstA', rectP(A0[0], A0[1] - 160 * AV[0], A0[0] + 30, A0[1], GOLD));
+  put('floorA', line([[A0[0] - 10, A0[1]], [A0[0] + 46 * 15 + 40, A0[1]]], INK, 2));
+  put('midA', line([[A0[0] - 10, AM], [A0[0] + 46 * 15 + 40, AM]], '#c9c2b4', 1.4));
+  put('ratiosA', polyOf(skyline(A0[0], AM, AV.map((v, j) => j ? 140 * Math.log(v / AV[j - 1]) : 0), 1), VIOLET));
+  // ONE SLOT: home, the hold along h (150 px), the arrival up v; the post one hold out; the reading a ray from home, keyed
+  // through readings 0.55, 1.6, 2.4, 0.8 and then 1, nothing changed; where it crosses the post (a violet dot); the steps
+  // of g = 1.25 on the post, odd (boundaries at g^(n+½), a step centred on 1) then even (boundaries at g^n, 1 on one)
+  const B0 = [1400, 760], BU = 150, BL = 495, RD = [0.55, 1.6, 2.4, 0.8, 1],
+    rayB = r => { const a = Math.atan(r); return [B0, [B0[0] + BL * Math.cos(a), B0[1] - BL * Math.sin(a)]]; },
+    onPost = r => [B0[0] + BU, B0[1] - BU * r],
+    stepsB = off => samp(-5, 4, 9).flatMap(n => { const p = onPost(1.25 ** (n + off)); return [p, [p[0] + 16, p[1]], p]; });
+  put('axesB', line([[B0[0], B0[1] - 520], B0, [B0[0] + 560, B0[1]]], GREY, 1.6));
+  put('postB', line([[B0[0] + BU, B0[1] + 10], [B0[0] + BU, B0[1] - 3.1 * BU]], INK, 2.4));
+  put('cornerB', line([B0, [B0[0] + 0.72 * BL / Math.SQRT2, B0[1] - 0.72 * BL / Math.SQRT2]], GOLD, 1.6));
+  put('stepsB', line(stepsB(0.5), TEAL, 2.4)); put('stepsB', line(stepsB(0), TEAL, 2.4));
+  RD.forEach(r => put('rayB', line(rayB(r), VIOLET, 2.4)));
+  RD.forEach(r => put('dotB', circ4(...onPost(r), 8, VIOLET)));
+  put('cornerDotB', circ4(...onPost(1), 10, GOLD));
+  put('homeB', circ4(...B0, 7, INK));
+  // READING IS SEEKING: a walk of 80 looks (steps uniform in ±1.1 of the register's step, seed 11), 9 px a look; the unit
+  // rule's hold, moved to the arrival only when the reading leaves ±1 step (13 moves, 67 holds); the band ±1 about the
+  // hold (pale); the moves ticked gold under the floor
+  const C0 = [2700, 760], CW = 9, CN = 80, rc = mk(11), SC = [0];
+  for (let t = 1; t <= CN; t++) SC.push(SC[t - 1] + (rc() * 2 - 1) * 1.1);
+  const HC = [SC[0]], MV = [];
+  for (let t = 1; t <= CN; t++) { const h = HC[t - 1]; if (Math.abs(SC[t] - h) > 1) { HC.push(SC[t]); MV.push(t); } else HC.push(h); }
+  const cLo = Math.min(...SC, ...HC) - 1.2, cHi = Math.max(...SC, ...HC) + 1.2, CU = 420 / (cHi - cLo),
+    onC = (t, s) => [C0[0] + CW * t, C0[1] - CU * (s - cLo)],
+    stair = off => HC.flatMap((h, t) => t ? [onC(t - 0.5, HC[t - 1] + off), onC(t - 0.5, h + off), onC(t, h + off)] : [onC(0, h + off)]);
+  put('bandC', polyOf([...stair(1), ...stair(-1).reverse()], PALE));
+  put('floorC', line([[C0[0], C0[1] - 440], C0, [C0[0] + CW * CN + 10, C0[1]]], GREY, 1.6));
+  put('streamC', line(SC.map((s, t) => onC(t, s)), VIOLET, 2.2));
+  put('holdC', line(stair(0), TEAL, 2.6));
+  put('movesC', line(ticks(MV.map(t => [C0[0] + CW * t, C0[1] + 20]), 0, 18), GOLD, 2.4));
+  // THE SIDE BIT: 2,000 arrivals of 10·tan((π/2)U) (median 10, no mean; seed 61); the hold, from 2, stepped toward the
+  // side that won, its log moved by 0.6/√t; the running mean; on a log axis, 130 px a decade, 0.36 px a look (every
+  // fifth look drawn); the median's line at 10
+  const D0 = [4000, 760], rd = mk(61), DH = [], DM = [];
+  let lh = Math.log(2), sum = 0;
+  for (let t = 1; t <= 2000; t++) { const x = 10 * Math.tan(Math.PI / 2 * rd()); sum += x; lh += (x > Math.exp(lh) ? 1 : -1) * 0.6 / Math.sqrt(t); DH.push(Math.exp(lh)); DM.push(sum / t); }
+  const onD = (t, v) => [D0[0] + 0.36 * t, D0[1] - 130 * Math.log10(v)], every5 = A => A.map((v, t) => [t + 1, v]).filter(([t]) => t === 1 || t % 5 === 0);
+  put('axesD', line([[D0[0], D0[1] - 300], D0, [D0[0] + 730, D0[1]]], GREY, 1.6));
+  put('decD', line([1, 10, 100].flatMap(v => { const p = onD(0, v); return [p, [p[0] - 14, p[1]], p]; }), GREY, 1.6));
+  put('medianD', line([onD(0, 10), onD(2000, 10)], GOLD, 1.8));
+  put('meanD', line(every5(DM).map(([t, v]) => onD(t, v)), VIOLET, 2.2));
+  put('holdD', line(every5(DH).map(([t, v]) => onD(t, v)), TEAL, 2.6));
+  // WHERE EACH RULE'S CORNER FALLS: a tide of two sines, sin(2πt/25) + 0.35·sin(2πt/12.5 + 1.1), read every look for
+  // 100 looks, 7.2 px a look, 150 px a unit about a midline; the unit rule's turns (the sign of arrival less hold changes:
+  // its highs and lows) dropped teal from a rail under the floor; a trend rule's (arrival less the forecast last + (last −
+  // the one before): the second difference, its inflections) dropped red from a second rail
+  const tide = t => Math.sin(2 * Math.PI * t / 25) + 0.35 * Math.sin(2 * Math.PI * t / 12.5 + 1.1), TN = 100,
+    TY = samp(0, TN, TN).map(tide),
+    turnsOf = (Y, look) => { const at = [], seen = []; for (let t = 0; t <= TN; t += look) seen.push(t);
+      for (let j = 2; j < seen.length; j++) { const a = Y[seen[j - 1]] - Y[seen[j - 2]], b = Y[seen[j]] - Y[seen[j - 1]]; if (a * b < 0) at.push(seen[j]); }
+      return at; },
+    inflOf = Y => { const at = []; for (let t = 3; t <= TN; t++) { const a = Y[t - 1] - 2 * Y[t - 2] + Y[t - 3], b = Y[t] - 2 * Y[t - 1] + Y[t - 2]; if (a * b < 0) at.push(t); } return at; };
+  const E0 = [5300, 760], EM = E0[1] - 230, onE = (t, y) => [E0[0] + 7.2 * t, EM - 150 * y],
+    TU = turnsOf(TY, 1), TI = inflOf(TY);
+  put('axesE', line([[E0[0], E0[1] - 460], E0, [E0[0] + 7.2 * TN + 10, E0[1]]], GREY, 1.6));
+  put('tideE', line(TY.map((y, t) => onE(t, y)), INK, 2.4));
+  const drops = (T, y0) => [[E0[0], y0], ...T.flatMap(t => { const r = [E0[0] + 7.2 * t, y0]; return [r, onE(t, TY[t]), r]; }), [E0[0] + 7.2 * TN, y0]];
+  put('turnsE', line(drops(TU, E0[1] + 24), TEAL, 2.4));
+  put('inflE', line(drops(TI, E0[1] + 54), RED, 2.4));
+  // ORDER ALONE: the same tide in metres about a midline, then in feet from a datum 1.4 m below (3.2808·(y + 1.4)), then
+  // the cube of the feet; the curve moves, the turns read every look (teal, under the floor) do not, nor those read every
+  // third look (gold), each within two received looks of its own
+  const F0 = [6600, 760], onF = (t, py) => [F0[0] + 7.2 * t, py],
+    ftOf = y => 3.2808 * (y + 1.4),
+    maps = [y => F0[1] - 230 - 150 * y, y => F0[1] - 40 * ftOf(y), y => F0[1] - 0.5 * ftOf(y) ** 3],
+    T3 = turnsOf(TY, 3);
+  put('axesF', line([[F0[0], F0[1] - 460], F0, [F0[0] + 7.2 * TN + 10, F0[1]]], GREY, 1.6));
+  maps.forEach(m => put('tideF', line(TY.map((y, t) => onF(t, m(y))), INK, 2.4)));
+  put('turnsF', line(ticks(TU.map(t => [F0[0] + 7.2 * t, F0[1] + 22]), 0, 18), TEAL, 2.8));
+  put('turns3F', line(ticks(T3.map(t => [F0[0] + 7.2 * t, F0[1] + 52]), 0, 18), GOLD, 2.8));
+  // labels, last
+  put('lHold', label(B0[0] + 470, B0[1] + 34, 'hold', INK, 20));
+  put('lArr', label(B0[0] - 30, B0[1] - 540, 'arrival', INK, 20));
+  const body = S.join('');
+  const one = n => idx[n][0], many = (...ns) => ns.flatMap(n => idx[n]);
+  const span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)), BZE = [0.45, 0, 0.25, 1];
+  const morphs = [], at = {};
+  const add = (name, m) => { (at[name] = at[name] || []).push(morphs.length); morphs.push(m); };
+  const shows = (name, i, m) => add(name, Object.assign({ keys: [i] }, m));
+  const steps = (name, K, start, end, T, io) => add(name, { keys: K.flatMap(k => [k, k]), straight: true,
+    times: rel(start, end, [start, ...T, end]), eases: [...K.flatMap((_, j) => j ? [BZE, null] : [null]), null], clip: span(start, end, io) });
+  // beat 1, 0–0.16: the stream, its readings, the gain doubled (0.09–0.12)
+  shows('floorA', one('floorA'), { clip: span(0.004, 0.99, drawIn(0.01)) });
+  steps('barsA', idx.barsA, 0.01, 0.99, [0.09, 0.12], fadeIn(0.012));
+  steps('firstA', idx.firstA, 0.008, 0.99, [0.09, 0.12], fadeIn(0.01));
+  shows('midA', one('midA'), { clip: span(0.03, 0.99, drawIn(0.01)) });
+  shows('ratiosA', one('ratiosA'), { clip: span(0.04, 0.99, fadeIn(0.015)) });
+  // beat 2, 0.16–0.33: the slot, the ray through its readings, the steps odd then even
+  shows('axesB', one('axesB'), { clip: span(0.165, 0.99, drawIn(0.01)) });
+  shows('homeB', one('homeB'), { clip: span(0.165, 0.99, fadeIn(0.008)) });
+  shows('postB', one('postB'), { clip: span(0.17, 0.99, drawIn(0.01)) });
+  shows('cornerB', one('cornerB'), { clip: span(0.175, 0.99, drawIn(0.01)) });
+  steps('rayB', idx.rayB, 0.18, 0.99, [0.195, 0.205, 0.22, 0.23, 0.245, 0.255, 0.27, 0.28], fadeIn(0.008));
+  steps('dotB', idx.dotB, 0.18, 0.99, [0.195, 0.205, 0.22, 0.23, 0.245, 0.255, 0.27, 0.28], fadeIn(0.008));
+  shows('cornerDotB', one('cornerDotB'), { clip: span(0.18, 0.99, fadeIn(0.008)) });
+  steps('stepsB', idx.stepsB, 0.19, 0.99, [0.30, 0.315], fadeIn(0.01));
+  // beat 3, 0.33–0.5: the walk read by the unit rule
+  shows('floorC', one('floorC'), { clip: span(0.335, 0.99, drawIn(0.01)) });
+  shows('bandC', one('bandC'), { clip: span(0.35, 0.99, fadeIn(0.06)) });
+  shows('streamC', one('streamC'), { clip: span(0.345, 0.99, drawIn(0.07)) });
+  shows('holdC', one('holdC'), { clip: span(0.35, 0.99, drawIn(0.07)) });
+  shows('movesC', one('movesC'), { clip: span(0.43, 0.99, fadeIn(0.012)) });
+  // beat 4, 0.5–0.67: the side bit
+  shows('axesD', one('axesD'), { clip: span(0.505, 0.99, drawIn(0.01)) });
+  shows('decD', one('decD'), { clip: span(0.505, 0.99, fadeIn(0.01)) });
+  shows('medianD', one('medianD'), { clip: span(0.51, 0.99, drawIn(0.012)) });
+  shows('meanD', one('meanD'), { clip: span(0.525, 0.99, drawIn(0.08)) });
+  shows('holdD', one('holdD'), { clip: span(0.525, 0.99, drawIn(0.08)) });
+  // beat 5, 0.67–0.84: the tide, its highs and lows, its inflections
+  shows('axesE', one('axesE'), { clip: span(0.675, 0.99, drawIn(0.01)) });
+  shows('tideE', one('tideE'), { clip: span(0.68, 0.99, drawIn(0.04)) });
+  shows('turnsE', one('turnsE'), { clip: span(0.73, 0.99, fadeIn(0.012)) });
+  shows('inflE', one('inflE'), { clip: span(0.77, 0.99, fadeIn(0.012)) });
+  // beat 6, 0.84–1: the same tide under two increasing changes; the turns unmoved
+  shows('axesF', one('axesF'), { clip: span(0.845, 0.99, drawIn(0.01)) });
+  steps('tideF', idx.tideF, 0.85, 0.99, [0.885, 0.905, 0.935, 0.955], drawIn(0.02));
+  shows('turnsF', one('turnsF'), { clip: span(0.87, 0.99, fadeIn(0.01)) });
+  shows('turns3F', one('turns3F'), { clip: span(0.965, 0.99, fadeIn(0.008)) });
+  [['lHold', 0.17], ['lArr', 0.17]].forEach(([n, t]) => shows(n, one(n), { clip: span(t, 0.99, fadeIn(0.01)) }));
+  const lit = (...names) => names.flatMap(n => at[n]).join(',');
+  const ORDER_BEATS = [
+    { title: 'A stream through an unknown gain',
+      text: `A screen receives [a stream of amounts](#lit:${lit('barsA')}), each multiplied somewhere along the way by a gain no one recorded. Scale the world: double the gain, and every arrival moves, and so does every difference of two.\n\n[Each arrival over the last](#lit:${lit('ratiosA')}) does not move. That is a reading. [The first arrival](#lit:${lit('firstA')}), alone, says nothing: it founds what the reader will hold, and that is all.` },
+    { title: 'One slot',
+      text: `To read an arrival against something, the reader must already hold something: the hold. Each look states one reading, the direction [hold : arrival], [a ray from home](#lit:${lit('rayB')}) that crosses [a post one hold out](#lit:${lit('postB')}) at arrival ÷ hold.\n\n[The corner](#lit:${lit('cornerDotB')}), 1, means nothing changed. The register names each reading by [a whole number of steps](#lit:${lit('stepsB')}) of one ratio, here 1.25. With an odd number of steps one is centred on the corner, and a still scene reads still; with an even number the corner is a boundary, and the essay's 32-step register returns the hold × 1.01815 on every look of a scene that is not moving.` },
+    { title: 'Reading is seeking',
+      text: `The unit rule: hold the arrival that filled you, until the next one says otherwise. [The hold](#lit:${lit('holdC')}) stays while [the stream](#lit:${lit('streamC')}) reads within [one step either side](#lit:${lit('bandC')}), and [moves to the arrival](#lit:${lit('movesC')}) when it leaves. Here it held 67 looks and moved 13.\n\nWhat the moves buy is not accuracy but stretches of agreement: at a move the reading is exactly 1, and one statement holds until the stream contradicts it. On the essay's random walk the rule held 1,622 times in 2,000 and moved 378; a predicting rule moves every look, and its reading changes sign at 67% of looks against the unit rule's 31%.` },
+    { title: 'The side bit',
+      text: `An arrival above the hold or below it is one bit. Step [the hold](#lit:${lit('holdD')}) toward whichever side keeps winning, and it settles on the arrivals' [median](#lit:${lit('medianD')}): Robbins and Monro's sign rule. Here 2,000 arrivals of a stream with median 10 and no mean, read on a log axis: the hold from 2 to near 10, [the running mean](#lit:${lit('meanD')}) wandering past 40.\n\nThe median commutes with every increasing change of what arrives; the mean does not. On the essay's stream the hold settled at 9.25 while the mean wandered to 16.09.` },
+    { title: 'Where each rule\'s corner falls',
+      text: `Every rule holds something, so every rule has a look where the arrival meets what it holds. The unit rule holds the last arrival: its corners are where [the tide](#lit:${lit('tideE')}) stops rising and starts falling, [its highs and lows](#lit:${lit('turnsE')}).\n\nA trend rule holds a forecast, the last arrival plus the last change. Its corners say the forecast came true, and they fall [on the straight stretches](#lit:${lit('inflE')}), the inflections. Across missing looks the essay's races found the unit rule's turns 3.01% off with half the looks gone, the trend's 60.58%: a carry that extrapolates is most wrong exactly at a turn.` },
+    { title: 'Order alone',
+      text: `[The same tide](#lit:${lit('tideF')}) in metres, then in feet from another datum, then cubed: the amounts move every time. [The turns](#lit:${lit('turnsF')}) do not. A turn is a sign of the reading changing, and no strictly increasing change of what arrives can move a sign.\n\nRead every third look, [the turns](#lit:${lit('turns3F')}) come out within two received looks of their own. On NOAA's recorded tides at Boston and San Francisco the split held exactly: order alone kept every turn under a new datum, feet and a cube. The tide here is two sines made for the picture. [The essay](${ESSAY})` }
+  ];
+  SHOWPIECES.push({
+    id: 'order', name: 'Holding in order', section: 'explainers', tags: ['camera', 'labels', 'morph', 'essay'],
+    note: 'The eleventh of wander\'s essays in six beats: a stream through an unknown gain, the amounts moving and each arrival over the last not; one slot, the reading a ray from home across a post one hold out, the corner where nothing changed, the register\'s steps odd then even; the unit rule on a walk, the hold moved only when the reading leaves ±1 step; the side bit settling on a median of 10 while the mean wanders; a tide\'s turns at its highs and lows, a trend rule\'s at its inflections; and the same tide in feet and cubed, every turn where it was.',
+    svg: svg(7500, 1100, body),
+    scene: {
+      loop: 56, ease: 'inout', stops: [0.16, 0.33, 0.5, 0.67, 0.84],
+      camera: [
+        { t: 0, fit: many('floorA', 'barsA', 'ratiosA'), pad: 0.12 }, { t: 0.16, fit: many('floorA', 'barsA', 'ratiosA'), pad: 0.12 },
+        { t: 0.19, fit: many('axesB', 'postB'), pad: 0.14 }, { t: 0.33, fit: many('axesB', 'postB'), pad: 0.14 },
+        { t: 0.36, fit: many('floorC', 'movesC'), pad: 0.12 }, { t: 0.5, fit: many('floorC', 'movesC'), pad: 0.12 },
+        { t: 0.53, fit: many('axesD'), pad: 0.14 }, { t: 0.67, fit: many('axesD'), pad: 0.14 },
+        { t: 0.70, fit: many('axesE', 'inflE'), pad: 0.12 }, { t: 0.84, fit: many('axesE', 'inflE'), pad: 0.12 },
+        { t: 0.87, fit: many('axesF', 'turns3F'), pad: 0.12 }],
+      beats: ORDER_BEATS,
+      morphs
+    }
+  });
+}
+// 32. PARADOXES AS VANTAGES (7 Nov 2026, Tom, via the session: "1,2,3,4", the fourth; wander's essay 9,
+// papers/essays/09-paradoxes-as-vantages.md): the scene of explained.html?x=paradox, in six beats. Two people a field
+// apart, each reading the other against its own hand at arm's length, the two readings (r_A = 1/8, r_B = 1/2 for sizes 2
+// and 1 at four arm's lengths) both under 1 and set on one number line as if against one unit; the exchange, the ratio of
+// the readings giving the sizes' ratio (½) and their product the distance in arm's lengths (¼); Simpson's kidney stones
+// (Charig et al. 1986), A ahead in small stones (93% against 87%) and large (73% against 69%), behind pooled (78% against
+// 83%) because its patients are a different mix, ahead again (83% against 78%) against one standard mix; Zeno's halvings,
+// finite by length on the in-place lay (thumb to two thumbs, two to four … all inside one more thumb) and endless by count
+// (each the same room); Benford's first digits, an even spread of digits against log10(1 + 1/d) (30.1% for a 1), a linear
+// ruler carried to the logarithmic one; and the first test, the world scaled by 1.8, the readings unmoved and the sizes in
+// metres moved.
+{
+  const f1 = v => +v.toFixed(2),
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 17) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#9a927f', RED = '#c4593d',
+    PALE_T = '#cfe6e1', PALE_V = '#ddd5fb', SAND = '#efdcb0', DUSK = '#b9b2a2',
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/09-paradoxes-as-vantages.md',
+    samp = (a, b, n) => Array.from({ length: n + 1 }, (_, j) => a + (b - a) * j / n);
+  const S = [], idx = {};
+  const put = (name, s) => { (idx[name] = idx[name] || []).push(S.length); S.push(s); };
+  put('paper', rectP(-400, -400, 6400, 1500, '#f4f1ea'));
+  // a person of height h standing at x on ground y: a body and a head, scaled about the point (ox, oy) by k
+  const person = (x, y, h, k = 1, o = [x, y]) => {
+    const X = x0 => o[0] + k * (x0 - o[0]), Y = y0 => o[1] + k * (y0 - o[1]), w = 0.14 * h, r = 0.12 * h;
+    return { body: rectP(X(x - w), Y(y - 0.8 * h), X(x + w), Y(y), 0), head: [X(x), Y(y - 0.8 * h - r), k * r], eye: [X(x), Y(y - 0.8 * h - r)], top: Y(y - h), foot: Y(y) };
+  };
+  // THE FIELD: A (size 2) at x 200, B (size 1) at x 900, on ground y 700, 100 px a unit of size; each holds a hand at
+  // arm's length (gold); each looks at the other (A's view violet, B's teal); the readings on one number line below,
+  // 0 to 1 over 700 px: r_A = (S_B/S_A)(d0/d) = ½·¼ = 1/8, r_B = 2·¼ = 1/2
+  const A0 = [200, 700], BX = 900, GY = 700, NL = [250, 880], NU = 700, onN = r => [NL[0] + NU * r, NL[1]];
+  const eyeA = [200, 516], eyeB = [900, 608];
+  put('ground', line([[60, GY], [1060, GY]], DUSK, 2));
+  put('viewB', polyOf([eyeB, [200, 492], [200, 700]], PALE_T));
+  put('viewA', polyOf([eyeA, [900, 596], [900, 700]], PALE_V));
+  put('bodyA', rectP(172, 540, 228, 700, TEAL)); put('headA', circ4(200, 516, 24, TEAL));
+  put('bodyB', rectP(886, 620, 914, 700, VIOLET)); put('headB', circ4(900, 608, 12, VIOLET));
+  put('handA', rectP(266, 500, 274, 532, GOLD)); put('handB', rectP(838, 600, 842, 616, GOLD));
+  put('call', line(samp(0, 1, 40).map(t => [240 + 630 * t, 470 - 90 * Math.sin(Math.PI * t) + 115 * t]), GOLD, 2));
+  put('lineN', line([onN(0), [onN(0)[0], NL[1] - 12], onN(0), onN(1), [onN(1)[0], NL[1] - 12], onN(1)], INK, 2));
+  put('dotA', circ4(...onN(1 / 8), 9, TEAL)); put('dotA', circ4(...onN(1 / 2), 9, GOLD));
+  put('dotB', circ4(...onN(1 / 2), 9, VIOLET)); put('dotB', circ4(...onN(1 / 4), 9, GOLD));
+  // SIMPSON: success rates, 400 px for 100%, base y 820; small stones, large stones, all patients; A teal, B violet;
+  // under the pooled bars each treatment's mix of small (sand) and large (grey) stones, then one standard mix for both
+  const B0 = [1500, 820], BH = 400, bar = (x, r, c) => rectP(x, B0[1] - BH * r, x + 60, B0[1], c),
+    G = { small: 1500, large: 1690, all: 1940 };
+  put('axisB', line([[1470, B0[1]], [2100, B0[1]]], INK, 2));
+  put('fullB', line([[1470, B0[1] - BH], [2100, B0[1] - BH]], '#ddd7ca', 1.2));
+  put('smallB', bar(G.small, 81 / 87, TEAL)); put('smallB', bar(G.small + 70, 234 / 270, VIOLET));
+  put('largeB', bar(G.large, 192 / 263, TEAL)); put('largeB', bar(G.large + 70, 55 / 80, VIOLET));
+  put('allA', bar(G.all, 273 / 350, TEAL)); put('allA', bar(G.all, 0.8325, TEAL));
+  put('allB', bar(G.all + 70, 289 / 350, VIOLET)); put('allB', bar(G.all + 70, 0.7789, VIOLET));
+  const mix = (x, f) => [rectP(x, B0[1] + 10, x + 60 * f, B0[1] + 30, SAND), rectP(x + 60 * f, B0[1] + 10, x + 60, B0[1] + 30, GREY)];
+  const mixA0 = mix(G.all, 87 / 350), mixA1 = mix(G.all, 357 / 700), mixB0 = mix(G.all + 70, 270 / 350), mixB1 = mix(G.all + 70, 357 / 700);
+  put('mixAs', mixA0[0]); put('mixAs', mixA1[0]); put('mixAl', mixA0[1]); put('mixAl', mixA1[1]);
+  put('mixBs', mixB0[0]); put('mixBs', mixB1[0]); put('mixBl', mixB0[1]); put('mixBl', mixB1[1]);
+  // ZENO: home at 2500, one thumb (H) at 2800, two thumbs at 3100 on the in-place lay (2 − 1/s past the corner); the
+  // stretches thumb to two, two to four … at 300·(2 − 2^−k), k = 0 … 11, all inside one more thumb; then counted, each
+  // the same room, 60 px a stretch, running on
+  const C0 = [2500, 650], CU = 300, ticks = P => P.flatMap(x => [[x, C0[1]], [x, C0[1] - 26], [x, C0[1]]]);
+  put('lineC', line([[C0[0], C0[1]], [C0[0] + 1080, C0[1]]], INK, 2));
+  put('nearC', rectP(C0[0], C0[1] + 8, C0[0] + CU, C0[1] + 22, PALE_T));
+  put('moreC', rectP(C0[0] + CU, C0[1] + 8, C0[0] + 2 * CU, C0[1] + 22, SAND));
+  put('moreC', rectP(C0[0] + CU, C0[1] + 8, C0[0] + CU + 780, C0[1] + 22, SAND));
+  put('homeC', circ4(...C0, 7, INK));
+  put('ticksC', line(ticks(samp(0, 11, 11).map(k => C0[0] + CU * (2 - 2 ** -k))), VIOLET, 2.4));
+  put('ticksC', line(ticks(samp(0, 11, 11).map(k => C0[0] + CU + 65 * k)), VIOLET, 2.4));
+  // BENFORD: nine bars, 1000 px for 100%, base y 800: an even 1/9 each, then log10(1 + 1/d); under them a ruler from 1
+  // to 10 over 675 px, ticks at the whole numbers, linear, then at log10 d (each cell then the bar's share)
+  const D0 = [4000, 800], DH = 1000, dbar = (d, s) => rectP(D0[0] + 75 * (d - 1) + 7, D0[1] - DH * s, D0[0] + 75 * d - 8, D0[1], d === 1 ? GOLD : '#e2c48f');
+  put('axisD', line([[D0[0] - 10, D0[1]], [D0[0] + 685, D0[1]]], INK, 2));
+  for (let d = 1; d <= 9; d++) { put('barsD', dbar(d, 1 / 9)); put('barsD', dbar(d, Math.log10(1 + 1 / d))); }
+  const ruler = f => samp(1, 10, 9).flatMap(d => { const x = D0[0] + 675 * f(d); return [[x, D0[1] + 70], [x, D0[1] + 52], [x, D0[1] + 70]]; });
+  put('rulerD', line(ruler(d => (d - 1) / 9), INK, 2)); put('rulerD', line(ruler(d => Math.log10(d)), INK, 2));
+  // THE FIRST TEST: the field again, A (size 1) at 4850 and B (size ½) four arm's lengths of A's off at 5250, scaled
+  // about the ground under A by 1.8; A's view of B the same angle at both; a metre bar fixed; the readings fixed
+  const E0 = [5100, 700], k2 = 1.8, eNL = [5170, 880], eNU = 600, onE = r => [eNL[0] + eNU * r, eNL[1]];
+  put('groundE', line([[E0[0] - 100, E0[1]], [E0[0] + 920, E0[1]]], DUSK, 2));
+  const pA = k => person(E0[0] + 50, E0[1], 100, k, E0), pB = k => person(E0[0] + 450, E0[1], 50, k, E0);
+  put('viewE', polyOf([pA(1).eye, [E0[0] + 450, pB(1).top], [E0[0] + 450, E0[1]]], PALE_V)); put('viewE', polyOf([pA(k2).eye, [E0[0] + 450 * k2, pB(k2).top], [E0[0] + 450 * k2, E0[1]]], PALE_V));
+  [1, k2].forEach(k => { put('bodyEA', pA(k).body.replace('fill="0"', `fill="${TEAL}"`)); put('headEA', circ4(...pA(k).head, TEAL)); });
+  [1, k2].forEach(k => { put('bodyEB', pB(k).body.replace('fill="0"', `fill="${VIOLET}"`)); put('headEB', circ4(...pB(k).head, VIOLET)); });
+  put('metreE', rectP(E0[0] - 60, E0[1] - 60, E0[0] - 48, E0[1], GOLD));
+  put('lineE', line([onE(0), [onE(0)[0], eNL[1] - 12], onE(0), onE(1), [onE(1)[0], eNL[1] - 12], onE(1)], INK, 2));
+  put('dotsE', circ4(...onE(1 / 8), 9, TEAL)); put('dotsE', circ4(...onE(1 / 2), 9, VIOLET));
+  // labels, last
+  put('lA', label(186, 450, 'A', TEAL, 24)); put('lB', label(892, 580, 'B', VIOLET, 22));
+  put('l01', label(onN(0)[0] - 5, NL[1] + 30, '0', INK)); put('l01', label(onN(1)[0] - 5, NL[1] + 30, '1', INK));
+  put('lrA', label(onN(1 / 8)[0] - 12, NL[1] - 22, 'r_A', TEAL, 20)); put('lrB', label(onN(1 / 2)[0] - 12, NL[1] - 22, 'r_B', VIOLET, 20));
+  put('lSize', label(onN(1 / 2)[0] - 34, NL[1] - 24, 'S_B/S_A', GOLD, 20)); put('lDist', label(onN(1 / 4)[0] - 24, NL[1] + 36, 'd_0/d', GOLD, 20));
+  put('lGroups', label(G.small + 20, B0[1] + 62, 'small', INK)); put('lGroups', label(G.large + 22, B0[1] + 62, 'large', INK));
+  put('lGroups', label(G.all + 46, B0[1] + 62, 'all', INK));
+  put('lTreat', label(G.small + 22, B0[1] - 18, 'A', '#ffffff', 20)); put('lTreat', label(G.small + 92, B0[1] - 18, 'B', '#ffffff', 20));
+  put('lH', label(C0[0] + CU - 7, C0[1] + 52, 'H', GOLD, 20)); put('l2H', label(C0[0] + 2 * CU - 14, C0[1] + 52, '2H', GOLD, 20));
+  for (let d = 1; d <= 9; d++) put('lDigits', label(D0[0] + 75 * d - 43, D0[1] + 32, String(d), INK, 18));
+  put('l30', label(D0[0] + 12, D0[1] - 312, '30%', GOLD, 20));
+  put('lMetre', label(E0[0] - 94, E0[1] - 70, '1 m', GOLD));
+  const body = S.join('');
+  const one = n => idx[n][0], many = (...ns) => ns.flatMap(n => idx[n]);
+  const span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)), BZE = [0.45, 0, 0.25, 1];
+  const morphs = [], at = {};
+  const add = (name, m) => { (at[name] = at[name] || []).push(morphs.length); morphs.push(m); };
+  const shows = (name, i, m) => add(name, Object.assign({ keys: [i] }, m));
+  const steps = (name, K, start, end, T, io) => add(name, { keys: K.flatMap(k => [k, k]), straight: true,
+    times: rel(start, end, [start, ...T, end]), eases: [...K.flatMap((_, j) => j ? [BZE, null] : [null]), null], clip: span(start, end, io) });
+  const out = (io, len) => Object.assign(io, { out: { kind: 'fade', len } });
+  // beat 1, 0–0.16: the field, two readings, both under 1, set on one line
+  shows('ground', one('ground'), { clip: span(0.004, 0.99, drawIn(0.01)) });
+  ['bodyA', 'headA', 'bodyB', 'headB'].forEach(n => shows(n, one(n), { clip: span(0.008, 0.99, fadeIn(0.01)) }));
+  shows('viewA', one('viewA'), { clip: span(0.03, 0.99, fadeIn(0.012)) });
+  shows('viewB', one('viewB'), { clip: span(0.05, 0.99, fadeIn(0.012)) });
+  shows('handA', one('handA'), { clip: span(0.03, 0.99, fadeIn(0.008)) }); shows('handB', one('handB'), { clip: span(0.05, 0.99, fadeIn(0.008)) });
+  shows('lineN', one('lineN'), { clip: span(0.08, 0.99, drawIn(0.012)) });
+  steps('dotA', idx.dotA, 0.1, 0.99, [0.25, 0.29], fadeIn(0.008));
+  steps('dotB', idx.dotB, 0.12, 0.99, [0.25, 0.29], fadeIn(0.008));
+  // beat 2, 0.16–0.33: the exchange; the readings move to their ratio and product
+  shows('call', one('call'), { clip: span(0.19, 0.99, drawIn(0.03)) });
+  // beat 3, 0.33–0.5: Simpson's kidney stones
+  shows('axisB', one('axisB'), { clip: span(0.34, 0.99, drawIn(0.01)) });
+  shows('fullB', one('fullB'), { clip: span(0.345, 0.99, fadeIn(0.01)) });
+  idx.smallB.forEach(i => shows('smallB', i, { clip: span(0.35, 0.99, fadeIn(0.01)) }));
+  idx.largeB.forEach(i => shows('largeB', i, { clip: span(0.36, 0.99, fadeIn(0.01)) }));
+  steps('allA', idx.allA, 0.38, 0.99, [0.44, 0.47], fadeIn(0.01));
+  steps('allB', idx.allB, 0.38, 0.99, [0.44, 0.47], fadeIn(0.01));
+  ['mixAs', 'mixAl', 'mixBs', 'mixBl'].forEach(n => steps(n, idx[n], 0.405, 0.99, [0.44, 0.47], fadeIn(0.01)));
+  // beat 4, 0.5–0.67: Zeno, by length then by count
+  shows('lineC', one('lineC'), { clip: span(0.51, 0.99, drawIn(0.01)) });
+  shows('nearC', one('nearC'), { clip: span(0.515, 0.99, fadeIn(0.01)) });
+  steps('moreC', idx.moreC, 0.52, 0.99, [0.6, 0.63], fadeIn(0.01));
+  shows('homeC', one('homeC'), { clip: span(0.51, 0.99, fadeIn(0.008)) });
+  steps('ticksC', idx.ticksC, 0.53, 0.99, [0.6, 0.63], drawIn(0.03));
+  // beat 5, 0.67–0.84: Benford, an even spread against no scale preferred
+  shows('axisD', one('axisD'), { clip: span(0.68, 0.99, drawIn(0.01)) });
+  for (let j = 0; j < idx.barsD.length; j += 2) steps('barsD', idx.barsD.slice(j, j + 2), 0.684 + 0.001 * j, 0.99, [0.75, 0.79], fadeIn(0.01));
+  steps('rulerD', idx.rulerD, 0.69, 0.99, [0.75, 0.79], drawIn(0.012));
+  // beat 6, 0.84–1: the world scaled, the readings unmoved, the metres moved
+  shows('groundE', one('groundE'), { clip: span(0.85, 0.99, drawIn(0.01)) });
+  ['viewE', 'bodyEA', 'headEA', 'bodyEB', 'headEB'].forEach(n => steps(n, idx[n], 0.852, 0.99, [0.91, 0.95], fadeIn(0.01)));
+  shows('metreE', one('metreE'), { clip: span(0.86, 0.99, fadeIn(0.01)) });
+  shows('lineE', one('lineE'), { clip: span(0.86, 0.99, drawIn(0.01)) });
+  idx.dotsE.forEach(i => shows('dotsE', i, { clip: span(0.87, 0.99, fadeIn(0.008)) }));
+  [['lA', 0.01], ['lB', 0.01], ['lGroups', 0.36], ['lTreat', 0.36], ['l2H', 0.53]].forEach(([n, t]) => idx[n].forEach(i => shows(n, i, {
+    clip: span(t, n === 'l2H' ? 0.6 : 0.99, n === 'l2H' ? out(fadeIn(0.01), 0.01) : fadeIn(0.01)) })));
+  idx.l01.forEach(i => shows('l01', i, { clip: span(0.085, 0.99, fadeIn(0.01)) }));
+  shows('lrA', one('lrA'), { clip: span(0.1, 0.25, out(fadeIn(0.008), 0.008)) });
+  shows('lrB', one('lrB'), { clip: span(0.12, 0.25, out(fadeIn(0.008), 0.008)) });
+  shows('lSize', one('lSize'), { clip: span(0.29, 0.99, fadeIn(0.01)) });
+  shows('lDist', one('lDist'), { clip: span(0.29, 0.99, fadeIn(0.01)) });
+  shows('lH', one('lH'), { clip: span(0.52, 0.99, fadeIn(0.01)) });
+  idx.lDigits.forEach(i => shows('lDigits', i, { clip: span(0.685, 0.99, fadeIn(0.01)) }));
+  shows('l30', one('l30'), { clip: span(0.79, 0.99, fadeIn(0.01)) });
+  shows('lMetre', one('lMetre'), { clip: span(0.86, 0.99, fadeIn(0.01)) });
+  const lit = (...names) => names.flatMap(n => at[n]).join(',');
+  const PARADOX_BEATS = [
+    { title: 'Each sees the other smaller',
+      text: `Two people stand at opposite ends of a field. [A](#lit:${lit('bodyA', 'headA')}) reads [B](#lit:${lit('viewA')}) against [its own hand at arm's length](#lit:${lit('handA')}), its thumb; [B](#lit:${lit('bodyB', 'headB')}) reads [A](#lit:${lit('viewB')}) against [its own](#lit:${lit('handB')}). Each sees the other smaller than its hand, and both are right.\n\nThe contradiction comes when [the two readings](#lit:${lit('dotA', 'dotB')}) are written on [one number line](#lit:${lit('lineN')}), as if measured against one shared length. No such length was agreed: each denominator is private to its seat.` },
+    { title: 'The exchange',
+      text: `Each reading holds the same distance factor and the size ratio, one way up in each. So [A tells B its reading, and B tells A](#lit:${lit('call')}).\n\nThe square root of their ratio is the sizes' ratio, [½](#lit:${lit('dotA')}): who is bigger, with no ruler. The square root of their product is the distance in arm's lengths, [¼](#lit:${lit('dotB')}). Neither seat alone holds either answer; both are bought at the price of one exchange, and nothing is written.` },
+    { title: 'Simpson\'s paradox',
+      text: `Kidney stones, treatment A against B (Charig et al. 1986). A succeeded more often for [small stones](#lit:${lit('smallB')}), 93% against 87%, and for [large stones](#lit:${lit('largeB')}), 73% against 69%. [Pooled](#lit:${lit('allA', 'allB')}), A succeeded 78% of the time and B 83%.\n\nA success rate is a ratio over a group, and [the groups differ](#lit:${lit('mixAs', 'mixAl', 'mixBs', 'mixBl')}): three in four of A's patients had large stones, about one in four of B's. Bought against one standard mix, A is ahead again, 83% against 78%.` },
+    { title: 'Finite by length, endless by count',
+      text: `To cross a distance, first cross half of it, then half of what is left, without end. The writer holds the whole series and sums it to one: drawn by length, [one thumb to two, two to four, four to eight](#lit:${lit('ticksC')}) all fit inside [one more thumb](#lit:${lit('moreC')}).\n\nThe reader counts the steps, and each takes the same share of its fineness, so the count never ends. Finite by length and endless by count, both true, from different vantages.` },
+    { title: 'No scale preferred',
+      text: `In many real collections of numbers the leading digit is 1 about 30% of the time. [An even spread of digits](#lit:${lit('barsD')}), 11% each, assumes a writer's scale. Met with no scale preferred, every stretch from an amount to twice it gets the same room, and [the ruler](#lit:${lit('rulerD')}) lays its digits by their ratios.\n\nEach cell is then the digit's share, log₁₀(1 + 1/d): 30.1% for a 1, 4.6% for a 9 (Hill 1995). The two envelopes, the St Petersburg game and Weber and Fechner are the same puzzle.` },
+    { title: 'Read or written?',
+      text: `One test sorts the catalogue. Scale the world: [everything in the field](#lit:${lit('bodyEA', 'headEA', 'bodyEB', 'headEB')}) 1.8 times as large. [A's view of B](#lit:${lit('viewE')}) is the same angle, and [the readings](#lit:${lit('dotsE')}) do not move: they are readings. Against [a metre](#lit:${lit('metreE')}), every size moved: "who is bigger, in metres" is a writing, and needed something carried in.\n\nA paradox, nearly always, is the two run together. Nothing here is a new resolution; the assumption has one form, and the test finds it. [The essay](${ESSAY})` }
+  ];
+  SHOWPIECES.push({
+    id: 'paradox', name: 'Paradoxes as vantages', section: 'explainers', tags: ['camera', 'labels', 'morph', 'essay'],
+    note: 'The ninth of wander\'s essays in six beats: two people a field apart, each seeing the other smaller than its own hand, the readings set on one line; the exchange, their ratio the sizes\' ratio and their product the distance; Simpson\'s kidney stones, A ahead in every group and behind pooled, ahead again against one mix; Zeno, finite by length and endless by count; Benford\'s first digits, an even spread against no scale preferred; and the first test, the world scaled, the readings unmoved and the metres moved.',
+    svg: svg(6200, 1100, body),
+    scene: {
+      loop: 56, ease: 'inout', stops: [0.16, 0.33, 0.5, 0.67, 0.84],
+      camera: [
+        { t: 0, fit: many('ground', 'lineN', 'lA', 'viewB'), pad: 0.08 }, { t: 0.33, fit: many('ground', 'lineN', 'lA', 'viewB'), pad: 0.08 },
+        { t: 0.36, fit: many('axisB', 'fullB', 'lGroups'), pad: 0.14 }, { t: 0.5, fit: many('axisB', 'fullB', 'lGroups'), pad: 0.14 },
+        { t: 0.53, fit: many('lineC', 'ticksC', 'lH'), pad: 0.1 }, { t: 0.67, fit: many('lineC', 'ticksC', 'lH'), pad: 0.1 },
+        { t: 0.70, fit: many('axisD', 'barsD', 'rulerD'), pad: 0.14 }, { t: 0.84, fit: many('axisD', 'barsD', 'rulerD'), pad: 0.14 },
+        { t: 0.87, fit: many('groundE', 'lineE', 'viewE', 'metreE'), pad: 0.08 }],
+      beats: PARADOX_BEATS,
+      morphs
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -4066,7 +4870,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates', 'cauchymap', 'plane', 'special', 'parties', 'array', 'kn'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates', 'cauchymap', 'plane', 'special', 'parties', 'array', 'kn', 'writer', 'free', 'order', 'paradox'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
