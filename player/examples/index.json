@@ -40,7 +40,8 @@
     "standpoints",
     "pictures",
     "rates",
-    "cauchymap"
+    "cauchymap",
+    "plane"
    ]
   },
   {
@@ -465,6 +466,16 @@
     "essay"
    ]
   },
+  "plane": {
+   "name": "one plane",
+   "note": "The eighteenth of wander's essays in six beats: a map spread and twisted under two fingers, k·e^(iα), its logarithm ln k + iα; a writer's grid carried onto Euler's plane, ln(z/H) = ln(d/H) + iθ, circles about the eye becoming upright lines; a thing turned then scaled and scaled then turned, landing in one place; a point and its mirrors in the line at 45° and the line at one thumb; the plane laid by the thumb, ½ + gd(x)/π; and in space the flat chart that parts the two jobs, Lambert's keeping area and bending, the stereographic keeping angles and growing, the look turned 60°. The scene of the explainer page's eleventh explainer.",
+   "tags": [
+    "camera",
+    "labels",
+    "morph",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -661,6 +672,7 @@
   "standpoints": 135539,
   "pictures": 249051,
   "rates": 108267,
-  "cauchymap": 341174
+  "cauchymap": 341174,
+  "plane": 345695
  }
 }
