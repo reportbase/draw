@@ -3179,6 +3179,431 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 25. WHY THE PLANE IS SPECIAL (7 Nov 2026, Tom, via the session: "proceed", to an explainer for wander's essay 13,
+// papers/essays/13-why-the-plane-is-special.md): the scene of explained.html?x=special, in six beats. A standpoint z above a
+// line, a fan at equal angles landing as the Cauchy, walkers released at z (walk-on-spheres, seeded) landing by the same
+// law, and a new zero and a new thumb carrying z and the law together; a reader off the centre of a circle, its even turn
+// landing unevenly (L), and 2L less the uniform turned into the circle's harmonic measure, (1 − r²)/(1 + r² − 2r·cos φ),
+// its mean the standpoint; the same three rules on the sphere at r = ½, one curve in the plane and three on the sphere,
+// peaks 6, 7 and 9 times the uniform; two books given the same two quarter turns in the two orders, ending 120° apart; an
+// arrow carried round the octant's loop as straight as the sphere allows, coming home turned 90°, the loop's solid angle;
+// and what survives: from a height above a flat wall the turn and the walker land alike, inside a ball they part (0.482
+// against 0.359 within 45°), and the wedge's corners and thirds from home. Every curve and pose is computed here.
+{
+  const f1 = v => +v.toFixed(2), D2R = Math.PI / 180, Q = Math.PI / 2,
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 17) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#9a927f', PALE = '#cfe6e1', RED = '#c4593d',
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/13-why-the-plane-is-special.md',
+    samp = (a, b, n) => Array.from({ length: n + 1 }, (_, j) => a + (b - a) * j / n),
+    rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; },
+    dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+    cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+    unit = a => { const n = Math.hypot(...a); return a.map(x => x / n); },
+    add3 = (a, b, k = 1) => [a[0] + k * b[0], a[1] + k * b[1], a[2] + k * b[2]];
+  const S = [], idx = {};
+  const put = (name, s) => { (idx[name] = idx[name] || []).push(S.length); S.push(s); };
+  put('paper', rectP(-700, -400, 6200, 1500, '#f4f1ea'));
+  // ONE LAW FROM A STANDPOINT: a line, z = m + iγ above it (γ one unit, 110 px), eleven directions 15° apart about straight
+  // down, landing at m + γ·tan θ; the Cauchy drawn under the line, 130 px at its peak. Then a new zero and a new thumb,
+  // x ↦ 0.6x + 1: z goes to 1 + 0.6i, every landing to its image, the law to the new standpoint's
+  const LY = 620, LX = 300, U = 110, A1 = 0.6, B1 = 1, onL = x => [LX + U * x, LY], zAt = (m, g) => [LX + U * m, LY - U * g],
+    FAN = samp(-75, 75, 10).map(a => a * D2R), zig = (z, P) => P.flatMap(p => [z, p]).concat([z]),
+    landsOf = (m, g) => FAN.map(t => m + g * Math.tan(t)),
+    comb = (xs) => xs.flatMap(x => { const [px, py] = onL(x); return [[px, py], [px, py - 12], [px, py]]; }),
+    law = (m, g) => samp(-4.2, 5.4, 160).map(x => [LX + U * x, LY + 130 * (1 / g) * g * g / (g * g + (x - m) ** 2)]);
+  put('line', line([onL(-4.4), onL(5.6)], INK, 2.4));
+  put('lawA', line(law(0, 1), TEAL, 3)); put('lawA', line(law(B1, A1), TEAL, 3));
+  // twenty thousand walkers by walk-on-spheres (from where it stands, a jump to a point at random on the circle that just
+  // touches the line, until within 10⁻⁴), binned by ¼ over ±4, a skyline under the line in the law's scale
+  const N = 20000, BIN = 0.25, NB = 32, count = new Array(NB).fill(0), rw = rng(13);
+  for (let i = 0; i < N; i++) { let x = 0, y = 1;
+    while (y > 1e-4) { const a = 2 * Math.PI * rw(); x += y * Math.cos(a); y += y * Math.sin(a); }
+    const b = Math.floor((x + 4) / BIN); if (b >= 0 && b < NB) count[b]++; }
+  const sky = [onL(-4)]; count.forEach((c, b) => { const y = LY + 130 * Math.PI * c / (N * BIN), x0 = -4 + b * BIN;
+    sky.push([LX + U * x0, y], [LX + U * (x0 + BIN), y]); }); sky.push(onL(4));
+  put('walkHist', polyOf(sky, PALE));
+  // four walkers drawn, seeded, the first four landing within 3 units whose walks take 4 to 30 jumps
+  const walks = [];
+  for (let seed = 1; walks.length < 4 && seed < 500; seed++) { const r = rng(seed * 7919); let x = 0, y = 1, P = [[0, 1]];
+    while (y > 1e-3 && P.length < 40) { const a = 2 * Math.PI * r(); x += y * Math.cos(a); y += y * Math.sin(a); P.push([x, y]); }
+    if (y <= 1e-3 && Math.abs(x) < 3 && P.length >= 5 && P.length <= 30) { P[P.length - 1] = [x, 0]; walks.push(P); } }
+  walks.forEach((P, j) => put('walks', line(P.map(([x, y]) => [LX + U * x, LY - U * y]), [VIOLET, GOLD, RED, INK][j], 1.4)));
+  walks.forEach(P => put('walkEnds', circ4(...onL(P[P.length - 1][0]), 5, RED)));
+  put('fanA', line(zig(zAt(0, 1), landsOf(0, 1).map(onL)), VIOLET, 1.3)); put('fanA', line(zig(zAt(B1, A1), landsOf(B1, A1).map(onL)), VIOLET, 1.3));
+  put('combA', line(comb(landsOf(0, 1)), VIOLET, 2.2)); put('combA', line(comb(landsOf(B1, A1)), VIOLET, 2.2));
+  put('zA', circ4(...zAt(0, 1), 7, INK)); put('zA', circ4(...zAt(B1, A1), 7, INK));
+  // FOUR PARTS IN A CIRCLE: a reader at r = ½ of the radius off the centre, 24 directions at equal turns, landing unevenly;
+  // beside it, against the landing's angle φ (0 at the near side), the uniform (1), the landing L (×2π), 2L less the uniform,
+  // and harmonic measure from the reader, (1 − r²)/(1 + r² − 2r·cos φ): the last two one curve
+  const C = [1350, 520], R = 150, rr = 0.5, Wp = [C[0] + rr * R, C[1]];
+  const landC = th => { const dx = Math.cos(th), dy = Math.sin(th), b = rr * dx, t = -b + Math.sqrt(b * b - rr * rr + 1); return [rr + t * dx, t * dy]; },
+    onC = ([x, y], k = 1) => [C[0] + R * k * x, C[1] - R * k * y], TH = samp(0, 2 * Math.PI, 24).slice(0, 24).map(a => a + 7.5 * D2R);
+  put('circle', line(samp(0, 2 * Math.PI, 96).map(a => onC([Math.cos(a), Math.sin(a)])), INK, 2.4));
+  put('fanC', line(zig(Wp, TH.map(t => onC(landC(t)))), VIOLET, 1.2));
+  put('combC', line(TH.flatMap(t => { const q = landC(t), n = Math.hypot(...q); return [onC(q), onC(q, 1 + 12 / R), onC(q)]; }), VIOLET, 2.2));
+  const E0 = [1600, 650], EW = 360, EU = 40, onE = (phi, y) => [E0[0] + EW * (phi + Math.PI) / (2 * Math.PI), E0[1] - EU * y],
+    PHI = samp(-Math.PI, Math.PI, 128), dd = phi => 1 + rr * rr - 2 * rr * Math.cos(phi);
+  put('axesE', line([[E0[0], E0[1] - 150], E0, [E0[0] + EW, E0[1]]], GREY, 1.4));
+  put('uniE', line(PHI.map(p => onE(p, 1)), GREY, 1.6));
+  // harmonic measure as a pale gold area (a scene keeps no line widths, so a wide line under the teal would not show)
+  put('harmE', polyOf([onE(-Math.PI, 0), ...PHI.map(p => onE(p, (1 - rr * rr) / dd(p))), onE(Math.PI, 0)], '#efdcb0'));
+  put('landE', line(PHI.map(p => onE(p, (1 - rr * Math.cos(p)) / dd(p))), VIOLET, 2.6));
+  put('twoLE', line(PHI.map(p => onE(p, (1 - rr * Math.cos(p)) / dd(p))), TEAL, 2.4)); put('twoLE', line(PHI.map(p => onE(p, 2 * (1 - rr * Math.cos(p)) / dd(p) - 1)), TEAL, 2.4));
+  put('meanW', circ4(...Wp, 11, GOLD)); put('reader', circ4(...Wp, 6, INK)); put('meanL', circ4(C[0] + rr * R / 2, C[1], 6, VIOLET));
+  // ON THE SPHERE: the same three rules at r = ½, against the angle ψ to the axis, each ×4π (the uniform 1): harmonic
+  // measure (1 − r²)/(1 + r² − 2rt)^(3/2), peak 6; the Möbius law at ρ = ½, (1 − ρ²)²/(1 + ρ² − 2ρt)², peak 9; twice the
+  // landing less the uniform, 2(1 − rt)/(1 + r² − 2rt)^(3/2) − 1, peak 7. In the plane the three are one curve, peak 3
+  const D0 = [2200, 650], DW = 360, DU = 25, onD = (psi, y) => [D0[0] + DW * psi / Math.PI, D0[1] - DU * y], PSI = samp(0, Math.PI, 96),
+    dt = t => 1 + rr * rr - 2 * rr * t;
+  put('axesD', line([[D0[0], D0[1] - 240], D0, [D0[0] + DW, D0[1]]], GREY, 1.4));
+  put('uniD', line(PSI.map(p => onD(p, 1)), GREY, 1.6));
+  const planeC = PSI.map(p => onD(p, (1 - rr * rr) / dd(p))),
+    SPH = [['sphH', GOLD, t => (1 - rr * rr) / dt(t) ** 1.5], ['sphL', TEAL, t => 2 * (1 - rr * t) / dt(t) ** 1.5 - 1], ['sphM', VIOLET, t => (1 - rr * rr) ** 2 / dt(t) ** 2]];
+  put('planeD', line(planeC, INK, 2.6));
+  SPH.forEach(([n, col, f]) => { put(n, line(planeC, col, 2.6)); put(n, line(PSI.map(p => onD(p, f(Math.cos(p)))), col, 2.6)); });
+  // TWO BOOKS: 1.6 by 1.1 by 0.25, an arrow on the cover; the same two quarter turns, about the upright and about the line
+  // toward you, in the two orders, seven poses each (every 30°), seen from in front, a little right and above
+  const VC = unit([0.5, -1, 0.55]), VE1 = unit(cross([0, 0, 1], VC)), VE2 = cross(VC, VE1),
+    proj = (o, k) => v => [o[0] + k * dot(v, VE1), o[1] - k * dot(v, VE2)],
+    rot = (ax, a) => v => { const c = Math.cos(a), s = Math.sin(a), i = ax === 'z' ? [0, 1] : [2, 0], w = v.slice();
+      w[i[0]] = c * v[i[0]] - s * v[i[1]]; w[i[1]] = s * v[i[0]] + c * v[i[1]]; return w; },
+    BK = [0.8, 0.55, 0.125], corner = b => [b[0] ? BK[0] : -BK[0], b[1] ? BK[1] : -BK[1], b[2] ? BK[2] : -BK[2]],
+    WIRE = ['000', '100', '110', '010', '000', '001', '101', '100', '101', '111', '110', '111', '011', '010', '011', '001'].map(s => corner([...s].map(Number))),
+    ARR = [[-0.5, -0.08], [0.2, -0.08], [0.2, -0.24], [0.62, 0], [0.2, 0.24], [0.2, 0.08], [-0.5, 0.08]].map(([x, y]) => [x, y, BK[2] + 0.002]),
+    POSES = [0, 1, 2, 3, 4, 5, 6].map(j => j / 3);
+  [['bookA', [2850, 520], ['z', 'y'], TEAL], ['bookB', [3230, 520], ['y', 'z'], VIOLET]].forEach(([n, o, ord, col]) => {
+    const pose = s => v => rot(ord[1], Q * Math.max(0, s - 1))(rot(ord[0], Q * Math.min(1, s))(v)), P = proj(o, 95);
+    POSES.forEach(s => put(n + 'Wire', line(WIRE.map(pose(s)).map(P), col, 2.4)));
+    POSES.forEach(s => put(n + 'Arrow', polyOf(ARR.map(pose(s)).map(P), INK))); });
+  put('lTurn', label(3010, 720, '120°', RED, 24));
+  // THE LEFTOVER: the octant's loop on a sphere, pole to equator, along it a quarter, and back up, and an arrow carried
+  // round it as straight as the sphere allows (along each great circle it keeps its angle to the way of travel): it comes
+  // home turned 90°, the loop's solid angle, π/2
+  const G0 = [3800, 520], GR = 170, GC = unit([1, 0.9, 0.75]), GE1 = unit(cross([0, 0, 1], GC)), GE2 = cross(GC, GE1),
+    gp = v => [G0[0] + GR * dot(v, GE1), G0[1] - GR * dot(v, GE2)],
+    EDGES = [s => [[Math.sin(s), 0, Math.cos(s)], [Math.cos(s), 0, -Math.sin(s)]], s => [[Math.cos(s), Math.sin(s), 0], [0, 0, -1]],
+      s => { const p = [0, Math.cos(s), Math.sin(s)]; return [p, [0, Math.sin(s), -Math.cos(s)]]; }],
+    arrowAt = ([p, v]) => { const w = cross(p, v), L = 0.5, pt = (a, b) => gp(unit(add3(add3(p, v, a), w, b)).map(x => x * 1.002));
+      return polyOf([pt(0, -0.035), pt(L - 0.15, -0.035), pt(L - 0.15, -0.1), pt(L, 0), pt(L - 0.15, 0.1), pt(L - 0.15, 0.035), pt(0, 0.035)], VIOLET); };
+  put('sphere', circ4(...G0, GR, '#ece6d8'));
+  put('sphereRim', line(samp(0, 2 * Math.PI, 96).map(a => [G0[0] + GR * Math.cos(a), G0[1] + GR * Math.sin(a)]), GREY, 1.6));
+  const loop = EDGES.flatMap(e => samp(0, Q, 30).map(s => e(s)[0]));
+  put('octant', polyOf(loop.map(gp), PALE));
+  put('loop', line(loop.map(gp), GOLD, 2.6));
+  put('ghost', arrowAt(EDGES[0](0)).replace(VIOLET, '#c8c0e6'));
+  EDGES.forEach(e => samp(0, Q, 4).slice(0, 4).forEach(s => put('arrowG', arrowAt(e(s)))));
+  put('arrowG', arrowAt(EDGES[2](Q)));
+  put('lQuarter', label(gp([0, 0, 1])[0] + 30, gp([0, 0, 1])[1] - 40, '90°', RED, 22));
+  // WHAT SURVIVES: from a height d above a flat wall (in space), the turn's landing and the walker's are one curve,
+  // (1 + (ρ/d)²)^(−3/2), 150 px at the foot; inside a ball from halfway out, the walker's (harmonic measure) and the turn's
+  // landing (×4π, 25 px a unit), parting, with a guide at 45°; and the wedge from home, its corners its medians, the near
+  // field (h the largest share) a third
+  const H0 = [4300, 650], onH = (x, y) => [H0[0] + 180 + 60 * x, H0[1] - 150 * y], RHO = samp(-3, 3, 120);
+  put('axesH', line([[H0[0], H0[1]], [H0[0] + 360, H0[1]]], GREY, 1.4));
+  put('flatWalk', polyOf([onH(-3, 0), ...RHO.map(x => onH(x, (1 + x * x) ** -1.5)), onH(3, 0)], '#efdcb0'));
+  put('flatTurn', line(RHO.map(x => onH(x, (1 + x * x) ** -1.5)), TEAL, 2.4));
+  const B0 = [4750, 650], onB = (psi, y) => [B0[0] + 360 * psi / Math.PI, B0[1] - 25 * y];
+  put('axesB', line([[B0[0], B0[1] - 160], B0, [B0[0] + 360, B0[1]]], GREY, 1.4));
+  put('guide45', line([onB(Math.PI / 4, 0), onB(Math.PI / 4, 6.3)], '#c9c2b4', 1.4));
+  put('ballWalk', line(PSI.map(p => onB(p, (1 - rr * rr) / dt(Math.cos(p)) ** 1.5)), GOLD, 2.8));
+  put('ballTurn', line(PSI.map(p => onB(p, (1 - rr * Math.cos(p)) / dt(Math.cos(p)) ** 1.5)), TEAL, 2.8));
+  const T0 = [5320, 560], TS = 280, TV = { h: [T0[0] - TS / 2, T0[1] + TS * 0.29], v: [T0[0], T0[1] - TS * 0.577], v2: [T0[0] + TS / 2, T0[1] + TS * 0.29] },
+    mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], cen = [(TV.h[0] + TV.v[0] + TV.v2[0]) / 3, (TV.h[1] + TV.v[1] + TV.v2[1]) / 3];
+  put('near', polyOf([TV.h, mid(TV.h, TV.v), cen, mid(TV.h, TV.v2)], PALE));
+  put('tri', line([TV.h, TV.v, TV.v2, TV.h], INK, 2.4));
+  put('corners', line([TV.v2, mid(TV.h, TV.v), cen, TV.h, mid(TV.v, TV.v2), cen, TV.v, mid(TV.h, TV.v2)], GOLD, 2));
+  put('lZ', label(LX + 14, LY - U - 8, 'z', INK, 22));
+  put('l45', label(onB(Math.PI / 4, 0)[0] - 14, B0[1] + 26, '45°', INK));
+  const body = S.join('');
+  const one = n => idx[n][0], many = (...ns) => ns.flatMap(n => idx[n]);
+  const span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    pop = t => ({ keys: [], motion: { kind: 'pop', amount: 0.5 }, clip: span(t, t + 0.012, { show: 'in' }) }),
+    rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)), BZ = [0.45, 0, 0.25, 1],
+    andOut = (io, at) => Object.assign({}, io, { out: { kind: 'fade', len: 0.008 } });
+  const morphs = [], at = {};
+  const add = (name, m) => { (at[name] = at[name] || []).push(morphs.length); morphs.push(m); };
+  const shows = (name, i, m) => add(name, Object.assign({ keys: [i] }, m));
+  // a morph that holds its first key, moves at [t1, t2], and holds its last until the window ends
+  const steps = (name, K, start, end, T, io) => add(name, { keys: K.flatMap(k => [k, k]), straight: true,
+    times: rel(start, end, [start, ...T, end]), eases: [...K.flatMap((_, j) => j ? [BZ, null] : [null]), null], clip: span(start, end, io) });
+  // a morph through many keys at an even pace over [t1, t2], holding at either end
+  const glide = (name, K, start, end, t1, t2, io) => add(name, { keys: [K[0], ...K, K[K.length - 1]], straight: true,
+    times: rel(start, end, [start, ...K.map((_, j) => t1 + (t2 - t1) * j / (K.length - 1)), end]),
+    eases: [null, ...K.slice(1).map(() => 'linear'), null, null], clip: span(start, end, io) });
+  // beat 1, 0–0.16: the line, the standpoint, the fan, the landings, the law; walkers and their histogram; a new zero
+  // and a new thumb at 0.12–0.15
+  shows('line', one('line'), { clip: span(0.004, 0.99, drawIn(0.012)) });
+  steps('zA', idx.zA, 0.01, 0.99, [0.12, 0.15], fadeIn(0.008));
+  steps('fanA', idx.fanA, 0.016, 0.99, [0.12, 0.15], drawIn(0.025));
+  steps('combA', idx.combA, 0.04, 0.99, [0.12, 0.15], fadeIn(0.01));
+  steps('lawA', idx.lawA, 0.05, 0.99, [0.12, 0.15], drawIn(0.02));
+  walks.forEach((_, j) => shows('walks', idx.walks[j], { clip: span(0.072 + 0.006 * j, 0.115, andOut(drawIn(0.012))) }));
+  walks.forEach((_, j) => add('walkEnds', Object.assign(pop(0.084 + 0.006 * j), { keys: [idx.walkEnds[j]], clip: span(0.084 + 0.006 * j, 0.115, andOut({ in: { kind: 'cut', len: 0.001 } })) })));
+  shows('walkHist', one('walkHist'), { clip: span(0.1, 0.115, andOut(fadeIn(0.006))) });
+  // beat 2, 0.16–0.33: the circle, the reader, its fan and landings; the uniform, L, and L carried to 2L − U onto harmonic
+  // measure; the two means
+  shows('circle', one('circle'), { clip: span(0.17, 0.99, drawIn(0.012)) });
+  shows('reader', one('reader'), { clip: span(0.175, 0.99, fadeIn(0.008)) });
+  shows('fanC', one('fanC'), { clip: span(0.18, 0.99, drawIn(0.025)) });
+  shows('combC', one('combC'), { clip: span(0.2, 0.99, fadeIn(0.01)) });
+  shows('axesE', one('axesE'), { clip: span(0.21, 0.99, drawIn(0.01)) });
+  shows('harmE', one('harmE'), { clip: span(0.285, 0.99, fadeIn(0.012)) });
+  shows('uniE', one('uniE'), { clip: span(0.215, 0.99, drawIn(0.012)) });
+  shows('landE', one('landE'), { clip: span(0.22, 0.99, drawIn(0.02)) });
+  steps('twoLE', idx.twoLE, 0.245, 0.99, [0.255, 0.28], fadeIn(0.006));
+  shows('meanW', one('meanW'), { clip: span(0.30, 0.99, fadeIn(0.01)) });
+  add('meanL', Object.assign(pop(0.305), { keys: [one('meanL')] }));
+  // beat 3, 0.33–0.5: the plane's one curve, then three copies carried to the sphere's three laws
+  shows('axesD', one('axesD'), { clip: span(0.34, 0.99, drawIn(0.01)) });
+  shows('uniD', one('uniD'), { clip: span(0.343, 0.99, drawIn(0.012)) });
+  shows('planeD', one('planeD'), { clip: span(0.35, 0.99, drawIn(0.02)) });
+  SPH.forEach(([n], j) => steps(n, idx[n], 0.385, 0.99, [0.40 + 0.012 * j, 0.44 + 0.012 * j], fadeIn(0.006)));
+  // beat 4, 0.5–0.67: the two books, a quarter turn each way, the second turn after the first
+  [['bookA'], ['bookB']].forEach(([n]) => ['Wire', 'Arrow'].forEach(p => {
+    const K = idx[n + p]; add(n + p, { keys: [K[0], K[0], K[1], K[2], K[3], K[3], K[4], K[5], K[6], K[6]], straight: true,
+      times: rel(0.51, 0.99, [0.51, 0.53, 0.5433, 0.5567, 0.57, 0.59, 0.6033, 0.6167, 0.63, 0.99]),
+      eases: [null, 'linear', 'linear', 'linear', null, 'linear', 'linear', 'linear', null, null], clip: span(0.51, 0.99, p === 'Wire' ? drawIn(0.012) : fadeIn(0.008)) }); }));
+  shows('lTurn', one('lTurn'), { clip: span(0.64, 0.99, fadeIn(0.01)) });
+  // beat 5, 0.67–0.84: the sphere, the octant, its loop; the arrow carried round, the ghost where it started
+  shows('sphere', one('sphere'), { clip: span(0.675, 0.99, fadeIn(0.01)) });
+  shows('sphereRim', one('sphereRim'), { clip: span(0.675, 0.99, drawIn(0.012)) });
+  shows('octant', one('octant'), { clip: span(0.685, 0.99, fadeIn(0.01)) });
+  shows('loop', one('loop'), { clip: span(0.69, 0.99, drawIn(0.02)) });
+  shows('ghost', one('ghost'), { clip: span(0.705, 0.99, fadeIn(0.008)) });
+  glide('arrowG', idx.arrowG, 0.705, 0.99, 0.72, 0.81, fadeIn(0.008));
+  shows('lQuarter', one('lQuarter'), { clip: span(0.815, 0.99, fadeIn(0.01)) });
+  // beat 6, 0.84–1: the flat wall, the ball, the wedge
+  shows('flatWalk', one('flatWalk'), { clip: span(0.855, 0.99, fadeIn(0.012)) });
+  shows('axesH', one('axesH'), { clip: span(0.85, 0.99, drawIn(0.01)) });
+  shows('flatTurn', one('flatTurn'), { clip: span(0.865, 0.99, drawIn(0.02)) });
+  shows('axesB', one('axesB'), { clip: span(0.875, 0.99, drawIn(0.01)) });
+  shows('guide45', one('guide45'), { clip: span(0.878, 0.99, fadeIn(0.01)) });
+  shows('ballWalk', one('ballWalk'), { clip: span(0.88, 0.99, drawIn(0.02)) });
+  shows('ballTurn', one('ballTurn'), { clip: span(0.89, 0.99, drawIn(0.02)) });
+  shows('near', one('near'), { clip: span(0.925, 0.99, fadeIn(0.012)) });
+  shows('tri', one('tri'), { clip: span(0.91, 0.99, drawIn(0.012)) });
+  shows('corners', one('corners'), { clip: span(0.915, 0.99, drawIn(0.02)) });
+  shows('lZ', one('lZ'), { clip: span(0.012, 0.115, andOut(fadeIn(0.01))) });
+  shows('l45', one('l45'), { clip: span(0.88, 0.99, fadeIn(0.01)) });
+  const lit = (...names) => names.flatMap(n => at[n]).join(',');
+  const SPECIAL_BEATS = [
+    { title: 'One law, from a standpoint',
+      text: `A reader stands at [z = m + iγ](#lit:${lit('zA')}) above a line and turns evenly. [Equal turns](#lit:${lit('fanA')}) land [unevenly](#lit:${lit('combA')}), crowding at the foot: the [Cauchy](#lit:${lit('lawA')}), foot m, height γ.\n\n[Walkers](#lit:${lit('walks', 'walkEnds')}) let go at z, wandering until they touch the line, [land by the same law](#lit:${lit('walkHist')}). A new zero and a new thumb carry z, and the law goes with it.` },
+    { title: 'Four parts, one law',
+      text: `In the plane the law does four jobs. Put a [reader](#lit:${lit('reader')}) inside a circle, off its centre. Its even turn [lands unevenly](#lit:${lit('fanC', 'combC')}): [L](#lit:${lit('landE')}), against the [uniform](#lit:${lit('uniE')}).\n\n[Twice L less the uniform](#lit:${lit('twoLE')}) is the circle's [harmonic measure](#lit:${lit('harmE')}), where a walker from the same place lands. Its [mean is the standpoint](#lit:${lit('meanW')}); the turn's own landings average [half way there](#lit:${lit('meanL')}). Möbius maps, walkers, powers of one point, the two sweeps' rates: one curve.` },
+    { title: 'On the sphere, three',
+      text: `Do the same in a ball, the reader half way out. In the plane the three rules give [one curve](#lit:${lit('planeD')}). On the sphere they part: [harmonic measure](#lit:${lit('sphH')}) peaks at 6 times the uniform, [twice the landing less the uniform](#lit:${lit('sphL')}) at 7, the [Möbius image of the uniform](#lit:${lit('sphM')}) at 9.\n\nNo choice of its concentration brings the Möbius law within 5% of the walker's. Liouville: in space the only angle-keeping maps are Möbius maps, and they no longer keep heat as heat.` },
+    { title: 'Turns that do not take turns',
+      text: `In the plane a turn by α then β ends where β then α does, so turns add. Give [one book](#lit:${lit('bookAWire', 'bookAArrow')}) a quarter turn about the upright and then about the line toward you, and [another](#lit:${lit('bookBWire', 'bookBArrow')}) the same two in the other order.\n\nThey end [120° apart](#lit:${lit('bookAWire', 'bookBWire')}). Hamilton's quaternions keep division and give up the order; past two dimensions nothing keeps both.` },
+    { title: 'The leftover',
+      text: `Carry an [arrow](#lit:${lit('arrowG')}) round a [loop on a sphere](#lit:${lit('loop', 'octant')}), as straight as the surface allows: down from the pole, a quarter along the equator, and back up. It comes home [turned 90°](#lit:${lit('arrowG')}) from [where it began](#lit:${lit('ghost')}), the loop's solid angle, π/2.\n\nIn the plane a loop leaves nothing over. Small turns α and β and both back leave about α·β; physics meets it as Berry's phase, a quantity of directions alone.` },
+    { title: 'What survives',
+      text: `The boundary decides it, not the dimension. From a height above a flat wall, in space, the turn and the walker land alike: [one curve](#lit:${lit('flatWalk', 'flatTurn')}). Inside a ball, from half way out, they part: within [45°](#lit:${lit('guide45')}) straight ahead [the walker lands 0.482](#lit:${lit('ballWalk')}) of the time, [the turn 0.359](#lit:${lit('ballTurn')}).\n\nFrom home, the split, the [corners](#lit:${lit('corners', 'tri')}) and the [near field's third](#lit:${lit('near')}) need only the exchange of two shares, and hold in any number of dimensions. [The essay](${ESSAY})` }
+  ];
+  SHOWPIECES.push({
+    id: 'special', name: 'why the plane is special', section: 'explainers', tags: ['camera', 'random walk', 'morph', 'essay'],
+    note: 'The thirteenth of wander\'s essays in six beats: a standpoint above a line, equal turns and released walkers landing by one Cauchy, carried together by a new zero and thumb; a reader off a circle\'s centre, twice its landing less the uniform turned into harmonic measure; the same three rules in a ball, one curve in the plane and three on the sphere; two books given two quarter turns in the two orders, 120° apart; an arrow carried round the octant\'s loop coming home turned 90°; and what survives, a flat wall where the turn and the walker agree, a ball where they part, and the wedge\'s corners and thirds. The scene of the explainer page\'s twelfth explainer.',
+    svg: svg(6000, 1100, body),
+    scene: {
+      loop: 56, ease: 'inout', stops: [0.16, 0.33, 0.5, 0.67, 0.84],
+      camera: [
+        { t: 0, fit: many('line', 'lawA'), pad: 0.12 }, { t: 0.16, fit: many('line', 'lawA'), pad: 0.12 },
+        { t: 0.19, fit: many('circle', 'axesE', 'harmE'), pad: 0.12 }, { t: 0.33, fit: many('circle', 'axesE', 'harmE'), pad: 0.12 },
+        { t: 0.36, fit: many('axesD', 'sphM'), pad: 0.2 }, { t: 0.5, fit: many('axesD', 'sphM'), pad: 0.2 },
+        { t: 0.53, fit: many('bookAWire', 'bookBWire'), pad: 0.2 }, { t: 0.67, fit: many('bookAWire', 'bookBWire'), pad: 0.2 },
+        { t: 0.70, fit: many('sphereRim'), pad: 0.25 }, { t: 0.84, fit: many('sphereRim'), pad: 0.25 },
+        { t: 0.87, fit: many('axesH', 'axesB', 'tri', 'ballWalk'), pad: 0.08 }],
+      beats: SPECIAL_BEATS,
+      morphs
+    }
+  });
+}
+// 26. THREE PARTIES (7 Nov 2026, Tom, via the session: "proceed", to an explainer for wander's essay 5,
+// papers/essays/05-three-parties.md): the scene of explained.html?x=parties, in six beats. The writer's wedge seen from
+// outside, three edges h, v, v₂ from home and the octant of the sphere a direction crosses, cut by its sum into the flat
+// triangle h + v + v₂ = 1; the triangle face on, its centre the triple corner (the reader's one thumb for every party) and
+// a true point off it, (2/9, 2/3, 1/9), by two ratios no reading carries; its six orderings a sixth each, each pair's
+// corner a median, the near field (h the largest) a third; the octant on Lambert's equal-area map, an even sweep in the two
+// angles crowding toward the vertical (v ≤ h 0.343, the near field 0.233) carried to an even sweep in height (½, ⅓); the
+// heat on a flat screen square to the look, rings of equal share stretching without end, carried to the equal-area screen
+// where they pack under the rim at √2, the heat cos³α beside it, half at 37.5°; and more parties, the near field
+// 1/(n + 1), with a sphere in a cube whose landings keep their directions at every size. Every point is computed here.
+{
+  const f1 = v => +v.toFixed(2), D2R = Math.PI / 180, Q = Math.PI / 2,
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 17) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#9a927f', PALE = '#cfe6e1', RED = '#c4593d',
+    SAND = '#efdcb0', ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/05-three-parties.md',
+    samp = (a, b, n) => Array.from({ length: n + 1 }, (_, j) => a + (b - a) * j / n),
+    unit = a => { const n = Math.hypot(...a); return a.map(x => x / n); };
+  const S = [], idx = {};
+  const put = (name, s) => { (idx[name] = idx[name] || []).push(S.length); S.push(s); };
+  put('paper', rectP(-500, -400, 5300, 1500, '#f4f1ea'));
+  // THE WEDGE FROM OUTSIDE: home at O1, h along the left wall, v up, v₂ along the right wall, a writer's isometric view
+  const O1 = [320, 560], R1 = 230, C30 = Math.cos(30 * D2R),
+    iso = ([h, v, v2]) => [O1[0] + R1 * C30 * (v2 - h), O1[1] - R1 * v + R1 * 0.5 * (h + v2)];
+  put('edges', line([[1.25, 0, 0], [0, 0, 0], [0, 1.25, 0], [0, 0, 0], [0, 0, 1.25]].map(iso), INK, 2.4));
+  // the octant of the unit sphere (the cut by length) as a closed outline of three quarter arcs, and the same points each
+  // divided by its sum: the flat triangle h + v + v₂ = 1 (the cut by the sum)
+  const arc = (a, b) => samp(0, Q, 24).slice(0, 24).map(t => a.map((x, i) => Math.cos(t) * x + Math.sin(t) * b[i])),
+    OCT = [...arc([1, 0, 0], [0, 1, 0]), ...arc([0, 1, 0], [0, 0, 1]), ...arc([0, 0, 1], [1, 0, 0])],
+    bySum = p => { const s = p[0] + p[1] + p[2]; return p.map(x => x / s); };
+  put('octant', polyOf(OCT.map(iso), PALE)); put('octant', polyOf(OCT.map(bySum).map(iso), SAND));
+  put('octRim', line([...OCT, OCT[0]].map(iso), TEAL, 2.2)); put('octRim', line([...OCT, OCT[0]].map(bySum).map(iso), GOLD, 2.2));
+  // one direction, [h : v : v₂] = [1 : 2 : 1.5], a ray from home, where it crosses each cut
+  const DIR = [1, 2, 1.5];
+  put('ray', line([[0, 0, 0], unit(DIR).map(x => 1.3 * x)].map(iso), VIOLET, 2.2));
+  put('rayDot', circ4(...iso(unit(DIR)), 7, VIOLET)); put('rayDot', circ4(...iso(bySum(DIR)), 7, VIOLET));
+  // THE TRIANGLE FACE ON (the view from home down (1, 1, 1)): h bottom left, v at the top, v₂ bottom right
+  const O2 = [1100, 520], TS = 330, TV = [[O2[0] - TS / 2, O2[1] + TS * 0.29], [O2[0], O2[1] - TS * 0.577], [O2[0] + TS / 2, O2[1] + TS * 0.29]],
+    bary = b => { const s = b[0] + b[1] + b[2]; return [0, 1].map(k => (b[0] * TV[0][k] + b[1] * TV[1][k] + b[2] * TV[2][k]) / s); },
+    mid = (i, j) => bary([0, 1, 2].map(k => (k === i || k === j) ? 1 : 0)), CEN = bary([1, 1, 1]);
+  put('tri', polyOf(TV, SAND));
+  put('triRim', line([...TV, TV[0]], INK, 2.4));
+  // the six chambers (each ordering of h, v, v₂): three of them shaded, so the six alternate
+  [[0, 1], [1, 2], [2, 0]].forEach(([i, j]) => put('chambers', polyOf([CEN, TV[i], mid(i, j)], '#e6d2a4')));
+  // the near field, h the largest: the two chambers at h's corner
+  put('near', polyOf([TV[0], mid(0, 1), CEN, mid(0, 2)], PALE));
+  put('corners', line([TV[2], mid(0, 1), CEN, TV[0], mid(1, 2), CEN, TV[1], mid(0, 2)], GOLD, 2.2));
+  put('centre', circ4(...CEN, 9, TEAL));
+  const TRUE = [1, 3, 0.5];
+  put('truth', line([CEN, bary(TRUE)], VIOLET, 1.6)); put('truthDot', circ4(...bary(TRUE), 8, VIOLET));
+  // THE OCTANT ON LAMBERT'S EQUAL-AREA MAP: azimuth ψ across (0 to 90°), height z = sin(altitude) up (0 to 1), 300 px
+  const O4 = [1700, 690], MW = 340, MH = 340, onM = (psi, z) => [O4[0] + MW * psi / Q, O4[1] - MH * z];
+  put('mapFrame', line([onM(0, 1), onM(0, 0), onM(Q, 0), onM(Q, 1), onM(0, 1)], GREY, 1.4));
+  // where v ≤ h, under the pair's corner curve z = cos ψ/√(1 + cos²ψ): half the map's area
+  const cvh = psi => Math.cos(psi) / Math.sqrt(1 + Math.cos(psi) ** 2), cvv = psi => Math.sin(psi) / Math.sqrt(1 + Math.sin(psi) ** 2),
+    PS = samp(0, Q, 60);
+  put('vleh', polyOf([onM(0, 0), ...PS.map(p => onM(p, cvh(p))), onM(Q, 0)], PALE));
+  // the azimuth's even lines, and the height lines: even in altitude (crowding up) carried to even in height
+  const serpV = xs => xs.flatMap((x, i) => i % 2 ? [onM(x, 1), onM(x, 0)] : [onM(x, 0), onM(x, 1)]),
+    serpH = zs => zs.flatMap((z, i) => i % 2 ? [onM(Q, z), onM(0, z)] : [onM(0, z), onM(Q, z)]);
+  put('azLines', line(serpV([1, 2, 3, 4, 5].map(k => k * 15 * D2R)), '#8f9bb8', 1.3));
+  put('htLines', line(serpH([1, 2, 3, 4, 5].map(k => Math.sin(k * 15 * D2R))), '#8f9bb8', 1.3));
+  put('htLines', line(serpH([1, 2, 3, 4, 5].map(k => k / 6)), '#8f9bb8', 1.3));
+  // the three pairs' corners: v = h, v₂ = h (ψ = 45°), v = v₂
+  put('mapCorners', line(PS.map(p => onM(p, cvh(p))), GOLD, 2.4));
+  put('mapCorners', line([onM(Q / 2, 0), onM(Q / 2, 1)], GOLD, 2.4));
+  put('mapCorners', line(PS.map(p => onM(p, cvv(p))), GOLD, 2.4));
+  // THE HEAT ON A SCREEN SQUARE TO THE LOOK: rings of equal share, a sixth of the hemisphere in front each (share s at
+  // cos α = 1 − s), on a flat screen at tan α (60 px a thumb) and on the equal-area screen at 2·sin(α/2) (rim √2 at 200 px)
+  const O5 = [2600, 470], RINGS = [1, 2, 3, 4, 5].map(k => Math.acos(1 - k / 6)),
+    rings = rOf => { const P = []; RINGS.forEach((a, i) => { const r = rOf(a), as = samp(0, 2 * Math.PI, 72);
+      as.forEach(t => P.push([O5[0] + r * Math.cos(t), O5[1] + r * Math.sin(t)]));
+      if (i < RINGS.length - 1) P.push([O5[0] + rOf(RINGS[i + 1]), O5[1]]); }); return P; };
+  put('rings', line(rings(a => 60 * Math.tan(a)), VIOLET, 1.6)); put('rings', line(rings(a => 200 / Math.SQRT2 * 2 * Math.sin(a / 2)), VIOLET, 1.6));
+  put('rim', line(samp(0, 2 * Math.PI, 96).map(t => [O5[0] + 200 * Math.cos(t), O5[1] + 200 * Math.sin(t)]), GOLD, 2.4));
+  put('cross', line([[O5[0] - 12, O5[1]], [O5[0] + 12, O5[1]], O5, [O5[0], O5[1] - 12], [O5[0], O5[1] + 12]], TEAL, 2.4));
+  // the heat per unit of the flat screen, cos³α, against α (0 to 90°, 300 px), 200 px at the look; half at 37.5°
+  const O6 = [2950, 700], onH = (a, y) => [O6[0] + 300 * a / Q, O6[1] - 200 * y], AS = samp(0, Q, 90), HALF = Math.acos(Math.cbrt(0.5));
+  put('heatAxes', line([[O6[0], O6[1] - 215], O6, [O6[0] + 300, O6[1]]], GREY, 1.4));
+  put('heatArea', polyOf([onH(0, 0), ...AS.map(a => onH(a, Math.cos(a) ** 3)), onH(Q, 0)], SAND));
+  put('heat', line(AS.map(a => onH(a, Math.cos(a) ** 3)), TEAL, 2.6));
+  put('halfHeat', line([onH(HALF, 0), onH(HALF, 0.5), onH(0, 0.5)], RED, 1.6));
+  // MORE PARTIES: the near field 1/(n + 1) for n = 1 … 5 other parties, bars 300 px for a whole
+  const O7 = [3550, 700];
+  [1, 2, 3, 4, 5].forEach(n => put('bars', rectP(O7[0] + 60 * (n - 1), O7[1] - 300 / (n + 1), O7[0] + 60 * (n - 1) + 40, O7[1], n === 2 ? TEAL : '#b9d8d2')));
+  put('barAxis', line([[O7[0] - 15, O7[1]], [O7[0] + 300, O7[1]]], GREY, 1.4));
+  // A SPHERE IN A CUBE, drawn in the plane: a circle at the middle of a square of half-width e, sixteen directions out to
+  // where each meets the square (the side of its largest component), at e = 0.7 and e = 1.3 (120 px a unit)
+  const O8 = [4200, 520], DIRS = samp(0, 2 * Math.PI, 16).slice(0, 16).map(t => t + 0.17),
+    land = (t, e) => { const c = Math.cos(t), s = Math.sin(t), m = Math.max(Math.abs(c), Math.abs(s)); return [O8[0] + 120 * e * c / m, O8[1] - 120 * e * s / m]; },
+    sq = e => [[1, 1], [-1, 1], [-1, -1], [1, -1], [1, 1]].map(([x, y]) => [O8[0] + 120 * e * x, O8[1] - 120 * e * y]);
+  put('square', line(sq(0.7), INK, 2.4)); put('square', line(sq(1.3), INK, 2.4));
+  put('sphere', circ4(...O8, 60, PALE));
+  put('cubeRays', line(DIRS.flatMap(t => [O8, land(t, 0.7)]).concat([O8]), VIOLET, 1.3));
+  put('cubeRays', line(DIRS.flatMap(t => [O8, land(t, 1.3)]).concat([O8]), VIOLET, 1.3));
+  // labels, last
+  put('lH', label(...iso([1.33, 0, 0]).map((x, i) => x + (i ? 6 : -18)), 'h', INK, 22));
+  put('lV', label(...iso([0, 1.33, 0]).map((x, i) => x + (i ? -4 : -6)), 'v', INK, 22));
+  put('lV2', label(...iso([0, 0, 1.33]).map((x, i) => x + (i ? 6 : 4)), 'v_2', INK, 22));
+  put('lHalf', label(onH(HALF, 0)[0] - 20, O6[1] + 26, '37.5°', RED));
+  const body = S.join('');
+  const one = n => idx[n][0], many = (...ns) => ns.flatMap(n => idx[n]);
+  const span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    pop = t => ({ keys: [], motion: { kind: 'pop', amount: 0.5 }, clip: span(t, t + 0.012, { show: 'in' }) }),
+    rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)), BZ = [0.45, 0, 0.25, 1];
+  const morphs = [], at = {};
+  const add = (name, m) => { (at[name] = at[name] || []).push(morphs.length); morphs.push(m); };
+  const shows = (name, i, m) => add(name, Object.assign({ keys: [i] }, m));
+  const steps = (name, K, start, end, T, io) => add(name, { keys: K.flatMap(k => [k, k]), straight: true,
+    times: rel(start, end, [start, ...T, end]), eases: [...K.flatMap((_, j) => j ? [BZ, null] : [null]), null], clip: span(start, end, io) });
+  // beat 1, 0–0.16: the edges, the octant and a direction crossing it; then cut by the sum into the flat triangle
+  shows('edges', one('edges'), { clip: span(0.004, 0.99, drawIn(0.015)) });
+  steps('octant', idx.octant, 0.02, 0.99, [0.10, 0.14], fadeIn(0.012));
+  steps('octRim', idx.octRim, 0.022, 0.99, [0.10, 0.14], drawIn(0.02));
+  shows('ray', one('ray'), { clip: span(0.06, 0.99, drawIn(0.012)) });
+  steps('rayDot', idx.rayDot, 0.07, 0.99, [0.10, 0.14], fadeIn(0.008));
+  // beat 2, 0.16–0.33: the triangle face on, its centre the triple corner, and a true point off it
+  shows('tri', one('tri'), { clip: span(0.17, 0.99, fadeIn(0.012)) });
+  // beat 3's chambers and near field are added here, before the rim, the corners and the points: a scene draws its
+  // morphs in the order they are added, so these lie under them
+  idx.chambers.forEach((i, j) => shows('chambers', i, { clip: span(0.345 + 0.008 * j, 0.99, fadeIn(0.01)) }));
+  shows('near', one('near'), { clip: span(0.42, 0.99, fadeIn(0.012)) });
+  shows('triRim', one('triRim'), { clip: span(0.172, 0.99, drawIn(0.015)) });
+  shows('corners', one('corners'), { clip: span(0.37, 0.99, drawIn(0.025)) });
+  shows('centre', one('centre'), { clip: span(0.21, 0.99, fadeIn(0.01)) });
+  shows('truth', one('truth'), { clip: span(0.26, 0.99, drawIn(0.015)) });
+  add('truthDot', Object.assign(pop(0.275), { keys: [one('truthDot')] }));
+  // beat 3, 0.33–0.5: the six chambers, the pairs' corners, the near field a third (added above)
+  // beat 4, 0.5–0.67: the map, v ≤ h, the corners; the height lines carried from even in angle to even in height
+  shows('vleh', one('vleh'), { clip: span(0.52, 0.99, fadeIn(0.012)) });
+  shows('mapFrame', one('mapFrame'), { clip: span(0.51, 0.99, drawIn(0.012)) });
+  shows('azLines', one('azLines'), { clip: span(0.53, 0.99, drawIn(0.02)) });
+  steps('htLines', idx.htLines, 0.535, 0.99, [0.60, 0.64], drawIn(0.02));
+  idx.mapCorners.forEach((i, j) => shows('mapCorners', i, { clip: span(0.56 + 0.006 * j, 0.99, drawIn(0.015)) }));
+  // beat 5, 0.67–0.84: rings of equal share on the flat screen, carried to the equal-area screen; the heat beside
+  steps('rings', idx.rings, 0.68, 0.99, [0.75, 0.80], drawIn(0.03));
+  shows('cross', one('cross'), { clip: span(0.69, 0.99, fadeIn(0.008)) });
+  shows('rim', one('rim'), { clip: span(0.79, 0.99, drawIn(0.012)) });
+  shows('heatArea', one('heatArea'), { clip: span(0.705, 0.99, fadeIn(0.012)) });
+  shows('heatAxes', one('heatAxes'), { clip: span(0.70, 0.99, drawIn(0.01)) });
+  shows('heat', one('heat'), { clip: span(0.71, 0.99, drawIn(0.02)) });
+  shows('halfHeat', one('halfHeat'), { clip: span(0.73, 0.99, drawIn(0.012)) });
+  // beat 6, 0.84–1: the near field for more parties, and the sphere in the cube grown from 0.7 to 1.3
+  idx.bars.forEach((i, j) => add('bars', Object.assign(pop(0.85 + 0.01 * j), { keys: [i] })));
+  shows('barAxis', one('barAxis'), { clip: span(0.848, 0.99, drawIn(0.01)) });
+  steps('square', idx.square, 0.9, 0.99, [0.935, 0.97], drawIn(0.012));
+  shows('sphere', one('sphere'), { clip: span(0.905, 0.99, fadeIn(0.01)) });
+  steps('cubeRays', idx.cubeRays, 0.91, 0.99, [0.935, 0.97], drawIn(0.015));
+  // the centre and true point on top of the chambers (drawn after them), and the labels
+  [['lH', 0.02], ['lV', 0.024], ['lV2', 0.028], ['lHalf', 0.74]].forEach(([n, t]) => shows(n, one(n), { clip: span(t, 0.99, fadeIn(0.01)) }));
+  const lit = (...names) => names.flatMap(n => at[n]).join(',');
+  const PARTIES_BEATS = [
+    { title: 'Standing in a corner',
+      text: `Stand in the corner of a room: one wall runs off [to the left, one to the right, and up is the corner](#lit:${lit('edges')}). A direction is the three together, [h : v : v₂], how much of each against the others, and no distance. None is negative, so a writer draws the directions as [one octant](#lit:${lit('octant', 'octRim')}).\n\nA [ray](#lit:${lit('ray')}) has to be cut somewhere to be drawn. Cut where its length is 1 and it lands on the octant; cut [where the three add to 1](#lit:${lit('rayDot')}) and the octant flattens into a triangle, the writer's drawing that needs no standpoint.` },
+    { title: 'The triple corner',
+      text: `Face on, the [triangle](#lit:${lit('tri', 'triRim')}) holds every way three breadths can share a whole. The reader has one length, its thumb, two thumbs crossed and both the same H, so it gives every party that length: [the centre](#lit:${lit('centre')}), (⅓, ⅓, ⅓), the triple corner, where every pair is at its own corner at once.\n\nThe truth lies [off it](#lit:${lit('truth', 'truthDot')}), here at (2/9, 2/3, 1/9), by two ratios no reading carries: how many thumbs the second party is, and the third. Amounts brought in move the reader's amounts toward it; nothing is redrawn.` },
+    { title: 'A sixth, a half, a third',
+      text: `Swept evenly by area, the directions fall into [six orderings](#lit:${lit('chambers')}), a sixth each. [Each pair's corner](#lit:${lit('corners')}) is a median of the triangle, and every pair has its median there, as in the plane.\n\nOne thing is new. [Near in everything](#lit:${lit('near')}), h the largest of the three, is exactly a third of the directions. Past the corner in one reading is a third, past in both a third.` },
+    { title: 'By area, not by angle',
+      text: `"Every direction alike" has to be said carefully in space. On [Lambert's map](#lit:${lit('mapFrame', 'azLines')}), azimuth across and height up, equal area is equal room, and [v ≤ h](#lit:${lit('vleh')}) is half of it, under [its corner](#lit:${lit('mapCorners')}).\n\nSweep the two angles evenly and the [rings of altitude](#lit:${lit('htLines')}) crowd toward the vertical: v ≤ h falls to 0.343 and the near field to 0.233. Sweep evenly in height, Archimedes' hat-box, and they space out: a half, and a third.` },
+    { title: 'The heat about the look',
+      text: `What the reader has is not the wedge but a heat map about its look. On a flat screen [rings holding a sixth of the directions each](#lit:${lit('rings')}) stretch without end, the heat thinning as [cos³ of the angle off the look](#lit:${lit('heat', 'heatArea')}), [half at 37.5°](#lit:${lit('halfHeat')}).\n\nLaid so equal shares take equal room, the same rings pack under [the rim](#lit:${lit('rim')}) at √2: the far field is not stretched but packed, and the heat turns with the look, centred on [whatever is looked at](#lit:${lit('cross')}).` },
+    { title: 'More parties, any size',
+      text: `Nothing needed exactly two other parties. With n of them every pair keeps its corner, and near in everything is [1/(n + 1)](#lit:${lit('bars')}): a half, a third, a quarter.\n\nAnd none of it needs a size. A [sphere](#lit:${lit('sphere')}) at the middle of a [cube](#lit:${lit('square')}) sends each direction to one point of its face, [at every size of cube](#lit:${lit('cubeRays')}); the direction is the same, the amount e times it. A reader holding the directions has the cube up to scale. [The essay](${ESSAY})` }
+  ];
+  SHOWPIECES.push({
+    id: 'parties', name: 'three parties', section: 'explainers', tags: ['camera', 'labels', 'morph', 'essay'],
+    note: 'The fifth of wander\'s essays in six beats: a room\'s corner, three edges and the octant a direction crosses, cut by its sum into the flat triangle; the triangle face on, the reader\'s triple corner at its centre and a true point off it; six orderings a sixth each, each pair\'s corner a median, the near field a third; Lambert\'s map, the two angles swept evenly crowding toward the vertical and swept evenly in height spacing out; the heat on a flat screen carried to the equal-area screen, half at 37.5°; and more parties, 1/(n + 1), with a sphere in a cube of any size. The scene of the explainer page\'s thirteenth explainer.',
+    svg: svg(5300, 1100, body),
+    scene: {
+      loop: 56, ease: 'inout', stops: [0.16, 0.33, 0.5, 0.67, 0.84],
+      camera: [
+        { t: 0, fit: many('edges', 'octant'), pad: 0.14 }, { t: 0.16, fit: many('edges', 'octant'), pad: 0.14 },
+        { t: 0.19, fit: many('tri'), pad: 0.22 }, { t: 0.5, fit: many('tri'), pad: 0.22 },
+        { t: 0.53, fit: many('mapFrame'), pad: 0.2 }, { t: 0.67, fit: many('mapFrame'), pad: 0.2 },
+        { t: 0.70, fit: many('rim', 'heatAxes'), pad: 0.1 }, { t: 0.84, fit: many('rim', 'heatAxes'), pad: 0.1 },
+        { t: 0.87, fit: many('bars', 'square'), pad: 0.1 }],
+      beats: PARTIES_BEATS,
+      morphs
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -3308,7 +3733,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates', 'cauchymap', 'plane'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates', 'cauchymap', 'plane', 'special', 'parties'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
