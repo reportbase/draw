@@ -41,7 +41,8 @@
     "pictures",
     "rates",
     "cauchymap",
-    "plane"
+    "plane",
+    "special"
    ]
   },
   {
@@ -476,6 +477,16 @@
     "essay"
    ]
   },
+  "special": {
+   "name": "why the plane is special",
+   "note": "The thirteenth of wander's essays in six beats: a standpoint above a line, equal turns and released walkers landing by one Cauchy, carried together by a new zero and thumb; a reader off a circle's centre, twice its landing less the uniform turned into harmonic measure; the same three rules in a ball, one curve in the plane and three on the sphere; two books given two quarter turns in the two orders, 120° apart; an arrow carried round the octant's loop coming home turned 90°; and what survives, a flat wall where the turn and the walker agree, a ball where they part, and the wedge's corners and thirds. The scene of the explainer page's twelfth explainer.",
+   "tags": [
+    "camera",
+    "random walk",
+    "morph",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -673,6 +684,7 @@
   "pictures": 249051,
   "rates": 108267,
   "cauchymap": 341174,
-  "plane": 345695
+  "plane": 345695,
+  "special": 224386
  }
 }

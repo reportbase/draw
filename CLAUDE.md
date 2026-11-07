@@ -548,6 +548,17 @@ publishes.
     angles kept and grown. To stay under LAZY_MIN_SHAPES each family of grid lines is one open line run back and forth
     with its turns along the frame, so one morph carries the family; 93 morphs, one `steps` helper for every hold, move,
     hold (its eases one per stretch, the stretch back round included, or the editor drops them).
+    `?x=special` is WHY THE PLANE IS SPECIAL (7 Nov 2026, Tom: "proceed"; wander's essay 13), six beats over six panels:
+    a standpoint z above a line, eleven directions 15° apart landing as the Cauchy, four walkers (walk-on-spheres, seeded)
+    and twenty thousand landings binned under it, then a new zero and thumb (x ↦ 0.6x + 1) carrying z, the fan and the law;
+    a reader at half the radius inside a circle, 24 equal turns landing unevenly, L against the uniform, 2L − U carried
+    onto the circle's harmonic measure, its mean the standpoint and the landings' centroid half way; the same three rules
+    at r = ½ on the sphere, one curve in the plane (peak 3) carried to three (harmonic measure 6, 2L − U 7, the Möbius law
+    9 times the uniform); two wireframe books given quarter turns about the upright and toward you in the two orders,
+    seven poses each, ending 120° apart; an arrow carried round the octant's loop as straight as the sphere allows,
+    thirteen poses, home turned 90°; a flat wall where the turn and the walker are one curve, a ball where they part
+    (0.482 against 0.359 within 45°), and the wedge's corners and near-field third. A scene keeps no stroke widths (every
+    morph's line is 2), so a curve that another lies on is drawn as a pale filled area under it, not a wider line.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
     `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
     than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI
