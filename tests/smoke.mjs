@@ -3527,15 +3527,18 @@ await step('interactive scenes, touch and Lottie', async () => {
   // (held still first: a ball bouncing under a slow page has moved on from where it was measured by the time the press lands)
   w = await gp.evaluate(() => { const c = window.__played.ctl('touch-bouncing-ball'); c.pause(); return c.whereIs(0); });
   await gp.waitForTimeout(100);
+  // (the throw is read as it is let go: a listener on the window hears the pointerup just after the canvas has set the
+  // ball flying, before any frame of the page gives its speed to gravity. Read afterwards, a loaded machine's late frames
+  // had taken its upward speed, and CI failed it on 7 Nov 2026 whatever the commit.)
+  await gp.evaluate(() => addEventListener('pointerup', () => { const T = window.__played.ctl('touch-bouncing-ball').scene.runs[0].touch;
+    window.__thrown = { phase: T.phase, vx: T.vx, vy: T.vy }; }, { once: true }));
   await gp.mouse.move(w.x, w.y);
   await gp.mouse.down();
   for (let i = 1; i <= 6; i++) { await gp.mouse.move(w.x + i * 20, w.y - i * 15); await gp.waitForTimeout(16); }
   await gp.mouse.up();
-  // (read late on a busy machine, gravity may already have taken its upward speed: risen above where it was let go
-  // counts as thrown up)
-  const ball = await gp.evaluate(y0 => { const c = window.__played.ctl('touch-bouncing-ball'), T = c.scene.runs[0].touch;
-    return { phase: T.phase, vx: T.vx, vy: T.vy, rose: c.whereIs(0).y < y0 - 2 }; }, w.y - 6 * 15);
-  if (!(ball.phase === 'fly' && ball.vx > 0.2 && (ball.vy > 0.5 || ball.rose))) throw new Error('the ball thrown up and right: ' + JSON.stringify(ball));
+  const ball = await gp.evaluate(() => window.__thrown);
+  // up and right, about as the hand went (15 up for every 20 across)
+  if (!(ball && ball.phase === 'fly' && ball.vx > 0.2 && ball.vy > 0.3 * ball.vx)) throw new Error('the ball thrown up and right: ' + JSON.stringify(ball));
   // the lantern: pulled aside and let go, it swings
   w = await ready('touch-lantern');
   await gp.mouse.move(w.x, w.y + w.h * 0.3);
@@ -3637,6 +3640,15 @@ await step('the lottie page', async () => {
    clock only goes forward, through every beat's stretch; a beat's play button plays its stretch and waits at the
    stop that ends it; and on a phone the page does not scroll sideways. */
 await step('the scrolling explainer', async () => {
+  // a scroll, then its own event heard and a frame drawn: the clock is read after the page has followed it (a fixed
+  // wait of 80 or 120 ms was not always enough on a loaded machine: CI, 7 Nov 2026)
+  const scrollAt = (p, f) => p.evaluate(f => new Promise(done => {
+    const top = Math.round(f * (document.documentElement.scrollHeight - innerHeight)), go = () => requestAnimationFrame(() => requestAnimationFrame(done));
+    if (Math.abs(scrollY - top) < 1) return go();
+    const t = setTimeout(go, 3000);
+    addEventListener('scroll', () => { clearTimeout(t); go(); }, { once: true });
+    scrollTo({ top, behavior: 'instant' });
+  }), f);
   const xp = await browser.newPage({ viewport: { width: 1300, height: 860 } });
   xp.on('pageerror', e => failures.push(`[explained] ${e.message}`));
   await xp.route(/fonts\.g/, r => r.abort());
@@ -3644,8 +3656,7 @@ await step('the scrolling explainer', async () => {
   await xp.waitForFunction(() => window.__explained && window.__explained.ctl.scene, null, { timeout: 20000 });
   const ts = [];
   for (let f = 0; f <= 1.0001; f += 0.05) {
-    await xp.evaluate(f => scrollTo({ top: f * (document.documentElement.scrollHeight - innerHeight), behavior: 'instant' }), f); // style.css scrolls smoothly
-    await xp.waitForTimeout(80);
+    await scrollAt(xp, f); // style.css scrolls smoothly; scrollAt asks for an instant one
     ts.push(await xp.evaluate(() => window.__explained.ctl.t));
   }
   if (ts.some((t, i) => i && t < ts[i - 1] - 1e-9) || !(ts[0] < 0.1) || !(ts[ts.length - 1] > 0.99)) throw new Error('the clock against the scroll: ' + ts.map(t => t.toFixed(2)).join(' '));
@@ -3674,8 +3685,7 @@ await step('the scrolling explainer', async () => {
   if (xb[0] !== 7 || xb[1] !== 'A curve is a function on the circle' || xb[2] < 6 || xb[3] !== 'bridge') throw new Error('the Tangent Bridge explainer: ' + JSON.stringify(xb));
   const bt = [];
   for (const f of [0.1, 0.4, 0.7, 1]) {
-    await bp.evaluate(f => scrollTo({ top: f * (document.documentElement.scrollHeight - innerHeight), behavior: 'instant' }), f);
-    await bp.waitForTimeout(120);
+    await scrollAt(bp, f);
     bt.push(await bp.evaluate(() => window.__explained.ctl.t));
   }
   await bp.close();
@@ -3693,8 +3703,7 @@ await step('the scrolling explainer', async () => {
       M.filter(m => m.own && m.own.spin).length, M.filter(m => m.own && m.own.path != null).length, (sc.stops || []).length, (sc.camera || []).length]; });
   const pt = [];
   for (const f of [0.15, 0.5, 0.85]) {
-    await pp.evaluate(f => scrollTo({ top: f * (document.documentElement.scrollHeight - innerHeight), behavior: 'instant' }), f);
-    await pp.waitForTimeout(120);
+    await scrollAt(pp, f);
     pt.push(await pp.evaluate(() => window.__explained.ctl.t));
   }
   // the dial on the third beat (2 Nov 2026): a real click at each end of c sets the clock within its stretch and reads
@@ -3712,7 +3721,9 @@ await step('the scrolling explainer', async () => {
   await pp.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
   await pp.waitForTimeout(300);
   await pp.click('#watch');
-  await pp.waitForTimeout(9000);
+  // the watch has played its first beat, held at its stop and gone on, scrolling the next beat into view (9 s on a quiet
+  // machine; given up to 40 s, since its clock slows with a slow machine's frames)
+  await pp.waitForFunction(() => window.__explained.ctl.t > 0.12 && scrollY > 100, null, { timeout: 40000 }).catch(() => {});
   const wq = await pp.evaluate(() => [window.__explained.watching(), window.__explained.ctl.t, scrollY]);
   await pp.keyboard.press('ArrowDown');
   await pp.waitForTimeout(200);
