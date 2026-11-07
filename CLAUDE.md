@@ -538,6 +538,16 @@ publishes.
     two, four, eight thumbs, and the two maps multiplied over a field of directions and distance ratios. Its shapes and
     morphs are put down through helpers that name them (`put`, `add`), so the camera's fits and the `#lit:` indices are
     worked from names; it has its own seeded stream, so it takes nothing from the shared `rnd`.
+    `?x=plane` is ONE PLANE (7 Nov 2026, Tom: "proceed"; wander's essay 18, "Read and write on one plane"), six beats over
+    four panels: a map spread ×1.6 and twisted 30° under two fingers, the line between them before and after, k·e^(iα) and
+    ln k + iα; a writer's grid in the quadrant carried point by point onto Euler's plane, ln(z/H) = ln(d/H) + iθ (circles
+    about the eye upright lines, the 45° ray a level one); a thing turned then scaled and scaled then turned, landing in one
+    place; a point and its mirrors in the line at 45° and the line at one thumb, crossing at the hot spot; the same grid
+    laid by the thumb (g = ½ + gd(x)/π, plotted beside it, dots at one, two, four and eight thumbs); and a grid on Lambert's
+    equal-area map and on the stereographic map about the look, the look turned 60° (wander's FLC): area kept and bent,
+    angles kept and grown. To stay under LAZY_MIN_SHAPES each family of grid lines is one open line run back and forth
+    with its turns along the frame, so one morph carries the family; 93 morphs, one `steps` helper for every hold, move,
+    hold (its eases one per stretch, the stretch back round included, or the editor drops them).
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
     `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
     than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI

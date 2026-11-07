@@ -2967,6 +2967,218 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 24. ONE PLANE (7 Nov 2026, Tom, via the session: "proceed", to an explainer for wander's essay 18,
+// papers/essays/18-read-and-write-on-one-plane.md, "Read and write on one plane"): the scene of explained.html?x=plane, in
+// six beats over four panels. A map under two fingers, spread and twisted, the line between them before and after,
+// k·e^(iα); a writer's grid in the quadrant, the eye at its corner, carried point by point onto Euler's plane,
+// ln(z/H) = ln(d/H) + iθ (direction up, distance across), circles about the eye becoming upright lines and the ray at 45°
+// a level one; a thing turned then scaled and scaled then turned, landing in one place; a point and its two mirrors, in the
+// line at 45° and the line at one thumb, the mirrors crossing at the hot spot; the same plane laid by the thumb,
+// g = (2/π)·arctan(d/H) = ½ + gd(ln(d/H))/π, with g plotted against ln(d/H); and the flat chart in space: a grid on
+// Lambert's equal-area map and on the stereographic map of the directions about the look, the look turned 60°, the one
+// keeping its area and bending, the other keeping its angles and growing (wander's FLC). Every grid line, curve and point
+// is computed here from its formula. To keep the scene exact (under the editor's 150 shapes), each family of grid lines is
+// one open line, run back and forth with its turns along the frame, so a morph carries the whole family.
+{
+  const f1 = v => +v.toFixed(2), D2R = Math.PI / 180, Q = Math.PI / 2,
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 17) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#9a927f', PALE = '#cfe6e1', GRID = '#8f9bb8',
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/18-read-and-write-on-one-plane.md',
+    samp = (a, b, n) => Array.from({ length: n + 1 }, (_, j) => a + (b - a) * j / n),
+    gd = x => 2 * Math.atan(Math.exp(x)) - Q;
+  const S = [], idx = {};
+  const put = (name, s) => { (idx[name] = idx[name] || []).push(S.length); S.push(s); };
+  put('paper', rectP(-600, -500, 2700, 1300, '#f4f1ea'));
+  // THE GESTURE: a map under two fingers; after, spread by k = 1.6 and twisted by α = 30° (counterclockwise on the page)
+  const G = [240, 380], K = 1.6, AL = 30 * D2R,
+    T = p => { const x = p[0] - G[0], y = p[1] - G[1], c = Math.cos(AL), s = Math.sin(AL); return [G[0] + K * (c * x + s * y), G[1] + K * (-s * x + c * y)]; },
+    MAP = [[-75, -75], [75, -75], [75, 75], [-75, 75]].map(p => [G[0] + p[0], G[1] + p[1]]),
+    ARROW = [[0, -52], [20, -14], [0, -24], [-20, -14]].map(p => [G[0] + p[0], G[1] + p[1]]),
+    F1 = [G[0] - 50, G[1] + 42], F2 = [G[0] + 50, G[1] - 42];
+  put('map', polyOf(MAP, '#e2dccd')); put('map', polyOf(MAP.map(T), '#e2dccd'));
+  put('arrow', polyOf(ARROW, INK)); put('arrow', polyOf(ARROW.map(T), INK));
+  put('fline', line([F1, F2], GREY, 2.4)); put('fline', line([T(F1), T(F2)], TEAL, 2.4));
+  put('fingers', circ4(...F1, 9, '#c4593d')); put('fingers', circ4(...T(F1), 9, '#c4593d'));
+  put('fingers', circ4(...F2, 9, '#c4593d')); put('fingers', circ4(...T(F2), 9, '#c4593d'));
+  // THE PLANE: one panel, W on a side, its lower left corner at P0. Three charts of one quadrant, the eye at its corner,
+  // H one grid unit: the writer's (55 px a unit, six units), Euler's plane (u = ln(d/H) from −3 to 3 across, θ up), and
+  // the thumb's lay (g across, θ up)
+  const P0 = [600, 600], W = 330, CH = { cart: 'cart', euler: 'euler', lay: 'lay' },
+    to = (ch, x, y) => { const d = Math.hypot(x, y), th = Math.atan2(y, x);
+      if (ch === 'cart') return [P0[0] + 55 * x, P0[1] - 55 * y];
+      const yy = P0[1] - th / Q * W;
+      return ch === 'euler' ? [P0[0] + (Math.log(d) + 3) / 6 * W, yy] : [P0[0] + (2 / Math.PI) * Math.atan(d) * W, yy]; },
+    keys3 = (name, pts, stroke, w) => Object.values(CH).forEach(ch => put(name, line(pts.map(p => to(ch, ...p)), stroke, w)));
+  put('frame', line([[P0[0], P0[1] - W], [P0[0], P0[1]], [P0[0] + W, P0[1]], [P0[0] + W, P0[1] - W], [P0[0], P0[1] - W]], '#c9c2b4', 1.2));
+  // the grid's upright lines x = ½ … 5½, one run up and down with its turns along the top and bottom; the level ones likewise
+  const serp = (cs, along, swap) => { const P = [];
+    cs.forEach((c, i) => { const ys = samp(0, 6, 30), run = i % 2 ? ys.slice().reverse() : ys;
+      run.forEach(y => P.push(swap ? [y, c] : [c, y]));
+      if (i < cs.length - 1) { const e = i % 2 ? 0 : 6;
+        samp(c, cs[i + 1], 6).slice(1, -1).forEach(x => P.push(swap ? [e, x] : [x, e])); } });
+    return P; };
+  const CS = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5];
+  keys3('gridV', serp(CS), GRID, 1.3);
+  keys3('gridH', serp(CS, 0, true), GRID, 1.3);
+  // the circles about the eye at one in two, two and four thumbs (violet), one run back and forth along the axes, and the
+  // circle at one thumb and the ray at 45° (gold), the two corners
+  const arcs = []; [0.5, 2, 4].forEach((m, i) => { const as = samp(0, Q, 30), run = i % 2 ? as.slice().reverse() : as;
+    run.forEach(a => arcs.push([m * Math.cos(a), m * Math.sin(a)]));
+    if (i < 2) { const n = [0.5, 2, 4][i + 1]; samp(m, n, 6).slice(1, -1).forEach(r => arcs.push(i % 2 ? [r, 0] : [0, r])); } });
+  keys3('shells', arcs, VIOLET, 1.8);
+  keys3('shell1', samp(0, Q, 40).map(a => [Math.cos(a), Math.sin(a)]), GOLD, 2.6);
+  keys3('ray45', samp(-3, Math.log(6 * Math.SQRT2), 40).map(l => [Math.exp(l) * Math.SQRT1_2, Math.exp(l) * Math.SQRT1_2]), GOLD, 2.2);
+  // ON EULER'S PLANE: a thing turned by 40° then scaled by 4, and scaled then turned; the two paths; where both land
+  const E = (u, th) => [P0[0] + (u + 3) / 6 * W, P0[1] - th / Q * W],
+    tri = (c, r) => [0, 120, 240].map(a => [c[0] + r * Math.sin(a * D2R), c[1] - r * Math.cos(a * D2R)]),
+    U0 = -1.8, TH0 = 12 * D2R, DU = Math.log(4), DTH = 40 * D2R;
+  [[TEAL, 'turnFirst', [U0, TH0 + DTH], 9], [VIOLET, 'scaleFirst', [U0 + DU, TH0], 13]].forEach(([col, name, mid, r]) => {
+    [[U0, TH0], mid, [U0 + DU, TH0 + DTH]].forEach(p => put(name, polyOf(tri(E(...p), r), col)));
+    put(name + 'Path', line([E(U0, TH0), E(...mid), E(U0 + DU, TH0 + DTH)], col, 2.2)); });
+  // a point, its mirror in the line at 45° (a reading's reciprocal) and in the line at one thumb (a distance's), and where
+  // the two mirrors cross
+  const PU = -1.3, PT = 22 * D2R;
+  put('point', circ4(...E(PU, PT), 7, VIOLET));
+  put('readLink', line([E(PU, PT), E(PU, Q - PT)], VIOLET, 1.4)); put('readMirror', circ4(...E(PU, Q - PT), 7, VIOLET));
+  put('distLink', line([E(PU, PT), E(-PU, PT)], VIOLET, 1.4)); put('distMirror', circ4(...E(-PU, PT), 7, VIOLET));
+  put('hot', circ4(...E(0, Q / 2), 11, '#c4593d'));
+  // THE LAY AGAINST THE PLANE: g = ½ + gd(x)/π against x = ln(d/H), 55 px a unit of x, W for g = 1; dots at one, two, four
+  // and eight thumbs: 0.5, 0.7048, 0.8440, 0.9208
+  const C0 = [1020, 600];
+  put('axesG', line([[C0[0], C0[1] - W - 10], C0, [C0[0] + 330, C0[1]]], GREY, 1.4));
+  put('horizon', line([[C0[0], C0[1] - W], [C0[0] + 330, C0[1] - W]], '#c9c2b4', 1.2));
+  const gAt = x => [C0[0] + 55 * (x + 3), C0[1] - W * (0.5 + gd(x) / Math.PI)];
+  put('gcurve', line(samp(-3, 3, 120).map(gAt), GOLD, 3));
+  [0, 1, 2, 3].forEach(j => put('gdots', circ4(...gAt(j * Math.LN2), 6, j ? GOLD : '#c4593d')));
+  // WHERE IT STOPS: two charts of the directions about the look, the hemisphere in front a disc of 130 px: Lambert's
+  // (x, y)·√(2/(1 + z)), rim √2, the whole sphere at 2, and the stereographic (x, y)·2/(1 + z), rim 2. A grid laid on each
+  // about the old look, the look then turned 60° about h (the old look moves up), every point carried through
+  const D1 = [1540, 380], D2 = [1930, 380], RIMPX = 130, PHI = 60 * D2R,
+    chartOf = (kind, v) => { const k = kind === 'lambert' ? Math.sqrt(2 / Math.max(1e-12, 1 + v[2])) : 2 / Math.max(1e-3, 1 + v[2]); return [k * v[0], k * v[1]]; },
+    dirOf = (kind, p) => { const r2 = p[0] * p[0] + p[1] * p[1];
+      if (kind === 'lambert') { const k = Math.sqrt(Math.max(0, 1 - r2 / 4)); return [p[0] * k, p[1] * k, 1 - r2 / 2]; }
+      const s = r2 / 4; return [p[0] / (1 + s), p[1] / (1 + s), (1 - s) / (1 + s)]; },
+    turn = (kind, p, phi) => { const v = dirOf(kind, p), c = Math.cos(phi), s = Math.sin(phi); return chartOf(kind, [v[0], c * v[1] + s * v[2], -s * v[1] + c * v[2]]); };
+  [['lambert', D1, Math.SQRT2], ['stereo', D2, 2]].forEach(([kind, D, rim]) => {
+    const unit = RIMPX / rim, scr = p => [D[0] + unit * p[0], D[1] - unit * p[1]], at = phi => p => scr(turn(kind, p, phi));
+    const circle = (r, n = 96) => samp(0, 2 * Math.PI, n).map(a => [D[0] + r * Math.cos(a), D[1] - r * Math.sin(a)]);
+    // the heat per unit of the chart under it: flat on Lambert's, falling to a quarter at the stereographic's rim
+    if (kind === 'lambert') { put('lambBg', line(circle(2 * unit), '#c9c2b4', 1.2)); put('lambBg', circ4(...D, RIMPX, PALE)); }
+    else [1, 0.8, 0.6, 0.4, 0.2].forEach(f => { const h = 1 / (1 + (2 * f) ** 2 / 4) ** 2;
+      put('sterBg', circ4(...D, RIMPX * f, hsl(170, 0.38, 0.93 - 0.17 * h))); });
+    // the grid lines X = −r/2, 0, r/2 and Y likewise, inside the old look's hemisphere, as two runs joined along its rim
+    const rr = rim * 0.995, cs = [-rim / 2, 0, rim / 2], runs = swap => { const P = [];
+      cs.forEach((c, i) => { const h = Math.sqrt(rr * rr - c * c), ys = samp(-h, h, 24), run = i % 2 ? ys.slice().reverse() : ys;
+        run.forEach(y => P.push(swap ? [y, c] : [c, y]));
+        if (i < 2) { const n = cs[i + 1], hn = Math.sqrt(rr * rr - n * n), e = i % 2 ? -1 : 1,
+          a0 = swap ? Math.atan2(c, e * h) : Math.atan2(e * h, c), a1 = swap ? Math.atan2(n, e * hn) : Math.atan2(e * hn, n);
+          samp(a0, a1, 6).slice(1, -1).forEach(a => P.push([rr * Math.cos(a), rr * Math.sin(a)])); } });
+      return P; };
+    const nm = kind === 'lambert' ? 'lamb' : 'ster';
+    [false, true].forEach(sw => { const P = runs(sw); [0, PHI].forEach(phi => put(nm + 'Grid', line(P.map(at(phi)), INK, 1.5))); });
+    const rimP = samp(0, 2 * Math.PI, 96).map(a => [rr * Math.cos(a), rr * Math.sin(a)]);
+    [0, PHI].forEach(phi => put(nm + 'Rim', line(rimP.map(at(phi)), GOLD, 2.4)));
+    [0, PHI].forEach(phi => put('oldLook', circ4(...at(phi)([0, 0]), 7, GOLD)));
+    put('look', line([[D[0] - 9, D[1]], [D[0] + 9, D[1]], D, [D[0], D[1] - 9], [D[0], D[1] + 9]], TEAL, 2.4));
+  });
+  // labels, last
+  put('lK', label(G[0] - 64, G[1] - 165, 'k·e^{iα}', INK, 22));
+  put('lLn', label(G[0] - 64, G[1] + 190, 'ln k + iα', TEAL, 22));
+  put('lU', label(P0[0] + W / 2 - 34, P0[1] + 30, 'ln(d/H)', INK));
+  put('lTh', label(P0[0] - 26, P0[1] - W / 2, 'θ', INK));
+  put('lG', label(P0[0] + W / 2 - 6, P0[1] + 30, 'g', INK));
+  put('lU2', label(C0[0] + 165 - 34, C0[1] + 30, 'ln(d/H)', INK));
+  put('lG2', label(C0[0] - 26, C0[1] - W / 2, 'g', GOLD));
+  put('lArea', label(D1[0] - 40, D1[1] + 215, 'area kept', INK));
+  put('lAngle', label(D2[0] - 50, D2[1] + 215, 'angles kept', INK));
+  const body = S.join('');
+  const one = n => idx[n][0], many = (...ns) => ns.flatMap(n => idx[n]);
+  const span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    pop = t => ({ keys: [], motion: { kind: 'pop', amount: 0.5 }, clip: span(t, t + 0.012, { show: 'in' }) }),
+    rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)), BZ = [0.45, 0, 0.25, 1],
+    briefly = (t, end, how) => Object.assign({}, how || fadeIn(0.01), { out: { kind: 'fade', len: 0.008 } });
+  const morphs = [], at = {};
+  const add = (name, m) => { (at[name] = at[name] || []).push(morphs.length); morphs.push(m); };
+  const shows = (name, i, m) => add(name, Object.assign({ keys: [i] }, m));
+  // a morph that holds its first key, moves at [t1, t2] (and [t3, t4]), and holds its last until the window ends
+  const steps = (name, K, start, end, T, io) => add(name, { keys: K.flatMap(k => [k, k]), straight: true,
+    times: rel(start, end, [start, ...T, end]), eases: [...K.flatMap((_, j) => j ? [BZ, null] : [null]), null], clip: span(start, end, io) });
+  // beat 1, 0–0.16: the map, the fingers on it, the line between them; spread and twisted together
+  steps('map', idx.map, 0.006, 0.99, [0.07, 0.13], fadeIn(0.012));
+  steps('arrow', idx.arrow, 0.012, 0.99, [0.07, 0.13], fadeIn(0.012));
+  steps('fingers', [idx.fingers[0], idx.fingers[1]], 0.03, 0.99, [0.07, 0.13], fadeIn(0.01));
+  steps('fingers', [idx.fingers[2], idx.fingers[3]], 0.035, 0.99, [0.07, 0.13], fadeIn(0.01));
+  steps('fline', idx.fline, 0.045, 0.99, [0.07, 0.13], drawIn(0.015));
+  // beat 2, 0.16–0.33: the writer's grid drawn on, then carried onto Euler's plane; beat 5 carries it on to the lay
+  shows('frame', one('frame'), { clip: span(0.17, 0.99, drawIn(0.015)) });
+  const PLANE_T = [0.24, 0.30, 0.70, 0.76];
+  steps('gridV', idx.gridV, 0.175, 0.99, PLANE_T, drawIn(0.035));
+  steps('gridH', idx.gridH, 0.185, 0.99, PLANE_T, drawIn(0.035));
+  steps('shells', idx.shells, 0.205, 0.99, PLANE_T, drawIn(0.02));
+  steps('shell1', idx.shell1, 0.215, 0.99, PLANE_T, drawIn(0.015));
+  steps('ray45', idx.ray45, 0.22, 0.99, PLANE_T, drawIn(0.015));
+  // beat 3, 0.33–0.5: one thing turned then scaled (teal), the other scaled then turned (violet); both land in one place.
+  // Everything on Euler's plane goes before the plane is laid by the thumb (0.70)
+  [['turnFirst', 0.35], ['scaleFirst', 0.355]].forEach(([n, t]) => {
+    steps(n, idx[n], t, 0.665, [0.38, 0.41, 0.43, 0.46], briefly(t, 0.665));
+    shows(n + 'Path', one(n + 'Path'), { clip: span(t + 0.02, 0.665, briefly(t, 0.665, drawIn(0.08))) }); });
+  // beat 4, 0.5–0.67: a point, its two mirrors, and where the mirrors cross
+  shows('point', one('point'), { clip: span(0.52, 0.665, briefly()) });
+  shows('readLink', one('readLink'), { clip: span(0.535, 0.665, briefly(0, 0, drawIn(0.012))) });
+  shows('readMirror', one('readMirror'), { clip: span(0.55, 0.665, briefly()) });
+  shows('distLink', one('distLink'), { clip: span(0.565, 0.665, briefly(0, 0, drawIn(0.012))) });
+  shows('distMirror', one('distMirror'), { clip: span(0.58, 0.665, briefly()) });
+  shows('hot', one('hot'), { clip: span(0.61, 0.665, briefly()) });
+  // beat 5, 0.67–0.84: the plane laid by the thumb (above), and the lay against the plane's own axis
+  shows('axesG', one('axesG'), { clip: span(0.69, 0.99, drawIn(0.012)) });
+  shows('horizon', one('horizon'), { clip: span(0.70, 0.99, drawIn(0.012)) });
+  shows('gcurve', one('gcurve'), { clip: span(0.71, 0.99, drawIn(0.04)) });
+  idx.gdots.forEach((i, j) => add('gdots', Object.assign(pop(0.77 + 0.012 * j), { keys: [i] })));
+  // beat 6, 0.84–1: the two charts, their grids drawn about the old look, then the look turned 60°
+  idx.lambBg.forEach(i => shows('lambBg', i, { clip: span(0.85, 0.99, fadeIn(0.012)) }));
+  idx.sterBg.forEach(i => shows('sterBg', i, { clip: span(0.855, 0.99, fadeIn(0.012)) }));
+  [['lambGrid', 0.86], ['sterGrid', 0.865]].forEach(([n, t]) => [0, 2].forEach(j =>
+    steps(n, idx[n].slice(j, j + 2), t + 0.004 * j, 0.99, [0.90, 0.95], drawIn(0.02))));
+  [['lambRim', 0.87], ['sterRim', 0.875]].forEach(([n, t]) => steps(n, idx[n], t, 0.99, [0.90, 0.95], drawIn(0.015)));
+  [0, 2].forEach(j => steps('oldLook', idx.oldLook.slice(j, j + 2), 0.88, 0.99, [0.90, 0.95], fadeIn(0.01)));
+  idx.look.forEach(i => shows('look', i, { clip: span(0.885, 0.99, fadeIn(0.01)) }));
+  // the labels, each fading in with what it names
+  shows('lU', one('lU'), { clip: span(0.30, 0.695, Object.assign(fadeIn(0.012), { out: { kind: 'fade', len: 0.01 } })) });
+  [['lK', 0.05], ['lLn', 0.135], ['lTh', 0.30], ['lG', 0.76], ['lU2', 0.71], ['lG2', 0.72], ['lArea', 0.955], ['lAngle', 0.96]].forEach(([n, t]) =>
+    shows(n, one(n), { clip: span(t, 0.99, fadeIn(0.012)) }));
+  const lit = (...names) => names.flatMap(n => at[n]).join(',');
+  const PLANE_BEATS = [
+    { title: 'Two fingers',
+      text: `Spread two fingers on a [map](#lit:${lit('map')}) and it grows; twist them and it [turns](#lit:${lit('arrow')}). The phone reads one number off the [fingers](#lit:${lit('fingers')}): the [line between them](#lit:${lit('fline')}) after, divided by the same line before, k·e^(iα).\n\nIts logarithm, ln k + iα, puts the pinch on one axis and the twist on the other. Adding is the same in either order, so neither gesture gets in the other's way.` },
+    { title: 'One plane',
+      text: `Divide every point by the thumb and take the logarithm: ln(z/H) = ln(d/H) + iθ, the direction up and the distance across. A [writer's grid](#lit:${lit('gridV', 'gridH')}) bends onto it.\n\n[Circles about the eye](#lit:${lit('shells')}) become upright lines, one in two, [one thumb](#lit:${lit('shell1')}), two and four thumbs, evenly spaced: nothing nests. The [ray at 45°](#lit:${lit('ray45')}) becomes a level line.` },
+    { title: 'Reading up, writing across',
+      text: `Turn the world and every point slides up; make it larger, or hold up a smaller thumb, and every point slides across, nothing else moving. [Turn then scale](#lit:${lit('turnFirst', 'turnFirstPath')}) ends where [scale then turn](#lit:${lit('scaleFirst', 'scaleFirstPath')}) does.\n\nUp and down is what the reader holds. Across is the writer's: an amount in thumbs, whose zero, the size of anything, no reading fixes.` },
+    { title: 'Two corners, two mirrors',
+      text: `Swap a reading for its reciprocal, v/h for h/v, and a [point](#lit:${lit('point')}) reflects in the [level line at 45°](#lit:${lit('ray45')}) to [here](#lit:${lit('readMirror', 'readLink')}). Swap a distance for its reciprocal about the thumb and it reflects in the [upright line at one thumb](#lit:${lit('shell1')}) to [here](#lit:${lit('distMirror', 'distLink')}).\n\nThe two mirrors move on different axes, the look and the thumb, and cross at [one point](#lit:${lit('hot')}): on the look, one thumb out, where the heat is hottest.` },
+    { title: 'Distance as a turn',
+      text: `Euler's plane runs without end both ways across. The thumb's own lay of distance is bounded: the writer writes it (2/π)·arctan(d/H), which against the plane's coordinate is [½ + gd(x)/π](#lit:${lit('gcurve')}), Mercator's function.\n\nLaid by it, the same [grid](#lit:${lit('gridV', 'gridH', 'shells')}) presses the far field against the right edge, every direction's horizon at once: [one, two, four and eight thumbs](#lit:${lit('gdots')}) at 0.5, 0.70, 0.84 and 0.92.` },
+    { title: 'Where it stops',
+      text: `In space the directions are a sphere, and no flat chart keeps both jobs. On [Lambert's map](#lit:${lit('lambGrid', 'lambRim')}) every cell keeps its area as the look turns, so the heat stays flat, but the cells bend: the [old look's place](#lit:${lit('oldLook')}) is stretched 1/cos(φ/2). On the [stereographic map](#lit:${lit('sterGrid', 'sterRim')}) every cell keeps its angles, but the cells grow, and the heat at its rim is [a quarter of the middle's](#lit:${lit('sterBg')}).\n\nWriting still slides across in space; turning no longer slides. The plane does both only because a line times a circle is flat. [The essay, §9](${ESSAY})` }
+  ];
+  SHOWPIECES.push({
+    id: 'plane', name: 'one plane', section: 'explainers', tags: ['camera', 'labels', 'morph', 'essay'],
+    note: 'The eighteenth of wander\'s essays in six beats: a map spread and twisted under two fingers, k·e^(iα), its logarithm ln k + iα; a writer\'s grid carried onto Euler\'s plane, ln(z/H) = ln(d/H) + iθ, circles about the eye becoming upright lines; a thing turned then scaled and scaled then turned, landing in one place; a point and its mirrors in the line at 45° and the line at one thumb; the plane laid by the thumb, ½ + gd(x)/π; and in space the flat chart that parts the two jobs, Lambert\'s keeping area and bending, the stereographic keeping angles and growing, the look turned 60°. The scene of the explainer page\'s eleventh explainer.',
+    svg: svg(2200, 780, body),
+    scene: {
+      loop: 56, ease: 'inout', stops: [0.16, 0.33, 0.5, 0.67, 0.84],
+      camera: [
+        { t: 0, fit: many('map'), pad: 0.22 }, { t: 0.16, fit: many('map'), pad: 0.22 },
+        { t: 0.19, fit: many('frame'), pad: 0.14 }, { t: 0.67, fit: many('frame'), pad: 0.14 },
+        { t: 0.70, fit: many('frame', 'axesG'), pad: 0.08 }, { t: 0.84, fit: many('frame', 'axesG'), pad: 0.08 },
+        { t: 0.87, fit: many('lambBg', 'sterBg'), pad: 0.06 }],
+      beats: PLANE_BEATS,
+      morphs
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -3096,7 +3308,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates', 'cauchymap'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates', 'cauchymap', 'plane'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
