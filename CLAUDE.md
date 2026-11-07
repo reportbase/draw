@@ -569,6 +569,22 @@ publishes.
     field 1/(n + 1) as bars, and a circle in a square grown from 0.7 to 1.3, its sixteen landings keeping their
     directions. 47 morphs. A scene draws its morphs in the order they are added, so what must lie under (the chambers)
     is added first, whatever its time.
+    `?x=array` is WHAT AN ARRAY IS (7 Nov 2026, Tom: "1,2"; wander's essay 12), six beats over five panels: `int a[10]`'s
+    ten slots, the writer's, each a share i/10 of the way and moving when the array grows; a reader two slots out from
+    its foot, equal steps of turn landing thick near it and thin far along, half the quarter turn within two slots; where
+    the slots end the paint stops at 0.874 of the turn (0.937 at twenty), the horizon where no length could be found; ten
+    slots laid on the quarter turn at 9° steps by a writer, their boundaries crossing a post one length away at the
+    half-Cauchy's quantiles (0.158 … 6.314, the middle at the corner); the reader in code, K = 32 slots of its own painted
+    by the first element met, a world of 100 stopping its paint at slot 29; and `a[i]` read twice, the ray from home at θ
+    and the radius from the centre at 2θ meeting on the circle (III.20). 85 morphs.
+    `?x=kn` is K, NOT N (7 Nov 2026, Tom: "1,2"; wander's essay 16), six beats over six panels: memory's cells with an
+    address pointing at one, a write raising its value and moving no address, then a reallocation moving every cell and
+    leaving the pointer on nothing; a reader turning in eight equal steps over a line, its places' boundaries at its thumb
+    times tan(kπ/16), the world's things doubled from 16 to 32 and every new one landing in the last place; a direction
+    kept as a pair crossing a post (v/h) and a lintel (h/v), the horizon landing on neither chart's far end; the corner as
+    a register switch, x below a and 1/x above, bounded by 1 only at a = 1; a running median of v/h settling at 1 while
+    the mean wanders (a seeded mulberry32 stream, its checkpoints held in the scene); and the cull, sixteen places at
+    H·tan(kπ/32) sliding a decade as the thumb grows tenfold, half inside it at every H. 53 morphs.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
     `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
     than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI

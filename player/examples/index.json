@@ -43,7 +43,9 @@
     "cauchymap",
     "plane",
     "special",
-    "parties"
+    "parties",
+    "array",
+    "kn"
    ]
   },
   {
@@ -498,6 +500,26 @@
     "essay"
    ]
   },
+  "array": {
+   "name": "what an array is",
+   "note": "The twelfth of wander's essays in six beats: int a[10] as the writer holds it, its shares moving when it grows; a reader standing two slots off the array, its even turn landing thick at the foot; the paint stopping at 0.874 and 0.937 of the turn, and with no N a horizon; ten slots laid on the quarter turn by a writer, the half-Cauchy's quantiles; the reader recreated in code, K = 32 slots painted by the first element met; and a[i] read twice, ray and radius meeting on the circle. The scene of the explainer page's fourteenth explainer.",
+   "tags": [
+    "camera",
+    "labels",
+    "morph",
+    "essay"
+   ]
+  },
+  "kn": {
+   "name": "K, not N",
+   "note": "The sixteenth of wander's essays in six beats: a read and a write, the address unmoved, a reallocation leaving a pointer on nothing; K = 8 places over a line of things, doubled things all landing in the last; a direction as a pair, its two charts, division by zero the chart's end; the corner as the one place a bounded register can switch; a running median settling at 1 and a running mean wandering; and the cull, sixteen places at H·tan(kπ/32) sliding with the thumb, half inside it at every H. The scene of the explainer page's fifteenth explainer.",
+   "tags": [
+    "camera",
+    "labels",
+    "morph",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -697,6 +719,8 @@
   "cauchymap": 341174,
   "plane": 345695,
   "special": 224386,
-  "parties": 137839
+  "parties": 137839,
+  "array": 128481,
+  "kn": 109148
  }
 }
