@@ -49,7 +49,8 @@
     "writer",
     "free",
     "order",
-    "paradox"
+    "paradox",
+    "breath"
    ]
   },
   {
@@ -564,6 +565,16 @@
     "essay"
    ]
   },
+  "breath": {
+   "name": "three loops",
+   "note": "A loop from wander's essay 18 and its plan BRL, in five beats: a breath on Euler's plane, a read up by α and a write across by λ, taken and undone, closing, the other way round meeting it at the far corner; in space a turn and a scaling by one factor, the book coming home, and with the scaling left undone coming home larger and facing as it began; two reads about two axes 90° apart, 40° each, the book coming home turned by 26.87° and again by the same angle each time round, its arrow's tip on one ring; a read and a stretch by c = 2, a ring carried through the breath again and again, each ellipse from its matrix, squeezed by about e^0.4507 a breath; and c brought down to 1, where the squeeze is nothing and the ring comes home whole. The scene of the explainer page's twentieth explainer.",
+   "tags": [
+    "camera",
+    "labels",
+    "morph",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -769,6 +780,7 @@
   "writer": 117993,
   "free": 108592,
   "order": 142768,
-  "paradox": 194879
+  "paradox": 194879,
+  "breath": 184114
  }
 }

@@ -4738,6 +4738,208 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 33. THREE LOOPS (9 Nov 2026, Tom, via the session: an explainer after wander's BRL, plans/brl-plan.md, and *Reads and
+// Writes* §1, "A loop of a read and a write"; essay 18 §9): the scene of explained.html?x=breath, in five beats. A breath
+// on Euler's plane, up by a turn α, across by a scaling of the thumb λ, down, back, closing, and the other way round
+// meeting it at the far corner (the two slides commute); in space a turn and a scaling by one factor k, taken and undone,
+// a book coming home, and the same loop with the scaling left undone coming home larger and facing as it began; two reads
+// about two axes φ = 90° apart, α = β = 40°, the book coming home turned by Ω = 26.87° (cos(Ω/2) = 1 − 2·sin²(α/2)·
+// sin²(β/2)·sin²φ), and again and again by the same angle about the same axis, its arrow's tip going round one ring; a read
+// and an unequal write, a stretch by c = 2 along one axis, a ring carried through M = S⁻¹R⁻¹SR again and again, each
+// ellipse computed from the matrix, squeezed by about e^ζ a breath (cosh ζ = 1 + 2·sin²α·sinh²(½ ln c), ζ = 0.4507); and c
+// brought down to 1, ζ against ln c reaching nothing only there, the ring home whole. Every pose is computed here.
+{
+  const f1 = v => +v.toFixed(2), D2R = Math.PI / 180, Q = Math.PI / 2,
+    line = (P, stroke, w) => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`,
+    label = (x, y, s, fill, size = 21) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#9a927f', RED = '#c4593d', PALE = '#d9d2c3',
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/18-read-and-write-on-one-plane.md',
+    samp = (a, b, n) => Array.from({ length: n + 1 }, (_, j) => a + (b - a) * j / n),
+    dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+    cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+    unit = a => { const n = Math.hypot(...a); return a.map(x => x / n); },
+    // a turn by a about the axis n (Rodrigues), and unit quaternions [w, x, y, z] for composing turns exactly
+    turn = (n, a) => v => { const u = unit(n), c = Math.cos(a), s = Math.sin(a), k = dot(u, v) * (1 - c), w = cross(u, v);
+      return [v[0] * c + w[0] * s + u[0] * k, v[1] * c + w[1] * s + u[1] * k, v[2] * c + w[2] * s + u[2] * k]; },
+    qa = (n, a) => { const u = unit(n), s = Math.sin(a / 2); return [Math.cos(a / 2), s * u[0], s * u[1], s * u[2]]; },
+    qm = (p, q) => [p[0] * q[0] - p[1] * q[1] - p[2] * q[2] - p[3] * q[3], p[0] * q[1] + p[1] * q[0] + p[2] * q[3] - p[3] * q[2],
+      p[0] * q[2] - p[1] * q[3] + p[2] * q[0] + p[3] * q[1], p[0] * q[3] + p[1] * q[2] - p[2] * q[1] + p[3] * q[0]],
+    qi = q => [q[0], -q[1], -q[2], -q[3]];
+  const S = [], idx = {};
+  const put = (name, s) => { (idx[name] = idx[name] || []).push(S.length); S.push(s); };
+  put('paper', rectP(-400, -300, 4000, 1200, '#f4f1ea'));
+  // A BREATH ON EULER'S PLANE: u = ln(d/H) from −2.5 to 2.5 across (100 px a unit), θ from 0 to a quarter turn up (360 px).
+  // A point at u = −2, θ = 0.3 rad; a read by α = 40° up, a write by λ = ln 4 across, back down, back across. The teal
+  // point goes up first, the violet across first; at the far corner they meet at the same moment, and both come home
+  const E0 = [150, 600], EW = 500, EH = 360, onE = (u, th) => [E0[0] + 100 * (u + 2.5), E0[1] - EH * th / Q],
+    AL = 40 * D2R, LAM = Math.log(4), U0 = -2.0, T0 = 0.3,
+    PC = [[U0, T0], [U0, T0 + AL], [U0 + LAM, T0 + AL], [U0 + LAM, T0]].map(p => onE(...p));
+  put('frame', line([[E0[0], E0[1] - EH], E0, [E0[0] + EW, E0[1]], [E0[0] + EW, E0[1] - EH], [E0[0], E0[1] - EH]], '#c9c2b4', 1.2));
+  put('thumbLine', line([onE(0, 0), onE(0, Q)], GOLD, 1.6));
+  put('home', circ4(...PC[0], 15, PALE));
+  put('loop', line([...PC, PC[0]], GOLD, 2.4));
+  PC.forEach(p => put('upFirst', circ4(...p, 9, TEAL)));
+  PC.forEach(p => put('acrossFirst', circ4(...p, 7, VIOLET)));
+  // IN SPACE: a book (1.6 by 1.1 by 0.25, an arrow on its cover) seen from in front, a little right and above; a read, a
+  // turn by α = 40° about the upright, and a write in one length, everything scaled by k = 1.5 about the book's middle
+  const VC = unit([0.5, -1, 0.55]), VE1 = unit(cross([0, 0, 1], VC)), VE2 = cross(VC, VE1),
+    proj = (o, k) => v => [o[0] + k * dot(v, VE1), o[1] - k * dot(v, VE2)],
+    BK = [0.8, 0.55, 0.125], corner = b => [b[0] ? BK[0] : -BK[0], b[1] ? BK[1] : -BK[1], b[2] ? BK[2] : -BK[2]],
+    WIRE = ['000', '100', '110', '010', '000', '001', '101', '100', '101', '111', '110', '111', '011', '010', '011', '001'].map(s => corner([...s].map(Number))),
+    ARR = [[-0.5, -0.08], [0.2, -0.08], [0.2, -0.24], [0.62, 0], [0.2, 0.24], [0.2, 0.08], [-0.5, 0.08]].map(([x, y]) => [x, y, BK[2] + 0.002]),
+    book = (name, o, pose, col) => { const P = proj(o, 90); put(name + 'Wire', line(WIRE.map(pose).map(P), col, 2.4));
+      put(name + 'Arrow', polyOf(ARR.map(pose).map(P), INK)); },
+    K2 = 1.5, scale = k => v => v.map(x => k * x), then = (f, g) => v => g(f(v)), Z = [0, 0, 1],
+    POSE2 = [v => v, turn(Z, AL / 2), turn(Z, AL), then(turn(Z, AL), scale(K2)), then(turn(Z, AL / 2), scale(K2)), scale(K2)],
+    B1 = [1000, 470], B2 = [1500, 470];
+  put('ghostA', line(WIRE.map(proj(B1, 90)), PALE, 2)); put('ghostB', line(WIRE.map(proj(B2, 90)), PALE, 2));
+  POSE2.forEach(p => book('bookA', B1, p, TEAL));
+  POSE2.forEach(p => book('bookB', B2, p, VIOLET));
+  // TWO READS: the same book turned by α about x (its length), β about y, then −α about x and −β about y. The loop's
+  // leftover is the quaternion commutator qy⁻¹·qx⁻¹·qy·qx: a turn by Ω about its axis, and every later loop that turn again
+  const B3 = [2050, 470], X = [1, 0, 0], Y = [0, 1, 0], BE = AL,
+    qx = qa(X, AL), qy = qa(Y, BE), QL = qm(qi(qy), qm(qi(qx), qm(qy, qx))),
+    OM = 2 * Math.atan2(Math.hypot(QL[1], QL[2], QL[3]), QL[0]), NQ = unit([QL[1], QL[2], QL[3]]),
+    loop1 = [v => v, turn(X, AL / 2), turn(X, AL), then(turn(X, AL), turn(Y, BE / 2)), then(turn(X, AL), turn(Y, BE))],
+    full = then(turn(X, AL), turn(Y, BE));
+  loop1.push(then(full, turn(X, -AL / 2)), then(full, turn(X, -AL)), then(then(full, turn(X, -AL)), turn(Y, -BE / 2)),
+    then(then(full, turn(X, -AL)), turn(Y, -BE)));
+  [2, 3, 4, 5].forEach(n => loop1.push(turn(NQ, n * OM)));
+  // seen from higher up than the first two books, so the ring the arrow's tip goes round shows open
+  const VC3 = unit([0.35, -0.6, 1]), V31 = unit(cross([0, 0, 1], VC3)), V32 = cross(VC3, V31),
+    P3 = v => [B3[0] + 90 * dot(v, V31), B3[1] - 90 * dot(v, V32)], TIP = [0.62, 0, BK[2] + 0.002];
+  put('ghostC', line(WIRE.map(P3), PALE, 2));
+  put('axX', line([[-1.4, 0, 0], [1.4, 0, 0]].map(P3), GREY, 1.4)); put('axY', line([[0, -1.4, 0], [0, 1.4, 0]].map(P3), GREY, 1.4));
+  put('orbit', line(samp(0, 2 * Math.PI, 96).map(s => P3(turn(NQ, s)(TIP))), '#b9b2a2', 2));
+  loop1.forEach(p => { put('bookCWire', line(WIRE.map(p).map(P3), GOLD, 2.4)); put('bookCArrow', polyOf(ARR.map(p).map(P3), INK)); });
+  put('leftAx', line([NQ.map(x => -1.3 * x), NQ.map(x => 1.3 * x)].map(P3), RED, 2));
+  [0, 1, 2, 3, 4, 5].forEach(n => put('tips', circ4(...P3(turn(NQ, n * OM)(TIP)), 4, RED)));
+  // A READ AND AN UNEQUAL WRITE: a ring of radius 50 px, a spoke on it; R a turn by α, S = diag(c, 1) a stretch along the
+  // across axis, M = S⁻¹R⁻¹SR one breath. Each key is the ring carried exactly by its 2 × 2 matrix: the breath's four
+  // steps, then M², M³, M⁴; then M⁴ at c = 1.7, 1.4, 1.2 and 1, where it is the ring again
+  const C4 = [2750, 470], RR = 50, mm = (A, B) => [[A[0][0] * B[0][0] + A[0][1] * B[1][0], A[0][0] * B[0][1] + A[0][1] * B[1][1]],
+      [A[1][0] * B[0][0] + A[1][1] * B[1][0], A[1][0] * B[0][1] + A[1][1] * B[1][1]]],
+    I2 = [[1, 0], [0, 1]], Rm = a => [[Math.cos(a), -Math.sin(a)], [Math.sin(a), Math.cos(a)]], Sm = c => [[c, 0], [0, 1]],
+    Mof = c => mm(Sm(1 / c), mm(Rm(-AL), mm(Sm(c), Rm(AL)))), pow = (A, n) => n ? mm(A, pow(A, n - 1)) : I2,
+    at4 = (A, x, y) => [C4[0] + RR * (A[0][0] * x + A[0][1] * y), C4[1] - RR * (A[1][0] * x + A[1][1] * y)],
+    ring = A => smooth(samp(0, 2 * Math.PI, 32).slice(0, 32).map(t => at4(A, Math.cos(t), Math.sin(t))), '#a6d8ce'),
+    spoke = A => line([at4(A, 0, 0), at4(A, 1, 0)], INK, 2.2),
+    M2 = Mof(2), STEPS = [I2, mm(Sm(2), Rm(AL)), mm(Rm(-AL), mm(Sm(2), Rm(AL))), M2, pow(M2, 2), pow(M2, 3), pow(M2, 4),
+      pow(Mof(1.7), 4), pow(Mof(1.4), 4), pow(Mof(1.2), 4)];
+  put('ringGhost', line(samp(0, 2 * Math.PI, 64).map(t => at4(I2, Math.cos(t), Math.sin(t))), PALE, 1.6));
+  put('stretchAx', line([[C4[0] - 230, C4[1]], [C4[0] + 230, C4[1]]], '#c9c2b4', 1.2));
+  STEPS.forEach(A => put('ring', ring(A)));
+  [I2, Rm(AL), ...STEPS.slice(1)].forEach(A => put('spoke', spoke(A)));
+  // STEADY AT ONE LENGTH: ζ against ln c at α = 40°, cosh ζ = 1 + 2·sin²α·sinh²(½ ln c), 150 px a unit of ln c, 300 of ζ; a
+  // dot at c = 2, 1.7, 1.4, 1.2 and 1
+  const Z0 = [3060, 620], zeta = x => Math.acosh(1 + 2 * Math.sin(AL) ** 2 * Math.sinh(x / 2) ** 2),
+    onZ = x => [Z0[0] + 180 + 150 * x, Z0[1] - 300 * zeta(x)];
+  put('axesZ', line([[Z0[0] + 180, Z0[1] - 280], [Z0[0] + 180, Z0[1]], [Z0[0], Z0[1]], [Z0[0] + 360, Z0[1]]], GREY, 1.4));
+  put('zcurve', line(samp(-1.2, 1.2, 96).map(onZ), GOLD, 2.8));
+  [2, 1.7, 1.4, 1.2, 1].forEach(c => put('zdot', circ4(...onZ(Math.log(c)), 8, RED)));
+  // labels, last
+  put('lU', label(E0[0] + EW / 2 - 34, E0[1] + 32, 'ln(d/H)', INK));
+  put('lTh', label(E0[0] - 26, E0[1] - EH / 2, 'θ', INK));
+  put('lAl', label(PC[0][0] - 26, (PC[0][1] + PC[1][1]) / 2 + 6, 'α', TEAL));
+  put('lLam', label((PC[0][0] + PC[3][0]) / 2 - 4, PC[0][1] + 26, 'λ', TEAL));
+  put('lOm', label(B3[0] + 95, B3[1] - 95, '26.9°', RED, 17));
+  put('lC', label(C4[0] + 205, C4[1] - 12, 'c', INK, 22));
+  put('lZ', label(Z0[0] + 156, Z0[1] - 290, 'ζ', GOLD, 26));
+  put('lLnC', label(Z0[0] + 310, Z0[1] + 34, 'ln c', INK, 26));
+  const body = S.join('');
+  const one = n => idx[n][0], many = (...ns) => ns.flatMap(n => idx[n]);
+  const span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    pop = t => ({ keys: [], motion: { kind: 'pop', amount: 0.5 }, clip: span(t, t + 0.012, { show: 'in' }) }),
+    rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)), BZ = [0.45, 0, 0.25, 1], L = 'linear';
+  const morphs = [], at = {};
+  const add = (name, m) => { (at[name] = at[name] || []).push(morphs.length); morphs.push(m); };
+  const shows = (name, i, m) => add(name, Object.assign({ keys: [i] }, m));
+  // a morph through the keys K at the times T (each later than start), E the ease of each stretch between them, holding its
+  // first key from the window's start and its last to the window's end
+  const track = (name, K, start, end, T, E, io) => add(name, { keys: [K[0], ...K, K[K.length - 1]], straight: true,
+    times: rel(start, end, [start, ...T, end]), eases: [null, ...E, null, null], clip: span(start, end, io) });
+  // beat 1, 0–0.2: the plane, one thumb, home; the loop drawn on as the teal point goes up, across, down and back at its
+  // pace, the violet across, up, back and down, the two at the far corner at 0.1 and home at 0.15
+  shows('frame', one('frame'), { clip: span(0.004, 0.99, drawIn(0.012)) });
+  shows('thumbLine', one('thumbLine'), { clip: span(0.012, 0.99, drawIn(0.01)) });
+  shows('home', one('home'), { clip: span(0.02, 0.99, fadeIn(0.01)) });
+  shows('loop', one('loop'), { clip: span(0.05, 0.99, drawIn(0.1)) });
+  // each point keeps the loop's drawing pace, so its time up and its time across are as their lengths
+  const hU = PC[0][1] - PC[1][1], hA = PC[3][0] - PC[0][0], UP = 0.05 * hU / (hU + hA), AC = 0.05 - UP;
+  const iu = idx.upFirst, ia = idx.acrossFirst;
+  track('upFirst', [iu[0], iu[1], iu[2], iu[3], iu[0]], 0.025, 0.99, [0.05, 0.05 + UP, 0.1, 0.1 + UP, 0.15], [L, L, L, L], fadeIn(0.01));
+  track('acrossFirst', [ia[0], ia[3], ia[2], ia[1], ia[0]], 0.03, 0.99, [0.05, 0.05 + AC, 0.1, 0.1 + AC, 0.15], [L, L, L, L], fadeIn(0.01));
+  // beat 2, 0.2–0.4: two books; turn 0.24–0.26, grow 0.27–0.29, turn back 0.30–0.32, shrink 0.33–0.35 (the first only)
+  shows('ghostA', one('ghostA'), { clip: span(0.205, 0.99, fadeIn(0.01)) });
+  shows('ghostB', one('ghostB'), { clip: span(0.205, 0.99, fadeIn(0.01)) });
+  const T2 = [0.24, 0.25, 0.26, 0.27, 0.29, 0.30, 0.31, 0.32, 0.33, 0.35], E2 = [L, L, null, BZ, null, L, L, null, BZ];
+  ['Wire', 'Arrow'].forEach(p => {
+    const A = idx['bookA' + p], B = idx['bookB' + p];
+    track('bookA' + p, [A[0], A[1], A[2], A[2], A[3], A[3], A[4], A[5], A[5], A[0]], 0.21, 0.99, T2, E2, fadeIn(0.01));
+    track('bookB' + p, [B[0], B[1], B[2], B[2], B[3], B[3], B[4], B[5]], 0.215, 0.99, T2.slice(0, 8), E2.slice(0, 7), fadeIn(0.01)); });
+  // beat 3, 0.4–0.6: the third book, its two axes; one loop of two reads 0.43–0.51, then the leftover's axis, the ring its
+  // arrow's tip goes round, and four loops more, each ending turned Ω further (0.535, 0.55, 0.565, 0.58)
+  shows('ghostC', one('ghostC'), { clip: span(0.405, 0.99, fadeIn(0.01)) });
+  shows('axX', one('axX'), { clip: span(0.41, 0.99, drawIn(0.012)) });
+  shows('axY', one('axY'), { clip: span(0.415, 0.99, drawIn(0.012)) });
+  const T3 = [0.43, 0.44, 0.45, 0.46, 0.47, 0.48, 0.49, 0.50, 0.51, 0.52, 0.535, 0.55, 0.565, 0.58],
+    E3 = [L, L, L, L, L, L, L, L, null, BZ, BZ, BZ, BZ];
+  ['Wire', 'Arrow'].forEach(p => { const C = idx['bookC' + p];
+    track('bookC' + p, [...C.slice(0, 9), C[8], ...C.slice(9)], 0.41, 0.99, T3, E3, fadeIn(0.01)); });
+  shows('leftAx', one('leftAx'), { clip: span(0.512, 0.99, drawIn(0.012)) });
+  shows('orbit', one('orbit'), { clip: span(0.52, 0.99, drawIn(0.03)) });
+  [0.42, 0.51, 0.535, 0.55, 0.565, 0.58].forEach((t, n) => add('tips', Object.assign(pop(t), { keys: [idx.tips[n]] })));
+  // beat 4, 0.6–0.8: the ring, its spoke, the stretch's axis; one breath (turn 0.62–0.635, stretch 0.64–0.655, turn back
+  // 0.66–0.675, shrink back 0.68–0.695), then M², M³, M⁴ (0.725, 0.75, 0.775); beat 5, 0.8–1: c to 1.7, 1.4, 1.2 and 1
+  shows('ringGhost', one('ringGhost'), { clip: span(0.605, 0.99, fadeIn(0.01)) });
+  shows('stretchAx', one('stretchAx'), { clip: span(0.605, 0.99, drawIn(0.012)) });
+  const T4 = [0.62, 0.635, 0.64, 0.655, 0.66, 0.675, 0.68, 0.695, 0.71, 0.725, 0.735, 0.75, 0.76, 0.775, 0.82, 0.84, 0.85, 0.87, 0.88, 0.90, 0.91, 0.93],
+    E4 = [BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ],
+    hold2 = K => K.flatMap(k => [k, k]);
+  const rg = idx.ring, sp = idx.spoke;
+  // the ring's keys: home (the turn leaves it as it is), SR, R⁻¹SR, M, M², M³, M⁴, M⁴ at 1.7, 1.4, 1.2, and home at c = 1
+  track('ring', hold2([rg[0], rg[0], rg[1], rg[2], rg[3], rg[4], rg[5], rg[6], rg[7], rg[8], rg[9], rg[0]]).slice(1, -1), 0.61, 0.99, T4, E4, fadeIn(0.01));
+  track('spoke', hold2([sp[0], sp[1], sp[2], sp[3], sp[4], sp[5], sp[6], sp[7], sp[8], sp[9], sp[10], sp[0]]).slice(1, -1), 0.612, 0.99, T4, E4, drawIn(0.01));
+  // beat 5: the curve, and a dot that walks down it with c
+  shows('axesZ', one('axesZ'), { clip: span(0.805, 0.99, drawIn(0.012)) });
+  shows('zcurve', one('zcurve'), { clip: span(0.81, 0.99, drawIn(0.02)) });
+  const zd = idx.zdot;
+  track('zdot', [zd[0], zd[1], zd[2], zd[3], zd[4]], 0.81, 0.99, [0.82, 0.84, 0.87, 0.90, 0.93], [BZ, BZ, BZ, BZ], fadeIn(0.008));
+  // the labels, each fading in with what it names
+  [['lU', 0.01], ['lTh', 0.01], ['lAl', 0.06], ['lLam', 0.085], ['lOm', 0.515], ['lC', 0.64], ['lZ', 0.815], ['lLnC', 0.815]].forEach(([n, t]) =>
+    shows(n, one(n), { clip: span(t, 0.99, fadeIn(0.012)) }));
+  const lit = (...names) => names.flatMap(n => at[n]).join(',');
+  const BREATH_BEATS = [
+    { title: 'A breath on one plane',
+      text: `On Euler's plane a [point](#lit:${lit('upFirst')}) is a thing seen: its direction θ up, its distance across as ln(d/H), counted in thumbs from [one thumb](#lit:${lit('thumbLine')}). A read, a turn by α, slides it up. A write, a scaling of the thumb by λ, slides it across.\n\nA breath is a read and a write taken and undone: [up, across, down, back](#lit:${lit('loop')}). It comes [home](#lit:${lit('home')}). Go round [the other way](#lit:${lit('acrossFirst')}), across first, and the two reach the far corner at the same moment: the two slides commute.` },
+    { title: 'In space, too',
+      text: `In space a read is a turn, and a write in one length scales everything by one factor, here 1.5. That factor commutes with every turn, so the breath closes there as well: [turn, grow, turn back, shrink](#lit:${lit('bookAWire', 'bookAArrow')}), and the book is [home](#lit:${lit('ghostA')}).\n\nLeave the write undone and [the same loop](#lit:${lit('bookBWire', 'bookBArrow')}) comes home facing just as it began, only larger. A write put anywhere into a loop changes nothing but the loop's overall size.` },
+    { title: 'Two reads',
+      text: `Join two reads instead: a turn by α about [one axis](#lit:${lit('axX')}), β about [another](#lit:${lit('axY')}), then each undone in turn. [The book](#lit:${lit('bookCWire', 'bookCArrow')}) does not come [home](#lit:${lit('ghostC')}). It is turned by Ω, with cos(Ω/2) = 1 − 2·sin²(α/2)·sin²(β/2)·sin²φ, φ the angle between the axes; about αβ·sin φ when small. At α = β = 40° and φ = 90°, [Ω = 26.87°](#lit:${lit('lOm')}), about [this axis](#lit:${lit('leftAx')}).\n\nGo round again and it turns the same 26.87° again, and again: [the arrow's tip](#lit:${lit('tips')}) steps round [one ring](#lit:${lit('orbit')}) and never leaves it. The leftover is the sphere of directions' own, bounded however often the loop is taken. No write is in it.` },
+    { title: 'A read and an unequal write',
+      text: `Now let the write be a stretch: one axis scaled by c, [the other left](#lit:${lit('stretchAx')}), the writer's two axes drawn at V = cH. Carry [a ring the writer draws](#lit:${lit('ring')}) through a breath, α = 40° and c = 2: [turn, stretch, turn back, shrink back](#lit:${lit('spoke')}). It comes home squeezed, 1.59 times as long and 0.63 as wide.\n\nBreathe again and again. Each breath squeezes it by about e^ζ more, with cosh ζ = 1 + 2·sin²α·sinh²(½ ln c), ζ = 0.4507: after four, [6.26 times as long and 0.16 as wide](#lit:${lit('ring')}). Two reads leave a turn that stays bounded; an unequal write leaves a squeeze that grows.` },
+    { title: 'Steady at one length',
+      text: `Bring c down toward 1. The squeeze a breath falls along [ζ against ln c](#lit:${lit('zcurve')}), the same at c and 1/c, and [reaches nothing only at c = 1](#lit:${lit('zdot')}). There [the ring](#lit:${lit('ring')}) comes home whole, breath after breath.\n\nA breath is steady exactly when its write is in one length: V = H, the one-length circle said of a loop. [The essay, §9](${ESSAY})` }
+  ];
+  SHOWPIECES.push({
+    id: 'breath', name: 'three loops', section: 'explainers', tags: ['camera', 'labels', 'morph', 'essay'],
+    note: 'A loop from wander\'s essay 18 and its plan BRL, in five beats: a breath on Euler\'s plane, a read up by α and a write across by λ, taken and undone, closing, the other way round meeting it at the far corner; in space a turn and a scaling by one factor, the book coming home, and with the scaling left undone coming home larger and facing as it began; two reads about two axes 90° apart, 40° each, the book coming home turned by 26.87° and again by the same angle each time round, its arrow\'s tip on one ring; a read and a stretch by c = 2, a ring carried through the breath again and again, each ellipse from its matrix, squeezed by about e^0.4507 a breath; and c brought down to 1, where the squeeze is nothing and the ring comes home whole. The scene of the explainer page\'s twentieth explainer.',
+    svg: svg(3600, 900, body),
+    scene: {
+      loop: 48, ease: 'inout', stops: [0.2, 0.4, 0.6, 0.8],
+      camera: [
+        { t: 0, fit: many('frame'), pad: 0.16 }, { t: 0.2, fit: many('frame'), pad: 0.16 },
+        { t: 0.23, fit: many('bookAWire', 'bookBWire'), pad: 0.12 }, { t: 0.4, fit: many('bookAWire', 'bookBWire'), pad: 0.12 },
+        { t: 0.43, fit: many('bookCWire', 'orbit', 'axX', 'axY'), pad: 0.14 }, { t: 0.6, fit: many('bookCWire', 'orbit', 'axX', 'axY'), pad: 0.14 },
+        { t: 0.63, fit: many('stretchAx', 'ring'), pad: 0.08 }, { t: 0.8, fit: many('stretchAx', 'ring'), pad: 0.08 },
+        { t: 0.83, fit: many('stretchAx', 'axesZ', 'zcurve'), pad: 0.08 }, { t: 0.92, fit: many('stretchAx', 'axesZ', 'zcurve'), pad: 0.08 },
+        { t: 0.95, fit: many('ringGhost', 'axesZ', 'zcurve'), pad: 0.1 }],
+      beats: BREATH_BEATS,
+      morphs
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -4867,7 +5069,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates', 'cauchymap', 'plane', 'special', 'parties', 'array', 'kn', 'writer', 'free', 'order', 'paradox'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates', 'cauchymap', 'plane', 'special', 'parties', 'array', 'kn', 'writer', 'free', 'order', 'paradox', 'breath'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },

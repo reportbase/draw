@@ -616,6 +616,15 @@ publishes.
     and running on; leading digits even (11.1%) against log₁₀(1 + 1/d) (30.1% … 4.6%) and a ruler going logarithmic; the
     field scaled by 1.8, the readings unmoved and the metres moving. 102 morphs. The essay's "more points, less seen" entry
     was left out: its formula counts N/2 for small N where the essay says every point is seen apart.
+    `?x=breath` is THREE LOOPS (9 Nov 2026; wander's plan BRL, *Reads and Writes* §1 "A loop of a read and a write" and
+    essay 18 §9), five beats: on Euler's plane a point up by a turn α, across by a scaling of the thumb λ = ln 4, down,
+    back, home, and another across first meeting it at the far corner at the same moment; in space two books turned 40°
+    about the upright and scaled by 1.5, one with both undone (home), one with the scaling left undone (home in direction,
+    larger); two reads about x and y, 40° each, a book coming home turned Ω = 26.87° (quaternion commutator, checked against
+    cos(Ω/2) = 1 − 2·sin²(α/2)·sin²(β/2)·sin²φ) and four more loops each the same Ω further, its arrow's tip on one ring;
+    a ring carried through M = S⁻¹R⁻¹SR at c = 2, α = 40° (the four steps, then M², M³, M⁴, every ellipse from its 2 × 2
+    matrix, 1.59 × 0.63 after one, 6.26 × 0.16 after four, ζ = 0.4507); and M⁴ at c = 1.7, 1.4, 1.2, 1, the dot on
+    ζ against ln c reaching nothing and the ring home whole. 40 morphs; book poses by Rodrigues, a third view from higher up.
     AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
     `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
     than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI
