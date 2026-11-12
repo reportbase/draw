@@ -10,7 +10,9 @@
     "examples": "node tools/write-examples.mjs",
     "measure": "node tools/measure-player.mjs",
     "video": "node tools/explainer-video.mjs",
-    "sync": "node tools/sync.mjs"
+    "sync": "node tools/sync.mjs",
+    "build": "node tools/build.mjs",
+    "test:unit": "node tests/unit.mjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"

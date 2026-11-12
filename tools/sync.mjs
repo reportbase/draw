@@ -12,7 +12,8 @@
 //   the rest of the bundle (to FORMAT)     gallery/gallery.html     the shape pages
 //   the tile code                          gallery/gallery.html     the shape pages
 //   the animated examples                  gallery/animated.html    gallery/embedded.html
-//   the depth code                         draw.html                inspect, depth, standpoint
+//   the depth code and WLS_K               draw.html                inspect, depth, standpoint
+//   each page's "N of M" and next link      gallery/index.html       every gallery page, the cards' numbers
 //
 //   npm run sync             writes what differs and says what it wrote
 //   npm run sync -- --check  writes nothing; exits 1 naming what would change (the smoke test runs this)
@@ -20,6 +21,11 @@
 // A copy that already agrees is left byte for byte as it is, so a run on a clean tree changes nothing.
 // The depth code is compared with its whitespace taken out, as the smoke test compares it (the pages
 // hold it at their own indent); a block that differs is written from the editor's lines, dedented.
+//
+// The order of the pages is the order of the cards on the front page (gallery/index.html), which is written by
+// hand: move a card, and this renumbers the cards, writes each page's "N of M" and points its next link at the
+// page after it. A next link's words are the page's own ("Next: The bench →", or a sentence); when the page it
+// names is no longer the next, only the address is changed, and the run says so, so the words can be looked at.
 //
 // A shape page is one that carries the tile code (its first line is the mark); a new shape page is
 // begun by copying one, so it has the mark from the start.
@@ -134,6 +140,50 @@ export async function sync({ write = true } = {}) {
                 if (!b) { problems.push(`gallery/${g} has no ${start}`); continue; }
                 if (strip(s.slice(b[0], b[1])) !== strip(want))
                     put(p, s.slice(0, b[0]) + dedent(want, ed, a[0]) + s.slice(b[1]), 'the depth code');
+            }
+        }
+    }
+
+    // WLS_K, the one constant beside the depth code (a statement, not a block)
+    {
+        const ed = await read(join(ROOT, 'draw.html')), re = /const WLS_K = [^;\n]+;/;
+        const want = ed.match(re);
+        if (!want) problems.push('draw.html has no const WLS_K');
+        else for (const g of DEPTH_PAGES) {
+            const p = join(G, g), s = await read(p), has = s.match(re);
+            if (!has) { problems.push(`gallery/${g} has no const WLS_K`); continue; }
+            if (has[0] !== want[0]) put(p, s.replace(re, want[0]), 'WLS_K');
+        }
+    }
+
+    // the order of the pages: the front page's cards. Their numbers, each page's "N of M", each next link.
+    {
+        const pi = join(G, 'index.html');
+        let ix = await read(pi);
+        const order = [...ix.matchAll(/<a class="card" href="([\w-]+\.html)"/g)].map(m => m[1]);
+        if (order.length < 2) problems.push('gallery/index.html: the cards were not found');
+        else {
+            // the k-th card's number is k: each card's own <span class="num">, in the cards' order
+            let k = 0, cut = 0, out = '';
+            for (const m of ix.matchAll(/<a class="card" href="[\w-]+\.html"[\s\S]*?<\/a>/g)) {
+                k++;
+                const card = m[0].replace(/(<span class="num">)\d+(<\/span>)/, `$1${k}$2`);
+                out += ix.slice(cut, m.index) + card; cut = m.index + m[0].length;
+            }
+            put(pi, out + ix.slice(cut), "the cards' numbers");
+            for (let i = 0; i < order.length; i++) {
+                const p = join(G, order[i]);
+                let s;
+                try { s = await read(p); } catch { problems.push(`gallery/index.html has a card for ${order[i]}, which is not there`); continue; }
+                const crumb = /(· )\d+ of \d+(<\/nav>)/;
+                if (!crumb.test(s)) { problems.push(`gallery/${order[i]} has no "N of M" crumb`); continue; }
+                let t = s.replace(crumb, `$1${i + 1} of ${order.length}$2`);
+                if (t !== s) put(p, t, 'its place in the course');
+                if (i < order.length - 1) {
+                    const next = /(<div class="next">[^<]*<a href=")([\w-]+\.html)(")/, m = t.match(next);
+                    if (!m) problems.push(`gallery/${order[i]} has no next link`);
+                    else if (m[2] !== order[i + 1]) put(p, t.replace(next, `$1${order[i + 1]}$3`), `its next link (it named ${m[2]}: look at its words)`);
+                }
             }
         }
     }
