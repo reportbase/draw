@@ -179,7 +179,7 @@ await step('parts/ are handed over and run in place', async () => {
     if (html.split(`partRun('${name}');`).length !== 2) throw new Error(`draw.html does not run parts/${name}.js exactly once`);
   }
   for (const first of ["const pop = $('aiPop'),", "const pop = $('shapePop'),", "const BUCKET_API = ", 'function applySceneMorphs(',
-                       "const P = $('morphTimeline');", "const strip = $('morphRunTool');", "const el = $('bucketPanel');", "const panel = $('checksumPanel');", "const pop = $('textPop'),"])
+                       "const btn = $('bMorphTimeline');", "const num = (id, fn) => $(id).addEventListener('change', e => {", "const btn = $('bBucketEdit');", "const panel = $('checksumPanel');", "const pop = $('textPop'),"])
     if (html.includes(first)) throw new Error('draw.html carries a block of parts/ again: ' + first);
 });
 
