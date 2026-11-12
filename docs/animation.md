@@ -2,6 +2,10 @@
 
 Moved here from `CLAUDE.md` (12 Nov 2026), unchanged: the dated notes of what was built, with the names to search for in the code. `CLAUDE.md` keeps the rules; read this before working on this part.
 
+Since 12 Nov 2026 two of the blocks these notes place "in `draw.html`" are files beside it, cut out line for line: THE SCENE
+LINK (`openScene`, `applySceneMorphs`, `sceneOfEditor`) is `parts/scene-link.js`, and the AI panel (ANIMATE IT WITH AI, MAKE A
+SCENE, `ANIM_MORPH_FIELDS`, `SYS_ANIM`, `SYS_SCENE`, `apiCall`, `animApply`) is `parts/ai-panel.js`.
+
 ## The animated gallery, the scene link and the morph engine
 
   - `animated` (25 Oct 2026, Tom: "could you creae a gallery page that has examples that can be loaded into

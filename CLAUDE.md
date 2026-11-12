@@ -22,10 +22,10 @@ When a change adds something a later session would need to know, put the rule he
 line and the account of it in the `docs/` file, dated, in the voice those have.
 
 ## Files
-- `draw.html`: **the editor and the file to edit.** About 74,000 lines, one page with no
-  build step. It loads three files beside it, and the labs' files in `labs/` only when one is
-  asked for. All are classic scripts loaded by `<script src>`, so the page still works
-  opened from disk.
+- `draw.html`: **the editor and the file to edit.** About 70,000 lines, one page with no
+  build step. It loads three library files beside it and four of its own blocks from `parts/`,
+  and the labs' files in `labs/` only when one is asked for. All are classic scripts loaded by
+  `<script src>`, so the page still works opened from disk.
 - `tvf-core.js`: **the curve library**, the editor's numerics: the kernel, the leaf layout,
   `Shape`, reconstruction and the spectral routines (§21 transform, §22 Fejér). It declares
   the globals `tvf`, `TVF_SPECTRAL` and `TVF_CORE` and exports `TVF_CORE` under Node. It is
@@ -41,6 +41,14 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   runs under Node too (it exports `parseTvfText`). What the editor does with the curves
   (`tvfFitToWorld`, the exact corners a file carries) stays in the page. `npm test` fails if
   `draw.html` grows its own copy.
+- `parts/`: **blocks of the editor's own script** (12 Nov 2026), each cut out line for line: `ai-panel.js`
+  (the AI popover, `apiCall`, the prompts and `ANIM_MORPH_FIELDS`, `animApply`), `shapes-panel.js`,
+  `bucket-picker.js` and `scene-link.js` (`openScene`, `applySceneMorphs`, `sceneOfEditor`). A file hands
+  its code over as `(window.TVF_PARTS = …)[name] = function () { … }`; the page names it in a
+  `<script src>` above its own script and runs it where the block stood (`partRun(name)`, PARTS OF THE
+  EDITOR IN parts/), by a direct `eval` inside the editor's closure, so the code reads every editor name
+  and runs at the same point of the start as it did. Edit them as the editor. A block can move there
+  when it is one function run once at the start whose names nothing else in the page uses.
 - `index.html`: forwards `/draw/` to `draw.html`, keeping `?lab=` and `?bucket=`.
 - `labs/` and `labs.html`: every lab group in the drawer is a file in `labs/`, loaded on the
   first press of its button (`LAB_FILES` in the editor maps a lab's data-code to its file) and
@@ -69,7 +77,8 @@ Nothing here is edited by hand in its generated form; `npm test` fails when one 
 | the morph engine in `draw.html`, or `player/runtime.js` | `npm run player` | `player/tvf-player.js` |
 | an example in `gallery/animated.html`, the scene link, the `.tvfs` writer | `npm run examples` (`-- id …` for some) | `player/examples/*.tvfs`, `index.json` |
 | `player/lottie.js` or an interactive example | `node tools/write-interactive.mjs` | `player/interactive/` |
-| anything the gallery pages share (next list) | `npm run sync` | every copy, from its source |
+| anything the gallery pages share (next list), or the order of the pages | `npm run sync` | every copy, from its source |
+| not sure which | `npm run build` (`-- --all` for the two that need a browser) | all of the above, in order |
 
 **The copies** (`tools/sync.mjs`; `npm run sync -- --check` writes nothing and names what differs):
 - the library (`const TVF = (function` … `})();`): edit it in `gallery/gallery.html`; it goes to
@@ -83,12 +92,15 @@ Nothing here is edited by hand in its generated form; `npm test` fails when one 
 - the depth code (`DEPTH`, `fmtSig`, `rungOfRow`, `depthToTVF`, `depthFromTVF`,
   `depthLearnedFacing`, `depthEnterWhereNeeded`, `wlsSlopeRow`, `wlsSolve`, `depthEnterFlat`,
   `depthEnterFlatWalls`): edit in `draw.html`; it goes to `gallery/inspect.html`, `depth.html`
-  and `standpoint.html` between their `// >>> copied from draw.html` markers. (`WLS_K`, a
-  constant beside them, is copied by hand.)
+  and `standpoint.html` between their `// >>> copied from draw.html` markers, with `WLS_K`, the
+  constant beside them.
+- the order of the pages: the order of the cards in `gallery/index.html`. From it come the cards'
+  numbers, each page's "N of 31" crumb and the address its next link points at (a next link's
+  words are the page's own: when its address is changed the run says so, to look at them).
 
 **Written by hand, and checked:**
-- `gallery/index.html`'s cards and thumbnails, and each page's "N of 31" crumb and "next" link:
-  adding, renaming or reordering a page means updating them.
+- `gallery/index.html`'s cards and thumbnails: adding or renaming a page means writing its card,
+  and reordering means moving the card (then `npm run sync`).
 - `papers.html`'s `PAPERS` list: a new paper needs an entry.
 - A gallery note's link into a paper, `<a class="paper" href="../papers.html#paper:heading-id">`:
   the test opens each, so retitling a section in a paper means updating the links.
@@ -96,8 +108,8 @@ Nothing here is edited by hand in its generated form; `npm test` fails when one 
   what it writes, or visitors keep old pictures from their browser's cache.
 
 **One vocabulary, several places.** A field added to the scene link belongs in
-`applySceneMorphs` (reading), `sceneOfEditor` (writing), `ANIM_MORPH_FIELDS` (the AI's
-prompts) and, where a scene file should carry it, the `.tvfs` writer and `player/runtime.js`.
+`applySceneMorphs` (reading) and `sceneOfEditor` (writing), both in `parts/scene-link.js`,
+`ANIM_MORPH_FIELDS` (the AI's prompts, in `parts/ai-panel.js`) and, where a scene file should carry it, the `.tvfs` writer and `player/runtime.js`.
 
 **Making a scene or an explainer** (the rules found making them; the rest is in
 `docs/explainers.md`): a new example is an entry in `EXAMPLES` or `SHOWPIECES` and an id in
@@ -186,18 +198,19 @@ compatibly.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
-- `npm test` runs the smoke test: `tests/smoke.mjs` runs its seven parts one after another, each a
+- `npm test` runs the smoke test: `tests/smoke.mjs` runs its eight parts one after another, each a
   file in `tests/` that also runs alone (`node tests/gallery.mjs`, or `npm test -- gallery player`):
 
   | Part | What it checks |
   | --- | --- |
+  | `unit` | `tvf-core.js` and `tvf-reader.js` in Node, no browser, under a second (`npm run test:unit`): the kernel, reconstruction, Fejér, resampling, the shapes, what a `.tvf` is |
   | `editor` | the editor's walk (load, drags, a stroke and a line, every enabled toolbar button), a crowded import, the panel |
   | `exact` | exact shapes: SVG kept exact, smooth corners saved, exact shapes edited and combined |
   | `morph` | the live morph: timeline, recording, paths, trails, corners, the examples, a morph's settings, undo, animate with AI |
   | `motion` | physical motions, eases, chains, contact, emitters, the scene link written out, explainers in the editor, plots, labels |
   | `gallery` | every gallery page walked, the single-page checks, the copies, the front page, the papers and links into them |
   | `player` | the embedded gallery, the player, the played gallery, interactive scenes, Lottie, the scrolling explainer |
-  | `labs` | the labs, `labs.html`, and the files that stand alone or must be up to date (`tvf-core.js`, `svg-import.js`, `tvf-reader.js`, `npm run sync`) |
+  | `labs` | the labs, `labs.html`, and the files that stand alone or must be up to date (`tvf-core.js`, `svg-import.js`, `tvf-reader.js`, `parts/`, `npm run sync`) |
 
   A part fails on any uncaught error in a page or a failed check. `tests/harness.mjs` is what they
   share (the server, the browser, `step`, how a run ends). `JOBS=3 npm test` runs three parts at a

@@ -47,13 +47,14 @@ The gallery's *played* page shows the rest (`TVFPlayer.play`, states, touch, Lot
 | `tvf-core.js` | The curve library (the kernel, leaves, reconstruction, spectral routines). The editor loads it; it also runs under Node. |
 | `svg-import.js` | The SVG importer. The editor loads it. |
 | `tvf-reader.js` | The `.tvf` reader. The editor loads it; it also runs under Node. |
+| `parts/` | Four blocks of the editor's own script (the AI panel, the shapes panel, the bucket picker, the scene link), which the page loads and runs in place. |
 | `labs/` | The labs, one file a group, loaded when a lab is first run. `labs.html` lists them (generated). |
 | `player/` | The player (`tvf-player.js`, generated from the editor's morph engine and `runtime.js`), the Lottie reader, example scenes. |
 | `gallery/` | The teaching pages, the playground, the inspector, `tvf.js` (the library as an ES module) and their shared `style.css`. |
 | `papers/`, `papers.html` | The papers as Markdown, and their reader. |
 | `docs/` | Notes on how each part was built. `CLAUDE.md` holds the working rules. |
 | `tools/` | The generators and measures behind the `npm run` scripts. |
-| `tests/` | The smoke test: `smoke.mjs` runs its seven parts (`editor`, `exact`, `morph`, `motion`, `gallery`, `player`, `labs`), each a file that also runs alone. |
+| `tests/` | The smoke test: `smoke.mjs` runs its eight parts (`unit`, `editor`, `exact`, `morph`, `motion`, `gallery`, `player`, `labs`), each a file that also runs alone. |
 | `index.html` | Forwards `/draw/` to `draw.html`. |
 
 Fonts (Google Fonts) and an SVG path polyfill load from CDNs at runtime. The
@@ -75,6 +76,8 @@ python3 -m http.server 8000
 | `npm test` | The whole test: the editor, every gallery page, the player, the labs page, the papers. |
 | `npm test -- gallery player` | Only those parts. `JOBS=3 npm test` runs three parts at a time. |
 | `npm run test:quick` | The everyday run: fewer gallery pages walked. |
+| `npm run build` | Writes everything generated or copied, in order (`-- --all` adds the two that need a browser). |
+| `npm run test:unit` | The library files alone, in Node, under a second. |
 | `npm run sync` | Writes every copy the gallery pages carry from its source (`-- --check` only says what differs). |
 | `npm run labs` | Writes `labs.html` from the editor's lab buttons. |
 | `npm run player` | Writes `player/tvf-player.js` from the editor's morph engine. |

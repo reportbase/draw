@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [editor, exact, morph, motion, gallery, player, labs]
+        part: [unit, editor, exact, morph, motion, gallery, player, labs]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
