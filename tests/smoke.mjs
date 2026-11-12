@@ -1208,7 +1208,7 @@ current = 'embedded gallery';
     const A = await readFile(join(ROOT, 'gallery/animated.html'), 'utf8'), E = await readFile(join(ROOT, 'gallery/embedded.html'), 'utf8');
     const a0 = A.indexOf('// ── THE EXAMPLES (25 Oct 2026'), a1 = A.indexOf('// the settings as one line, the way the other pages show');
     const m = E.match(/\/\/ >>> copied from animated\.html, unchanged: EXAMPLES\n([\s\S]*?)\/\/ <<< end of EXAMPLES/);
-    if (a0 < 0 || a1 < 0 || !m || m[1] !== A.slice(a0, a1)) throw new Error('the examples on embedded.html differ from animated.html\'s: copy them across');
+    if (a0 < 0 || a1 < 0 || !m || m[1] !== A.slice(a0, a1)) throw new Error('the examples on embedded.html differ from animated.html\'s: npm run sync');
     await eg.goto(new URL('gallery/embedded.html', base).href, { waitUntil: 'load' });
     await eg.waitForFunction(() => window.__embedded && window.__embedded.svgs().length === window.__embedded.ids.length, null, { timeout: 120000 });
     const info = await eg.evaluate(() => ({ ids: window.__embedded.ids, playing: window.__embedded.playing(), frames: document.querySelectorAll('iframe').length,
@@ -3184,7 +3184,7 @@ await step('tvf.js module', async () => {
   const r = iife.match(/\nreturn \{([^}]*)\};\s*$/);
   const names = r[1].split(',').map(x => x.trim()).filter(Boolean);
   const want = iife.slice(0, r.index).replace(/^\n/, '') + '\n\nexport { ' + names.join(', ') + ' };\n';
-  if (mod !== want) throw new Error('gallery/tvf.js is not the shared copy: regenerate it from a gallery page');
+  if (mod !== want) throw new Error('gallery/tvf.js is not the shared copy: npm run sync');
   const t = await import(new URL('../gallery/tvf.js', import.meta.url).href);
   const s = t.circle(64, { r: 100 }), back = s.clone().resample(127).resample(64);
   const err = Math.max(...Array.from(back.x, (v, k) => Math.abs(v - s.x[k])));
@@ -4016,6 +4016,41 @@ await step('tvf-core.js stands alone', async () => {
   const html = await readFile(join(ROOT, 'draw.html'), 'utf8');
   if (!html.includes('<script src="tvf-core.js"></script>')) throw new Error('draw.html does not load tvf-core.js');
   if (html.includes('const tvf = (function')) throw new Error('draw.html carries its own copy of the library again');
+});
+
+/* The SVG importer is its own file too (svg-import.js, 12 Nov 2026): the block 3d copies, cut out of the page
+   unchanged. It must load outside the page (it only declares), its functions must be there and work, and
+   draw.html must load it and not carry a second copy. */
+await step('svg-import.js stands alone', async () => {
+  const vm = await import('node:vm');
+  const src = await readFile(join(ROOT, 'svg-import.js'), 'utf8');
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(src + '\n;globalThis.__names = { NON_RENDERING_CONTAINERS, REF_SAMPLES, ARC_TOL, PATH_TOL };', ctx, { filename: 'svg-import.js' });
+  for (const f of ['parseSvgToPolyline', 'expandUseReferences', 'flattenPathFast', 'tracePathElement', 'fitSubpathsToWorld', 'arcLengthResample', 'smoothDrawPts'])
+    if (typeof ctx[f] !== 'function') throw new Error('svg-import.js declares no ' + f);
+  if (ctx.__names.REF_SAMPLES !== 768 || !ctx.__names.NON_RENDERING_CONTAINERS.has('defs')) throw new Error('svg-import.js: its constants');
+  // a square's corners smoothed once round the loop: each the mean of itself and its two neighbours
+  const sq = [[0, 0], [3, 0], [6, 0], [6, 3], [6, 6], [3, 6], [0, 6], [0, 3]].map(([x, y]) => ({ x, y }));
+  const sm = ctx.smoothDrawPts(sq, 1, 1);
+  if (sm.length !== 8 || Math.abs(sm[0].x - 1) > 1e-12 || Math.abs(sm[0].y - 1) > 1e-12 || sm[1].x !== 3 || sm[1].y !== 0)
+    throw new Error('smoothDrawPts outside the page: ' + JSON.stringify(sm.slice(0, 2)));
+  const i0 = src.indexOf('const NON_RENDERING_CONTAINERS'), i1 = src.indexOf('function smoothDrawPts(');
+  if (i0 < 0 || i1 < i0 || src.indexOf('function parseSvgToPolyline(') < i0) throw new Error('svg-import.js: the block 3d copies is not whole');
+  const html = await readFile(join(ROOT, 'draw.html'), 'utf8');
+  if (!html.includes('<script src="svg-import.js"></script>')) throw new Error('draw.html does not load svg-import.js');
+  for (const own of ['const NON_RENDERING_CONTAINERS', 'function parseSvgToPolyline(', 'function smoothDrawPts(', 'const REF_SAMPLES'])
+    if (html.includes(own)) throw new Error('draw.html carries its own ' + own + ' again');
+});
+
+/* Every copy is what npm run sync would write: the gallery's library, bundle and tile code from the catalogue,
+   the embedded page's examples from the animated one, the three pages' depth code from the editor. The steps
+   above compare the copies with each other; this one compares each with its source, by the tool that writes it. */
+await step('npm run sync has nothing to write', async () => {
+  const { sync } = await import('../tools/sync.mjs');
+  const { changed, problems } = await sync({ write: false });
+  if (problems.length) throw new Error('sync: ' + problems.join('; '));
+  if (changed.length) throw new Error('copies differ from their sources (npm run sync): ' + [...new Set(changed.map(c => c.file + ' (' + c.what + ')'))].join(', '));
 });
 
 /* The papers: every Markdown file in papers/ has a card, every card's file is there, and
