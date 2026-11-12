@@ -159,7 +159,7 @@ await step('tvf-reader.js stands alone', async () => {
   if (html.includes('function parseTvfText(')) throw new Error('draw.html carries its own parseTvfText again');
 });
 
-/* Four blocks of the editor's script are files in parts/ (12 Nov 2026), which the page names above its own
+/* Twelve blocks of the editor's script are files in parts/ (12 Nov 2026), which the page names above its own
    script and runs where each stood (partRun). Each must parse, hand over one function under its name, be named
    by a script tag before the page's own script and run exactly once; and the page must not carry a block again. */
 await step('parts/ are handed over and run in place', async () => {
@@ -167,7 +167,8 @@ await step('parts/ are handed over and run in place', async () => {
   const html = await readFile(join(ROOT, 'draw.html'), 'utf8');
   const own = html.indexOf('<script>\n    \'use strict\';');
   if (own < 0) throw new Error('the page\'s own script was not found');
-  for (const name of ['ai-panel', 'shapes-panel', 'bucket-picker', 'scene-link']) {
+  for (const name of ['ai-panel', 'shapes-panel', 'bucket-picker', 'scene-link', 'timeline', 'morph-strip', 'appearance-panel',
+                      'instruments', 'bucket-panel', 'checksum-panel', 'text-panel', 'shape-link']) {
     const src = await readFile(join(ROOT, 'parts', name + '.js'), 'utf8');
     const ctx = { window: {} };
     vm.createContext(ctx);
@@ -177,7 +178,8 @@ await step('parts/ are handed over and run in place', async () => {
     if (tag < 0 || tag > own) throw new Error(`draw.html does not name parts/${name}.js before its own script`);
     if (html.split(`partRun('${name}');`).length !== 2) throw new Error(`draw.html does not run parts/${name}.js exactly once`);
   }
-  for (const first of ["const pop = $('aiPop'),", "const pop = $('shapePop'),", "const BUCKET_API = ", 'function applySceneMorphs('])
+  for (const first of ["const pop = $('aiPop'),", "const pop = $('shapePop'),", "const BUCKET_API = ", 'function applySceneMorphs(',
+                       "const P = $('morphTimeline');", "const strip = $('morphRunTool');", "const el = $('bucketPanel');", "const panel = $('checksumPanel');", "const pop = $('textPop'),"])
     if (html.includes(first)) throw new Error('draw.html carries a block of parts/ again: ' + first);
 });
 
