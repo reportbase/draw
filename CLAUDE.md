@@ -5,163 +5,106 @@ Pages at https://reportbase.github.io/draw/. The owner works through Claude Code
 changes go on a branch, as a PR, and the owner merges. Merging to `main`
 publishes.
 
+This file holds the rules: what each file is, what is generated or copied and the
+command that writes it, what other repos depend on. The dated notes of what was built
+and why (the names to search for, the numbers measured, the owner's words) are in
+`docs/`, by part; **read the one for the part you are about to change**:
+
+| Working on | Read |
+| --- | --- |
+| the labs (`labs/`, `labs.html`, the lab tools) | `docs/labs.md` |
+| the player, `.tvfs` scenes, states, touch, Lottie | `docs/player.md` |
+| the live morph, the scene link, motions, the AI's animation, the animated SVG | `docs/animation.md` |
+| a gallery page (which carries what, chart pages, `embedded`, `played`) | `docs/gallery.md` |
+| `gallery/explained.html`, an explainer, the video tool | `docs/explainers.md` |
+
+When a change adds something a later session would need to know, put the rule here in a
+line and the account of it in the `docs/` file, dated, in the voice those have.
+
 ## Files
-- `draw.html`: **the editor and the file to edit.** About 76,000 lines, one page with no
-  build step, loading one file beside it (and the labs' files in `labs/`, only when one is asked for):
+- `draw.html`: **the editor and the file to edit.** About 74,000 lines, one page with no
+  build step. It loads two files beside it, and the labs' files in `labs/` only when one is
+  asked for. All three are classic scripts loaded by `<script src>`, so the page still works
+  opened from disk.
 - `tvf-core.js`: **the curve library**, the editor's numerics: the kernel, the leaf layout,
-  `Shape`, reconstruction and the spectral routines (§21 transform, §22 Fejér). A classic
-  script `draw.html` loads with `<script src>` (so it still works opened from disk); it
-  declares the globals `tvf`, `TVF_SPECTRAL` and `TVF_CORE` and exports `TVF_CORE` under
-  Node. It is the source (it was once generated, then inlined; it is neither now). `npm test`
-  runs it on its own and fails if `draw.html` grows its own copy again.
+  `Shape`, reconstruction and the spectral routines (§21 transform, §22 Fejér). It declares
+  the globals `tvf`, `TVF_SPECTRAL` and `TVF_CORE` and exports `TVF_CORE` under Node. It is
+  the source. `npm test` runs it on its own and fails if `draw.html` grows its own copy again.
+- `svg-import.js`: **the SVG importer** (12 Nov 2026), from `NON_RENDERING_CONTAINERS` through
+  `smoothDrawPts`, with `parseSvgToPolyline`: an SVG's text in, its subpaths as dense polylines
+  with their paint out. Its lines are the editor's, cut out unchanged and at the editor's indent;
+  it declares its names (and `REF_SAMPLES`, which the editor reads too) as globals, and reads
+  `tvf` from the library when called. The exact importer (`parseSvgExact`, `loadSvgExact`) is
+  the editor's own and stays in the page. `npm test` fails if `draw.html` grows its own copy.
 - `index.html`: forwards `/draw/` to `draw.html`, keeping `?lab=` and `?bucket=`.
-- `labs.html`: every lab in the drawer, by heading, with what it does and a
-  `draw.html?lab=CODE` link that runs it. **Generated** by `npm run labs`
-  (`tools/build-labs.mjs` reads the lab buttons off the live editor); after adding, renaming
-  or re-describing a lab in `draw.html`, run it, or `npm test` fails.
-  **The labs are leaving `draw.html`** (28 Oct 2026, Tom: "all the labs can ultimately be pulled from draw.html. its
-  already too big", then "agreed, proceed"): first measured, then written down (`papers/labs.md`), then moved to
-  `labs/*.js` loaded only when asked (Tom: "batch them"). **`labs/`** (28 Oct 2026): every lab group in the drawer (56
-  of its 57 headings; the paint modes are the editor's own), in 54 files named for their headings (`number-tests.js`, `stream-bank.js`, `contact-walker.js`, …;
-  `sheets.js` holds the sheets, two fisheyes on one array and readers within readers, one block): a moved lab's code, line for line and in the editor's indent, inside one
-  function handed over as `(window.TVF_LABS = window.TVF_LABS || {})[name] = function () { … }`. The editor
-  (THE LABS THAT LIVE IN labs/, beside `makeRng`) evaluates that function's text by a direct `eval` inside its own
-  closure, so the code reads every editor name as it did in the page and wires its own buttons; a script tag, not a
-  fetch, so the page still works from disk. `LAB_FILES` maps a lab's data-code to its file; the first press on its
-  button (the drawer's, or `?lab=`'s, which presses it too) is held by a capturing listener while the file loads
-  and runs, then given back. Moving a lab: a line in `LAB_FILES`, its lines cut to `labs/<name>.js` with the
-  header the first one has, and a pointer comment where they were. Code several labs share (`makeRng`, `labComb`)
-  stays in the editor. Hook `window.__labFiles` (`files`, `load(name)`, `state`). The ones moved are the groups
-  whose code is their own, reached from their own button and named nowhere else (a group's closure from its
-  button, less what the editor or another group reaches); each was run before and after (`tools/run-labs.mjs`) and
-  reports the same cells, verdicts and status lines (the sheets, which report none, open with the same text). A
-  moved lab's `window.runX = runX` console hook moves with it, and its names leave the editor's `window.__lab`
-  object and go back on it when its file loads (`Object.assign(window.__lab, …)` at the file's end). Code that
-  waited in the page for DOMContentLoaded waits in a file for the end of that file (`labAfterLoad(f)`, queued and
-  run after the eval; the sheets'). The second batch split the morph bar's wiring block from the labs' (the labs'
-  handlers each their own top-level block). The contact walker's state (`_walk`) and its overlay stay in the editor,
-  which draws it every frame; the keyboard sheet's tracing (`keyboardSheet`, `glyphContoursEm`) stays because the
-  emoji sheet traces with it, and its font list (`kbdFontList`) because the drawer shows it before any file loads.
-  The walker runs on its own timers, so it is not deterministic run to run: it was checked by behaviour (thousands
-  of looks, a lap certified, no errors) rather than by exact state. A cut takes a piece's comment block with it; one stops at the piece's last code line, so a
-  free-standing comment after it (a section header, a pointer) stays. What stays in the editor even when only labs use
-  it: code copied word for word elsewhere (the depth code's `depthLearnedFacing` and `depthEnterWhereNeeded`, which
-  the gallery's inspector, depth and where-to-stand pages copy from here) and code two moved files share
-  (`tbLeaves`, `pathoShape`, `_shapePrep`, `_firstMeet`, `_occSeen`, `_inside`: the sheets, occlusion and
-  encounters). Before cutting a file, check that no name it declares is used by another file in labs/, and that
-  no name only labs/ declares is used by the editor; the smoke test's steps that call a moved lab's runner
-  (`runDecoderVectors()`, …) load its file first with `__labFiles.load(name)`.
-  `tools/measure-labs.mjs` splits the main script into its top-level pieces and finds what only the labs reach
-  (by name, as `build-player.mjs` does; `window.__lab`, the `window.runX` exports and the lab deep link count as
-  the labs'): about 10,000 of 83,000 lines, 18,000 with the blocks that wire a lab and something else
-  (`MIXED=lab`), and the names a moved lab would need from the editor; since the labs moved it also counts `labs/`. `tools/run-labs.mjs out.json [codes…]` runs
-  every lab headless (`draw.html?lab=CODE`) and keeps what it reports: `window.__flashLog` (the last 40 status
-  lines, kept by `flashStatus`) and `window.__lastLadder` (the last sheet's name and each cell's caption and
-  verdict, kept by `labLadder`). The labs' seeded stream `makeRng`/`makeRngCentered` is defined in `draw.html`
-  (beside `$`): the library's copy is inside `tvf-core.js`'s closure, which 3d and games copy unchanged, and twenty
-  labs had stopped on it since 9 Oct. It multiplies in 32-bit integers (`Math.imul`, 28 Oct 2026): written as a
-  float product it passed 2⁵³, lost its low bits and cycled after about 10,500 values from seed 8191, which made
-  `lib` and `whr` fail their own tolerances; every lab was run again (`papers/labs.md`, "The run again, after the
-  generator"). The library's copy in `tvf-core.js` was mended the same way (Tom: "both"), and with it the copies in 3d and
-  games (their PRs follow draw's merge, since their Draw sync checks compare with draw's `main`); so were
-  `gallery/growth.html`'s `rng` (its organisms are the same kinds, other instances: brain coral 572 nodes, was 558;
-  the front page's thumbnail is the old one, drawn by hand) and the perturbed circle's harmonics in `levels.html`.
-  The faults `papers/labs.md` found were dealt with the same day: `rec`'s claim 5 now drops a tick and decodes the
-  string; `frn` judges each response in floors of the figure's own (1.5 held, 3 broke, set after seeing the data);
-  `bhm` says its seams are exact by construction; `dpt`'s departing circle is the library's 160-point polygon.
-  **Labs from the essays** (29 Oct 2026, Tom: "take a look at the wander project, the paper/essays. is there any labs
-  we should do from our essays?", then "1,2,3"): three claims wander's essays argue in prose, put to the library, each
-  group's note in the drawer holding its predictions as written before the first run (`papers/labs.md` §§55–57):
-  `avd` (`labs/averaging-directions.js`, essay 3's "to average, average the angle": the mean angle of readings from a
-  height returns atan(m/(1+γ)), not m; nothing killed), `jnf` (`labs/joining-the-facings.js`, essay 10's four facings
-  joined without their sizes, by continuity; one of three killed, by my bound) and `ssl` (`labs/size-sets-the-level.js`,
-  essay 4's "n places, about log₂ n levels"; two of three killed, with readings after the run marked as such). The
-  smoke test runs all three from `?lab=`. What the results ask of the essays is Tom's to rule in wander.
-- `player/`: **the TVF player** (27 Oct 2026, Tom: "build the tvf-native player"). `tvf-player.js` plays a `.tvfs`
-  scene on a canvas (`TVFPlayer.play(canvas, scene or url)`, or `<canvas data-tvfs="…">`; `load`, `poses`, `draw`), next
-  to `tvf-core.js`. **Generated** by `npm run player` (`tools/build-player.mjs`): its engine is the editor's own code,
-  the functions and constants the player's entry points need taken from draw.html's main script by name with all
-  they use (the closure skips locals, object keys, regex literals and property names), unchanged and in the
-  editor's order, between a small shim (`state`'s ease, hold, gravity and wind, `morphLive`, `morphRuns`) and
-  `player/runtime.js` (loading, the clock, drawing: leaves reconstructed with the kernel at about one point every
-  two pixels, exact poses as their cubics, stills through `exactDense`). Names the engine mentions that belong to
-  the editor's page are in its `STUBS`; an unknown one fails the build. After changing the morph engine in
-  draw.html, run it, or `npm test` fails. A `.tvfs` (`{format: 'tvf-scene', v: 1, name, loop, ease, hold,
-  gravity, wind, trail, camera, stops, path, items, morphs}`) is written by the morph bar's **tvfs** button (`morphTvfScene`, hook
-  `__box.tvfScene()`): `items` the drawing order (`{morph: i}`, or a still's `leaves` as float32 base64 or its
-  `exact` corners, roundings, smooth corners, handles and holes, with fill and stroke), `morphs` each as its keys
-  (leaves, or exact corners with `r` and `c`) plus `own`, the autosave's `morphSaveOwn` record, restored by
-  `morphRestoreOwn`, and `open` for a live line. Trails (echoes, ribbons) are drawn by the runtime as the editor's `drawMorphTrails` does,
-  under the shapes, from the engine's `morphTrailSpan`, `morphTrailTime` and `morphCentreAt`. `player.html` opens one
-  (button, drop, `?src=`). A scene's camera frames the canvas (`viewOf` at t), its lines draw on (`drawOn`), and its
-  stops wait: the controller's `next()` (a click on the canvas, unless `click: false`) goes on and `prev()` goes back a
-  stop, `ctl.stop` says which it waits at, `opts.onstop` is told. `examples/` holds every example on `gallery/animated.html` as a `.tvfs`, and `index.json`
-  (its sections, each example's name, note and tags, each file's size), **generated** by `npm run examples`
-  (`tools/write-examples.mjs`: each example's scene link opened in a headless editor and `__box.tvfScene()` written;
-  `npm run examples -- id …` writes some): after changing an example, the scene link or the `.tvfs` writer, run it,
-  or `npm test` fails. The smoke test checks the player poses gallery scenes as the editor does
-  (`__box.morphPoses(t)`) to the keys' rounding, and that those files are what the editor writes now.
-  The format is specified in `papers/tvf.md` §2.10 (version 1; the player refuses another `v` and ignores fields it
-  does not know). The player reconstructs leaves by `TVF_CORE.reconstructFFT` when their count is a power of two
-  and keeps each still's outline as a Path2D, rebuilt only when its sample count changes; `npm run measure`
-  (`tools/measure-player.mjs`) times every example on an emulated phone (390 × 844 at DPR 3, CPU 1×, 4×, 6×),
-  and `player/MEASURED.md` records the numbers before and after (grow 170 ms to 2.5 ms a frame at 1×; all under
-  16.7 ms at 4×).
-  **Scenes that answer the hand, and Lottie** (29 Oct 2026, Tom: "Let's continue to explore what it can do", then
-  "1,2,4"; `papers/tvf.md` §2.10, "States and the hand", "Touch", "From Lottie"). In `player/runtime.js`, so a reader
-  that ignores them draws the scene as before:
-  - **States and rules**: a scene's `states` (named times), `start`, `autoplay` and `interact` rules (`statesOf`,
-    `rulesOf`): `click` (toggle between two states, play once or loop, or go to one), `hover`, `press` (there and
-    back), `scroll` (the clock follows the canvas through the window), `load`; a target is a morph's drawn pose
-    (`hitAt`: its fill, or a finger's width of its line). A state is only a time, the clock turned toward it at the
-    scene's pace (`ctl.goTo`). With two keys a pose ramps from the first at 0 to the second at 1, so two states are 0
-    and 1.
-  - **Touch**: a morph's `touch` (`touchOf`, `touchStep`) can be taken by the hand and let go: `throw` (gravity,
-    bouncing off its floor, the lowest its pose reaches, and the frame's sides, then home), `swing` (a pendulum
-    about its pivot) or `spring`, from the hand's speed over its last 100 ms; an offset on the pose
-    (`touchMapped`), riders carried by their parent's, the morph's clock going on from where it was taken.
-    `ctl.whereIs(k)` gives a morph's box in page pixels for tests.
-  - **`widthUnit: "page"`** on a morph or a still: its line's width in page units, scaled with the view.
-  - **Lottie**: `player/lottie.js` (`TVFLottie.isLottie`, `toScene`) reads Bodymovin's JSON (shape layers with
-    paths, rectangles, ellipses, stars, fills, strokes, groups, rounded corners; solids, nulls, parenting,
-    precompositions) by drawing each frame as exact paths, following each path from frame to frame and keeping the
-    frames a straight blend cannot stand in for (Douglas–Peucker in time, 0.2 px), coordinates to a hundredth.
-    What it cannot read (masks, mattes, effects, text, images, gradients, trim paths, repeaters, merged paths,
-    expressions, 3D, time remapping, a vertex count that changes) it leaves out and names in `report.unsupported`.
-    Colours from Bodymovin before 4.1.9 are 0–255. `player.html` and the played gallery's panel take a Lottie file;
-    `node tools/lottie-to-tvfs.mjs in.json … [--out dir] [--tol px]` writes `.tvfs` files. Measured against
-    lottie-web's canvas renderer (its repo's demos, MIT, not committed): within 0.1–1.5 of 255 on the files it reads
-    whole; adrock's mask and happy2016's gradients are where it parts. For size: lottie-web's light player is 46 KB
-    gzipped, ours with `tvf-core.js` about 48.
-    **The lottie page** (`gallery/lottie.html`, 29 Oct 2026, Tom: "Create a help gallery page the show the vtf viewer
-    processing a lottie file and animating it. One of the demos should let the user import a lottie file."; page 30 of
-    31, before `explained`, on `played`'s styles): two benches of one kind (`makeBench`), each a Lottie's frame as exact
-    paths (the importer's own `TVFLottie.drawingAt`, put through the player as a scene of stills: `frameScene`), the scene
-    played by the player, a strip of which frames were kept as keys for each path (gold: an outline key, teal: a
-    transform key), the tolerance and transform knobs, the numbers (sizes, gzipped through `CompressionStream`, keys,
-    time, what was left out), a frame slider and the `.tvfs` to take away. **Process it** replays the work in order
-    (every frame read, the conversion, the strip filling in as the scene plays). The first bench has three Lotties of
-    our own (`player/interactive/lottie-sample|spinner|blob.json`); the second opens or takes a dropped `.json`
-    (`.lottie` zips are not read). Hook `window.__lottie` (`benches.watch`, `benches.yours`: `info`, `set`, `process`,
-    `pick`, `readFile`, `load`). A chart page with no curve to edit, like `played`.
-    **Smaller scenes** (29 Oct 2026, Tom: "Any options to reduce the size of the lottie to tvf convert.", then "Yes" to
-    two of them): ONE SHAPE, MOVED: a path whose outline never changes in its own coordinates (`sig` in `emit`), only
-    its map, is one key and a morph's `xform` ({o, t, v: [tx, ty, θ, sx, sh, sy] per key, e, c}, the map split as a
-    turn times an upper triangle so a turn keeps its size between keys, taken about the outline's middle `o` so a
-    shape that only turns has no translation to key), the parts read from Lottie's matrices
-    (`relOf`, `partsOf`), which needs the scene's version 2 (the player reads 1 and 2; `xformPose`, `fillOf`, the
-    line width by √|det|). A CURVE OF ITS OWN: every stretch between kept frames (`keyframes`) is straight, or a
-    cubic Bézier ease fitted to the frames between (`fitBezier`: x1, x2 on a grid, y1, y2 by least squares, on two
-    dozen frames, every frame then checked), or split; the engine's `morphEase` takes `[x1, y1, x2, y2]` arrays
-    (`morphBezierEase`, `morphBezierOk`), for shape keys too. Gzipped against the Lottie file: gatin 36 → 7.1 KB
-    (Lottie 4.5), adrock 249 → 28 (12), bacon 210 → 106 (52), happy2016 94 → 80 (53), bodymovin 259 → 211 (135),
-    the same pixels against lottie-web as before; conversion 0.4–2.4 s. A stretch has one ease for all its parts, so a
-    shape whose position and scale Lottie keyed apart takes more keys (the sample's ball, 17 of 60 frames).
-  - **Examples**: `player/interactive/` (a menu, play/pause, a switch, a button, a card, a line drawn by the scroll;
-    the gallery's ball, lantern and jelly with touch on; `lottie-sample.json`, a Lottie of our own, and its scene),
-    written with `index.json` by `node tools/write-interactive.mjs`: after changing it or `player/lottie.js`, run it,
-    or `npm test` fails. `gallery/played.html` shows them as "you can click", "you can touch" and "from Lottie"; a
-    tile whose scene has states is not paused and played by the view. The smoke test drives them with real input.
+- `labs/` and `labs.html`: every lab group in the drawer is a file in `labs/`, loaded on the
+  first press of its button (`LAB_FILES` in the editor maps a lab's data-code to its file) and
+  evaluated inside the editor's closure, so its code reads every editor name. `labs.html` lists
+  them and is **generated**. Code several labs share (`makeRng`, `labComb`) and code copied
+  elsewhere stays in the editor. Moving or adding a lab: `docs/labs.md`.
+- `player/`: **the TVF player**. `tvf-player.js` plays a `.tvfs` scene on a canvas and is
+  **generated**: its engine is the editor's own morph code taken by name, between a shim and
+  `player/runtime.js` (the part to edit, with `player/lottie.js`). `player/examples/` and
+  `player/interactive/` hold scenes, also **generated**. The format is `papers/tvf.md` §2.10.
+- `gallery/`: thirty-one teaching pages, `playground.html`, `inspect.html`, the front page
+  `index.html`, `style.css` (every page's styles, and `labs.html`'s: change the look there,
+  once) and `tvf.js` (the library as an ES module, **generated**). Each page bundles its
+  JavaScript so it opens from disk as one file, so the pages carry **copies** of what they
+  share: see below.
+- `papers/` and `papers.html`: the owner's papers and their reader (below).
+- `docs/`: the notes above. `tests/smoke.mjs`: the test. `tools/`: the generators and measures.
+
+## Generated and copied: what to run
+Nothing here is edited by hand in its generated form; `npm test` fails when one is stale.
+
+| After changing | Run | It writes |
+| --- | --- | --- |
+| a lab's button, heading or description in `draw.html` | `npm run labs` | `labs.html` |
+| the morph engine in `draw.html`, or `player/runtime.js` | `npm run player` | `player/tvf-player.js` |
+| an example in `gallery/animated.html`, the scene link, the `.tvfs` writer | `npm run examples` (`-- id …` for some) | `player/examples/*.tvfs`, `index.json` |
+| `player/lottie.js` or an interactive example | `node tools/write-interactive.mjs` | `player/interactive/` |
+| anything the gallery pages share (next list) | `npm run sync` | every copy, from its source |
+
+**The copies** (`tools/sync.mjs`; `npm run sync -- --check` writes nothing and names what differs):
+- the library (`const TVF = (function` … `})();`): edit it in `gallery/gallery.html`; it goes to
+  every gallery page and the playground, and to `gallery/tvf.js` as a module.
+- the rest of the bundle (through the FORMAT module) and the tile code (from `// The loop a
+  tile's strip` to `async function copyText`): edit in `gallery/gallery.html`; they go to the
+  other eight shape pages (snowflakes, radiolaria, width, landscape, growth, assemblies,
+  letters, tiles).
+- the animated examples (from `// ── THE EXAMPLES` up to `// the settings as one line`): edit in
+  `gallery/animated.html`; they go to `gallery/embedded.html` between its markers.
+- the depth code (`DEPTH`, `fmtSig`, `rungOfRow`, `depthToTVF`, `depthFromTVF`,
+  `depthLearnedFacing`, `depthEnterWhereNeeded`, `wlsSlopeRow`, `wlsSolve`, `depthEnterFlat`,
+  `depthEnterFlatWalls`): edit in `draw.html`; it goes to `gallery/inspect.html`, `depth.html`
+  and `standpoint.html` between their `// >>> copied from draw.html` markers. (`WLS_K`, a
+  constant beside them, is copied by hand.)
+
+**Written by hand, and checked:**
+- `gallery/index.html`'s cards and thumbnails, and each page's "N of 31" crumb and "next" link:
+  adding, renaming or reordering a page means updating them.
+- `papers.html`'s `PAPERS` list: a new paper needs an entry.
+- A gallery note's link into a paper, `<a class="paper" href="../papers.html#paper:heading-id">`:
+  the test opens each, so retitling a section in a paper means updating the links.
+- `SVG_VERSION` in `animated.html` (and its copy): raise it when the animated SVG export changes
+  what it writes, or visitors keep old pictures from their browser's cache.
+
+**One vocabulary, several places.** A field added to the scene link belongs in
+`applySceneMorphs` (reading), `sceneOfEditor` (writing), `ANIM_MORPH_FIELDS` (the AI's
+prompts) and, where a scene file should carry it, the `.tvfs` writer and `player/runtime.js`.
+
+**Making a scene or an explainer** (the rules found making them; the rest is in
+`docs/explainers.md`): a new example is an entry in `EXAMPLES` or `SHOWPIECES` and an id in
+`SECTIONS`; an explainer is also an entry in `explained.html`'s `EXPLAINERS`. A clip plays its
+keys from the first key's time to the last's across its window, so give the last key again at
+the window's end where a pose is to hold. A morph that must hold between keys needs
+`straight`. A clip holds its first pose before its window: a thing not to be seen until it
+starts needs an `in`. Past 150 shapes (`LAZY_MIN_SHAPES`) a scene opens as leaves and its file
+grows fivefold. A scene draws its morphs in the order their first keys stand in its svg. A
+beat's `#lit:` indices are the morph list's order: add morphs through a helper that names
+them. The editor says a scene's quiet fallbacks aloud (`window.__sceneWarnings`).
+
+## The papers
 - `papers/`: the owner's papers as Markdown, the source of the theory: `tvf.md` (the format
   specification), `tb_classical.md` and `tb_algebra.md` (the Tangent Bridge theorem, classical
   and algebraic presentations), `tb_spectral.md` (the spectral companion, §§17–22) and
@@ -192,473 +135,6 @@ publishes.
   at a section). Its `PAPERS` list is written by hand: a new paper needs an entry, or `npm test`
   fails. The renderer is its own small one, written for these files: TeX is lifted out before
   anything else, typeset by KaTeX from cdnjs when that loads and shown as source when it does not.
-- `gallery/`: thirty-one teaching pages, in reading order: `gallery.html` (the catalogue),
-  `bench`, `epicycles`, `snowflakes`, `radiolaria`, `width`, `space` (shape space), `curves` (the
-  menagerie), `landscape`, `spiral`, `growth`, `assemblies`, `letters`, `tiles`, `sound` (heard), `motion`
-  (the loop), `compose` (composed), `situated` (where you stand), `corner`, `levels`, `depth`, `standpoint` (where to stand), `recovered`, `readers` (between readers), `compile` (compile time), `fail` (where it breaks), `animated`, `embedded`, `played`, `lottie`, `explained`. Also `playground.html` (sculpt
-  a shape by hand; the transcript writes each gesture as a tvf.js call), `tvf.js` (the
-  library as an ES module, *generated* from the copy the pages inline: regenerate it from
-  a page's `const TVF = (function () {` block rather than editing it, or the tests fail),
-  the front page `index.html` that lists them, and `inspect.html`, which reads a shape's
-  spectrum, symmetry, width and leaf count back off its leaves, and reads depth files
-  (TVF §2.8). Its depth code (`DEPTH`, `fmtSig`, `rungOfRow`, `depthToTVF`, `depthFromTVF`,
-  `depthLearnedFacing`, and the writers `depthEnterWhereNeeded` and `depthEnterFlatWalls` with
-  their helpers) is copied unchanged from `draw.html` between `// >>> copied from draw.html`
-  markers, and `depth.html` and `standpoint.html` carry the same copy; `npm test` fails if any drifts,
-  so change it in the editor and copy it to all three.
-  - **Links into the papers:** where a page states a result a paper proves or measures, its
-    note carries `<a class="paper" href="../papers.html#paper:heading-id">…</a>` (a small pill,
-    styled in `style.css`). `npm test` opens every such link and fails on one that names no
-    heading, so retitling a section in a paper means updating the links.
-  - **Styles live in `gallery/style.css`**, shared by every page in `gallery/` (and by
-    `labs.html`); a page keeps only its fonts link. Change the look there, once. Pages with
-    a layout of their own have a section there scoped to their body class (`page-index`,
-    `page-inspect`, `page-chart`, `page-bench`, `page-sound`, `page-playground`, `page-labs`, `page-animated`, `page-embedded`, `page-played`, `page-explained`).
-  - Each page bundles its JavaScript so it runs from one file. All thirty-one, and the playground, carry the **same**
-    `tvf.js` (`const TVF = (function` … `})();`). The nine *shape* pages (gallery,
-    snowflakes, radiolaria, width, landscape, growth, assemblies, letters, tiles) also carry the same rest of the bundle (through the FORMAT module) and the same tile code
-    (from `// The loop a tile's strip` to `async function copyText`: spectrum strip, predict
-    mode, tile links, editor link). Change one copy, change them all: `npm test` fails and
-    names the page that differs.
-  - The other twenty-two have their own tile code and extra modules (MOTION, SOUND, COMPOSE,
-    STRESS, SPACE, CURVEMOD, SPIRAL, EPICYCLES, SITUATED, DEPTHPAGE, RECOVER, CORNER, LEVELS, STAND, BETWEEN, COMPILE), and no spectrum strip or predict mode. `spiral`,
-    `curves`, `space`, `fail`, `situated`, `corner`, `levels`, `depth`, `standpoint`, `recovered`, `readers`, `compile`, `animated`, `embedded`, `played`, `lottie` are *chart* pages (`body.page-chart`: a measurement and a
-    verdict line per tile); `motion`, `compose` and `epicycles` animate (`page-chart page-motion`; epicycles
-    carries only tvf.js, FORMAT and EPICYCLES, and its dials may be selects);
-    `sound` plays its tiles (`page-sound`); `bench` is numbered steps (`page-bench`).
-    `situated` (where you stand) is the situated reader, its arithmetic ported from the editor's labs
-    (`unc`, `crb`, `nfr`, `occ`, `nsr`) so the two agree; its standpoints are dragged on the canvas.
-    `depth` writes depth files three ways (every octave, where needed, flat walls) on closed-form
-    shapes, with the editor's depth code copied (carries tvf.js and that copy, no FORMAT); its .tvf
-    buttons copy a tile's depth file. `recovered` recovers a figure from readers' quotients v/h
-    (the editor's `udv` lab): one reader and the census, two and three readers crossing their lines,
-    one length for the size, rounded readings and what readers cannot see; its readers are dragged
-    (carries tvf.js and RECOVER only). `levels` (10 Oct 2026, from wander's levels.html; Tom: "should we add
-    this to that project", "both") lays the corner's circle and each doubling past it in half the room of the
-    last, the rings a grain can see, and a shape read from its centroid or from a place on its outline (the
-    nearest wall in each direction), with a level-of-detail circle and its depth in levels once its size is
-    divided out (LEVELS; `levelsCheck`). It loads a .tvf from its bar and reads `#tvf=`: the editor's "read
-    the selection in the levels" sends the selection there. Three pages follow Serial, Parallel and Nowhere (wander's
-    `papers/`, linked on GitHub): `corner` (the flip, the in-place sweep, detail by distance, the cost of
-    a sure reading; CORNER), `standpoint` (a reader on a rippled circle, why the editor's circle costs
-    810 sweeps; STAND, with the depth copy) and `readers` (the cross ratio, readers finding each other,
-    matching readings to places by a third reader, the ladder; BETWEEN). `compile` (compile time) is a
-    small partial evaluator (COMPILE) run on a reader's own programs: what folds before anything arrives,
-    recursion against level of detail, the level from a float's exponent bits, and two ways to create one
-    universe (by logic, by a literal) read alike from inside. Each
-    has a section in `style.css`. Edit buttons (the shared editor link) are on `spiral`,
-    `curves`, `space`, `motion`, `compose` and `epicycles`; the rest hold no curve to hand on.
-  - `animated` (25 Oct 2026, Tom: "could you creae a gallery page that has examples that can be loaded into
-    draw.html", then "make this a gallary page like with the same formatting as the others") is the last page and a
-    chart page with no curve to edit: tiles of animations for the editor's live morph, each the example's drawing and an
-    **open in draw** button where the others have edit. Each example is an SVG drawing (made in the page from a few
-    lines) and the live morph's settings, written into `draw.html#scene=<payload>` (THE SCENE LINK in `draw.html`: 'z' +
-    base64url of the JSON deflated, or 'r' plain; `{v:1, name, svg, exact, morphs: [[shape indices]…], path, turn,
-    mode, fx, trail, ease, hold, loop, onion, corners, lag, t, play}`, shapes named by their order in the SVG). A
-    `morphs` entry is a list of shapes or an object `{keys, path, laps, at, turn, mode, rate, phase, spin, fx, trail,
-    lag, inPlace, parent, follow, look, times, eases}` (`parent`: the index of another entry, whose every move and turn carries this one, measured
-    from where the parent was drawn: ONE MORPH RIDING ANOTHER; `follow: {kind: 'lag' | 'spring', amount}` how loosely, and
-    `look` an entry it keeps turning to face, from the way it faces at the link's `t`: FOLLOWING LOOSELY, AND FACING; `times` a time per key on the morph's clock, `eases` an
-    ease per stretch between keys, 'linear', 'inout', 'in', 'out', 'anticipate', 'overshoot', 'elastic' or null for the bar's: KEYS AT CHOSEN TIMES): what a morph has of its own (EACH MORPH ITS OWN TIME, PATH, COLOUR, TRAIL in `draw.html`, 25 Oct
-    2026, Tom: "can you do some top quality animation examples, to really push the framework?"): its clock at a whole
-    `rate` and a `phase`, its own path ridden `laps` times from `at`, `spin` turns a loop, its trail and effect; a
-    shape may be a key more than once; the keys' fills blend in linear light (`run.cols`). All of it saves with the
-    morph; the bar's controls still act on every morph, and the editor's strip (THE MORPH'S OWN SETTINGS, IN THE
-    EDITOR, `#morphRunTool`, 25 Oct 2026, Tom: "1,3") sets them by hand for the live shapes selected: rate, phase and
-    stagger, spin, ride a line (own path), laps, start and spread, trail, effect and follows (a parent picked there
-    carries the shape from where both stand, `run.parentAt`; tight, lag or spring and how loose, `run.follow`; faces,
-    `run.look` with `run.lookRef`), with the live shapes numbered on the canvas while it is
-    up, and a track of the morph's keys on its clock (drag a key to its own time, click a stretch for its ease, "even" puts
-    them back; `run.times`, `run.eases`, carried onto the even kernel by `morphWarp`). The bar's **timeline** button opens
-    THE SCENE'S TIMELINE (`#morphTimeline`): every live morph a row, its keys where they land on the shared clock (a rate
-    shows them that many times), drag one to retime it, drag the ruler or a row to scrub, a row's number selects it.
-    A live shape edited on the canvas while paused (EDITING A KEY ON THE CANVAS) lands in its keys when the edit lands
-    in the undo history: at a key's time (within a thousandth) that key, between keys a new key there, the others
-    keeping their times, carried back through path, spin, parent and facing (`morphTakeEdit`; not with an effect, nor
-    an exact edit that changes the corner count). The strip's **draw path** (DRAWING A PATH WHILE IT PLAYS) plays the
-    morph while a stroke on the canvas becomes the selected morphs' own path, taken before the editor sees it.
-    **corners ◀ ▶** (CORNERS PAIRED BY HAND) turns the corners of the key you stand on (or the next) a place, faint
-    lines showing the pairing; scene link `pair: [places per key]`. A morph can play once (A MORPH THAT PLAYS ONCE,
-    `run.clip = {start, len}`, scene link `clip`): first key to last over its window, holding either side; the
-    timeline shows it as a bar to move and stretch, a row's ↻/1× toggles it, **in turn** makes a sequence. Its `show`
-    (A CLIP SEEN ONLY WHEN IT PLAYS; the timeline's **shows** select) is '' (always), 'during', 'fade', 'in' or 'out':
-    a factor on the drawing (`sp._fade`, never saved; the shape loop multiplies every alpha by it), its trails and the
-    SVG export (an opacity animation) following. Undo snapshots carry the live morphs (UNDO STEPS THROUGH THE MORPHS:
-    `snapshotState().morph` is `morphStateSave`, the autosave's own record, restored from a copy at the end of
-    `applySnapshot`, the clock left where it is); a setting from a slider or a field is one step once it rests
-    (`morphHistorySoon`). The AI panel's **animate it** and **change it** (ANIMATE IT WITH AI, 26 Oct 2026, Tom:
-    "the human could gently tweak the generated AI result", then "1,2") ask Claude for the scene link's vocabulary,
-    not frames: the drawing goes out as a picture and as its shapes numbered in a 1000 box (`animSketch`, read without
-    turning held shapes into leaves), with the live morphs' settings (`animMorphsNow`); the reply's `copies` (a shape
-    moved, turned, sized, kept exact: `animCopy`), `svg` (new outlines and motion paths, landed exact where the box
-    puts them) and `morphs` go through the scene link's own `applySceneMorphs` (partial: what it leaves out stays),
-    its `change` items through `sceneChangeRuns` (by morph: only what is named changes; `end` gives the keys back),
-    and the whole reply is one undo step. "animate it" keeps to the drawing (`strict`: a shape it adds that becomes no
-    key and no path is left out); **make a scene** (MAKE A SCENE, 27 Oct 2026, Tom: "should we have seperate ways to
-    create full scenes from animations", "yes") asks for a whole scene from words in the same vocabulary, its svg opened
-    by `openScene` and its copies and morphs landed by `animApply` in the box the svg was drawn in (`sceneBoxOf`). A
-    reply's svg is read at its own box size (`animBoxSvg`: `parseSvgExact` reads through the CTM of a 10-pixel host,
-    a hundredth of a 1000 box). Requests stream (`apiCall`), or a long answer is cut off at about 100 s (HTTP 524).
-    `ANIM_MORPH_FIELDS` is the morph vocabulary both prompts share (`SYS_ANIM`, `SYS_SCENE`): a field added to the
-    scene link belongs in it.
-    PHYSICAL MOTIONS (27 Oct 2026, Tom: "some animations are rather simple … or more physical, such as a bouncing
-    ball", then "this application is better suited to 1 and 2", intricate rigs like a bird being another
-    application's): `run.motion = {kind, amount, …}` (`morphMotionOk`), computed, not keyed: `bounce` (gravity's
-    parabola, `amount` heights, `squash`), `fall` (dropped `amount` heights, keeping `bounce` of its speed each
-    bounce until it rests), `swing` (a pendulum, `amount` degrees, `pivot`), `spring` (a damped boing `along` y, x,
-    scale or turn), and since Tom's "1,2": `roll` (across `amount` widths and back, or along its path, turned by the
-    distance over its half-width; round a closed path in whole turns so the loop closes), `throw` (gravity's parabola
-    to `to: [right, up]` in its heights, its top `amount` heights over the higher end), `sway` (a shear from its base,
-    `amount` degrees, the foot still) and `pop` (from nothing to its size, overshooting, `amount` the liveliness 0–1,
-    ending exactly at 1). `morphMotionXform` is applied after the path and spin and before a parent (leaves and exact
-    corners, handles and radii alike), measured from the placed pose and the first key's size, the ground where the
-    shape is drawn; undone in `morphUndoCarry`; saved, in the scene link both ways, in the AI vocabulary and the strip
-    (`#mrMotion`). A parent's motion carries its followers too (`morphParentRigid` puts the parent's
-    `morphMotionXform` after its rigid map: a hat on a bouncing ball bounces and squashes with it). The gallery's
-    **physical motions** section shows one of each, and a hat riding a ball. HANDLES FOR A MOTION (27 Oct 2026, Tom:
-    "1,3"): while the strip is up, each selected morph's motion is drawn from its first key with gold handles to drag
-    (a throw's landing point and arc top, the arc dashed; a bounce's or fall's height; a swing's pivot, snapping to
-    the five places, and its widest swing; a roll's travel when it has no path; a sway's lean), taken before the
-    editor sees the pointer (a capturing listener, like draw path), written through `morphMotionOk`, one undo step a
-    drag (`morphMotionHandles`, `morphMotionDragTo`; hook `__box.motionHandles()`). ANTICIPATION AND OVERSHOOT: the
-    eases (the bar's and each stretch's) also take `anticipate`, `overshoot` and `elastic`, which leave [0, 1] and
-    land exactly on 1; two keys extrapolate through their weights, three or more along the stretch's line
-    (`morphWeightsOf`, which every pose, colour and centre now uses in place of `morphWeights(morphWarp(…))`); an
-    exact pose's radii are kept at 0 or more; `embedFit` frames a sixth past the keys. The strip's stretch buttons
-    cycle the eight (shift-click goes back). The gallery's **first steps: anticipation and overshoot** shows them.
-    Then (Tom: "2,4,5") MOTIONS IN A ROW: `{kind: 'chain', steps: [motion…]}` (each step with `share`, its part of the
-    cycle), each step from where the last left the shape (`morphMotionMap` gives one step and what it leaves, `dx`,
-    `dy`, `th`; `morphMotionXform` composes; in a chain a roll goes one way and a drift does not fade). CONTACT WITH
-    OTHER SHAPES: fall and bounce take `ground` (their floor in their heights from where they are drawn), and fall,
-    bounce, throw and roll take `onto` (a shape's number in a scene link or AI reply, or the strip's **onto** with one
-    other shape selected), worked into numbers once from the two boxes (`morphMotionOnto`, `morphShapeBox`; a
-    chain's steps from where the ones before leave it), and followed since (CONTACT THAT FOLLOWS, below). EMITTERS: an
-    entry's `emit: {count, spread: [across, up] in its heights, vary, seed}` makes count − 1 seeded copies of its keys
-    (`spCopyXform`, beside the original in the drawing) as ordinary morphs with their own phase and varied numbers
-    (`morphEmitExpand`, in `applySceneMorphs`; a copy's carried distances refitted to the first's height), and
-    `drift` (`to` per cycle, a wobble, grown in and shrunk out at the ends) is the motion for rain, snow and confetti.
-    `embedFit` samples each motion over its cycle. The gallery's **chains, contact and emitters** shows them.
-    THE PHYSICS BY HAND (Tom: "1,2,3,4"): CONTACT THAT FOLLOWS: a run set onto shapes keeps `run.ontoLink = {raw,
-    targets}` (the motion as given, each `onto` a slot in `targets`, the shapes themselves) and works it out again
-    when a target's box changes (`morphOntoRefresh`, from `morphMotionXform`, at most every 150 ms; `morphMotionSet`
-    for a scene link); saved as `own.onto = {raw, at}` by the targets' places among the saved shapes, written into a
-    link as their numbers; a handle or amount set by hand on what the target decides unlinks it (a throw's arc does
-    not). COPIES FROM THE STRIP: **copies** and **scatter** clone the selected runs (`morphEmitRuns`: keys and shape
-    copied under the map, own settings through `morphSaveOwn`/`morphRestoreOwn`, phase and motion varied, parent,
-    facing and contact kept) across the view, one undo step; the scene link's emitter shares `morphRand`,
-    `morphVaryMotion`, `morphEmitMap`. CHAINS IN THE EDITOR: **then…** adds a step (a plain motion becomes a
-    chain), `#mrSteps` shows the steps by share (click one: `run._step`, which the amount box and the handles work
-    on, from where the steps before leave the shape, `morphMotionView`; drag a border for the shares), **× step**
-    takes one out. Opening a scene is one undo history (`resetHistory` at the end of `openScene`).
-    Then (Tom: "1,2,3") THE MOTION'S PATH: a selected morph with a motion shows its centre over a loop (path, spin,
-    motion and parent all in, `morphMotionCentreAt`, `morphMotionTrack`; hook `__box.motionTrack(n)`), dotted, a tick each
-    eighth. CHAINS ON THE TIMELINE: each row has its motion's steps as a band along its foot, on the shared clock
-    (`morphStepEdges`, `morphCycleShared`), and a chain's borders drag there too (`morphSetStepBorder`, which the
-    strip uses as well). SCENE-WIDE GRAVITY AND WIND (`state.morphGravity` 1–4, `state.morphWind` −1–1, the bar's
-    sliders, saved, the scene link's `gravity` and `wind`, the AI vocabulary): gravity has hops, falls and throws
-    over in 1/√g of their cycle and then rest, and swings round(√g) times (lighter than 1 would need more than a
-    loop); wind leans sways and swings its way and carries drifts. The snow and tree tiles have some wind.
-    EXPLAINERS (28 Oct 2026, Tom: "can you do explainers with this animation tool?", then "1-3"). DRAWING A LINE ON: a
-    clip's `show: 'draw'` (`morphDrawFactor`, `morphDrawFill`) leaves it unseen before its window, draws its outline from
-    its start over the window like a pen and brings its fill in over the last 30%, an outline it has not got of its own
-    (a filled shape with no stroke) drawn in its fill's colour and going as the fill comes (`drawShapeDrawingOn`, called
-    from the shape loop while `sp._draw` < 1); the SVG export writes it as `pathLength="1"` and a `stroke-dashoffset`
-    animation. Open exact lines now go live as lines (`run.open`, all keys open with the same corner count, no corner
-    pairing; `morphExactCubics(P, open)`, `cubicsToPathD(…, open)`), so an arrow drawn on is a one-key morph. A CAMERA:
-    `state.morphCamera = [{t, box: [x0, y0, x1, y1]}]` in page units (`morphCameraOk`, `morphCameraAt`: eased between
-    keys, centre straight, size by a constant ratio, held outside), followed while playing or scrubbing
-    (`morphCameraFollow`, `morphViewOfBox`; the timeline's **camera** switch, `state.morphCamFollow`), keyed from the
-    view as it is (**+ view**, `morphViewBox`), a row of keys on the timeline (drag, double-click to remove); the SVG
-    export animates its `viewBox`. STOPS: `state.morphStops` (`morphStopsOk`), red flags on the timeline's ruler (**+
-    stop**, drag, double-click); played through (an embed always, the editor when the timeline's **stops** is on,
-    `state.morphStopsOn`) the clock waits at each and at the loop's end (`morphStopCrossed` in `morphTick`), and
-    `morphStopGo(±1)` goes on or back; in an embed a click, space, → or Enter goes on and ← back. Both are saved
-    (`morphStateSave`, so undo too), new each time a first morph starts, in the scene link as `camera: [{t, fit:
-    [shape numbers] | 'all', pad} | {t, box: [x0, y0, x1, y1] in the svg's units, y down}]` (`sceneCameraIn`, through
-    `window.__sceneBoxOf`; the editor writes boxes) and `stops: [t…]`, in the AI vocabulary and in the `.tvfs`. The
-    gallery's **explainers** section has one (`explainer`). Hooks `__box.seek(t)`, `drawn()`, `viewBox()`, `explain()`.
-    The morph bar's **link** and **embed** (THE SCENE LINK, WRITTEN BY THE EDITOR, 26 Oct 2026, Tom: "1,2") copy
-    what is on the page as a scene link, or as an `<iframe>` of `?embed=1`: `sceneOfEditor` writes the drawing as SVG
-    in its order, a live morph's place taken by its keys as they are now (exact keys by `exactSvgD`, leaf ones fitted
-    with cubics, each key's own colour), then the paths ridden, and every run's own settings as its entry; all 22
-    gallery examples round-trip with identical settings. Not carried: corners paired by hand, and `parentAt`. A field
-    added to the scene link belongs in `sceneOfEditor` as well as in `applySceneMorphs` and `SYS_ANIM`.
-    The animated SVG export (EXPORTING A MORPH) takes as many frames as each morph's motion needs (doubling from the
-    panel's count to 240 until a straight blend between frames is within 0.2% of the scene), each morph its own count,
-    writes a morph that moves and turns as its outline plus a translate and rotate (a still: one outline), and writes
-    echoes and ribbons as the same animations begun earlier, in a frame of the drawing's own proportions (1000 on its
-    longer side); `__box.morphSvg(o)` returns the text. Opening one replaces the drawing, asking first when the tab
-    holds the user's; shapes the SVG gave no stroke get no editor outline. The editor's menu links it ("animations ↗").
-    A tile's **play** button (or its picture) plays it in place as its animated SVG (26 Oct 2026, Tom: "1,3"),
-    made by a hidden editor (`sceneSvg`, THE EMBED AS A CONVERTER, below) and kept in the browser's IndexedDB
-    (`tvf-scene-svg`, keyed by `SVG_VERSION` and the scene code), so only the first visit waits; raise `SVG_VERSION`
-    when the SVG export changes what it writes, or visitors keep old pictures. **live** plays it in the editor
-    itself: `draw.html?embed=1#scene=…` (THE EMBED in `draw.html`) shows the canvas alone, draws none of the editor's
-    own marks, and never reads or writes the saved scene (it shares it with every editor tab: a tile must never
-    replace someone's drawing). One tile plays at a time. Exact morphs between keys whose corners differ (MORPHS THAT KEEP THEIR CORNERS) bake roundings into arc edges
-    when any key has curve edges, try twice the corners when that matches much better (a square to a circle drawn from
-    0°), and keep a corner smooth in every pose where any key has it smooth (SMOOTH WHERE ANY KEY IS SMOOTH).
-    The page's **showpieces** (clockwork, orrery, murmuration, garden, kite, lava lamp, ripple, metamorphosis, pendulum wave)
-    come first, then the **sequences** (a house builds itself, a seed: morphs that play once, in turn, seen from when they
-    play), the **explainers** (a square drawn on, a camera to its corner, a stop after each beat; how leaves become a
-    curve, the scene of `explained.html`; the Tangent Bridge, the scene of `explained.html?x=bridge`, whose curves are the paper's formulas; in how leaves become a curve the leaves hold and move by `straight`: STRAIGHT FROM KEY TO KEY, each
-    stretch of a run's keys blended from its two keys only, so a key repeated holds; saved, in the scene link and the
-    AI vocabulary, read by `morphWeightsOf`), the **physical motions** (a bouncing ball, rubber and clay, a hanging lantern, a jelly, a rolling wheel, a toss into a basket, a tree in the wind, bubbles popping in, a hat on a ball), **chains, contact and emitters** (one thing after another, onto the table, snow, confetti), the first steps after. A new example is an entry in `EXAMPLES` (or `SHOWPIECES`, drawn with the
-    page's helpers: `around`, `smooth`, `circ4`, `gear`, `hsl`) and an id in a section of `SECTIONS`. It carries
-    tvf.js (every gallery does) and reads no leaves itself.
-  - **Vector text** (29 Oct 2026, Tom: "Tvf would be good for vector text effects and morphs", then "Proceed"): the
-    animated gallery's `text` section (`word-morph`, `word-draw`, `word-pop`, copied to `embedded.html` with the rest).
-    SUNSET into ZENITH is six exact morphs of three keys (word, word, back) turning a beat apart (`phase`); letters
-    without counters, since a hole rides one key and does not morph, so a letter with one would fade where the other
-    word has none. Their outlines are baked as plain paths (`GLYPH_WORDS`; `node tools/glyph-rings.mjs SUNSET ZENITH`
-    traces them with the editor's own `__sceneTextRings`, a hook added for it, and the repo served on :8792), so
-    the examples need no font. `word-draw` is ordinary SVG `<text>` traced when the scene opens, drawn on letter by
-    letter; `word-pop` six letters each with a `pop`; their `.tvfs` are in `player/examples/` (`npm run examples`). Not done: a morph of letters with different numbers of counters.
-  - `embedded` (26 Oct 2026, Tom: "could you do a gallery for embedded examples?", then "proceed with your
-    recommendations": a light player) is a chart page: the same examples, each tile its **animated
-    SVG**, made by one hidden editor (THE EMBED AS A CONVERTER in `draw.html`: an embed of the same origin answers
-    `{type: 'tvf-scene-svg', id, code}` with `{type, id, svg}`) and then playing on its own (SMIL, no script, the editor
-    gone once all are made; out of view, paused; the same `sceneSvg` and cache as animated.html, copied with the
-    examples); **copy svg** gives that file. **live** plays one tile in the editor
-    itself (an `<iframe>` of `draw.html?embed=1#scene=…`, THE EMBED) and **copy embed code** gives that `<iframe>`. In
-    an embed the editor frames the scene to fill its frame (`embedFit`, again on a resize). Its
-    examples are animated.html's, **copied unchanged** between `// >>> copied from animated.html, unchanged: EXAMPLES`
-    and `// <<< end of EXAMPLES` (from `// ── THE EXAMPLES` up to `// the settings as one line`): change them in
-    animated.html and copy them across, or `npm test` fails. Hook `window.__embedded`.
-  - `played` (27 Oct 2026, Tom: "lets put it to work with its own gallery help page.") is a chart page:
-    the TVF player at work and its help. Four cards on top say how to make a scene (the morph bar's tvfs), put it on
-    a page (two scripts and `<canvas data-tvfs>`, with that code running beside it), drive it (`TVFPlayer.play`'s
-    controller; `load`, `draw`, `poses`) and what a `.tvfs` holds; then a wide panel to open or drop your own and
-    scrub it; then every file in `player/examples/`, built from its `index.json`, each tile a canvas and a
-    controller of the player's, started when first in view and paused out of view (a click pauses one).
-    **copy embed code** gives the two scripts and a canvas at `https://reportbase.github.io/draw/`. It is the one
-    gallery page that loads scripts beside it (`../tvf-core.js`, `../player/tvf-player.js`), since that is what
-    it shows; it still carries `tvf.js` like the rest. Hook `window.__played`.
-  - `explained` (28 Oct 2026, Tom: "build the scrolling explainer page") is the last page (`body.page-explained`, not a
-    chart page): how leaves become a curve, as a scrolling explainer. Five beats of text down the left (`.beat`, each
-    with `data-from` and `data-to`, a stretch of the loop between two of the scene's stops) and the scene pinned on the
-    right (on a phone, on top): `player/examples/leaves.tvfs` (the animated gallery's `leaves`), played by the player
-    with its clock set by the reading (`seek(t)` on every scroll: how far the reading line, a little above the middle
-    of the window or just under the picture on a phone, is through the beat). A beat's **play this step** plays its
-    stretch and waits at its stop; scrolling again takes the clock back. It loads the player beside it, like
-    `played`, and carries `tvf.js`. Hook `window.__explained`. With `?src=<a .tvfs>` or `?preview=1` (the scene
-    the editor's beats panel left in localStorage, `tvf-explainer-preview`) it is that scene's explainer instead,
-    a beat for each stretch between its stops, titled and worded by the scene's `beats`.
-    `?x=<id>` opens one of its `EXPLAINERS` (a scene in `player/examples/`, its beats the scene's own, with a lede, a
-    title and its paper), and a switcher under the lede goes between them: `?x=bridge` is THE TANGENT BRIDGE (28 Oct
-    2026, Tom: "lets create a polished explainer"), the theorem of `papers/tb_classical.md` in six beats, the animated
-    gallery's `bridge` tile, every curve computed there from the paper's formulas (the readings at the odd multiples of
-    π/N, the kernel in its product form, their sum): a curve F, eight leaves, one kernel turned to each, the sum through
-    every leaf, the camera in on the widest gap, then sixteen and thirty-two leaves (each lattice the last one slid half
-    a step with new leaves between, since the leaves of 2N are not those of N), the sum equal to F at thirty-two. `?x=addresses` (29 Oct 2026, Tom: "lets tryout our new explainer in draw
-    repository for a topic in the essay folder") is ADDRESSES GIVEN, PAYLOADS MET, wander's third essay
-    (`papers/essays/03-addresses-given-payloads-met.md`) in six beats, the animated gallery's `addresses` tile: twelve
-    fingers laid evenly by a turn, painted by a stained-glass window, the same window twice as far and twice as large
-    painting them the same and another painting them otherwise, the fingers carried on to a line one length H away and
-    landing as the Cauchy (the half-Cauchy plotted from its formula beside it, half the landings below the corner), the
-    camera out to the last landing fifteen lengths up (median 1, mean 2.55 and climbing 0.44 a doubling), and payloads
-    arriving at the landings as bars and changing while no landing moves; its paper pill links the essay on GitHub. A
-    scene opens exact only under 150 shapes, its labels' glyphs counted (`LAZY_MIN_SHAPES` in `loadSvgExact`): past
-    it every outline comes in as leaves and the `.tvfs` grows fivefold. `?x=turned` is ONE LENGTH TURNED (essay 2, five
-    beats: an arm raised through a quarter turn, its tip riding the arc with echoes; lowered with its shares h and v and
-    v/h from ∞ through 1 to 0, the corner; the camera across to a chord, rays from both ends meeting on its circle and the
-    radius at twice the angle; back, the arc unrolled beside the arm, π/2 × 2/π = 1) and `?x=reading` READING AND
-    WRITING (essay 1, five beats: a room read from one corner, a half-size room on the same rays; the world scaled by
-    1.5, no ray moving; one step, the second rays crossing, the room 3.57 steps wide; six strides of 0.7 m writing 15.0 m;
-    scaled again, the steps unmoved and only the metres moving), both after Tom's "these explainers have a dual purpose,
-    to exercise the features of the tvf viewer and also to explain the essays": between them paths ridden with echoes,
-    draw-on and undraw, cut, pop, keys at chosen times, cubic Bézier eases, labels into labels, plotted curves morphing,
-    and the camera panning and zooming. TWO RULES FOUND MAKING THEM: a clip plays its keys from the first key's time to
-    the last's across its window, so a last key earlier than the window's end is stretched to it (give the last key again
-    at the window's end where the pose is to hold); a morph that must hold between keys needs `straight`, since the even
-    kernel over all its keys overshoots past a repeated key. A clip also holds its first pose before its window: a thing
-    that should not be seen until it starts needs an `in`. A SCENE'S QUIET FALLBACKS, SAID ALOUD (29 Oct 2026, Tom:
-    "proceed per your suggestions"): the editor now says these in the console and keeps them in `window.__sceneWarnings`
-    (`sceneWarn`, beside `loadSvgExact`): a drawing past `LAZY_MIN_SHAPES` opening as leaves, a clip whose last key's time
-    is under 0.98, and times or eases dropped as not well formed; the AI's scene vocabulary (`ANIM_MORPH_FIELDS`, the clip
-    line) says to give the last key again; the smoke test checks all three and that a well-made scene says nothing. The
-    Bridge's keyed clips end on a key at 0.99 since (they ended at 0.93 and 0.98, so its leaves arrived late).
-    `?x=nearfar` is NEAR AND FAR (essay 4: sixty-four fence posts on the number line, then the reader's lay at H = 8, in
-    proportion to the corner and a doubling to the same room past it, the in-place lay squeezing the far field between H
-    and 2H, H made 16 sliding every post along the same lay; each row of posts one open comb line, so 64 posts are one
-    shape a layout) and `?x=standpoints` MANY STANDPOINTS (essay 6: one eye's ray and its twins on it, a second eye and
-    the crossing, the target walked through the circle on the baseline with its error patch, the four crossings of the
-    rays turned ±ε, round at the corner and stretched elsewhere, opening into a ray past about 10 half-baselines at
-    ε = 0.1, then one counted baseline writing the distance in cm or AU). The new warning caught a fault in the second
-    while it was made: a walk whose first time equalled its second, its times dropped.
-    `?x=pictures` is WHERE IT SHOWS UP (1 Nov 2026, Tom: "lets do a top quality explainer with the best features, to test
-    high end explainiers."; essay 7 and wander's *Readers and Writers* §3), six beats across three panels laid side by side:
-    a lamp's two-sided beam spun half a turn in a clip with echoes, its twelve flashes popping onto the shore as it passes
-    (at α + β·tan θ), half within one lamp-distance, the Cauchy plotted under the shore; the shore drawn at c = 2 (marks,
-    corner rays and law as keys, the corner at arctan 2) and back; a globe's grid, two countries and a rhumb line opened
-    point for point into Mercator's chart (open lines morphing, a ship riding each path turned along it); twelve stars
-    crowding forward under aberration at η = 0.8 and 1.6, drawn larger by √D; then all three. Cubic Bézier eases, labels
-    into labels with a superscript, a camera of 12 keys. Found making it: labels into labels cannot repeat a key (each key
-    is its own clip, so A, B, A needs a second A); a clip's key times are relative to its own window; a clip holding its
-    first pose before its window needs an `in` (a path rider given `cut`). Beat
-    words take a blank line between paragraphs, `**bold**`, `*italic*` and `[a link](address)`, a link into
-    `papers.html` drawn as the paper pill.
-    WATCH IT THROUGH, A DIAL, AND A VIDEO (2 Nov 2026, Tom: "whats your take on these explainers. can be a web page or a
-    video.", then "proceed with your recomendations": the page stays the source, a video is an output of the scene).
-    **▶ watch it through** (`#watch`, or `?watch=1`) plays every beat in turn, holds `WATCH_HOLD` (1.8 s) at each stop,
-    then goes on (`ctl.next()`), scrolling the beat played into view; its own scrolling is guarded (`guard`), and a
-    wheel, a touch or a key stops it. An explainer may carry a `dial` (`{beat, name, min, max, step, t0, t1, read}`):
-    a range in that beat that pauses the clock and sets it within [t0, t1], its readout `read(value)`; the scroll leaves
-    it be until the reader scrolls 120 px on (`dialAt`), and it follows the clock through its stretch otherwise.
-    `?x=pictures` has one for c on the shore (its marks, corner rays and law given linear eases, so c moves evenly; the
-    count within β 6 of 12 at c = 1, 4 at c = 2). The pictures' beats were cut to one idea and two or three sentences
-    each. `npm run video -- <id | scene.tvfs> [--out f.mp4] [--size 1280x720] [--fps 30] [--hold 1.5] [--speed 1]`
-    (`tools/explainer-video.mjs`) writes any scene with stops as an MP4: the player draws each frame in headless
-    Chromium, the clock through each beat at the loop's pace and held at each stop, ffmpeg encodes it, each beat a
-    chapter titled by the scene's beats and its words a soft subtitle track (no narration). `pictures`: 57 s, 6
-    chapters, 1.3 MB, about 90 s to make. Hooks `__explained.watching()`, `startWatch`, `stopWatch`.
-    HIGHLIGHTS TIED TO THE WORDS (2 Nov 2026, Tom: "proceed"): a beat's `[words](#lit:6-17,19)` names morphs of the
-    scene by index (a-b a range); on the page it is a dotted phrase (`.lit`) that, pointed at, touched or focused,
-    takes the clock to the end of its beat (unless in the beat's last part already; the scroll leaves it there as the
-    dial's does) and calls the player's `ctl.highlight(indices)`: every other morph and the trails dimmed to `LIT_DIM`
-    (stills, the ground, left as they are), the lit poses ringed in gold (`drawScene`'s `lit`). The scene file is
-    unchanged by it; the video's subtitles keep the words. `?x=pictures` has thirteen (the flashes, the corner, the
-    law, the rhumb line, Greenland, the stars …): the indices are the morph list's order, so a morph added before them
-    in `animated.html` moves them. Hook `__explained.litOf`.
-    `?x=rates` is RATES, NOT ANGLES (2 Nov 2026, Tom: "what explainer do you want to do next", then "yes, build 14"; essay
-    14), six beats over three panels: a roof's pitch rising flat to twenty-four in twelve and settling at six (a `pitch`
-    dial on that linear stretch, its readout v/h beside the writer's angle), a point run over the circle on a chord with the
-    ray from one end and the radius from the middle while θ/sin θ and sin θ/θ are plotted, drawn on in step, toward π/2
-    and 2/π with keyed dots riding them; the corner at twelve in twelve; a ray swept by equal steps of 7.5° from the eave
-    popping marks on the post at 12·tan(kπ/24), the Cauchy as a speed; ½ ⊕ ⅓ = 1. Its morphs are added through a helper
-    that names them, so the beats' `#lit:` indices are worked from the names; a label's later glyphs are appended after
-    every other morph, so labels are never lit.
-    `?x=cauchymap` is THE CAUCHY MAP (5 Nov 2026; wander's essay 17, "heat given, paint met"), six beats over six panels:
-    cos⁴α and cos³α plotted (0.25 and 0.35 at 45°) beside a flat screen one thumb out; a fan at equal angles drawn on ray
-    by ray as one open line, its marks at s = tan θ crowding at the middle, the half-Cauchy along the screen; evenly spaced
-    tiles on the same screen and the rays to them, sec²θ against cos²θ = dθ/ds; five seeded random walkers drawn on to a
-    wall and twenty thousand walk-on-spheres landings (seeded, the exact law) binned under (1/π)·d/(d² + y²); a wall
-    pattern of three waves seen from d and 2d (each wave × e^(−d|k|), plotted curves as keys, the pattern kept faint
-    behind), the kernel widening, the amplitudes as bars; (1/π)·sech(ln(d/H)) with dots at one in two, four, eight and
-    two, four, eight thumbs, and the two maps multiplied over a field of directions and distance ratios. Its shapes and
-    morphs are put down through helpers that name them (`put`, `add`), so the camera's fits and the `#lit:` indices are
-    worked from names; it has its own seeded stream, so it takes nothing from the shared `rnd`.
-    `?x=plane` is ONE PLANE (7 Nov 2026, Tom: "proceed"; wander's essay 18, "Read and write on one plane"), six beats over
-    four panels: a map spread ×1.6 and twisted 30° under two fingers, the line between them before and after, k·e^(iα) and
-    ln k + iα; a writer's grid in the quadrant carried point by point onto Euler's plane, ln(z/H) = ln(d/H) + iθ (circles
-    about the eye upright lines, the 45° ray a level one); a thing turned then scaled and scaled then turned, landing in one
-    place; a point and its mirrors in the line at 45° and the line at one thumb, crossing at the hot spot; the same grid
-    laid by the thumb (g = ½ + gd(x)/π, plotted beside it, dots at one, two, four and eight thumbs); and a grid on Lambert's
-    equal-area map and on the stereographic map about the look, the look turned 60° (wander's FLC): area kept and bent,
-    angles kept and grown. To stay under LAZY_MIN_SHAPES each family of grid lines is one open line run back and forth
-    with its turns along the frame, so one morph carries the family; 93 morphs, one `steps` helper for every hold, move,
-    hold (its eases one per stretch, the stretch back round included, or the editor drops them).
-    `?x=special` is WHY THE PLANE IS SPECIAL (7 Nov 2026, Tom: "proceed"; wander's essay 13), six beats over six panels:
-    a standpoint z above a line, eleven directions 15° apart landing as the Cauchy, four walkers (walk-on-spheres, seeded)
-    and twenty thousand landings binned under it, then a new zero and thumb (x ↦ 0.6x + 1) carrying z, the fan and the law;
-    a reader at half the radius inside a circle, 24 equal turns landing unevenly, L against the uniform, 2L − U carried
-    onto the circle's harmonic measure, its mean the standpoint and the landings' centroid half way; the same three rules
-    at r = ½ on the sphere, one curve in the plane (peak 3) carried to three (harmonic measure 6, 2L − U 7, the Möbius law
-    9 times the uniform); two wireframe books given quarter turns about the upright and toward you in the two orders,
-    seven poses each, ending 120° apart; an arrow carried round the octant's loop as straight as the sphere allows,
-    thirteen poses, home turned 90°; a flat wall where the turn and the walker are one curve, a ball where they part
-    (0.482 against 0.359 within 45°), and the wedge's corners and near-field third. A scene keeps no stroke widths (every
-    morph's line is 2), so a curve that another lies on is drawn as a pale filled area under it, not a wider line.
-    `?x=parties` is THREE PARTIES (7 Nov 2026, Tom: "proceed"; wander's essay 5), six beats over six panels: home's three
-    edges h, v, v₂ seen from outside and the octant of the sphere a direction crosses, carried point by point (each over
-    its sum) into the flat triangle h + v + v₂ = 1; the triangle face on, the triple corner at its centre and a true point
-    (2/9, 2/3, 1/9) off it; its six chambers, the pairs' corners as medians, the near field (h largest) a third; the octant
-    on Lambert's equal-area map, height lines even in altitude (crowding upward, v ≤ h 0.343) carried to even in height
-    (½), the three corner curves drawn; rings holding a sixth of the hemisphere each on a flat screen (stretching out of
-    frame) carried to the equal-area screen (packed under the rim at √2), cos³α beside it with half at 37.5°; the near
-    field 1/(n + 1) as bars, and a circle in a square grown from 0.7 to 1.3, its sixteen landings keeping their
-    directions. 47 morphs. A scene draws its morphs in the order their first keys stand in its svg (not the order the
-    morphs are added), so what must lie under (the chambers) is put down first, whatever its time.
-    `?x=array` is WHAT AN ARRAY IS (7 Nov 2026, Tom: "1,2"; wander's essay 12), six beats over five panels: `int a[10]`'s
-    ten slots, the writer's, each a share i/10 of the way and moving when the array grows; a reader two slots out from
-    its foot, equal steps of turn landing thick near it and thin far along, half the quarter turn within two slots; where
-    the slots end the paint stops at 0.874 of the turn (0.937 at twenty), the horizon where no length could be found; ten
-    slots laid on the quarter turn at 9° steps by a writer, their boundaries crossing a post one length away at the
-    half-Cauchy's quantiles (0.158 … 6.314, the middle at the corner); the reader in code, K = 32 slots of its own painted
-    by the first element met, a world of 100 stopping its paint at slot 29; and `a[i]` read twice, the ray from home at θ
-    and the radius from the centre at 2θ meeting on the circle (III.20). 85 morphs.
-    `?x=kn` is K, NOT N (7 Nov 2026, Tom: "1,2"; wander's essay 16), six beats over six panels: memory's cells with an
-    address pointing at one, a write raising its value and moving no address, then a reallocation moving every cell and
-    leaving the pointer on nothing; a reader turning in eight equal steps over a line, its places' boundaries at its thumb
-    times tan(kπ/16), the world's things doubled from 16 to 32 and every new one landing in the last place; a direction
-    kept as a pair crossing a post (v/h) and a lintel (h/v), the horizon landing on neither chart's far end; the corner as
-    a register switch, x below a and 1/x above, bounded by 1 only at a = 1; a running median of v/h settling at 1 while
-    the mean wanders (a seeded mulberry32 stream, its checkpoints held in the scene); and the cull, sixteen places at
-    H·tan(kπ/32) sliding a decade as the thumb grows tenfold, half inside it at every H. 53 morphs.
-    `?x=writer` is WHAT ONLY A WRITER HOLDS (7 Nov 2026, Tom: "1,2,3,4"; wander's essay 15), six beats over six panels:
-    Bernoulli's bank, (1 + 1/n)ⁿ against log₁₀ n climbing toward e (2, 2.25, monthly 2.6130, daily 2.7146, every minute
-    2.718279), every stage a fraction; Machin's rays on a post, 1/5 composed four times by tangent addition (5/12, 37/55,
-    120/119) less 1/239 landing exactly on the corner, Madhava's partial sums zigzagging about π/4; a radius turned once
-    round coming home against a square growing 20 → 320 and never coming back; (1 + iπ/n)ⁿ for n = 1 … 64 morphing toward
-    −1; ratios met (1, 3/2, 8/5, 2) with tan 1 and one in e among them, made by none; and the doubles near π, Math.PI
-    = 884279719003555/2⁴⁸ with π 0.276 of the gap past it. 64 morphs.
-    `?x=free` is WHAT THE GEOMETRY GIVES FREE (7 Nov 2026, Tom: "1,2,3,4"; wander's essay 8), six beats: a scrollbar's thumb
-    shrinking with its list beside a quarter-turn dial pushed evenly in ζ and drawn at arctan(sinh ζ) (a thousand records in
-    7.6/r, 2⁵³ in 37.4/r); sixteen stored depth steps three ways on d/n from 1 to 10⁴ (the standard buffer half within 2n,
-    log depth even in ratio, the turn about a focus at 100n finest there); a cube face's equal pixels morphing to the grid
-    laid by turn, each cell's share 1/(1 + u²)^{3/2} (1/5.2 at a corner) against 1/√(1 + u²) (√2); Math.floor's cell for
-    0.8125 = 0.1101₂ and the binary tiling above it, the soft cut (half kept 3.09 depths coarser, 90% to 10% over 5.5)
-    against the floor's wall (DYH run 2); 24 seeded keys restacked by hash % 4 → % 5 (21 move) against a hash's circle
-    (a fifth machine takes 4); and the Kalman variances μ, 1/μ about √(qr) (1.618, 1.133, 4.236). 87 morphs. A key's colour
-    does not change between two exact keys, so the moved keys are shapes of their own faded in.
-    `?x=order` is HOLDING IN ORDER (7 Nov 2026, Tom: "1,2,3,4"; wander's essay 11), six beats: sixteen arrivals through an
-    unknown gain, the gain doubled and each arrival over the last unmoved; one slot, [hold : arrival] a ray crossing a post
-    one hold out, resting at the corner, the register's steps odd then even; a seeded walk of 80 looks read by the unit
-    rule, 13 moves and 67 holds; 2,000 arrivals of 10·tan((π/2)U), the hold settling near 10 while the running mean wanders
-    past 40; a tide of two sines made for the picture (not NOAA's record), the unit rule's turns at its highs and lows and
-    a trend rule's corners at its inflections; the tide in feet from another datum and cubed, the turns unmoved, read every
-    look and every third. The essay's own figures (1,622/378, 9.25/16.09, 3.01%/60.58%) are quoted in the words only. 43
-    morphs.
-    `?x=paradox` is PARADOXES AS VANTAGES (7 Nov 2026, Tom: "1,2,3,4"; wander's essay 9), six beats: two people a field
-    apart each reading the other against a hand at arm's length (1/8 and 1/2, both under 1 on one line); the exchange,
-    √(ratio) ½ and √(product) ¼; Simpson's paradox on Charig et al. 1986's stones (A ahead in each size, behind pooled,
-    ahead again once both take one mix); the in-place lay's stretches at H·(2 − 2⁻ᵏ), all inside 2H, spread to equal room
-    and running on; leading digits even (11.1%) against log₁₀(1 + 1/d) (30.1% … 4.6%) and a ruler going logarithmic; the
-    field scaled by 1.8, the readings unmoved and the metres moving. 102 morphs. The essay's "more points, less seen" entry
-    was left out: its formula counts N/2 for small N where the essay says every point is seen apart.
-    `?x=breath` is THREE LOOPS (9 Nov 2026; wander's plan BRL, *Reads and Writes* §1 "A loop of a read and a write" and
-    essay 18 §9), five beats: on Euler's plane a point up by a turn α, across by a scaling of the thumb λ = ln 4, down,
-    back, home, and another across first meeting it at the far corner at the same moment; in space two books turned 40°
-    about the upright and scaled by 1.5, one with both undone (home), one with the scaling left undone (home in direction,
-    larger); two reads about x and y, 40° each, a book coming home turned Ω = 26.87° (quaternion commutator, checked against
-    cos(Ω/2) = 1 − 2·sin²(α/2)·sin²(β/2)·sin²φ) and four more loops each the same Ω further, its arrow's tip on one ring;
-    a ring carried through M = S⁻¹R⁻¹SR at c = 2, α = 40° (the four steps, then M², M³, M⁴, every ellipse from its 2 × 2
-    matrix, 1.59 × 0.63 after one, 6.26 × 0.16 after four, ζ = 0.4507); and M⁴ at c = 1.7, 1.4, 1.2, 1, the dot on
-    ζ against ln c reaching nothing and the ring home whole. 40 morphs; book poses by Rodrigues, a third view from higher up.
-    AN EXPLAINER'S BEATS in `draw.html` (28 Oct 2026, Tom: "1,2,3,4"): the timeline's **beats…** opens
-    `#morphBeats`, a row a stretch between stops, each with a title and words (`state.morphBeats`, kept one more
-    than the stops by `morphBeatsOk`; saved, undone, in the scene link and the `.tvfs` as `beats`, in the AI
-    vocabulary), ▶ to stand at its start, **frame** to key the camera to the view at its end, × to drop its stop;
-    **+ beat here** splits the beat at the clock (`morphAddStop`), **preview** opens the explainer page on it.
-    Hook `__box.beats()`.
-    A SHAPE FROM A FORMULA (28 Oct 2026, Tom: "1,2,3"): the toolbar's **ƒ** (`#bPlot`, `#plotPop`) plots a program of
-    a small language (`plotCompile`, read here, never eval): definitions a line, functions of your own (`F(t) = …`),
-    `sum(j, a, b, …)`, juxtaposition as multiplication (`16cos(3t)`, `cos 2t`), π, τ, e and the usual functions; what is
-    drawn is `r` (polar, y up, closed over a whole turn), `x` and `y` (a curve in t) or `y` (a graph in x), sampled
-    (`plotSample`; a 0/0 hole filled by its limit) and laid as an exact shape with Catmull–Rom cubic edges
-    (`plotCtrl`). The program, its range and the map from its units to the page ride on the shape (`sp.plot`: undo,
-    autosave), so the panel opened on a plot updates it in place (`plotRelay`, finding the map again from where the
-    shape is now). A scene's svg may carry one: any element with `data-plot` (and `data-t0`, `data-t1`, `data-n`,
-    `data-cx`, `data-cy`, `data-scale`) is drawn by it (`scenePlotOut`, `scenePlotsIn`). The `.tvfs` still holds the
-    geometry, not the formula. Hook `window.__plot` (`compile`, `sample`, `add`, `relay`, `of`).
-    IN AND OUT, EACH ITS OWN (28 Oct 2026): a clip's `in: {kind: 'fade' | 'draw' | 'cut', len}` and `out: {kind:
-    'fade' | 'undraw' | 'cut', len}`, lengths shares of the loop; with either, `show` is not read, and the five shows
-    are the same thing named (`morphClipIO`, which `morphShowFactor` and `morphDrawFactor` read; `morphClipNorm`,
-    `morphClipOut` keep and write it). The timeline's shows select adds drawn on then fades, drawn on then taken back,
-    and quick fades (`MORPH_CLIP_PRESETS`). In the scene link, the `.tvfs`, the SVG export and the AI vocabulary.
-    LABELS INTO LABELS AND SIMPLE MATHS (28 Oct 2026): a morph whose keys are different labels crossfades from one to
-    the next at each key's time (its `times`, or evenly over its clip), each part of each label a clip of its own
-    (`sceneLabelMorphs`); a label's `x_1`, `x^2`, `x_{max}`, `e^{iπ}` are set lower or higher at 0.7 of the size
-    (`sceneTextRuns`, each run traced by `sceneTextRun`). The Tangent Bridge scene uses all three.
-    TEXT IN A SCENE (28 Oct 2026): a scene link's (or a made scene's) `<text>` is traced into glyph rings
-    (`sceneTextOut`, `sceneTextRings`) and comes in as exact shapes, one per outer ring with its holes, yet counts
-    as one shape number (`sceneLabelsIn`: its other parts go after the last shape); a morph on it is made once a
-    part, a draw-on clip staggered across them, a camera fit taking them all (`sceneLabelMorphs`). HOLES THAT
-    RIDE A STILL: a one-key exact morph keeps its key's holes (`run.holes`), carried to each pose by the affine
-    map that best takes the key's corners to the pose's (`morphAffineOf`, `morphHolesAt`); saved, in the `.tvfs`
-    (`holes`), drawn by the player, and written in the SVG export as keyhole bridges under `fill-rule="evenodd"`.
-  - `index.html`'s cards and thumbnails are written by hand. Adding, renaming or reordering
-    a page means updating it, and the "N of 31" crumbs and "next" links in each page.
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE
@@ -671,14 +147,16 @@ publishes.
 The 3d repo copies three blocks **verbatim**:
 1. the curve library, from `tvf-core.js` (from its first line to the end of the
    `const tvf = (function(){ … })();` IIFE)
-2. from `draw.html`, the SVG importer (from `NON_RENDERING_CONTAINERS` through `smoothDrawPts`,
-   including `parseSvgToPolyline`)
+2. the SVG importer, from `svg-import.js` (from `NON_RENDERING_CONTAINERS` through `smoothDrawPts`,
+   including `parseSvgToPolyline`; in `draw.html` until 12 Nov 2026, and moved with every line
+   and its indent unchanged, so 3d's copy is still this text)
 3. from `draw.html`, `parseTvfText`, the `.tvf` reader
 
 3d runs a weekly "Draw sync" check that fails once these drift from draw's
-`main` (it reads both `draw.html` and `tvf-core.js`). After changing any of them here, copy the new version into 3d.html
-between its `// >>> copied from draw.html` markers (a PR in the 3d repo), or tell
-the owner it needs doing.
+`main`. It was written to read `draw.html` and `tvf-core.js`: since the importer moved it must
+read `svg-import.js` for block 2 (a change to 3d's check, not to its copy). After changing any
+of the blocks here, copy the new version into 3d.html between its `// >>> copied from draw.html`
+markers (a PR in the 3d repo), or tell the owner it needs doing.
 
 The games repo copies two of them **verbatim** into `games.html` (since Oct 10, for mini golf's
 moving paths, which are closed `.tvf` curves): the curve library (block 1, as `tvf-core`) and
