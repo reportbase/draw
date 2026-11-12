@@ -6900,6 +6900,10 @@
          works opened from disk; its functions are globals this page's script calls. 3d copies it: see its header. -->
     <script src="svg-import.js"></script>
 
+    <!-- THE .tvf READER, in its own file (12 Nov 2026): parseTvfText, cut from this page's script unchanged.
+         A classic script like the two beside it. 3d and games copy it: see its header. -->
+    <script src="tvf-reader.js"></script>
+
     <!-- THE CURVE LIBRARY, in its own file. The kernel, the leaf layout, Shape, the
          reconstruction and the spectral routines (§21, §22) are tvf-core.js, beside this page:
          read it for the numerics, this page for the editor. A classic script, so it works
@@ -66045,143 +66049,11 @@
         }
 
         // ────────────────────────────────────────────────────────────────────
-        // TVF LOAD
+        // TVF LOAD: in tvf-reader.js (12 Nov 2026)
         // ────────────────────────────────────────────────────────────────────
-        //
-        // Parse a TVF curve file: header `TVF W H C`, then #meta lines, then
-        // (H × C) data rows each of the form `<rung> <coeff_0> ... <coeff_{W-1}>`.
-        //
-        // We accept two shapes:
-        //   - `TVF N 1 2`  → single closed curve, N leaves, 2 channels (x, y).
-        //                    Each file = one subpath. This is the form the demo
-        //                    currently writes.
-        //   - `TVF N S 2`  → legacy multi-row form (deprecated but still readable).
-        //                    Each row = one independent subpath, S subpaths total.
-        //                    Treated as `S × (TVF N 1 2)` for everything downstream.
-        //
-        // Anything else (surface files, different channel counts) is rejected
-        // with a useful error rather than guessed at.
-        function parseTvfText(text) {
-            // Walk the file reading TVF blocks until exhausted. A "block" is one
-            // `TVF W H C` header plus its #meta tags plus its H × C data rows.
-            // Three cases are handled by this single loop:
-            //
-            //   - One block, H=1: a single curve (the demo's current save format).
-            //   - One block, H>1: a legacy multi-row bundle (TVF N S 2).
-            //   - Multiple blocks: concatenated single-curve files (e.g. produced
-            //     by `cat *.tvf > combined.tvf` from a multi-subpath save).
-            //
-            // Each row × channel pair becomes one subpath in the output array.
-            // Per §2.4 row order: all channels of row 0 first, then row 1, etc.
-            const lines = text.split(/\r?\n/);
-            let i = 0;
-            // Skip leading blanks
-            while (i < lines.length && !lines[i].trim())
-                i++;
-            if (i >= lines.length)
-                throw new Error('empty file');
-
-            const subpaths = [];
-            const allMeta = {};
-            let blockCount = 0;
-
-            while (i < lines.length) {
-                // Skip blank lines AND comments between blocks. Comments matter: every multi-shape
-                // document this app produces — the clipboard copy, and now the save — separates its
-                // blocks with a `# --- next subpath ---` marker, and the header check below treats
-                // anything that is not a header as junk and STOPS. So a 120-shape file loaded as one
-                // shape and the other 119 were silently dropped. #meta lines are not skipped here;
-                // they belong to a block and are read after its header.
-                while (i < lines.length && (!lines[i].trim() || lines[i].trim().startsWith('#')))
-                    i++;
-                if (i >= lines.length)
-                    break;
-
-                // Expect a header
-                const headerMatch = lines[i].trim().match(/^TVF\s+(\d+)\s+(\d+)\s+(\d+)\s*$/);
-                if (!headerMatch) {
-                    if (blockCount === 0) {
-                        throw new Error('not a TVF file (expected "TVF W H C" header)');
-                    }
-                    // After the first block, anything else is allowed to be junk; stop.
-                    break;
-                }
-                i++;
-                const W = +headerMatch[1],
-                    H = +headerMatch[2],
-                    C = +headerMatch[3];
-                if (C !== 2) {
-                    throw new Error(`block ${blockCount + 1}: unsupported channel count ${C} (curves only)`);
-                }
-                if (W < 2 || H < 1) {
-                    throw new Error(`block ${blockCount + 1}: bad dimensions ${W}×${H}`);
-                }
-
-                // Collect this block's #meta tags
-                const blockMeta = {};
-                while (i < lines.length && lines[i].trim().startsWith('#meta')) {
-                    const tag = lines[i].trim().slice(5).trim();
-                    const colon = tag.indexOf(':');
-                    if (colon > 0) {
-                        const k = tag.slice(0, colon).trim(),
-                            v = tag.slice(colon + 1).trim();
-                        allMeta[k] = v;
-                        blockMeta[k] = v;
-                    }
-                    i++;
-                }
-                // Optional cosmetic fill for this block's subpaths (readers may ignore).
-                let blockFill = null;
-                if (blockMeta.fill) {
-                    blockFill = {
-                        color: blockMeta.fill,
-                        opacity: blockMeta.fillOpacity != null ? +blockMeta.fillOpacity : 1
-                    };
-                }
-                const blockStroke = blockMeta.stroke || null;
-                const blockName = blockMeta.name || null;
-                const blockNote = blockMeta.note || null;
-
-                // Read H rows × C channels = H*C data lines.
-                for (let row = 0; row < H; row++) {
-                    const channels = [];
-                    for (let ch = 0; ch < C; ch++) {
-                        while (i < lines.length && !lines[i].trim())
-                            i++;
-                        if (i >= lines.length) {
-                            throw new Error(`block ${blockCount + 1}: unexpected end of file at row ${row} channel ${ch}`);
-                        }
-                        const parts = lines[i++].trim().split(/\s+/);
-                        if (parts.length < W + 1) {
-                            throw new Error(`block ${blockCount + 1} row ${row} channel ${ch}: `
-                            + `expected ${W} coefficients plus rung, got ${parts.length - 1}`);
-                        }
-                        // parts[0] is the rung (provenance); reconstruction uses raw values.
-                        const vals = new Float64Array(W);
-                        for (let k = 0; k < W; k++)
-                            vals[k] = +parts[k + 1];
-                        channels.push(vals);
-                    }
-                    subpaths.push({
-                        leafX: channels[0],
-                        leafY: channels[1],
-                        fill: blockFill,
-                        stroke: blockStroke,
-                        gname: blockName,
-                        note: blockNote
-                    });
-                }
-                blockCount++;
-            }
-
-            if (subpaths.length === 0)
-                throw new Error('no signals found in file');
-            return {
-                subpaths,
-                meta: allMeta,
-                blockCount
-            };
-        }
+        // parseTvfText (a .tvf file's text in, its curves' leaves out) stood here. It reads nothing but its text,
+        // and 3d and games copy it verbatim, so it is a file of its own beside this page, loaded by a <script src>
+        // before this script; its name is a global, called here as it always was.
 
         // Load one or more .tvf files. Each file produces one or more subpaths
         // (one for the single-curve format, S for the legacy multi-row format).

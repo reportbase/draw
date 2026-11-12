@@ -23,8 +23,8 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
 
 ## Files
 - `draw.html`: **the editor and the file to edit.** About 74,000 lines, one page with no
-  build step. It loads two files beside it, and the labs' files in `labs/` only when one is
-  asked for. All three are classic scripts loaded by `<script src>`, so the page still works
+  build step. It loads three files beside it, and the labs' files in `labs/` only when one is
+  asked for. All are classic scripts loaded by `<script src>`, so the page still works
   opened from disk.
 - `tvf-core.js`: **the curve library**, the editor's numerics: the kernel, the leaf layout,
   `Shape`, reconstruction and the spectral routines (§21 transform, §22 Fejér). It declares
@@ -36,6 +36,11 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   it declares its names (and `REF_SAMPLES`, which the editor reads too) as globals, and reads
   `tvf` from the library when called. The exact importer (`parseSvgExact`, `loadSvgExact`) is
   the editor's own and stays in the page. `npm test` fails if `draw.html` grows its own copy.
+- `tvf-reader.js`: **the `.tvf` reader** (12 Nov 2026): `parseTvfText`, a curve file's text in, its
+  curves' leaves out, cut from the editor unchanged and at its indent. It reads only its text, so it
+  runs under Node too (it exports `parseTvfText`). What the editor does with the curves
+  (`tvfFitToWorld`, the exact corners a file carries) stays in the page. `npm test` fails if
+  `draw.html` grows its own copy.
 - `index.html`: forwards `/draw/` to `draw.html`, keeping `?lab=` and `?bucket=`.
 - `labs/` and `labs.html`: every lab group in the drawer is a file in `labs/`, loaded on the
   first press of its button (`LAB_FILES` in the editor maps a lab's data-code to its file) and
@@ -151,17 +156,18 @@ The 3d repo copies three blocks **verbatim**:
 2. the SVG importer, from `svg-import.js` (from `NON_RENDERING_CONTAINERS` through `smoothDrawPts`,
    including `parseSvgToPolyline`; in `draw.html` until 12 Nov 2026, and moved with every line
    and its indent unchanged, so 3d's copy is still this text)
-3. from `draw.html`, `parseTvfText`, the `.tvf` reader
+3. the `.tvf` reader, from `tvf-reader.js` (from its `TVF LOAD` heading through the end of
+   `parseTvfText`; in `draw.html` until 12 Nov 2026, moved the same way)
 
-3d runs a weekly "Draw sync" check that fails once these drift from draw's
-`main`. It was written to read `draw.html` and `tvf-core.js`: since the importer moved it must
-read `svg-import.js` for block 2 (a change to 3d's check, not to its copy). After changing any
-of the blocks here, copy the new version into 3d.html between its `// >>> copied from draw.html`
-markers (a PR in the 3d repo), or tell the owner it needs doing.
+Nothing is copied out of `draw.html` itself any more: each block is a file, and its lines kept
+their indent, so a copy is still that file's text. 3d runs a weekly "Draw sync" check that fails
+once a block drifts from draw's `main`; it reads `draw.html`, `tvf-core.js`, `svg-import.js` and
+`tvf-reader.js`. After changing any of the blocks here, copy the new version into 3d.html between
+its `// >>> copied from draw.html` markers (a PR in the 3d repo), or tell the owner it needs doing.
 
 The games repo copies two of them **verbatim** into `games.html` (since Oct 10, for mini golf's
 moving paths, which are closed `.tvf` curves): the curve library (block 1, as `tvf-core`) and
-`parseTvfText` (block 3, as `tvf-reader`), between its `// >>> copied from draw.html, unchanged:
+the `.tvf` reader (block 3, as `tvf-reader`), between its `// >>> copied from draw.html, unchanged:
 NAME` and `// <<< end of NAME` markers, inside its `TVF_CURVE` wrapper. Games has its own weekly
 "Draw sync" check (`tests/draw-sync.mjs`, also run on every games PR) that fails once these drift
 from draw's `main`. After changing either here, copy it into games.html as well (a PR in the games
@@ -191,7 +197,7 @@ compatibly.
   | `motion` | physical motions, eases, chains, contact, emitters, the scene link written out, explainers in the editor, plots, labels |
   | `gallery` | every gallery page walked, the single-page checks, the copies, the front page, the papers and links into them |
   | `player` | the embedded gallery, the player, the played gallery, interactive scenes, Lottie, the scrolling explainer |
-  | `labs` | the labs, `labs.html`, and the files that stand alone or must be up to date (`tvf-core.js`, `svg-import.js`, `npm run sync`) |
+  | `labs` | the labs, `labs.html`, and the files that stand alone or must be up to date (`tvf-core.js`, `svg-import.js`, `tvf-reader.js`, `npm run sync`) |
 
   A part fails on any uncaught error in a page or a failed check. `tests/harness.mjs` is what they
   share (the server, the browser, `step`, how a run ends). `JOBS=3 npm test` runs three parts at a
