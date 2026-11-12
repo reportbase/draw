@@ -22,8 +22,8 @@ When a change adds something a later session would need to know, put the rule he
 line and the account of it in the `docs/` file, dated, in the voice those have.
 
 ## Files
-- `draw.html`: **the editor and the file to edit.** About 70,000 lines, one page with no
-  build step. It loads three library files beside it and four of its own blocks from `parts/`,
+- `draw.html`: **the editor and the file to edit.** About 68,000 lines, one page with no
+  build step. It loads three library files beside it and twelve of its own blocks from `parts/`,
   and the labs' files in `labs/` only when one is asked for. All are classic scripts loaded by
   `<script src>`, so the page still works opened from disk.
 - `tvf-core.js`: **the curve library**, the editor's numerics: the kernel, the leaf layout,
@@ -43,7 +43,10 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   `draw.html` grows its own copy.
 - `parts/`: **blocks of the editor's own script** (12 Nov 2026), each cut out line for line: `ai-panel.js`
   (the AI popover, `apiCall`, the prompts and `ANIM_MORPH_FIELDS`, `animApply`), `shapes-panel.js`,
-  `bucket-picker.js` and `scene-link.js` (`openScene`, `applySceneMorphs`, `sceneOfEditor`). A file hands
+  `bucket-picker.js`, `scene-link.js` (`openScene`, `applySceneMorphs`, `sceneOfEditor`), `timeline.js` (the
+  morph bar's timeline), `morph-strip.js` (a morph's own settings), `appearance-panel.js`, `text-panel.js`,
+  `bucket-panel.js`, `checksum-panel.js`, `instruments.js` (the edit view's strips) and `shape-link.js`
+  (`#tvf=`). A file hands
   its code over as `(window.TVF_PARTS = …)[name] = function () { … }`; the page names it in a
   `<script src>` above its own script and runs it where the block stood (`partRun(name)`, PARTS OF THE
   EDITOR IN parts/), by a direct `eval` inside the editor's closure, so the code reads every editor name
@@ -156,7 +159,7 @@ them. The editor says a scene's quiet fallbacks aloud (`window.__sceneWarnings`)
 
 ## Links between the pages
 - `draw.html#tvf=<payload>` opens curves in the editor; the format is documented at "THE
-  SHAPE DEEP LINK" in `draw.html`. The gallery edit buttons write it, and so does the
+  SHAPE DEEP LINK" in `draw.html` (its code is `parts/shape-link.js`). The gallery edit buttons write it, and so does the
   inspector; the editor's "inspect the selection" writes the same payload to
   `gallery/inspect.html#tvf=…`. New fields go after the curves, so older readers ignore them.
 - `gallery/<page>.html#tile=<slug>&<dial>=<value>` opens a tile at given settings.

@@ -47,7 +47,7 @@ The gallery's *played* page shows the rest (`TVFPlayer.play`, states, touch, Lot
 | `tvf-core.js` | The curve library (the kernel, leaves, reconstruction, spectral routines). The editor loads it; it also runs under Node. |
 | `svg-import.js` | The SVG importer. The editor loads it. |
 | `tvf-reader.js` | The `.tvf` reader. The editor loads it; it also runs under Node. |
-| `parts/` | Four blocks of the editor's own script (the AI panel, the shapes panel, the bucket picker, the scene link), which the page loads and runs in place. |
+| `parts/` | Twelve blocks of the editor's own script (the AI panel, the shapes panel, the bucket picker, the scene link, the timeline, the morph strip, …), which the page loads and runs in place. |
 | `labs/` | The labs, one file a group, loaded when a lab is first run. `labs.html` lists them (generated). |
 | `player/` | The player (`tvf-player.js`, generated from the editor's morph engine and `runtime.js`), the Lottie reader, example scenes. |
 | `gallery/` | The teaching pages, the playground, the inspector, `tvf.js` (the library as an ES module) and their shared `style.css`. |
