@@ -6,15 +6,16 @@
 //   npm run test:quick               QUICK=1: the everyday run (two gallery pages walked, no labs.html regeneration)
 //   BASE_URL=http://host/ npm test   test an already-running server instead of serving the repo
 //
-// The test was one file until 12 Nov 2026. Its checks are in the seven part files beside this one, unchanged,
-// each run by `node tests/<part>.mjs` as a process of its own, with its own server and browser (tests/harness.mjs),
+// The test was one file until 12 Nov 2026. Its checks are in the part files beside this one, unchanged, each run
+// by `node tests/<part>.mjs` as a process of its own: `unit` in Node alone (the library files, a second), the other
+// seven each with its own server and browser (tests/harness.mjs),
 // so a failure is rerun alone and CI runs the parts side by side (.github/workflows/smoke.yml lists them too:
 // a part added here is added there). A part fails if a page throws an uncaught error or a check does.
 
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-export const PARTS = ['editor', 'exact', 'morph', 'motion', 'gallery', 'player', 'labs'];
+export const PARTS = ['unit', 'editor', 'exact', 'morph', 'motion', 'gallery', 'player', 'labs'];
 
 const asked = process.argv.slice(2);
 const unknown = asked.filter(a => !PARTS.includes(a));
