@@ -159,6 +159,28 @@ await step('tvf-reader.js stands alone', async () => {
   if (html.includes('function parseTvfText(')) throw new Error('draw.html carries its own parseTvfText again');
 });
 
+/* Four blocks of the editor's script are files in parts/ (12 Nov 2026), which the page names above its own
+   script and runs where each stood (partRun). Each must parse, hand over one function under its name, be named
+   by a script tag before the page's own script and run exactly once; and the page must not carry a block again. */
+await step('parts/ are handed over and run in place', async () => {
+  const vm = await import('node:vm');
+  const html = await readFile(join(ROOT, 'draw.html'), 'utf8');
+  const own = html.indexOf('<script>\n    \'use strict\';');
+  if (own < 0) throw new Error('the page\'s own script was not found');
+  for (const name of ['ai-panel', 'shapes-panel', 'bucket-picker', 'scene-link']) {
+    const src = await readFile(join(ROOT, 'parts', name + '.js'), 'utf8');
+    const ctx = { window: {} };
+    vm.createContext(ctx);
+    vm.runInContext(src, ctx, { filename: 'parts/' + name + '.js' });
+    if (typeof ctx.window.TVF_PARTS[name] !== 'function' || Object.keys(ctx.window.TVF_PARTS).length !== 1) throw new Error(`parts/${name}.js hands over no function of its name`);
+    const tag = html.indexOf(`<script src="parts/${name}.js"></script>`);
+    if (tag < 0 || tag > own) throw new Error(`draw.html does not name parts/${name}.js before its own script`);
+    if (html.split(`partRun('${name}');`).length !== 2) throw new Error(`draw.html does not run parts/${name}.js exactly once`);
+  }
+  for (const first of ["const pop = $('aiPop'),", "const pop = $('shapePop'),", "const BUCKET_API = ", 'function applySceneMorphs('])
+    if (html.includes(first)) throw new Error('draw.html carries a block of parts/ again: ' + first);
+});
+
 /* Every copy is what npm run sync would write: the gallery's library, bundle and tile code from the catalogue,
    the embedded page's examples from the animated one, the three pages' depth code from the editor. The steps
    above compare the copies with each other; this one compares each with its source, by the tool that writes it. */
