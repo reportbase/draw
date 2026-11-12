@@ -7,12 +7,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  smoke:
+  # One job a part of the test (tests/smoke.mjs lists them: a part added there is added here), side by side, so
+  # the run takes as long as its longest part and a failure names the part to rerun.
+  part:
+    name: ${{ matrix.part }}
     # Pinned (12 Nov 2026): ubuntu-latest became 26.04, which Playwright 1.56.1 has no Chromium build for
     # ("Playwright does not support chromium on ubuntu26.04-x64"), so the job failed before any test ran.
     # Move it on together with the playwright version in package.json.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [editor, exact, morph, motion, gallery, player, labs]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,4 +30,12 @@ jobs:
       # --with-deps also pulled ~23 MB of fonts through Ubuntu's mirror, which on 26 Oct ran at
       # 26 kB/s and took 14 of the job's 15 minutes, so the tests were cancelled before they ran.
       - run: npx playwright install chromium
-      - run: npm test
+      - run: node tests/smoke.mjs ${{ matrix.part }}
+
+  # The one check named "smoke", as before the test was split: green only when every part is.
+  smoke:
+    needs: part
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - run: test "${{ needs.part.result }}" = "success"
