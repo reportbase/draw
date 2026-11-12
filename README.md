@@ -52,7 +52,7 @@ The gallery's *played* page shows the rest (`TVFPlayer.play`, states, touch, Lot
 | `papers/`, `papers.html` | The papers as Markdown, and their reader. |
 | `docs/` | Notes on how each part was built. `CLAUDE.md` holds the working rules. |
 | `tools/` | The generators and measures behind the `npm run` scripts. |
-| `tests/smoke.mjs` | The test. |
+| `tests/` | The smoke test: `smoke.mjs` runs its seven parts (`editor`, `exact`, `morph`, `motion`, `gallery`, `player`, `labs`), each a file that also runs alone. |
 | `index.html` | Forwards `/draw/` to `draw.html`. |
 
 Fonts (Google Fonts) and an SVG path polyfill load from CDNs at runtime. The
@@ -72,7 +72,8 @@ python3 -m http.server 8000
 | | |
 | --- | --- |
 | `npm test` | The whole test: the editor, every gallery page, the player, the labs page, the papers. |
-| `npm run test:quick` | The everyday run, about half the time. |
+| `npm test -- gallery player` | Only those parts. `JOBS=3 npm test` runs three parts at a time. |
+| `npm run test:quick` | The everyday run: fewer gallery pages walked. |
 | `npm run sync` | Writes every copy the gallery pages carry from its source (`-- --check` only says what differs). |
 | `npm run labs` | Writes `labs.html` from the editor's lab buttons. |
 | `npm run player` | Writes `player/tvf-player.js` from the editor's morph engine. |
@@ -82,11 +83,11 @@ python3 -m http.server 8000
 
 ## Testing
 
-Every pull request runs `tests/smoke.mjs` in GitHub Actions. It opens the editor
-in headless Chromium, drags on the canvas, draws, selects everything and presses
-every enabled toolbar button, failing on any uncaught error; then it checks each
-feature in turn, walks every gallery page, and checks that everything generated
-or copied is up to date. To run it yourself:
+Every pull request runs the smoke test in GitHub Actions, each of its seven parts as a
+job of its own. It opens the editor in headless Chromium, drags on the canvas, draws,
+selects everything and presses every enabled toolbar button, failing on any uncaught
+error; then it checks each feature in turn, walks every gallery page, and checks that
+everything generated or copied is up to date. To run it yourself:
 
 ```sh
 npm install

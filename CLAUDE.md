@@ -52,7 +52,8 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   JavaScript so it opens from disk as one file, so the pages carry **copies** of what they
   share: see below.
 - `papers/` and `papers.html`: the owner's papers and their reader (below).
-- `docs/`: the notes above. `tests/smoke.mjs`: the test. `tools/`: the generators and measures.
+- `docs/`: the notes above. `tests/`: the smoke test, in seven parts (Testing, below). `tools/`: the
+  generators and measures.
 
 ## Generated and copied: what to run
 Nothing here is edited by hand in its generated form; `npm test` fails when one is stale.
@@ -179,13 +180,26 @@ compatibly.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
-- `npm test` runs `tests/smoke.mjs`: it loads the page in headless Chromium, drags
-  on the canvas, draws, selects everything, presses every enabled toolbar button,
-  and fails on any uncaught error; then it walks every gallery page and runs the
-  gallery, inspector, playground and labs checks. About three minutes. Run it before
-  every PR (CI runs it too), and add checks for new behaviour.
-- `npm run test:quick` is the everyday run, about half the time: the same editor walk and
-  single-page checks, but only two gallery pages walked and no labs.html regeneration.
+- `npm test` runs the smoke test: `tests/smoke.mjs` runs its seven parts one after another, each a
+  file in `tests/` that also runs alone (`node tests/gallery.mjs`, or `npm test -- gallery player`):
+
+  | Part | What it checks |
+  | --- | --- |
+  | `editor` | the editor's walk (load, drags, a stroke and a line, every enabled toolbar button), a crowded import, the panel |
+  | `exact` | exact shapes: SVG kept exact, smooth corners saved, exact shapes edited and combined |
+  | `morph` | the live morph: timeline, recording, paths, trails, corners, the examples, a morph's settings, undo, animate with AI |
+  | `motion` | physical motions, eases, chains, contact, emitters, the scene link written out, explainers in the editor, plots, labels |
+  | `gallery` | every gallery page walked, the single-page checks, the copies, the front page, the papers and links into them |
+  | `player` | the embedded gallery, the player, the played gallery, interactive scenes, Lottie, the scrolling explainer |
+  | `labs` | the labs, `labs.html`, and the files that stand alone or must be up to date (`tvf-core.js`, `svg-import.js`, `npm run sync`) |
+
+  A part fails on any uncaught error in a page or a failed check. `tests/harness.mjs` is what they
+  share (the server, the browser, `step`, how a run ends). `JOBS=3 npm test` runs three parts at a
+  time. CI runs each part as its own job, side by side (`.github/workflows/smoke.yml` lists the
+  parts too: add a new part to both). Run the parts you touched before every PR, and add checks
+  for new behaviour to the part they belong to.
+- `npm run test:quick` (`QUICK=1`) is the everyday run: the same parts, but only two gallery pages
+  walked and no labs.html regeneration. `ONLY='a|b'` runs only the steps whose names hold a or b.
 - The page has fallbacks if the CDNs (Google Fonts, the path-data polyfill) are
   blocked, so it runs in a sandbox as is.
 
