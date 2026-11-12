@@ -134,6 +134,31 @@ await step('svg-import.js stands alone', async () => {
     if (html.includes(own)) throw new Error('draw.html carries its own ' + own + ' again');
 });
 
+/* The .tvf reader is its own file as well (tvf-reader.js, 12 Nov 2026): parseTvfText, the last block 3d and games
+   copied out of draw.html, cut out unchanged. It reads only its text, so it runs here in Node: a curve read back,
+   a file that is not one refused, and draw.html loading it without a second copy. */
+await step('tvf-reader.js stands alone', async () => {
+  const vm = await import('node:vm');
+  const src = await readFile(join(ROOT, 'tvf-reader.js'), 'utf8');
+  const ctx = { module: { exports: {} } };
+  vm.createContext(ctx);
+  vm.runInContext(src, ctx, { filename: 'tvf-reader.js' });
+  const parse = ctx.module.exports.parseTvfText;
+  if (typeof parse !== 'function' || typeof ctx.parseTvfText !== 'function') throw new Error('tvf-reader.js declares no parseTvfText');
+  const r = parse('TVF 4 1 2\n#meta name:sq\n0 1 0 -1 0\n0 0 1 0 -1\n');
+  const sp = r && r.subpaths && r.subpaths[0];
+  if (!sp || r.blockCount !== 1 || sp.gname !== 'sq' || Array.from(sp.leafX).join() !== '1,0,-1,0' || Array.from(sp.leafY).join() !== '0,1,0,-1')
+    throw new Error('a square read back as ' + JSON.stringify(r).slice(0, 200));
+  let refused = '';
+  try { parse('not a curve'); } catch (e) { refused = e.message; }
+  if (!/not a TVF file/.test(refused)) throw new Error('a file that is no .tvf was not refused: ' + refused);
+  const i0 = src.indexOf('// TVF LOAD'), i1 = src.indexOf('function parseTvfText(');
+  if (i0 < 0 || i1 < i0) throw new Error('tvf-reader.js: the block 3d and games copy is not whole');
+  const html = await readFile(join(ROOT, 'draw.html'), 'utf8');
+  if (!html.includes('<script src="tvf-reader.js"></script>')) throw new Error('draw.html does not load tvf-reader.js');
+  if (html.includes('function parseTvfText(')) throw new Error('draw.html carries its own parseTvfText again');
+});
+
 /* Every copy is what npm run sync would write: the gallery's library, bundle and tile code from the catalogue,
    the embedded page's examples from the animated one, the three pages' depth code from the editor. The steps
    above compare the copies with each other; this one compares each with its source, by the tool that writes it. */

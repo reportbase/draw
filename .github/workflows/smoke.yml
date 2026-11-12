@@ -11,18 +11,19 @@ jobs:
   # the run takes as long as its longest part and a failure names the part to rerun.
   part:
     name: ${{ matrix.part }}
-    # Pinned (12 Nov 2026): ubuntu-latest became 26.04, which Playwright 1.56.1 has no Chromium build for
-    # ("Playwright does not support chromium on ubuntu26.04-x64"), so the job failed before any test ran.
-    # Move it on together with the playwright version in package.json.
-    runs-on: ubuntu-24.04
+    # On 12 Nov 2026 ubuntu-latest became 26.04, which Playwright 1.56.1 had no Chromium build for ("Playwright
+    # does not support chromium on ubuntu26.04-x64"): the job failed before any test ran, and was pinned to 24.04
+    # for a day. package.json's playwright is 1.63.0 since, which has one. If a new runner image does it again,
+    # raise that version rather than pin the runner.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         part: [editor, exact, morph, motion, gallery, player, labs]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - run: npm install
@@ -36,6 +37,6 @@ jobs:
   smoke:
     needs: part
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - run: test "${{ needs.part.result }}" = "success"
