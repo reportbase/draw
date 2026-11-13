@@ -588,6 +588,43 @@ T.current = 'the selection\'s options in the strip';
   await sp.close();
 }
 
+/* The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
+   footer bar is not open"). A pick on the canvas turned it to the shape picked, though the selection's buttons were
+   taking the strip, so it came back somewhere else; now it comes back as it was left. */
+T.current = 'the strip holds still while put away';
+{
+  const hp = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  hp.on('pageerror', e => failures.push(`[strip holds] ${e.message}`));
+  await hp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await hp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await hp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 100">';
+    for (let i = 0; i < 18; i++) svg += `<circle cx="${50 + i * 100}" cy="50" r="40" fill="#c84"/>`;
+    await hp.setInputFiles('#fLoad', { name: 'row.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg + '</svg>') });
+    await hp.waitForTimeout(1500);
+    const cv = await hp.locator('#cv').boundingBox();
+    await hp.evaluate(() => window.__box.select([15]));
+    const bx = await hp.evaluate(() => window.__box.handles().box);
+    const clear = async () => { await hp.keyboard.press('Escape'); await hp.mouse.click(700, 150); await hp.waitForTimeout(400); };
+    await clear();
+    const tiles = () => hp.evaluate(() => [...document.querySelectorAll('#shapeScroller .shape-tile')].filter(t => t.style.display !== 'none')
+      .map(t => t.dataset.idx + '@' + Math.round(t.getBoundingClientRect().left)).join(' '));
+    const t0 = await tiles();
+    await hp.mouse.click(cv.x + (bx.x0 + bx.x1) / 2, cv.y + (bx.y0 + bx.y1) / 2);
+    await hp.waitForTimeout(400);
+    if (await hp.evaluate(() => window.__strip.mode) !== 'select') throw new Error('a shape picked on the canvas did not bring its options');
+    await clear();
+    const t1 = await tiles();
+    if (t1 !== t0) throw new Error('the strip moved while put away: ' + t0 + ' → ' + t1);
+  } catch (e) {
+    failures.push(`[strip holds] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the strip holds still while put away`);
+  await hp.close();
+}
+
 /* The group button lives in the selection's options (BOX_BUTTONS 'bt-group', a tile in the strip at the foot since
    13 Nov 2026, under the selection before), no longer
    beside the rotate grip, and the menu's "selection panel" switch (#tSelPanel) puts the panel away

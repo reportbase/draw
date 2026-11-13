@@ -30617,7 +30617,23 @@
         // It takes a SUBPATH index, because that is what every caller has — and it centres the
         // ENTRY that subpath lives in, because that is what the strip shows. Centring a group
         // member on its own index would aim the angle at a slot that no longer exists.
+        // NOT WHILE THE STRIP IS PUT AWAY (13 Nov 2026, Tom: "Stop panning the shapes if the main shape footer bar is not
+        // open", the shapes that are part of the image, the default footer). The strip at the foot shows one of several
+        // things (THE STRIP SAYS ONE OF SEVERAL THINGS), and while it shows the selection's buttons, a colour ring or the
+        // library, the drawing's carousel is only hidden: a pick on the canvas, or a shape added, still turned it to that
+        // shape, so it came back somewhere else from where it was left. It holds still now until it is shown again; it
+        // is the edit view's and a live morph's to hide as well, and those go by their own rules (the edit strip
+        // drives isolation, a morph's frames do not pick).
+        // A pick on the canvas asks this before the strip has turned to the selection's buttons (it turns on the redraw
+        // that follows), so it also asks whether the selection is about to take it (__selStripWant).
+        function stripShowing() {
+            if (document.body.classList.contains('adding'))
+                return false;
+            return !(window.__selStripWant && window.__selStripWant());
+        }
         function centerShape(idx) {
+            if (!stripShowing())
+                return;
             const n = browseEntries().length;
             if (n <= 1)
                 return;
@@ -30805,6 +30821,11 @@
             if (!isFinite(v) || Math.abs(v) < RING_V_MIN)
                 return;
             const step = () => {
+                if (!stripShowing()) { // put away mid-glide: it stops where it is (see stripShowing)
+                    momentum.raf = 0;
+                    momentum.vel = 0;
+                    return;
+                }
                 currentAngle = boma.normalizeAngle(currentAngle + v);
                 layoutCarousel();
                 stripFollowFocus();
@@ -57061,6 +57082,7 @@
                 }
             }
             window.__selStripSync = selSync;
+            window.__selStripWant = selWant;
             window.__strip = {
                 open: setMode,
                 get mode() {
