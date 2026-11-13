@@ -218,19 +218,15 @@ compatibly.
   popover button it mirrors, so those panels stay the code that acts; the colour rings' first tile opens the panel's
   sliders. The drawing's strip only steps aside (`body.adding`, `body.dataset.strip`); the strip hides in the edit view
   and while a morph is live. A library tile dragged up out of the strip and dropped on the
-  drawing is placed there (`addPrimitive(key, at)`; the ring lets go through `__ringHeld`). `__strip.open(mode)` and `__strip.mode` for tests. Shapes and Build lead the top ring
-  (`STRIP_FIRST`, moved to the front before the ring is built); a phone test that needs another top-bar button in view has
-  to turn the ring to it. Every top-bar button is lit (`.pop-open`) while the popover it opened is up.
+  drawing is placed there (`addPrimitive(key, at)`; the ring lets go through `__ringHeld`). `__strip.open(mode)` and `__strip.mode` for tests. Those six buttons lead the top ring
+  (`STRIP_FIRST`, moved to the front before the ring is built) and it opens turned to Fill, so a phone shows Shapes, Fill and
+  Outline at once; a phone test that needs another top-bar button in view has to turn the ring to it.
 - The selection's options are the strip's (13 Nov 2026, THE SELECTION'S OPTIONS ARE THE STRIP'S in `draw.html`): with
   something selected and its box up, the strip at the foot turns to mode `select` by itself, the track as a slider
   (`applySliderRow`'s rule) and `visibleBoxButtons()` as tiles drawn by `drawBoxButton(b, hot, c)` into their own
   canvases, pressing `runBoxButton`; nothing is drawn under the box (`sliderRowsUnderBox` is false). It follows every
   `drawAll` (`__selStripSync`, rebuilding only when what it shows changes); `__box.button`, `track`, `group` and
-  `panelUp` answer for the strip. The selection's buttons left the top bar for it (13 Nov 2026, THE SELECTION'S BUTTONS
-  LEAVE THE TOP BAR, `SEL_BUTTONS_MOVED`): Fill, Outline, Align, Order, Group, Merge and Name are held hidden in
-  `#selButtonsHeld`, still the code that acts and still kept enabled by `syncArrangeBtns`, and the select strip leads with
-  their tiles (`SEL_NAV`); Fill, Outline, Align and Order turn the strip to their own rings, which begin with a Back tile.
-  The top bar keeps the makers and the views.
+  `panelUp` answer for the strip.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
