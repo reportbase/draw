@@ -142,6 +142,27 @@ try {
       added.push(at[2]);
     }
     if (!await page.evaluate(() => window.__addStrip.on)) throw new Error('the library closed after a pick; it should stay for the next');
+    // a tile dragged UP out of the strip and let go over the drawing puts the shape there (13 Nov 2026, Tom: "1 2", the
+    // second "drag a shape from the strip onto the drawing"); let go back on the strip, it puts nothing
+    {
+      const mid = () => page.evaluate(() => { let best = null, bd = 1e9; for (const b of document.querySelectorAll('#addRing .add-pick')) {
+        if (b.style.display === 'none') continue; const r = b.getBoundingClientRect(), d = Math.abs(r.x + r.width / 2 - innerWidth / 2);
+        if (d < bd) { bd = d; best = [r.x + r.width / 2, r.y + r.height / 2]; } } return best; });
+      const n0 = await page.evaluate(() => window.__box.count());
+      let t = await mid();
+      await page.mouse.move(t[0], t[1]); await page.mouse.down();
+      await page.mouse.move(t[0] + 4, t[1] - 40, { steps: 3 }); await page.mouse.move(300, 260, { steps: 8 });
+      const ghost = await page.evaluate(() => !!document.querySelector('.strip-ghost'));
+      await page.mouse.up(); await page.waitForTimeout(300);
+      const n1 = await page.evaluate(() => window.__box.count());
+      const at = await page.evaluate(() => { const b = window.__box.button('bt-mode'), r = document.getElementById('cv').getBoundingClientRect(); return b && [b.cx + r.left, b.cy + r.top]; });
+      if (!ghost || n1 !== n0 + 1 || !at || Math.abs(at[0] - 300) > 40) throw new Error(`a tile dragged to (300, 260): ghost ${ghost}, ${n0} → ${n1} shapes, its switch at ${JSON.stringify(at)}`);
+      t = await mid();
+      await page.mouse.move(t[0], t[1]); await page.mouse.down();
+      await page.mouse.move(t[0], t[1] - 40, { steps: 3 }); await page.mouse.move(t[0] + 120, t[1], { steps: 5 });
+      await page.mouse.up(); await page.waitForTimeout(300);
+      if (await page.evaluate(() => window.__box.count()) !== n1) throw new Error('a tile let go back on the strip added a shape');
+    }
     await page.click('#bAddStrip');
     await page.waitForTimeout(300);
     const back = await page.evaluate(() => [window.__addStrip.on, getComputedStyle(document.getElementById('shapeScroller')).visibility]);

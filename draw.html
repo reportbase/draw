@@ -2788,6 +2788,15 @@
                     .add-strip > .controls > .icon-btn.on { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-dim); }
                     /* the panel a swatch ring opens holds only its sliders: the strip is showing its swatches */
                     body[data-strip="fill"] #spFillGrid, body[data-strip="line"] #spLineGrid { display: none; }
+                    /* a library tile lifted out of the strip, following the pointer to where it will be dropped */
+                    .strip-ghost {
+                      position: fixed; z-index: 1000; pointer-events: none; width: 72px; height: 72px; margin: -36px 0 0 -36px;
+                      display: flex; align-items: center; justify-content: center; color: var(--gold);
+                      background: var(--chip-bg); border: 1px solid var(--gold-dim); border-radius: 20px;
+                      box-shadow: var(--chip-shadow); opacity: 0.9;
+                    }
+                    .strip-ghost svg { width: 54px; height: 54px; }
+                    body.lifting, body.lifting * { cursor: grabbing !important; }
 
 
                     /* and while a morph is live its bar takes the foot of the page (body.morphing #shapeBar) */
@@ -26266,7 +26275,10 @@
                     m = sp.build.id;
             return m + 1;
         }
-        function addPrimitive(key) {
+        // `at` (13 Nov 2026, Tom: "1 2", the second "drag a shape from the strip onto the drawing"): where a tile from
+        // the strip was dropped, in the view's units as newShapePlacement gives its centre; the size is still the one
+        // that placement chooses, so a dropped shape is the size a tapped one would have been, only somewhere else.
+        function addPrimitive(key, at) {
             const spec = (key && typeof key === 'object') ? key : PRIMITIVES.find(q => q.key === key);
             if (!spec || (typeof spec.pts !== 'function' && typeof spec.loops !== 'function'))
                 return false;
@@ -26278,6 +26290,10 @@
                 id: nextBuildId()
             }) : null;
             const place = newShapePlacement();
+            if (at && isFinite(at.x) && isFinite(at.y)) {
+                place.cx = at.x;
+                place.cy = at.y;
+            }
             const r = place.r,
                 cx = place.cx,
                 cy = place.cy;
@@ -56327,6 +56343,12 @@
             window.addEventListener('pointermove', e => {
                 if (!spin || e.pointerId !== spin.id)
                     return;
+                // a tile lifted out of the ring (the strip's library, dragged up onto the drawing) is no spin
+                if (strip.__ringHeld) {
+                    spin = null;
+                    strip.classList.remove('grabbing');
+                    return;
+                }
                 // A MOVE WITH NO BUTTON HELD MEANS THE RELEASE WAS MISSED — but only in a browser
                 // that reports `buttons` on a move at all. Trusting it unconditionally is what killed
                 // every bar at once: where the field comes through as 0 during a genuine drag, the
@@ -56761,6 +56783,85 @@
                 }
                 requestAnimationFrame(() => mirror(mode));
             });
+            // A SHAPE CAN BE DRAGGED OUT OF THE LIBRARY (13 Nov 2026, Tom: "1 2", the second "drag a shape from the strip
+            // onto the drawing"). A tap adds a shape at the middle of the view; a press that goes UP out of the strip
+            // lifts the tile instead, a picture of it follows the finger or the mouse, and letting go over the drawing
+            // puts the shape there (addPrimitive's `at`); letting go anywhere else, back on the strip or up on the bar,
+            // puts nothing. Sideways is still the ring's: a lift is taken only when the press has gone up further than it
+            // has gone across, and before the ring has begun to turn (its .grabbing), and once a tile is lifted the ring
+            // is told to let the gesture go (__ringHeld, read in makeRing's move).
+            {
+                let lift = null, swallowClick = false;
+                const LIFT_PX = 18;
+                const end = () => {
+                    if (lift && lift.ghost)
+                        lift.ghost.remove();
+                    addHost.__ringHeld = false;
+                    document.body.classList.remove('lifting');
+                    lift = null;
+                };
+                addHost.addEventListener('pointerdown', e => {
+                    swallowClick = false; // a new press: whatever click comes now is its own
+                    const b = e.target.closest && e.target.closest('.add-pick');
+                    if (!b || (e.pointerType === 'mouse' && e.button !== 0))
+                        return;
+                    lift = { b, id: e.pointerId, x: e.clientX, y: e.clientY, ghost: null };
+                }, true);
+                window.addEventListener('pointermove', e => {
+                    if (!lift || e.pointerId !== lift.id)
+                        return;
+                    if (!lift.ghost) {
+                        const up = lift.y - e.clientY, across = Math.abs(e.clientX - lift.x);
+                        if (addHost.classList.contains('grabbing') || up < LIFT_PX || up < across * 1.2) {
+                            if (across > LIFT_PX * 2)
+                                lift = null; // a spin, not a lift
+                            return;
+                        }
+                        addHost.__ringHeld = true;
+                        document.body.classList.add('lifting');
+                        const g = lift.ghost = document.createElement('div');
+                        g.className = 'strip-ghost';
+                        g.innerHTML = lift.b.innerHTML;
+                        document.body.appendChild(g);
+                    }
+                    lift.ghost.style.left = e.clientX + 'px';
+                    lift.ghost.style.top = e.clientY + 'px';
+                    e.preventDefault();
+                }, { passive: false });
+                window.addEventListener('pointerup', e => {
+                    if (!lift || e.pointerId !== lift.id)
+                        return;
+                    if (!lift.ghost) {
+                        lift = null;
+                        return;
+                    }
+                    const key = lift.b.dataset.shape, r = cv.getBoundingClientRect(), foot = box.getBoundingClientRect().top;
+                    const bar = document.querySelector('.topbar'), top = bar ? bar.getBoundingClientRect().bottom : 0;
+                    const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY > top && e.clientY < foot;
+                    end();
+                    // the release can still be read as a click on the tile it began on; it was a drop, not a tap
+                    swallowClick = true;
+                    if (!over)
+                        return;
+                    const w = r.width || 1, h = r.height || 1, sc = 0.40 * Math.min(w, h) * (state.view.zoom || 1);
+                    addPrimitive(key, {
+                        x: (e.clientX - r.left - w / 2) / sc + state.view.panX,
+                        y: -(e.clientY - r.top - h / 2) / sc + state.view.panY
+                    });
+                    scheduleSave();
+                });
+                window.addEventListener('pointercancel', e => {
+                    if (lift && e.pointerId === lift.id)
+                        end();
+                });
+                addHost.addEventListener('click', e => {
+                    if (swallowClick) {
+                        swallowClick = false;
+                        e.stopPropagation();
+                        e.preventDefault();
+                    }
+                }, true);
+            }
             // the colour panels re-mark their current swatch when the selection changes: follow them
             for (const id of ['spFillGrid', 'spLineGrid']) {
                 const g = $(id);
@@ -56810,7 +56911,7 @@
                 // shapes button should just be shapes, one word like the others"); it said what a press would do
                 bAddStrip: 'Shapes',
                 bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
-                bPlayShape: 'Play the shape', bBuild: 'Build from numbers', bDraw: 'Pencil',
+                bPlayShape: 'Play the shape', bBuild: 'Build', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
                 bAi: 'AI', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
                 bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bGrid: 'Grid',

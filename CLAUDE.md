@@ -217,7 +217,8 @@ compatibly.
   own (`makeRing`), the button lit as the grid's is when on (`.active`, and `aria-pressed`) while it shows. A tile of Fill, Outline, Align or Order clicks the
   popover button it mirrors, so those panels stay the code that acts; the colour rings' first tile opens the panel's
   sliders. The drawing's strip only steps aside (`body.adding`, `body.dataset.strip`); the strip hides in the edit view
-  and while a morph is live. `__strip.open(mode)` and `__strip.mode` for tests. Those six buttons lead the top ring
+  and while a morph is live. A library tile dragged up out of the strip and dropped on the
+  drawing is placed there (`addPrimitive(key, at)`; the ring lets go through `__ringHeld`). `__strip.open(mode)` and `__strip.mode` for tests. Those six buttons lead the top ring
   (`STRIP_FIRST`, moved to the front before the ring is built) and it opens turned to Fill, so a phone shows Shapes, Fill and
   Outline at once; a phone test that needs another top-bar button in view has to turn the ring to it.
 - Comments explain *why*, at length. Keep the voice.
