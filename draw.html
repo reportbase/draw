@@ -2097,28 +2097,6 @@
                   letter-spacing: 0.7px; margin-bottom: 7px;
                 }
                 .pop-grid { display: grid; grid-template-columns: repeat(6, 22px); gap: 6px; }
-                /* The list outgrew a single block of tiles, so the grid scrolls and the categories
-                   ride in it as full-width headings — one scroll, everything still one click.
-                   A VISIBLE BAR, and always: `auto` plus the platform's overlay scrollbars meant the
-                   panel showed four rows of a hundred tiles with nothing at all to say there were more
-                   — the list looked complete and the rest was reachable only by guessing that it
-                   scrolled. `scroll` reserves the gutter whether or not it is needed, so the tiles do
-                   not shift sideways the moment the bar appears, and the thumb is painted in the same
-                   gold as the shape bar's rather than left to the platform, which would draw a light
-                   grey bar on a dark panel. */
-                .shape-grid {
-                  display: grid; grid-template-columns: repeat(4, 44px); gap: 7px;
-                  max-height: 52vh; overflow-y: scroll; overscroll-behavior: contain; padding-right: 6px;
-                  scrollbar-width: thin; scrollbar-color: rgba(212,160,82,0.4) transparent;
-                  scrollbar-gutter: stable;
-                }
-                .shape-grid::-webkit-scrollbar { width: 9px; }
-                .shape-grid::-webkit-scrollbar-thumb {
-                  background: rgba(212,160,82,0.35); border-radius: 4px;
-                  border: 2px solid transparent; background-clip: content-box;
-                }
-                .shape-grid::-webkit-scrollbar-thumb:hover { background: rgba(212,160,82,0.6); background-clip: content-box; }
-                .shape-grid::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 4px; }
                 /* The generated parameter rows in the builder scroll for the same reason and should not
                    look like a different control. */
                 #shapeCustomParams { scrollbar-width: thin; scrollbar-color: rgba(212,160,82,0.4) transparent; }
@@ -2128,11 +2106,6 @@
                   border: 2px solid transparent; background-clip: content-box;
                 }
                 #shapeCustomParams::-webkit-scrollbar-track { background: transparent; }
-                .shape-cat {
-                  grid-column: 1 / -1; color: var(--fg-muted); font-size: 9px; opacity: 0.8;
-                  text-transform: uppercase; letter-spacing: 0.7px; margin: 5px 0 -2px;
-                }
-                .shape-cat:first-child { margin-top: 0; }
                 /* The parametric row: the families where one number is the whole shape (sides,
                    points, roundness) are a slider, not forty more tiles. */
                 /* No top divider any more: this was the bottom half of the shapes popover and the rule
@@ -2188,33 +2161,6 @@
                 /* The readout is the panel's whole argument: it says what the numbers cost. Two lines,
                    fixed height, so the panel does not jump as the text changes length. */
                 #buildPop .live-on { border-color: var(--gold-dim); color: var(--gold); }
-                /* .bar-select is scoped to the on-canvas shape bar, so the family and preset lists in
-                   here fell through to the browser's own light-mode widget — two white boxes in a dark
-                   panel. Same values as that rule, applied where they are also needed. */
-                #shapePop select {
-                  background: var(--bg); color: var(--gold);
-                  border: 1px solid var(--line2); border-radius: 4px;
-                  font-family: 'DM Mono', monospace; font-size: 11px;
-                  padding: 3px 6px; cursor: pointer; min-width: 0;
-                }
-                #shapePop select:hover { border-color: var(--fg-muted); }
-                #shapePop select:focus { outline: none; border-color: var(--gold-dim); }
-                .shape-pick {
-                  width: 44px; height: 44px; padding: 0; cursor: pointer;
-                  display: flex; align-items: center; justify-content: center;
-                  background: var(--bg); color: var(--fg-muted);
-                  border: 1px solid var(--line2); border-radius: 6px;
-                }
-                .shape-pick:hover { color: var(--gold); border-color: var(--gold-dim); background: rgba(212,160,82,0.10); }
-                @media (pointer: coarse) {
-                  /* Wider tiles for a finger — and a wider bar to drag, since a 9px thumb is a mouse
-                     target rather than a thumb one. The gutter reserved above still applies; on a phone
-                     the popover is 278px against the builder's 268, which is inside the placement
-                     clamp. */
-                  .shape-grid { grid-template-columns: repeat(4, 54px); gap: 9px; }
-                  .shape-grid::-webkit-scrollbar { width: 13px; }
-                  .shape-pick { width: 54px; height: 54px; }
-                }
                 .pop-row { display: flex; align-items: center; gap: 6px; margin-top: 9px; }
                 .pop-row button, .pop-act {
                   background: var(--bg); color: var(--fg-muted); border: 1px solid var(--line2);
@@ -2827,18 +2773,16 @@
                     /* the ring's box starts after the + (12px in, 52 wide, and air), as the top bar's starts after its
                        corner buttons: a ring clips at its own box, so a tile spinning past the + slides under the box's
                        edge rather than showing behind the button */
-                    #addRing { height: 100%; margin-left: 76px; padding: 0; }
+                    #addRing { height: 100%; padding: 0; }
                     #addRing > .icon-btn { width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 20px; padding: 0; }
                     #addRing > .icon-btn svg { width: 54px; height: 54px; }
-                    #bAddStrip { position: fixed; left: 12px; bottom: 26px; z-index: 30; width: 52px; height: 52px; border-radius: 14px; }
-                    #bAddStrip svg { width: 26px; height: 26px; transition: transform 0.15s ease; }
-                    /* open, it is the way back: gold like the other corner buttons, and the + turned to an × */
+                    /* the switch is on the top bar now, a chip like its neighbours; open, it is the way back: gold, and
+                       the + turned to an × */
+                    #bAddStrip svg { transition: transform 0.15s ease; }
                     body.adding #bAddStrip { color: var(--gold); border-color: var(--gold-dim); }
                     body.adding #bAddStrip svg { transform: rotate(45deg); }
-                    /* and while a morph is live: its bar takes the foot of the page then (body.morphing #shapeBar), and
-                       the + would sit on its first controls */
-                    body.editing #bAddStrip, body.editing .add-strip,
-                    body.morphing #bAddStrip, body.morphing .add-strip { display: none; }
+                    /* and while a morph is live its bar takes the foot of the page (body.morphing #shapeBar) */
+                    body.editing .add-strip, body.morphing .add-strip { display: none; }
                     /* The edit footer, hidden by the canvas long-press. Edit mode is where the drawing wants
                        the whole window — you are inside one shape, working close — and the footer is the
                        widest piece of furniture on the screen. Outside edit mode the same hold takes the
@@ -3452,11 +3396,12 @@
                      The strip always BOOTS visible: state.showBrowser survives in saved sessions
                      and is ignored on load, so a long-press from months ago cannot cost a new
                      session its strip. -->
-            <button id="bShapes" class="icon-btn" title="add a shape to the scene you already have — circles, boxes, polygons, stars, arrows, curves — or dial one up on the sliders">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="8.5" cy="8.5" r="5"/>
-                    <rect x="11" y="11" width="9.5" height="9.5" rx="1.2"/>
-                </svg>
+            <!-- THE SHAPES BUTTON TURNS THE STRIP (13 Nov 2026, Tom: "move the shape toggle button to the top toolbar.
+                     remove the shape button on top"). It opened a popover of a hundred small tiles; the strip at the
+                     foot shows the same library as big ones (THE STRIP ADDS SHAPES TOO), and this is its switch: +
+                     turns the strip to the library, and pressed again (an × then) back to the drawing's shapes. -->
+            <button id="bAddStrip" class="icon-btn" title="add shapes: the strip at the foot shows the library of shapes, and a tap on one puts it in the drawing (press again to go back to the drawing's shapes)" aria-label="Add shapes">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             </button>
             <!-- THE BUILDER'S OWN SLOT, beside the globe for the same reason the globe has one:
                      a panel you dial rather than a list you pick from. The icon is a slider over a
@@ -4376,18 +4321,6 @@
             the leaves beside them.</li>
             <li>The <b>SVG export</b> writes straight edges, arcs and curves as they are.</li>
         </ul>
-    </div>
-    <!-- Text entry popover for the toolbar's text button. -->
-    <div class="pop" id="shapePop" role="dialog" aria-label="add a shape">
-        <div class="pop-title">add a shape</div>
-        <div class="shape-grid" id="shapeGrid"></div>
-        <!-- THE PARAMETRIC ROW MOVED OUT, to its own toolbar button and popover (#buildPop).
-               It outgrew this one twice: once when the rows started being generated per family,
-               and again when the link arrived and the panel stopped being a way to ADD a shape
-               at all. This popover is a catalogue — press a tile, get a shape, done — and a
-               catalogue is a thing you close. The builder is a thing you keep open and work in,
-               and now that a double-click on a built shape opens it, it needed a door of its
-               own rather than a scroll to the bottom of somebody else's. -->
     </div>
     <!-- THE SHAPE TOOL'S STRIP (EXACT SHAPES): shown while #bDrawShape is on, under the bar. -->
     <div id="shapeTool" role="toolbar" aria-label="the shape to drag out">
@@ -6960,12 +6893,9 @@
          buried three scrolls into the settings menu. -->
 
     <div class="shape-scroller" id="shapeScroller"></div>
-    <!-- THE STRIP ADDS SHAPES TOO (13 Nov 2026): the + at its left end turns the strip from the shapes in the drawing
-         to the library of shapes to add, and back. See THE STRIP ADDS SHAPES TOO in the script. -->
+    <!-- THE STRIP ADDS SHAPES TOO (13 Nov 2026): the + on the top bar (#bAddStrip) turns the strip from the shapes in
+         the drawing to the library of shapes to add, and back. See THE STRIP ADDS SHAPES TOO in the script. -->
     <div class="add-strip" id="addStrip" role="toolbar" aria-label="add a shape"><div class="controls" id="addRing"></div></div>
-    <button id="bAddStrip" class="icon-btn" title="add shapes: the strip shows the library of shapes, and a tap puts one in the drawing (press + again to go back to the drawing's shapes)" aria-label="Add shapes">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="plus" d="M12 5v14M5 12h14"/></svg>
-    </button>
 
     <!-- PARTS OF THE EDITOR, each a file in parts/ (12 Nov 2026): blocks of this page's script that it runs in place,
          inside its own closure (partRun, in the script below). They only hand their code over here. -->
@@ -55080,7 +55010,7 @@
             pop.style.left = left + 'px';
             pop.style.top = top + 'px';
         }
-        const POP_IDS = ['playPop', 'textPop', 'plotPop', 'alignPop', 'orderPop', 'arrangePop', 'morphPop', 'toolsPop', 'stylePop', 'linePop', 'gridPop', 'descPop', 'readPop', 'shapePop', 'buildPop', 'aiPop', 'exactHelpPop'];
+        const POP_IDS = ['playPop', 'textPop', 'plotPop', 'alignPop', 'orderPop', 'arrangePop', 'morphPop', 'toolsPop', 'stylePop', 'linePop', 'gridPop', 'descPop', 'readPop', 'buildPop', 'aiPop', 'exactHelpPop'];
         function closeAllPops() {
             for (const id of POP_IDS) {
                 const el = $(id);
@@ -55119,7 +55049,7 @@
             // cases and the canvas hit-test this used to need is gone. A press on an opener must
             // fall through untouched: dismissing here would close the popover a moment before the
             // button's own click reopens it, and the toggle would look like nothing happened.
-            if (e.target.closest && e.target.closest('#bText, #bPlot, #bShapes, #bBuild, #bAi, #bAlign, #bOrder, #bArrangeOpen, #bMorphOpen, #bTools, #bStyle, #bLine, #bGrid, #bDesc, #bRead, #bReadEdit, #bPlayShape'))
+            if (e.target.closest && e.target.closest('#bText, #bPlot, #bBuild, #bAi, #bAlign, #bOrder, #bArrangeOpen, #bMorphOpen, #bTools, #bStyle, #bLine, #bGrid, #bDesc, #bRead, #bReadEdit, #bPlayShape'))
                 return;
             closeAllPops();
         }, true);
@@ -56582,17 +56512,21 @@
         // but the bottom footer is much better", and of three ways to do it, the switch). The strip along the foot is
         // where a person already looks for shapes: it is the drawing's table of contents, big tiles a thumb can
         // spin through. Adding a shape meant going up to the header's Shapes button for a popover of small tiles that
-        // closes after one pick. Now the + at the strip's left end turns the strip into the library, every shape the
-        // Shapes panel offers, in its order, as tiles of the same size on the same kind of ring; a tap adds that
-        // shape (addPrimitive, exactly as the panel does) and the strip stays the library, so several can go in
-        // one after another; + again, now an ×, turns it back to the drawing's shapes.
+        // closes after one pick. Now a + turns the strip into the library, every shape that panel offered, in its
+        // order, as tiles of the same size on the same kind of ring; a tap adds that shape (addPrimitive, as the panel
+        // did) and the strip stays the library, so several can go in one after another; + again, now an ×, turns it
+        // back to the drawing's shapes.
+        //
+        // THE + IS ON THE TOP BAR, IN THE SHAPES BUTTON'S PLACE (the same day, Tom: "move the shape toggle button to the
+        // top toolbar. remove the shape button on top"). It stood at the strip's left end first; the popover it made
+        // redundant is gone, and the switch took its button's slot, so adding a shape starts where it always did.
         //
         // A SECOND STRIP, NOT A SECOND MEANING FOR THE FIRST. The drawing's strip is a pool of recycled tiles whose
         // every gesture means something about a shape in the drawing: a tap selects and then walks the camera, a
         // spin selects as it passes, a long press renames. A library tile is none of those things, so the library is
         // its own ring (makeRing, the factory the two button bars use, which already spins, throws and refuses the
         // click at the end of a spin) and the drawing's strip only steps aside while it shows. The tiles are drawn on
-        // the first opening, as the panel's grid is. The header's Shapes button stays as it was.
+        // the first opening.
         (function() {
             const btn = $('bAddStrip'), box = $('addStrip'), host = $('addRing');
             if (!btn || !box || !host)
@@ -56670,7 +56604,7 @@
         (function() {
             const NAMES = {
                 bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
-                bPlayShape: 'Play the shape', bShapes: 'Add a shape', bBuild: 'Build from numbers', bDraw: 'Pencil',
+                bPlayShape: 'Play the shape', bBuild: 'Build from numbers', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
                 bAi: 'AI', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
                 bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bOctaveTool: 'Octave browser', bGrid: 'Grid',
@@ -56749,6 +56683,16 @@
                         hide(shown && shown.matches(TILES) ? 1600 : 900);
                     }
                 }, true);
+            // a button that changes what it does when pressed (the strip's +, which becomes the way back) says its new
+            // name at once rather than for the second the name stays up after a tap (heard in the capture phase, as a
+            // button's own handler may stop the click there, and read a frame later, once that handler has run)
+            document.addEventListener('click', () => requestAnimationFrame(() => {
+                if (shown && tip.classList.contains('on')) {
+                    const name = nameOf(shown);
+                    if (name && name !== tip.textContent)
+                        show(shown);
+                }
+            }), true);
             // a resized window moves the buttons out from under the name, and a rename box opening over a
             // tile (its long press) has said what the tip would have
             window.addEventListener('resize', () => hide());

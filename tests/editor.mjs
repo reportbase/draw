@@ -48,11 +48,11 @@ try {
      the button while the mouse is over it, gone when it leaves. */
   await step('the header buttons say their names', async () => {
     const names = {};
-    for (const id of ['bUndo', 'bShapes', 'bDraw', 'bFit', 'gearBtn']) {
+    for (const id of ['bUndo', 'bAddStrip', 'bDraw', 'bFit', 'gearBtn']) {
       await page.hover('#' + id);
       names[id] = await page.evaluate(() => window.__buttonName());
     }
-    const want = { bUndo: 'Undo', bShapes: 'Add a shape', bDraw: 'Pencil', bFit: 'Fit to view', gearBtn: 'Settings' };
+    const want = { bUndo: 'Undo', bAddStrip: 'Add shapes', bDraw: 'Pencil', bFit: 'Fit to view', gearBtn: 'Settings' };
     for (const [id, name] of Object.entries(want))
       if (!names[id] || names[id].id !== id || names[id].name !== name) throw new Error(`over #${id} the name shown was ${JSON.stringify(names[id])}`);
     const unnamed = await page.evaluate(() => [...document.querySelectorAll('.topbar .icon-btn')].filter(b => b.offsetParent && !b.id).length);
@@ -88,11 +88,8 @@ try {
       const held = await mp.evaluate(() => window.__buttonName());
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       if (!held || held.name !== 'Undo') throw new Error('a finger held on Undo was shown ' + JSON.stringify(held));
-      await mp.evaluate(() => document.getElementById('bShapes').click());
-      const px = await mp.evaluate(() => { const s = document.querySelector('#shapeGrid .shape-pick svg'); return s && +s.getAttribute('width'); });
-      if (px !== 40) throw new Error("a shapes panel picture on a phone is " + px + 'px wide, not 40 (drawn at 42)');
-      // and a tile, pressed, says its title: what it is, or how to give it a name
-      await mp.evaluate(() => document.querySelector('#shapeGrid .shape-pick[data-shape="circle"]').click());
+      // and a tile, pressed, says its title: what it is, or how to give it a name (a circle put in from the strip)
+      await mp.evaluate(() => { document.getElementById('bAddStrip').click(); document.querySelector('#addRing .add-pick[data-shape="circle"]').click(); document.getElementById('bAddStrip').click(); });
       await mp.waitForFunction(() => document.querySelector('#shapeScroller .shape-tile[title]'), null, { timeout: 10000 });
       const tile = await mp.evaluate(() => { const t = document.querySelector('#shapeScroller .shape-tile[title]'); const r = t.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2, t.title]; });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tile[0], y: tile[1] }] });
@@ -103,30 +100,29 @@ try {
     } finally { await ctx.close(); }
   });
 
-  await step('the shapes grid is drawn when first opened', async () => {
-    const before = await page.evaluate(() => document.querySelectorAll('#shapeGrid .shape-pick').length);
-    if (before) throw new Error(before + ' tiles drawn before the panel was opened');
-    await page.click('#bShapes');
-    const after = await page.evaluate(() => [document.querySelectorAll('#shapeGrid .shape-pick').length, document.getElementById('shapePop').classList.contains('open')]);
-    if (after[0] < 50 || !after[1]) throw new Error('after the press: ' + after[0] + ' tiles, open ' + after[1]);
-    await page.click('#shapeGrid .shape-pick[data-shape="circle"]');
-    await page.waitForTimeout(300);
-    if (!await page.evaluate(() => !!window.__box.button('bt-mode'))) throw new Error('a pick from the grid added no shape (nothing selected)');
-    await page.click('#bShapes');
-    await page.keyboard.press('Escape');
-    const again = await page.evaluate(() => document.querySelectorAll('#shapeGrid .shape-pick').length);
-    if (again !== after[0]) throw new Error('opened again, the grid has ' + again + ' tiles, not ' + after[0]);
+  /* The Shapes button and its popover are gone (13 Nov 2026, Tom: "move the shape toggle button to the top toolbar.
+     remove the shape button on top"): the strip's switch has the button's place on the bar, and the library it
+     opens is drawn the first time it is asked for, not as the page starts. */
+  await step('the shapes popover is gone, and the library waits to be opened', async () => {
+    const r = await page.evaluate(() => ({ old: !!(document.getElementById('bShapes') || document.getElementById('shapePop')),
+      onBar: !!document.querySelector('.topbar .controls #bAddStrip'), drawn: document.querySelectorAll('#addRing .add-pick').length }));
+    if (r.old || !r.onBar || r.drawn) throw new Error(JSON.stringify(r));
   });
 
   /* The strip along the foot adds shapes too (13 Nov 2026, Tom: "I propose we also use it also to add more shapes
-     … the bottom footer is much better"): its + turns it to the library, a tap on a tile adds that shape and the
-     library stays, and the + (an × now) turns it back. Clicked the way a hand would, on the tile at the middle. */
+     … the bottom footer is much better"): the + on the top bar turns it to the library, a tap on a tile adds that
+     shape and the library stays, and the + (an × now) turns it back. Clicked the way a hand would, on the tile at
+     the middle. */
   await step('the strip adds shapes', async () => {
     await page.click('#bAddStrip');
     await page.waitForTimeout(400);
     const st = await page.evaluate(() => ({ on: window.__addStrip.on, tiles: document.querySelectorAll('#addRing .add-pick').length,
       shown: window.__addStrip.ring && window.__addStrip.ring.shown, scroller: getComputedStyle(document.getElementById('shapeScroller')).visibility }));
     if (!st.on || st.tiles < 50 || !(st.shown >= 5) || st.scroller !== 'hidden') throw new Error('opened, the strip is ' + JSON.stringify(st));
+    // the + says what a press will do now: the name under it changes with it
+    await page.waitForTimeout(100);
+    const named = await page.evaluate(() => window.__buttonName());
+    if (!named || named.name !== 'Back to the drawing') throw new Error('the open strip\'s + is named ' + JSON.stringify(named));
     const added = [];
     for (let k = 0; k < 2; k++) {
       const at = await page.evaluate(() => { let best = null, bd = 1e9; for (const b of document.querySelectorAll('#addRing .add-pick')) {

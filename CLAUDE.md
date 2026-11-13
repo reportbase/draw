@@ -58,7 +58,7 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   (a `var`: the first frames ask `_morphReady` before that line runs). A name added at the engine's top goes in
   both lists; `npm test` (labs) fails when the three differ. `npm run player` reads the engine's lines from the
   file, put back where the page takes them. `partRun` returns what a part's function returns; the other twelve
-  return nothing. The shapes panel draws its grid of tiles on its first opening. The AI panel must run at the
+  return nothing. `shapes-panel.js` is the builder alone since the Shapes popover went (13 Nov 2026). The AI panel must run at the
   start: it takes the sign-in redirect's token from the address (`captureRedirect`) and sets the hooks the scene
   link reads (`__animOutline`, `__sceneBoxOf`); it costs 2 to 4 ms there, so it is not worth deferring.
 - `index.html`: forwards `/draw/` to `draw.html`, keeping `?lab=` and `?bucket=`.
@@ -211,10 +211,10 @@ compatibly.
   a short name under them on hover or while held, and on touch a shape's tile shows its title when pressed (13 Nov
   2026, THE BUTTONS SAY THEIR NAMES, `NAMES` in `draw.html`): a new button on either bar needs an entry there, or
   `npm test` (editor) fails; its `title` stays the longer account.
-- The strip at the foot adds shapes too (13 Nov 2026, THE STRIP ADDS SHAPES TOO in `draw.html`): its + turns it to
-  the library (`PRIMITIVES`, as the Shapes panel offers them) on a ring of its own (`makeRing`), a tap adds one
-  (`addPrimitive`), and + again goes back. The drawing's strip only steps aside (`body.adding`); the + hides in the
-  edit view and while a morph is live (its bar has the foot then).
+- The strip at the foot adds shapes (13 Nov 2026, THE STRIP ADDS SHAPES TOO in `draw.html`): the + on the top bar
+  (`#bAddStrip`, where the Shapes button and its popover were) turns it to the library (`PRIMITIVES`) on a ring of its
+  own (`makeRing`), a tap adds one (`addPrimitive`), and + again goes back. The drawing's strip only steps aside
+  (`body.adding`); the library hides in the edit view and while a morph is live (its bar has the foot then).
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing

@@ -1,7 +1,7 @@
 // THE SHAPES PANEL, moved out of draw.html line for line (12 Nov 2026, Tom: "1,2,3,4,5,6", the fifth being "keep
 // splitting draw.html").
 //
-// What it holds: the shapes popover and the builder: the grid built from the editor's PRIMITIVES, each primitive's dials, the build panel.
+// What it holds: the builder: each primitive's dials, the build panel (the shapes popover that was here went on 13 Nov 2026).
 //
 // This file does not run on its own. It hands its code to the editor as one function, and the editor evaluates that
 // function's text inside its own closure, at the place in its script where these lines stood (PARTS OF THE EDITOR IN
@@ -11,65 +11,12 @@
 // the editor: the same voice, the same indent. The comment that introduced the block is still in draw.html, above
 // the line that runs it.
 (window.TVF_PARTS = window.TVF_PARTS || {})['shapes-panel'] = function () {
-            const pop = $('shapePop'),
-                grid = $('shapeGrid'),
-                btn = $('bShapes');
+            // THE SHAPES POPOVER IS GONE (13 Nov 2026, Tom: "move the shape toggle button to the top toolbar. remove the
+            // shape button on top"). Its grid of a hundred tiles was the header's way to add a shape; the strip at the foot
+            // does that now (THE STRIP ADDS SHAPES TOO, in draw.html), with the button that turns it there taking the
+            // Shapes button's place on the bar. What is left here is the builder, which has its own button (#bBuild).
             const buildPop = $('buildPop'),
                 buildBtn = $('bBuild');
-            if (!pop || !grid || !btn)
-                return;
-
-            // Headings come from SHAPE_CATS so the order is declared in one place; anything
-            // carrying an unknown category still lands at the end rather than vanishing.
-            //
-            // THE GRID IS DRAWN WHEN IT IS FIRST OPENED (12 Nov 2026, Tom: "1 2 3", the second "load the shapes panel
-            // on first use"). Its hundred tiles are each an svg drawn from the primitive's points, and drawing them was
-            // nearly all this block cost as the page started (35 to 58 ms of 36 to 59, measured in the sandbox), for a
-            // panel most visits never open. So the tiles wait for the first press of the button; the builder, the
-            // grid's click and the double-click door below are wired at the start as they were, being cheap and
-            // being what other parts of the page reach for. window.__shapeGridFilled says whether it has been drawn.
-            //
-            // ON TOUCH THE PICTURES GROW WITH THEIR TILES (13 Nov 2026, Tom: "2 3 4", the fourth "bigger tiles in the
-            // shapes panel on a phone"). A finger's tile was already 54px against a mouse's 44 (the coarse rule in
-            // draw.html), but the shape drawn in it stayed the 28px a mouse's tile was drawn for, a small picture
-            // in a large box. On touch it is drawn at 42, the same share of its tile.
-            const TILE_PX = matchMedia('(pointer: coarse)').matches ? 42 : 28;
-            function fillShapeGrid() {
-                if (grid.childElementCount)
-                    return;
-                const cats = SHAPE_CATS.slice();
-                for (const spec of PRIMITIVES)
-                    if (spec.cat && !cats.includes(spec.cat))
-                        cats.push(spec.cat);
-                for (const cat of cats) {
-                    const list = PRIMITIVES.filter(q => (q.cat || cats[cats.length - 1]) === cat);
-                    if (!list.length)
-                        continue;
-                    const head = document.createElement('div');
-                    head.className = 'shape-cat';
-                    head.textContent = cat;
-                    grid.appendChild(head);
-                    for (const spec of list) {
-                        const b2 = document.createElement('button');
-                        b2.className = 'shape-pick';
-                        b2.dataset.shape = spec.key;
-                        b2.title = spec.label;
-                        b2.setAttribute('aria-label', spec.label);
-                        b2.innerHTML = tileSvg(spec, TILE_PX);
-                        grid.appendChild(b2);
-                    }
-                }
-                window.__shapeGridFilled = true;
-            }
-
-            grid.addEventListener('click', e => {
-                const t = e.target.closest('.shape-pick');
-                if (!t)
-                    return;
-                addPrimitive(t.dataset.shape);
-                pop.classList.remove('open');
-                scheduleSave();
-            });
 
             // ── the parametric row ──────────────────────────────────────────────
             // Some families are a handful of numbers wide: a polygon is its side count, a star
@@ -1138,16 +1085,6 @@
                     openBuilder(false);
                 });
 
-            btn.addEventListener('click', e => {
-                e.stopPropagation();
-                const open = pop.classList.contains('open');
-                closeAllPops();
-                if (open)
-                    return; // a second press closes it
-                fillShapeGrid();
-                pop.classList.add('open');
-                placePop(pop, btn);
-            });
 
             // ── THE DOUBLE-CLICK DOOR ───────────────────────────────────────────
             // A double-click on a shape means "let me at this thing". For a drawn or imported
