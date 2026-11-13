@@ -1748,12 +1748,12 @@
                    one "this is live" signal and it must not depend on what is behind it. The dark
                    glyph inside it is fixed for the same reason: gold is a light colour, so the
                    contrast partner is dark on a light page and on a dark one alike. */
-                button.icon-btn.active {
+                button.icon-btn.active, button.icon-btn.pop-open {
                   color: #14141a; background: var(--gold); border-color: rgba(212,160,82,0.9);
                   box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 4px 14px rgba(212,160,82,0.28), inset 0 1px 0 rgba(255,255,255,0.35);
                 }
-                button.icon-btn.active svg { filter: none; }
-                button.icon-btn.active:hover { background: #e8b96b; color: #14141a; border-color: var(--gold); }
+                button.icon-btn.active svg, button.icon-btn.pop-open svg { filter: none; }
+                button.icon-btn.active:hover, button.icon-btn.pop-open:hover { background: #e8b96b; color: #14141a; border-color: var(--gold); }
                 /* A disabled icon button has to LOOK unavailable, or the affordance is worse than
                    no button at all: it would look pressable and do nothing. It also loses the lift:
                    a raised surface is a promise that pressing it does something. */
@@ -55055,6 +55055,32 @@
                     b.classList.toggle('active', open);
             }
         }
+        // EVERY BUTTON LIGHTS WHILE ITS PANEL IS OPEN (13 Nov 2026, Tom: "1 then 3", the third "light every button while
+        // its panel is open"; kept when the rest of that change was taken back, Tom: "keep the options in the header and the
+        // footer is just for the values of that option"). The reading's eye did (above), and the strip's buttons light while
+        // the strip shows theirs, but Text, Plot, Play, Arrange, Morph, Tools, Grid, Build, AI and Name opened their panels
+        // and stayed as they were, so which button a panel belonged to was a guess. Each now wears the lit look while its
+        // panel is open. A class of its own, .pop-open, styled as .active: the grid's button already says with .active that
+        // the grid is ON, and a panel closing must not switch that off. Driven by the panels' own class, watched, so it
+        // cannot disagree with the screen whichever of the many ways a panel opens or closes.
+        (function() {
+            const OPENER = { playPop: 'bPlayShape', textPop: 'bText', plotPop: 'bPlot', arrangePop: 'bArrangeOpen',
+                morphPop: 'bMorphOpen', toolsPop: 'bTools', gridPop: 'bGrid', buildPop: 'bBuild', aiPop: 'bAi', descPop: 'bDesc' };
+            const sync = () => {
+                for (const [pid, bid] of Object.entries(OPENER)) {
+                    const p = $(pid), b = $(bid);
+                    if (p && b)
+                        b.classList.toggle('pop-open', p.classList.contains('open'));
+                }
+            };
+            const watch = new MutationObserver(sync);
+            for (const pid of Object.keys(OPENER)) {
+                const p = $(pid);
+                if (p)
+                    watch.observe(p, { attributes: true, attributeFilter: ['class'] });
+            }
+            sync();
+        })();
         // Any click that is not inside an open popover, and not on the button that opened
         // it, dismisses. Capture phase so it beats the canvas handlers.
         document.addEventListener('mousedown', e => {

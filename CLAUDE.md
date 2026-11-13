@@ -221,6 +221,10 @@ compatibly.
   drawing is placed there (`addPrimitive(key, at)`; the ring lets go through `__ringHeld`). `__strip.open(mode)` and `__strip.mode` for tests. Those six buttons lead the top ring
   (`STRIP_FIRST`, moved to the front before the ring is built) and it opens turned to Fill, so a phone shows Shapes, Fill and
   Outline at once; a phone test that needs another top-bar button in view has to turn the ring to it.
+- The top bar holds the options and the strip at the foot only an option's values (13 Nov 2026, Tom: "keep the options in
+  the header and the footer is just for the values of that option", taking back the selection's options and buttons moved
+  to the strip that day): the selection's panel stays under its box, and Fill, Outline, Align, Order, Group, Merge and Name
+  stay on the top bar. A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
