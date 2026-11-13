@@ -635,6 +635,45 @@ T.current = 'the strip holds still while put away';
   await hp.close();
 }
 
+/* Few shapes lie as a centred row (13 Nov 2026, Tom: "If the number of shapes width is less then the width of the screen
+   then you should center the shapes, as the wrap around is not needed"): five tiles stand in their order, a pitch apart,
+   centred on the strip, and a drag across them does not turn them. */
+T.current = 'few shapes lie as a centred row';
+{
+  const rp = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  rp.on('pageerror', e => failures.push(`[centred row] ${e.message}`));
+  await rp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await rp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await rp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 100">';
+    for (let i = 0; i < 5; i++) svg += `<circle cx="${50 + i * 100}" cy="50" r="40" fill="#c84"/>`;
+    await rp.setInputFiles('#fLoad', { name: 'five.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg + '</svg>') });
+    await rp.waitForTimeout(1500);
+    await rp.keyboard.press('Escape'); await rp.mouse.click(700, 150); await rp.waitForTimeout(400);
+    const row = () => rp.evaluate(() => {
+      const s = document.getElementById('shapeScroller').getBoundingClientRect();
+      const t = [...document.querySelectorAll('#shapeScroller .shape-tile')].filter(e => e.style.display !== 'none')
+        .map(e => { const r = e.getBoundingClientRect(); return [+e.dataset.idx, r.left + r.width / 2]; });
+      return { mid: s.left + s.width / 2, t };
+    });
+    const r0 = await row();
+    const xs = r0.t.map(a => a[1]), order = r0.t.slice().sort((a, b) => a[1] - b[1]).map(a => a[0]).join();
+    const centre = (Math.min(...xs) + Math.max(...xs)) / 2;
+    if (r0.t.length !== 5 || order !== '0,1,2,3,4' || Math.abs(centre - r0.mid) > 2)
+      throw new Error('five shapes in the strip: ' + JSON.stringify(r0));
+    const y = (await rp.locator('#shapeScroller .shape-tile').first().boundingBox()).y + 36;
+    await rp.mouse.move(400, y); await rp.mouse.down(); await rp.mouse.move(900, y, { steps: 12 }); await rp.mouse.up();
+    await rp.waitForTimeout(1000);
+    if (JSON.stringify((await row()).t) !== JSON.stringify(r0.t)) throw new Error('a drag turned a row that fits');
+  } catch (e) {
+    failures.push(`[centred row] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} few shapes lie as a centred row`);
+  await rp.close();
+}
+
 /* The group button lives in the selection's options (BOX_BUTTONS 'bt-group', a tile in the strip at the foot since
    13 Nov 2026, under the selection before), no longer
    beside the rotate grip, and the menu's "selection panel" switch (#tSelPanel) puts the panel away

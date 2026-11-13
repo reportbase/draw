@@ -30437,6 +30437,16 @@
         //   realDimension(currentAngle, N, aperture) → visible indices
         //   fisheye.project(index, currentAngle, N, ITEM_W) → each item's position
         //   screenX = position + halfWidth
+        // every tile of the drawing's strip fits across it, so it lies as a centred row and does not turn
+        function stripFits(n, W) {
+            if (n == null)
+                n = browseEntries().length;
+            if (W == null) {
+                const strip = $('shapeScroller');
+                W = (strip && strip.clientWidth) || 600;
+            }
+            return n * ITEM_W() <= W;
+        }
         function layoutCarousel() {
             const strip = $('shapeScroller');
             if (!strip)
@@ -30452,87 +30462,100 @@
             const halfWidth = W / 2;
             const itemExtent = ITEM_W();
 
-            // Canonical boma layout (boma.js CANONICAL USAGE / action.js). Positions come
-            // straight from fisheye.project — NO hand-rolled spread/stretch.
-            //   virtualWidth = N · ITEM · ψ₁
-            //   aperture     = (viewportWidth + 2·buffer) / virtualWidth   (buffer ≈ 2·ITEM)
-            //   realDimension(angle, N, aperture) → which indices are visible
-            //   fisheye.project(i, angle, N, ITEM)  → where each one sits (centered at 0)
-            //   screenX = position + halfWidth ; clip beyond [-ITEM, W+ITEM]
-            const virtualWidth = n * itemExtent * boma.PSI;
-            const buffer = 2 * itemExtent;
-            // APERTURE IS CAPPED AT ONE WHOLE RING. Uncapped, a wide window over few shapes asks
-            // realDimension for several LAPS — eight tiles in a 1280px strip works out at ~3.6 —
-            // so the same shape is named three or four times, once per lap. The dedupe below then
-            // keeps whichever occurrence is nearest the focus, and that choice FLIPS mid-drag: the
-            // tile you were pushing left vanishes and reappears at the right-hand end, and the
-            // slot its other occurrence would have filled is left as a hole in the row. That is
-            // the skip — the carousel teleporting an item to the far side of the strip and leaving
-            // a gap where it was, which reads as "it moved somewhere random when I stopped".
-            // One lap is all there is to show; asking for more can only ask for it again.
-            const aperture = Math.min(1, (W + 2 * buffer) / virtualWidth);
-
-            // ── ONLY WHAT CAN BE ON SCREEN ────────────────────────────────────────────
-            // realDimension answers with every index the aperture admits, and since the aperture
-            // is capped at one whole lap that is EVERY SHAPE — 5,000 projections per layout in a
-            // scattered scene, to place the dozen tiles that fit. The strip never drew them (the
-            // pool is sized to what shows), but it costed them, every frame of every spin.
-            //
-            // The fisheye is monotone in index either side of the focus, so the visible run is a
-            // contiguous window around it: read the focused index back from the angle, then walk
-            // outward in both directions and stop each side as soon as a projection leaves the
-            // clip range. The bound is a safety net, not the mechanism — it is what stops a
-            // degenerate projection walking the whole ring.
-            const focus = boma.getCenteredIndex(currentAngle, n);
-            const maxOut = Math.min(n, Math.ceil(W / Math.max(1, itemExtent)) + 6);
-            const idxs = [focus];
-            for (let side = -1; side <= 1; side += 2) {
-                for (let o = 1; o <= maxOut; o++) {
-                    const i = ((focus + side * o) % n + n) % n;
-                    const pos = boma.fisheye.project(i, currentAngle, n, itemExtent);
-                    if (!isFinite(pos))
-                        break; // the θ=π singularity: the far side
-                    idxs.push(i);
-                    const x = pos + halfWidth;
-                    if (x < -itemExtent || x > W + itemExtent)
-                        break; // past the edge, and monotone
+            // A ROW THAT FITS IS A ROW, CENTRED (13 Nov 2026, Tom: "If the number of shapes width is less then the width of
+            // the screen then you should center the shapes, as the wrap around is not needed"). The ring below is for a
+            // scene with more shapes than the strip can show: it wraps, so whichever end you turn to there is more. When
+            // every tile fits across, the wrap only moved the shapes around a strip that had room for all of them, put
+            // the first one in the middle and the last one at its left. So they stand in their order, centred, a tile's
+            // pitch apart, and the strip does not turn (stripFits: the drag, the wheel and a glide leave it).
+            let show = [];
+            if (stripFits(n, W)) {
+                for (let e = 0; e < n; e++) {
+                    const itemX = (e - (n - 1) / 2) * itemExtent;
+                    show.push({ entIdx: e, itemX, x: itemX + halfWidth });
                 }
-            }
-            const result = {
-                indices: idxs
-            };
+            } else {
+                // Canonical boma layout (boma.js CANONICAL USAGE / action.js). Positions come
+                // straight from fisheye.project — NO hand-rolled spread/stretch.
+                //   virtualWidth = N · ITEM · ψ₁
+                //   aperture     = (viewportWidth + 2·buffer) / virtualWidth   (buffer ≈ 2·ITEM)
+                //   realDimension(angle, N, aperture) → which indices are visible
+                //   fisheye.project(i, angle, N, ITEM)  → where each one sits (centered at 0)
+                //   screenX = position + halfWidth ; clip beyond [-ITEM, W+ITEM]
+                const virtualWidth = n * itemExtent * boma.PSI;
+                const buffer = 2 * itemExtent;
+                // APERTURE IS CAPPED AT ONE WHOLE RING. Uncapped, a wide window over few shapes asks
+                // realDimension for several LAPS — eight tiles in a 1280px strip works out at ~3.6 —
+                // so the same shape is named three or four times, once per lap. The dedupe below then
+                // keeps whichever occurrence is nearest the focus, and that choice FLIPS mid-drag: the
+                // tile you were pushing left vanishes and reappears at the right-hand end, and the
+                // slot its other occurrence would have filled is left as a hole in the row. That is
+                // the skip — the carousel teleporting an item to the far side of the strip and leaving
+                // a gap where it was, which reads as "it moved somewhere random when I stopped".
+                // One lap is all there is to show; asking for more can only ask for it again.
+                const aperture = Math.min(1, (W + 2 * buffer) / virtualWidth);
 
-            // When there are few shapes the visible angular window can wrap past N, so the
-            // same index appears more than once. Keep each shape once, at the occurrence
-            // nearest the focus (smallest |position|).
-            const best = {}; // entIdx → position closest to center
-            result.indices.forEach(entIdx => {
-                if (entIdx >= n)
-                    return;
-                const pos = boma.fisheye.project(entIdx, currentAngle, n, itemExtent);
-                if (!isFinite(pos))
-                    return; // θ=π singularity item → drop
-                if (!(entIdx in best) || Math.abs(pos) < Math.abs(best[entIdx]))
-                    best[entIdx] = pos;
-            });
+                // ── ONLY WHAT CAN BE ON SCREEN ────────────────────────────────────────────
+                // realDimension answers with every index the aperture admits, and since the aperture
+                // is capped at one whole lap that is EVERY SHAPE — 5,000 projections per layout in a
+                // scattered scene, to place the dozen tiles that fit. The strip never drew them (the
+                // pool is sized to what shows), but it costed them, every frame of every spin.
+                //
+                // The fisheye is monotone in index either side of the focus, so the visible run is a
+                // contiguous window around it: read the focused index back from the angle, then walk
+                // outward in both directions and stop each side as soon as a projection leaves the
+                // clip range. The bound is a safety net, not the mechanism — it is what stops a
+                // degenerate projection walking the whole ring.
+                const focus = boma.getCenteredIndex(currentAngle, n);
+                const maxOut = Math.min(n, Math.ceil(W / Math.max(1, itemExtent)) + 6);
+                const idxs = [focus];
+                for (let side = -1; side <= 1; side += 2) {
+                    for (let o = 1; o <= maxOut; o++) {
+                        const i = ((focus + side * o) % n + n) % n;
+                        const pos = boma.fisheye.project(i, currentAngle, n, itemExtent);
+                        if (!isFinite(pos))
+                            break; // the θ=π singularity: the far side
+                        idxs.push(i);
+                        const x = pos + halfWidth;
+                        if (x < -itemExtent || x > W + itemExtent)
+                            break; // past the edge, and monotone
+                    }
+                }
+                const result = {
+                    indices: idxs
+                };
 
-            // Everything boma says is on screen, in index order. Sorting matters: it keeps the
-            // tile↔shape assignment stable as the window slides, so a drag re-stamps one tile
-            // per step instead of reshuffling all seventeen and redrawing every thumbnail.
-            const show = [];
-            for (const key in best) {
-                const entIdx = +key;
-                const itemX = best[entIdx]; // boma position, used directly
-                const x = itemX + halfWidth; // screenX = position + halfWidth
-                if (x < -itemExtent || x > W + itemExtent)
-                    continue; // incl. the θ=π singularity item
-                show.push({
-                    entIdx,
-                    itemX,
-                    x
+                // When there are few shapes the visible angular window can wrap past N, so the
+                // same index appears more than once. Keep each shape once, at the occurrence
+                // nearest the focus (smallest |position|).
+                const best = {}; // entIdx → position closest to center
+                result.indices.forEach(entIdx => {
+                    if (entIdx >= n)
+                        return;
+                    const pos = boma.fisheye.project(entIdx, currentAngle, n, itemExtent);
+                    if (!isFinite(pos))
+                        return; // θ=π singularity item → drop
+                    if (!(entIdx in best) || Math.abs(pos) < Math.abs(best[entIdx]))
+                        best[entIdx] = pos;
                 });
+
+                // Everything boma says is on screen, in index order. Sorting matters: it keeps the
+                // tile↔shape assignment stable as the window slides, so a drag re-stamps one tile
+                // per step instead of reshuffling all seventeen and redrawing every thumbnail.
+                for (const key in best) {
+                    const entIdx = +key;
+                    const itemX = best[entIdx]; // boma position, used directly
+                    const x = itemX + halfWidth; // screenX = position + halfWidth
+                    if (x < -itemExtent || x > W + itemExtent)
+                        continue; // incl. the θ=π singularity item
+                    show.push({
+                        entIdx,
+                        itemX,
+                        x
+                    });
+                }
+                show.sort((a, b) => a.entIdx - b.entIdx);
             }
-            show.sort((a, b) => a.entIdx - b.entIdx);
 
             // Grow the pool only to what fits on screen — this is the number boma bounded for
             // us, and it does not move when the scene gets bigger.
@@ -30932,7 +30955,7 @@
                     endSpin(true);
                     return;
                 }
-                if (browseEntries().length <= 1)
+                if (browseEntries().length <= 1 || stripFits())
                     return;
                 const delta = pixelsToAngle(e.clientX - spin.x, carouselVirtualWidth());
                 currentAngle = boma.normalizeAngle(spin.startAngle + delta);
@@ -30967,7 +30990,7 @@
             // were really pointing at. The strip takes its own events now, so a wheel delivered to
             // it was aimed at it, and turning is what it does.
             strip.addEventListener('wheel', e => {
-                if (browseEntries().length <= 1)
+                if (browseEntries().length <= 1 || stripFits())
                     return;
                 const px = wheelSpinPixels(e);
                 if (!px)
@@ -31090,7 +31113,7 @@
                 }
                 if (!down.dragging)
                     return;
-                if (browseEntries().length <= 1)
+                if (browseEntries().length <= 1 || stripFits())
                     return;
                 const delta = pixelsToAngle(e.clientX - down.x, carouselVirtualWidth());
                 currentAngle = boma.normalizeAngle(down.startAngle + delta);

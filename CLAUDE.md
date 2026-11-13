@@ -238,6 +238,8 @@ compatibly.
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).
   Panning the strip (a drag, the wheel, a glide) only turns it and selects nothing (Tom: "The fix is to not select the
   shape when panning the footer"; `STRIP_PAN_SELECTS` is false, so `stripFollowFocus` returns); a tap on a tile selects.
+  When every tile fits across (`stripFits()`), the strip is a centred row in order and does not turn (Tom: "you should
+  center the shapes, as the wrap around is not needed"); the wrapping ring is for more shapes than fit.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
