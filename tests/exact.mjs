@@ -373,8 +373,7 @@ T.current = 'exact shapes';
     }
     // Leaves to exact with few corners: a square of leaves comes back as its four corners.
     await xp.keyboard.press('Escape');
-    await xp.click('#bShapes');
-    await xp.click('#shapeGrid .shape-pick[data-shape="square"]');
+    await xp.evaluate(() => { window.__addStrip.open(true); document.querySelector('#addRing .add-pick[data-shape="square"]').click(); window.__addStrip.open(false); });
     await xp.waitForTimeout(400);
     const sqSw = await xp.evaluate(() => { const b = window.__box.button('bt-mode'); return b && [b.cx, b.cy]; });
     if (!sqSw) throw new Error('no mode switch on the added square');
@@ -384,8 +383,7 @@ T.current = 'exact shapes';
     if (!sqc || sqc.pts.length !== 4 || sqc.smooth) throw new Error('a square of leaves made exact: ' + (sqc ? sqc.pts.length + ' corners' : 'not exact'));
     // ...and a circle of leaves as a handful of smooth corners: smooth corners on a circle draw
     // the circle (edgeCtrl), so few are needed.
-    await xp.click('#bShapes');
-    await xp.click('#shapeGrid .shape-pick[data-shape="circle"]');
+    await xp.evaluate(() => { window.__addStrip.open(true); document.querySelector('#addRing .add-pick[data-shape="circle"]').click(); window.__addStrip.open(false); });
     await xp.waitForTimeout(400);
     const ciSw = await xp.evaluate(() => { const b = window.__box.button('bt-mode'); return b && [b.cx, b.cy]; });
     await xp.mouse.click(...P(ciSw[0], ciSw[1]));
@@ -604,7 +602,8 @@ T.current = 'combining exact shapes';
     await xp.keyboard.press('Escape');
     await xp.evaluate(() => window.__box.select([0, 1]));
     await xp.click('#bAlign');
-    await xp.click('#alignPop [data-align="top"]');
+    await xp.click('.add-strip [data-mode="align"] .strip-tile[aria-label="align top edges"]');
+    await xp.click('#bAlign');
     await xp.waitForTimeout(250);
     await xp.evaluate(() => window.__box.select([0, 1]));
     const tops = (await shapes()).map(q => q.box[3]);

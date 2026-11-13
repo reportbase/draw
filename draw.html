@@ -2097,28 +2097,6 @@
                   letter-spacing: 0.7px; margin-bottom: 7px;
                 }
                 .pop-grid { display: grid; grid-template-columns: repeat(6, 22px); gap: 6px; }
-                /* The list outgrew a single block of tiles, so the grid scrolls and the categories
-                   ride in it as full-width headings — one scroll, everything still one click.
-                   A VISIBLE BAR, and always: `auto` plus the platform's overlay scrollbars meant the
-                   panel showed four rows of a hundred tiles with nothing at all to say there were more
-                   — the list looked complete and the rest was reachable only by guessing that it
-                   scrolled. `scroll` reserves the gutter whether or not it is needed, so the tiles do
-                   not shift sideways the moment the bar appears, and the thumb is painted in the same
-                   gold as the shape bar's rather than left to the platform, which would draw a light
-                   grey bar on a dark panel. */
-                .shape-grid {
-                  display: grid; grid-template-columns: repeat(4, 44px); gap: 7px;
-                  max-height: 52vh; overflow-y: scroll; overscroll-behavior: contain; padding-right: 6px;
-                  scrollbar-width: thin; scrollbar-color: rgba(212,160,82,0.4) transparent;
-                  scrollbar-gutter: stable;
-                }
-                .shape-grid::-webkit-scrollbar { width: 9px; }
-                .shape-grid::-webkit-scrollbar-thumb {
-                  background: rgba(212,160,82,0.35); border-radius: 4px;
-                  border: 2px solid transparent; background-clip: content-box;
-                }
-                .shape-grid::-webkit-scrollbar-thumb:hover { background: rgba(212,160,82,0.6); background-clip: content-box; }
-                .shape-grid::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 4px; }
                 /* The generated parameter rows in the builder scroll for the same reason and should not
                    look like a different control. */
                 #shapeCustomParams { scrollbar-width: thin; scrollbar-color: rgba(212,160,82,0.4) transparent; }
@@ -2128,11 +2106,6 @@
                   border: 2px solid transparent; background-clip: content-box;
                 }
                 #shapeCustomParams::-webkit-scrollbar-track { background: transparent; }
-                .shape-cat {
-                  grid-column: 1 / -1; color: var(--fg-muted); font-size: 9px; opacity: 0.8;
-                  text-transform: uppercase; letter-spacing: 0.7px; margin: 5px 0 -2px;
-                }
-                .shape-cat:first-child { margin-top: 0; }
                 /* The parametric row: the families where one number is the whole shape (sides,
                    points, roundness) are a slider, not forty more tiles. */
                 /* No top divider any more: this was the bottom half of the shapes popover and the rule
@@ -2188,33 +2161,6 @@
                 /* The readout is the panel's whole argument: it says what the numbers cost. Two lines,
                    fixed height, so the panel does not jump as the text changes length. */
                 #buildPop .live-on { border-color: var(--gold-dim); color: var(--gold); }
-                /* .bar-select is scoped to the on-canvas shape bar, so the family and preset lists in
-                   here fell through to the browser's own light-mode widget — two white boxes in a dark
-                   panel. Same values as that rule, applied where they are also needed. */
-                #shapePop select {
-                  background: var(--bg); color: var(--gold);
-                  border: 1px solid var(--line2); border-radius: 4px;
-                  font-family: 'DM Mono', monospace; font-size: 11px;
-                  padding: 3px 6px; cursor: pointer; min-width: 0;
-                }
-                #shapePop select:hover { border-color: var(--fg-muted); }
-                #shapePop select:focus { outline: none; border-color: var(--gold-dim); }
-                .shape-pick {
-                  width: 44px; height: 44px; padding: 0; cursor: pointer;
-                  display: flex; align-items: center; justify-content: center;
-                  background: var(--bg); color: var(--fg-muted);
-                  border: 1px solid var(--line2); border-radius: 6px;
-                }
-                .shape-pick:hover { color: var(--gold); border-color: var(--gold-dim); background: rgba(212,160,82,0.10); }
-                @media (pointer: coarse) {
-                  /* Wider tiles for a finger — and a wider bar to drag, since a 9px thumb is a mouse
-                     target rather than a thumb one. The gutter reserved above still applies; on a phone
-                     the popover is 278px against the builder's 268, which is inside the placement
-                     clamp. */
-                  .shape-grid { grid-template-columns: repeat(4, 54px); gap: 9px; }
-                  .shape-grid::-webkit-scrollbar { width: 13px; }
-                  .shape-pick { width: 54px; height: 54px; }
-                }
                 .pop-row { display: flex; align-items: center; gap: 6px; margin-top: 9px; }
                 .pop-row button, .pop-act {
                   background: var(--bg); color: var(--fg-muted); border: 1px solid var(--line2);
@@ -2827,18 +2773,30 @@
                     /* the ring's box starts after the + (12px in, 52 wide, and air), as the top bar's starts after its
                        corner buttons: a ring clips at its own box, so a tile spinning past the + slides under the box's
                        edge rather than showing behind the button */
-                    #addRing { height: 100%; margin-left: 76px; padding: 0; }
-                    #addRing > .icon-btn { width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 20px; padding: 0; }
-                    #addRing > .icon-btn svg { width: 54px; height: 54px; }
-                    #bAddStrip { position: fixed; left: 12px; bottom: 26px; z-index: 30; width: 52px; height: 52px; border-radius: 14px; }
-                    #bAddStrip svg { width: 26px; height: 26px; transition: transform 0.15s ease; }
-                    /* open, it is the way back: gold like the other corner buttons, and the + turned to an × */
-                    body.adding #bAddStrip { color: var(--gold); border-color: var(--gold-dim); }
-                    body.adding #bAddStrip svg { transform: rotate(45deg); }
-                    /* and while a morph is live: its bar takes the foot of the page then (body.morphing #shapeBar), and
-                       the + would sit on its first controls */
-                    body.editing #bAddStrip, body.editing .add-strip,
-                    body.morphing #bAddStrip, body.morphing .add-strip { display: none; }
+                    /* one ring for each thing the strip can say (THE STRIP SAYS ONE OF SEVERAL THINGS), the one showing .on */
+                    .add-strip > .controls { display: none; height: 100%; padding: 0; }
+                    .add-strip > .controls.on { display: block; }
+                    .add-strip > .controls > .icon-btn { width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 20px; padding: 0; }
+                    .add-strip > .controls > .icon-btn svg { width: 54px; height: 54px; }
+                    /* an action's icon and the sliders tile are glyphs, not pictures: drawn at a glyph's share of the tile */
+                    .add-strip > .controls > .strip-more svg, .add-strip > .controls[data-mode="align"] svg,
+                    .add-strip > .controls[data-mode="order"] svg { width: 34px; height: 34px; }
+                    .add-strip > .controls > .icon-btn:disabled { opacity: 0.35; }
+                    /* a swatch tile is its colour, a disc in a chip; the colour in use has the gold ring the panel gave it */
+                    .add-strip .sw-disc { display: block; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--chip-line); }
+                    .add-strip .sw-disc.none { background: linear-gradient(135deg, transparent 46%, var(--red) 46%, var(--red) 54%, transparent 54%) !important; }
+                    .add-strip > .controls > .icon-btn.on { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-dim); }
+                    /* the panel a swatch ring opens holds only its sliders: the strip is showing its swatches */
+                    body[data-strip="fill"] #spFillGrid, body[data-strip="line"] #spLineGrid { display: none; }
+                    /* the switch is on the top bar now, a chip like its neighbours; open, it is the way back: gold, and
+                       the + turned to an × */
+                    #bAddStrip svg { transition: transform 0.15s ease; }
+                    /* the buttons that turn the strip light while it shows theirs (only these: the lock says its own state
+                       with aria-pressed too, in its own way) */
+                    :is(#bAddStrip, #bStyle, #bLine, #bAlign, #bOrder, #bBuild)[aria-pressed="true"] { color: var(--gold); border-color: var(--gold-dim); }
+                    #bAddStrip[aria-pressed="true"] svg { transform: rotate(45deg); }
+                    /* and while a morph is live its bar takes the foot of the page (body.morphing #shapeBar) */
+                    body.editing .add-strip, body.morphing .add-strip { display: none; }
                     /* The edit footer, hidden by the canvas long-press. Edit mode is where the drawing wants
                        the whole window — you are inside one shape, working close — and the footer is the
                        widest piece of furniture on the screen. Outside edit mode the same hold takes the
@@ -3452,11 +3410,12 @@
                      The strip always BOOTS visible: state.showBrowser survives in saved sessions
                      and is ignored on load, so a long-press from months ago cannot cost a new
                      session its strip. -->
-            <button id="bShapes" class="icon-btn" title="add a shape to the scene you already have — circles, boxes, polygons, stars, arrows, curves — or dial one up on the sliders">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="8.5" cy="8.5" r="5"/>
-                    <rect x="11" y="11" width="9.5" height="9.5" rx="1.2"/>
-                </svg>
+            <!-- THE SHAPES BUTTON TURNS THE STRIP (13 Nov 2026, Tom: "move the shape toggle button to the top toolbar.
+                     remove the shape button on top"). It opened a popover of a hundred small tiles; the strip at the
+                     foot shows the same library as big ones (THE STRIP ADDS SHAPES TOO), and this is its switch: +
+                     turns the strip to the library, and pressed again (an × then) back to the drawing's shapes. -->
+            <button id="bAddStrip" class="icon-btn" title="add shapes: the strip at the foot shows the library of shapes, and a tap on one puts it in the drawing (press again to go back to the drawing's shapes)" aria-label="Add shapes">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             </button>
             <!-- THE BUILDER'S OWN SLOT, beside the globe for the same reason the globe has one:
                      a panel you dial rather than a list you pick from. The icon is a slider over a
@@ -4376,18 +4335,6 @@
             the leaves beside them.</li>
             <li>The <b>SVG export</b> writes straight edges, arcs and curves as they are.</li>
         </ul>
-    </div>
-    <!-- Text entry popover for the toolbar's text button. -->
-    <div class="pop" id="shapePop" role="dialog" aria-label="add a shape">
-        <div class="pop-title">add a shape</div>
-        <div class="shape-grid" id="shapeGrid"></div>
-        <!-- THE PARAMETRIC ROW MOVED OUT, to its own toolbar button and popover (#buildPop).
-               It outgrew this one twice: once when the rows started being generated per family,
-               and again when the link arrived and the panel stopped being a way to ADD a shape
-               at all. This popover is a catalogue — press a tile, get a shape, done — and a
-               catalogue is a thing you close. The builder is a thing you keep open and work in,
-               and now that a double-click on a built shape opens it, it needed a door of its
-               own rather than a scroll to the bottom of somebody else's. -->
     </div>
     <!-- THE SHAPE TOOL'S STRIP (EXACT SHAPES): shown while #bDrawShape is on, under the bar. -->
     <div id="shapeTool" role="toolbar" aria-label="the shape to drag out">
@@ -6960,12 +6907,9 @@
          buried three scrolls into the settings menu. -->
 
     <div class="shape-scroller" id="shapeScroller"></div>
-    <!-- THE STRIP ADDS SHAPES TOO (13 Nov 2026): the + at its left end turns the strip from the shapes in the drawing
-         to the library of shapes to add, and back. See THE STRIP ADDS SHAPES TOO in the script. -->
+    <!-- THE STRIP ADDS SHAPES TOO (13 Nov 2026): the + on the top bar (#bAddStrip) turns the strip from the shapes in
+         the drawing to the library of shapes to add, and back. See THE STRIP ADDS SHAPES TOO in the script. -->
     <div class="add-strip" id="addStrip" role="toolbar" aria-label="add a shape"><div class="controls" id="addRing"></div></div>
-    <button id="bAddStrip" class="icon-btn" title="add shapes: the strip shows the library of shapes, and a tap puts one in the drawing (press + again to go back to the drawing's shapes)" aria-label="Add shapes">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="plus" d="M12 5v14M5 12h14"/></svg>
-    </button>
 
     <!-- PARTS OF THE EDITOR, each a file in parts/ (12 Nov 2026): blocks of this page's script that it runs in place,
          inside its own closure (partRun, in the script below). They only hand their code over here. -->
@@ -55080,7 +55024,7 @@
             pop.style.left = left + 'px';
             pop.style.top = top + 'px';
         }
-        const POP_IDS = ['playPop', 'textPop', 'plotPop', 'alignPop', 'orderPop', 'arrangePop', 'morphPop', 'toolsPop', 'stylePop', 'linePop', 'gridPop', 'descPop', 'readPop', 'shapePop', 'buildPop', 'aiPop', 'exactHelpPop'];
+        const POP_IDS = ['playPop', 'textPop', 'plotPop', 'alignPop', 'orderPop', 'arrangePop', 'morphPop', 'toolsPop', 'stylePop', 'linePop', 'gridPop', 'descPop', 'readPop', 'buildPop', 'aiPop', 'exactHelpPop'];
         function closeAllPops() {
             for (const id of POP_IDS) {
                 const el = $(id);
@@ -55119,7 +55063,7 @@
             // cases and the canvas hit-test this used to need is gone. A press on an opener must
             // fall through untouched: dismissing here would close the popover a moment before the
             // button's own click reopens it, and the toggle would look like nothing happened.
-            if (e.target.closest && e.target.closest('#bText, #bPlot, #bShapes, #bBuild, #bAi, #bAlign, #bOrder, #bArrangeOpen, #bMorphOpen, #bTools, #bStyle, #bLine, #bGrid, #bDesc, #bRead, #bReadEdit, #bPlayShape'))
+            if (e.target.closest && e.target.closest('#bText, #bPlot, #bBuild, #bAi, #bAlign, #bOrder, #bArrangeOpen, #bMorphOpen, #bTools, #bStyle, #bLine, #bGrid, #bDesc, #bRead, #bReadEdit, #bPlayShape'))
                 return;
             closeAllPops();
         }, true);
@@ -56582,25 +56526,45 @@
         // but the bottom footer is much better", and of three ways to do it, the switch). The strip along the foot is
         // where a person already looks for shapes: it is the drawing's table of contents, big tiles a thumb can
         // spin through. Adding a shape meant going up to the header's Shapes button for a popover of small tiles that
-        // closes after one pick. Now the + at the strip's left end turns the strip into the library, every shape the
-        // Shapes panel offers, in its order, as tiles of the same size on the same kind of ring; a tap adds that
-        // shape (addPrimitive, exactly as the panel does) and the strip stays the library, so several can go in
-        // one after another; + again, now an ×, turns it back to the drawing's shapes.
+        // closes after one pick. Now a + turns the strip into the library, every shape that panel offered, in its
+        // order, as tiles of the same size on the same kind of ring; a tap adds that shape (addPrimitive, as the panel
+        // did) and the strip stays the library, so several can go in one after another; + again, now an ×, turns it
+        // back to the drawing's shapes.
+        //
+        // THE + IS ON THE TOP BAR, IN THE SHAPES BUTTON'S PLACE (the same day, Tom: "move the shape toggle button to the
+        // top toolbar. remove the shape button on top"). It stood at the strip's left end first; the popover it made
+        // redundant is gone, and the switch took its button's slot, so adding a shape starts where it always did.
         //
         // A SECOND STRIP, NOT A SECOND MEANING FOR THE FIRST. The drawing's strip is a pool of recycled tiles whose
         // every gesture means something about a shape in the drawing: a tap selects and then walks the camera, a
         // spin selects as it passes, a long press renames. A library tile is none of those things, so the library is
         // its own ring (makeRing, the factory the two button bars use, which already spins, throws and refuses the
         // click at the end of a spin) and the drawing's strip only steps aside while it shows. The tiles are drawn on
-        // the first opening, as the panel's grid is. The header's Shapes button stays as it was.
+        // the first opening.
+        //
+        // THE STRIP SAYS ONE OF SEVERAL THINGS (the same day, Tom: "other buttons on top could take advantage of the
+        // footer like this", and of the panels that are lists of things to pick: "Fill, Outline, Align and Order,
+        // Build"). Fill's 37 colours and Outline's 36 were 20px squares in a popover, align's eight and order's four
+        // actions 30px icons, the builder's families a drop-down list: each is a set of choices, which is what the
+        // strip is for. So each of those buttons turns the strip to its own ring of big tiles, as the + does, and its
+        // button lights while the strip shows it; pressing it again, or the + or another of them, turns the strip.
+        //
+        // THE TILES PRESS THE PANEL'S OWN BUTTONS. A swatch tile, an align tile or an order tile stands for a button
+        // in the popover it came from, and a tap on it clicks that button: so a colour is applied, recorded for undo
+        // and saved exactly as before, an action refuses exactly what it refused, and the panel stays the one place
+        // that knows what its buttons do. The strip only mirrors them, the current colour's ring and a disabled
+        // action's grey included, read back after every tap and whenever the panel changes them. The sliders the
+        // two colour panels also hold (a line's width, the opacities) stay in those panels: the first tile of each
+        // ring opens it, above the strip, without its swatches, which the strip is showing. Build's tiles are its
+        // families, drawn at their starting numbers; a tap opens the builder on that family, where its sliders are.
+        // A ring is built the first time it is asked for, and the strip closes when its button can no longer act
+        // (the selection it painted went away).
         (function() {
-            const btn = $('bAddStrip'), box = $('addStrip'), host = $('addRing');
-            if (!btn || !box || !host)
+            const box = $('addStrip'), addHost = $('addRing');
+            if (!box || !addHost)
                 return;
-            let ring = null;
-            function fill() {
-                if (host.childElementCount)
-                    return;
+            const SLIDERS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>';
+            const shapesTile = (host) => {
                 const cats = SHAPE_CATS.slice();
                 for (const spec of PRIMITIVES)
                     if (spec.cat && !cats.includes(spec.cat))
@@ -56616,37 +56580,192 @@
                         b.innerHTML = tileSvg(spec, 56);
                         host.appendChild(b);
                     }
-            }
-            function setAdding(on) {
-                on = !!on;
-                document.body.classList.toggle('adding', on);
-                btn.setAttribute('aria-pressed', String(on));
-                btn.setAttribute('aria-label', on ? 'Back to the drawing' : 'Add shapes');
-                if (!on)
+            };
+            // a ring of tiles standing for a popover's buttons, in the popover's order
+            const mirrorTiles = (host, sources, opts) => {
+                if (opts.more) {
+                    const m = document.createElement('button');
+                    m.type = 'button';
+                    m.className = 'icon-btn strip-more';
+                    m.setAttribute('aria-label', opts.moreLabel);
+                    m.innerHTML = SLIDERS;
+                    host.appendChild(m);
+                }
+                sources().forEach((src, i) => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'icon-btn strip-tile' + (opts.swatch ? ' strip-sw' : '');
+                    b.dataset.i = String(i);
+                    b.setAttribute('aria-label', src.title || src.getAttribute('aria-label') || '');
+                    b.innerHTML = opts.swatch
+                        ? '<span class="sw-disc' + (src.classList.contains('none') ? ' none' : '') + '" style="background:' + (src.style.background || 'transparent') + '"></span>'
+                        : src.innerHTML;
+                    host.appendChild(b);
+                });
+            };
+            const MODES = {
+                add: { btn: 'bAddStrip', host: addHost, build: shapesTile,
+                    tap: b => { addPrimitive(b.dataset.shape); scheduleSave(); } },
+                fill: { btn: 'bStyle', sources: () => [...document.querySelectorAll('#spFillGrid .sw')], swatch: true,
+                    more: 'stylePop', moreLabel: 'Fill opacity' },
+                line: { btn: 'bLine', sources: () => [...document.querySelectorAll('#spLineGrid .sw')], swatch: true,
+                    more: 'linePop', moreLabel: 'Line width and opacity' },
+                align: { btn: 'bAlign', sources: () => [...document.querySelectorAll('#alignPop .align-btn, #alignPop .dist-btn')] },
+                order: { btn: 'bOrder', sources: () => [...document.querySelectorAll('#orderPop .z-btn')] },
+                build: { btn: 'bBuild',
+                    build: host => {
+                        for (const f of (__buildPanel && __buildPanel.families ? __buildPanel.families() : [])) {
+                            const b = document.createElement('button');
+                            b.type = 'button';
+                            b.className = 'icon-btn strip-tile';
+                            b.dataset.family = f.key;
+                            b.setAttribute('aria-label', f.label);
+                            b.innerHTML = tileSvg(f.spec, 56);
+                            host.appendChild(b);
+                        }
+                    },
+                    tap: b => {
+                        if (!__buildPanel)
+                            return;
+                        __buildPanel.open(true);
+                        __buildPanel.family = b.dataset.family;
+                    },
+                    on: b => !!(__buildPanel && __buildPanel.family === b.dataset.family) }
+            };
+            const rings = {};
+            let mode = null;
+            const hostOf = m => {
+                const M = MODES[m];
+                if (!M.host) {
+                    M.host = document.createElement('div');
+                    M.host.className = 'controls';
+                    M.host.dataset.mode = m;
+                    box.appendChild(M.host);
+                }
+                return M.host;
+            };
+            // the strip's tiles read back what their buttons say now: the colour in use, an action that cannot act
+            function mirror(m) {
+                const M = MODES[m], host = M && M.host;
+                if (!host)
                     return;
-                fill();
-                if (!ring)
-                    ring = makeRing(host);
-                requestAnimationFrame(() => ring && ring.refresh());
+                const src = M.sources ? M.sources() : null;
+                for (const t of host.querySelectorAll('.strip-tile')) {
+                    const s = src && src[+t.dataset.i];
+                    t.classList.toggle('on', s ? s.classList.contains('on') : !!(M.on && M.on(t)));
+                    t.disabled = !!(s && s.disabled);
+                }
             }
-            btn.addEventListener('click', e => {
-                e.stopPropagation();
-                setAdding(!document.body.classList.contains('adding'));
-            });
-            host.addEventListener('click', e => {
-                const b = e.target.closest && e.target.closest('.add-pick');
+            function setMode(next) {
+                next = next && MODES[next] ? next : null;
+                if (mode && MODES[mode].more) {
+                    const p = $(MODES[mode].more);
+                    if (p)
+                        p.classList.remove('open');
+                }
+                mode = next;
+                document.body.classList.toggle('adding', !!mode);
+                if (mode)
+                    document.body.dataset.strip = mode;
+                else
+                    delete document.body.dataset.strip;
+                for (const [k, M] of Object.entries(MODES)) {
+                    const b = $(M.btn);
+                    if (b)
+                        b.setAttribute('aria-pressed', String(k === mode));
+                    if (M.host)
+                        M.host.classList.toggle('on', k === mode);
+                }
+                const add = $('bAddStrip');
+                if (add)
+                    add.setAttribute('aria-label', mode === 'add' ? 'Back to the drawing' : 'Add shapes');
+                if (!mode)
+                    return;
+                const M = MODES[mode], host = hostOf(mode);
+                if (!host.childElementCount) {
+                    if (M.build)
+                        M.build(host);
+                    else
+                        mirrorTiles(host, M.sources, M);
+                }
+                host.classList.add('on');
+                if (mode === 'fill' || mode === 'line')
+                    syncStylePop(); // the panel's swatches say which colour the selection wears; the strip reads them
+                mirror(mode);
+                if (!rings[mode])
+                    rings[mode] = makeRing(host);
+                requestAnimationFrame(() => rings[mode] && rings[mode].refresh());
+            }
+            // THE BUTTONS ARE THE STRIP'S NOW. Each of these opened its popover from a click handler of its own, in the
+            // part of the page that owns that panel; this is heard first (capture, on the button itself) and stops
+            // them, so the popovers are opened only from the strip's first tile, and the panels' code is untouched.
+            for (const [k, M] of Object.entries(MODES)) {
+                const b = $(M.btn);
                 if (!b)
+                    continue;
+                b.addEventListener('click', e => {
+                    e.stopImmediatePropagation();
+                    if (b.disabled)
+                        return;
+                    closeAllPops();
+                    setMode(mode === k ? null : k);
+                }, true);
+                // a button that can no longer act (its selection went) takes its ring away with it
+                new MutationObserver(() => {
+                    if (b.disabled && mode === k)
+                        setMode(null);
+                }).observe(b, { attributes: true, attributeFilter: ['disabled'] });
+            }
+            box.addEventListener('click', e => {
+                const t = e.target.closest && e.target.closest('.icon-btn');
+                if (!t || !mode || t.disabled)
                     return;
-                addPrimitive(b.dataset.shape);
-                scheduleSave();
+                const M = MODES[mode];
+                if (t.classList.contains('strip-more')) {
+                    const p = $(M.more);
+                    if (!p)
+                        return;
+                    if (p.classList.contains('open')) {
+                        p.classList.remove('open');
+                        return;
+                    }
+                    closeAllPops();
+                    placePop(p, t);
+                    syncStylePop();
+                    return;
+                }
+                if (M.tap)
+                    M.tap(t);
+                else {
+                    const s = M.sources()[+t.dataset.i];
+                    if (s)
+                        s.click();
+                }
+                requestAnimationFrame(() => mirror(mode));
             });
+            // the colour panels re-mark their current swatch when the selection changes: follow them
+            for (const id of ['spFillGrid', 'spLineGrid']) {
+                const g = $(id);
+                if (g)
+                    new MutationObserver(() => {
+                        if (mode === 'fill' || mode === 'line')
+                            mirror(mode);
+                    }).observe(g, { subtree: true, attributes: true, attributeFilter: ['class'] });
+            }
+            window.__strip = {
+                open: setMode,
+                get mode() {
+                    return mode;
+                },
+                ring: m => rings[m] || null
+            };
             window.__addStrip = {
-                open: setAdding,
+                open: on => setMode(on ? 'add' : null),
                 get on() {
-                    return document.body.classList.contains('adding');
+                    return mode === 'add';
                 },
                 get ring() {
-                    return ring;
+                    return rings.add || null;
                 }
             };
         })();
@@ -56670,7 +56789,7 @@
         (function() {
             const NAMES = {
                 bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
-                bPlayShape: 'Play the shape', bShapes: 'Add a shape', bBuild: 'Build from numbers', bDraw: 'Pencil',
+                bPlayShape: 'Play the shape', bBuild: 'Build from numbers', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
                 bAi: 'AI', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
                 bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bOctaveTool: 'Octave browser', bGrid: 'Grid',
@@ -56684,7 +56803,7 @@
             };
             // the strip's + and the library's tiles too (THE STRIP ADDS SHAPES TOO): a tile says its aria-label,
             // the shape's name, and the + says what it will do
-            const BUTTONS = '.topbar .icon-btn, .edit-bar .icon-btn, #bAddStrip, #addRing .icon-btn', TILES = '.shape-tile';
+            const BUTTONS = '.topbar .icon-btn, .edit-bar .icon-btn, .add-strip .icon-btn', TILES = '.shape-tile';
             const tip = document.createElement('div');
             tip.className = 'btn-name';
             tip.setAttribute('aria-hidden', 'true');
@@ -56749,6 +56868,16 @@
                         hide(shown && shown.matches(TILES) ? 1600 : 900);
                     }
                 }, true);
+            // a button that changes what it does when pressed (the strip's +, which becomes the way back) says its new
+            // name at once rather than for the second the name stays up after a tap (heard in the capture phase, as a
+            // button's own handler may stop the click there, and read a frame later, once that handler has run)
+            document.addEventListener('click', () => requestAnimationFrame(() => {
+                if (shown && tip.classList.contains('on')) {
+                    const name = nameOf(shown);
+                    if (name && name !== tip.textContent)
+                        show(shown);
+                }
+            }), true);
             // a resized window moves the buttons out from under the name, and a rename box opening over a
             // tile (its long press) has said what the tip would have
             window.addEventListener('resize', () => hide());
