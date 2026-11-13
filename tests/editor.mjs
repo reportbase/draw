@@ -118,6 +118,33 @@ try {
     if (again !== after[0]) throw new Error('opened again, the grid has ' + again + ' tiles, not ' + after[0]);
   });
 
+  /* The strip along the foot adds shapes too (13 Nov 2026, Tom: "I propose we also use it also to add more shapes
+     … the bottom footer is much better"): its + turns it to the library, a tap on a tile adds that shape and the
+     library stays, and the + (an × now) turns it back. Clicked the way a hand would, on the tile at the middle. */
+  await step('the strip adds shapes', async () => {
+    await page.click('#bAddStrip');
+    await page.waitForTimeout(400);
+    const st = await page.evaluate(() => ({ on: window.__addStrip.on, tiles: document.querySelectorAll('#addRing .add-pick').length,
+      shown: window.__addStrip.ring && window.__addStrip.ring.shown, scroller: getComputedStyle(document.getElementById('shapeScroller')).visibility }));
+    if (!st.on || st.tiles < 50 || !(st.shown >= 5) || st.scroller !== 'hidden') throw new Error('opened, the strip is ' + JSON.stringify(st));
+    const added = [];
+    for (let k = 0; k < 2; k++) {
+      const at = await page.evaluate(() => { let best = null, bd = 1e9; for (const b of document.querySelectorAll('#addRing .add-pick')) {
+        if (b.style.display === 'none') continue; const r = b.getBoundingClientRect(), d = Math.abs(r.x + r.width / 2 - innerWidth / 2);
+        if (d < bd) { bd = d; best = [r.x + r.width / 2, r.y + r.height / 2, b.getAttribute('aria-label')]; } } return best; });
+      await page.mouse.click(at[0], at[1]);
+      await page.waitForTimeout(300);
+      const status = await page.evaluate(() => document.getElementById('status').textContent);
+      if (!status.includes(at[2] + ' added')) throw new Error(`a tap on ${at[2]} in the strip: the status says "${status}"`);
+      added.push(at[2]);
+    }
+    if (!await page.evaluate(() => window.__addStrip.on)) throw new Error('the library closed after a pick; it should stay for the next');
+    await page.click('#bAddStrip');
+    await page.waitForTimeout(300);
+    const back = await page.evaluate(() => [window.__addStrip.on, getComputedStyle(document.getElementById('shapeScroller')).visibility]);
+    if (back[0] || back[1] !== 'visible') throw new Error('the + again did not bring the drawing\'s strip back: ' + JSON.stringify(back));
+  });
+
   await step('drag on the canvas', () => drag([[640, 400], [700, 430], [760, 460]]));
   await step('freehand stroke', async () => {
     await page.click('#bDraw');
