@@ -214,7 +214,7 @@ compatibly.
 - The strip at the foot says one of several things (13 Nov 2026, THE STRIP ADDS SHAPES TOO and THE STRIP SAYS ONE OF
   SEVERAL THINGS in `draw.html`, `MODES`): the + on the top bar (`#bAddStrip`, where the Shapes button and its popover
   were) turns it to the library of shapes, and Fill, Outline, Align, Order and Build to theirs, each on a ring of its
-  own (`makeRing`), the button lit (`aria-pressed`) while it shows. A tile of Fill, Outline, Align or Order clicks the
+  own (`makeRing`), the button lit as the grid's is when on (`.active`, and `aria-pressed`) while it shows. A tile of Fill, Outline, Align or Order clicks the
   popover button it mirrors, so those panels stay the code that acts; the colour rings' first tile opens the panel's
   sliders. The drawing's strip only steps aside (`body.adding`, `body.dataset.strip`); the strip hides in the edit view
   and while a morph is live. `__strip.open(mode)` and `__strip.mode` for tests. Those six buttons lead the top ring

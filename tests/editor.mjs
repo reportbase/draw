@@ -160,8 +160,10 @@ try {
       await page.click('#' + btn);
       await page.waitForTimeout(300);
       const r = await page.evaluate(() => ({ mode: window.__strip.mode, n: document.querySelectorAll('.add-strip > .controls.on .icon-btn').length,
-        pressed: [...document.querySelectorAll('.topbar [aria-pressed="true"]')].map(b => b.id) }));
-      if (r.mode !== mode || r.n < 4 || r.pressed.join() !== btn) throw new Error(`#${btn} opened ${JSON.stringify(r)}`);
+        pressed: [...document.querySelectorAll('.topbar [aria-pressed="true"]')].map(b => b.id),
+        // lit as the grid's button is when the grid is on (button.icon-btn.active, Tom: "the same color scheme as the grid toggle button")
+        lit: [...document.querySelectorAll('.topbar .controls > .icon-btn.active')].map(b => b.id).filter(id => id !== 'bGrid') }));
+      if (r.mode !== mode || r.n < 4 || r.pressed.join() !== btn || r.lit.join() !== btn) throw new Error(`#${btn} opened ${JSON.stringify(r)}`);
     };
     const tap = async label => page.evaluate(l => { const t = document.querySelector(`.add-strip > .controls.on .icon-btn[aria-label="${l}"]`); t.click(); return !!t; }, label);
     await open('bStyle', 'fill');
