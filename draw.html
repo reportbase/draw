@@ -2782,32 +2782,12 @@
                     .add-strip > .controls > .strip-more svg, .add-strip > .controls[data-mode="align"] svg,
                     .add-strip > .controls[data-mode="order"] svg { width: 34px; height: 34px; }
                     .add-strip > .controls > .icon-btn:disabled { opacity: 0.35; }
-                    .add-strip > .controls > .sel-nav svg, .add-strip > .controls > .strip-back svg { width: 34px; height: 34px; }
                     /* a swatch tile is its colour, a disc in a chip; the colour in use has the gold ring the panel gave it */
                     .add-strip .sw-disc { display: block; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--chip-line); }
                     .add-strip .sw-disc.none { background: linear-gradient(135deg, transparent 46%, var(--red) 46%, var(--red) 54%, transparent 54%) !important; }
                     .add-strip > .controls > .icon-btn.on { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-dim); }
                     /* the panel a swatch ring opens holds only its sliders: the strip is showing its swatches */
                     body[data-strip="fill"] #spFillGrid, body[data-strip="line"] #spLineGrid { display: none; }
-                    /* THE SELECTION'S OPTIONS: the track as a slider at the strip's left, the ring of buttons after it; each
-                       button's glyph is the panel's own, drawn into the tile's canvas */
-                    .sel-slider {
-                      display: none; position: absolute; left: 12px; top: 0; bottom: 0; width: 168px; z-index: 2;
-                      flex-direction: column; justify-content: center; gap: 6px;
-                      color: var(--fg-muted); font: 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.6px;
-                    }
-                    .sel-slider input { -webkit-appearance: none; appearance: none; width: 100%; height: 30px; margin: 0; background: transparent; cursor: pointer; }
-                    .sel-slider input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: rgba(212,160,82,0.35); }
-                    .sel-slider input::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(212,160,82,0.35); }
-                    .sel-slider input::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%; background: var(--gold); border: 0; }
-                    .sel-slider input::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--gold); border: 0; }
-                    body[data-strip="select"] .sel-slider { display: flex; }
-                    .add-strip > .controls[data-mode="select"] { margin-left: 192px; }
-                    .add-strip > .controls > .sel-btn canvas { width: 64px; height: 64px; }
-                    @media (pointer: coarse), (max-width: 700px) {
-                      .sel-slider { width: 120px; }
-                      .add-strip > .controls[data-mode="select"] { margin-left: 140px; }
-                    }
                     /* a library tile lifted out of the strip, following the pointer to where it will be dropped */
                     .strip-ghost {
                       position: fixed; z-index: 1000; pointer-events: none; width: 72px; height: 72px; margin: -36px 0 0 -36px;
@@ -4706,7 +4686,7 @@
                 <!-- The panel under the selection (its smoothing track and buttons), shown or put
                      away. It was a double-click on the shape for a day; Tom moved it here (22 Oct
                      2026: "Move the toggle to the standard menu"). For the session, not saved. -->
-                <label class="toggle" style="display:flex;align-items:center;gap:6px;margin-top:8px;" title="the selection's options in the strip at the foot — the smoothing track and the round off, group, mode, straighten, smooth and other buttons for what is selected. Off puts them away until you turn them back on, and the strip keeps the drawing's shapes.">
+                <label class="toggle" style="display:flex;align-items:center;gap:6px;margin-top:8px;" title="the panel under the selected shapes — the smoothing track and the round off, group, straighten and smooth buttons. Off puts it away until you turn it back on.">
                     <input type="checkbox" id="tSelPanel" checked>
                     selection panel
                 </label>
@@ -16629,7 +16609,6 @@
             return BTN_ROW_GAP() + BTN_R() + (rows - 1) * (BTN_R() * 2 + BTN_GAP());
         }
 
-        let sliderRowsUnderBox = false; // the panel under the selection box: off since it moved to the strip
         function sliderRows() {
             // ALWAYS SHOWN, in both views, whenever there is a selection to smooth. The flag and
             // the two switches that drove it — the round button beside the rotate grip and the
@@ -16648,14 +16627,6 @@
             // divergence with a direction — the track is a drag that WRITES to the shape, and the
             // lock's one promise is that no drag writes to the document — so the scene view's
             // answer is the right one and it is now the only one.
-            // THE PANEL IS THE STRIP'S NOW (13 Nov 2026, Tom: "When a shape is selected move the options to the footer.
-            // Remove them from the bottom of the selection"). The track and the buttons stand in the strip at the foot
-            // while something is selected (THE SELECTION'S OPTIONS ARE THE STRIP'S), so under the box nothing is drawn,
-            // nothing answers a press, and the fit keeps no room for it. The lines below are what laid the panel out
-            // under the box; they are kept for the strip's sake, which reads the same buttons (visibleBoxButtons) and
-            // applies the track by the same rule (applySliderRow), through selPanelRows below.
-            if (!sliderRowsUnderBox)
-                return null;
             if (!handlesVisible())
                 return null;
             // …OR WHEN IT HAS BEEN PUT AWAY, by the "selection panel" switch in the menu's edit
@@ -18086,83 +18057,81 @@
             };
         }
         // Both words, always: "exact" and "leaves" side by side, the one that holds filled gold.
-        // Both take the context they draw on (13 Nov 2026): the page's canvas, as before, or a tile's own, now that the
-        // panel's buttons stand in the strip at the foot (THE SELECTION'S OPTIONS ARE THE STRIP'S).
-        function drawModeSwitch(b, hot, c = ctx) {
+        function drawModeSwitch(b, hot) {
             const mode = selectionShapeMode();
             const r = b.r,
                 hw = b.hw || r;
-            c.save();
-            c.setLineDash([]);
+            ctx.save();
+            ctx.setLineDash([]);
             const x0 = b.cx - hw,
                 y0 = b.cy - r;
             const pill = () => {
-                c.beginPath();
-                if (c.roundRect)
-                    c.roundRect(x0, y0, hw * 2, r * 2, r);
+                ctx.beginPath();
+                if (ctx.roundRect)
+                    ctx.roundRect(x0, y0, hw * 2, r * 2, r);
                 else
-                    c.rect(x0, y0, hw * 2, r * 2);
+                    ctx.rect(x0, y0, hw * 2, r * 2);
             };
             pill();
-            c.fillStyle = hot ? 'rgba(212,160,82,0.22)' : 'rgba(14,14,19,0.9)';
-            c.fill();
+            ctx.fillStyle = hot ? 'rgba(212,160,82,0.22)' : 'rgba(14,14,19,0.9)';
+            ctx.fill();
             const lit = mode === 'exact' ? 0 : (mode === 'leaves' ? 1 : -1);
             if (lit >= 0) {
-                c.save();
+                ctx.save();
                 pill();
-                c.clip();
-                c.fillStyle = '#d4a052';
-                c.fillRect(lit ? b.cx : x0, y0, hw, r * 2);
-                c.restore();
+                ctx.clip();
+                ctx.fillStyle = '#d4a052';
+                ctx.fillRect(lit ? b.cx : x0, y0, hw, r * 2);
+                ctx.restore();
             }
             pill();
-            c.strokeStyle = hot ? '#f0c080' : 'rgba(212,160,82,0.55)';
-            c.lineWidth = 1.2;
-            c.stroke();
-            c.beginPath();
-            c.moveTo(b.cx, y0 + 3);
-            c.lineTo(b.cx, y0 + r * 2 - 3);
-            c.stroke();
-            c.font = '600 ' + Math.round(r * 0.95) + 'px system-ui, sans-serif';
-            c.textAlign = 'center';
-            c.textBaseline = 'middle';
+            ctx.strokeStyle = hot ? '#f0c080' : 'rgba(212,160,82,0.55)';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(b.cx, y0 + 3);
+            ctx.lineTo(b.cx, y0 + r * 2 - 3);
+            ctx.stroke();
+            ctx.font = '600 ' + Math.round(r * 0.95) + 'px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
             const word = (t, x, on) => {
-                c.fillStyle = on ? '#14141a' : (hot ? '#f6d9a8' : 'rgba(212,160,82,0.9)');
-                c.fillText(t, x, b.cy + 0.5);
+                ctx.fillStyle = on ? '#14141a' : (hot ? '#f6d9a8' : 'rgba(212,160,82,0.9)');
+                ctx.fillText(t, x, b.cy + 0.5);
             };
             word('exact', b.cx - hw / 2, lit === 0);
             word('leaves', b.cx + hw / 2, lit === 1);
-            c.restore();
+            ctx.restore();
         }
 
         // The three action buttons, drawn in the same gold vocabulary as the handles so the
         // whole assembly reads as one object rather than as furniture plus a toolbar.
-        function drawBoxButton(b, hot, c = ctx) {
+        function drawBoxButton(b, hot) {
             const r = b.r;
             if (b.name === 'bt-mode')
-                return drawModeSwitch(b, hot, c);
-            c.save();
-            c.setLineDash([]);
-            c.beginPath();
-            if (c.roundRect)
-                c.roundRect(b.cx - r, b.cy - r, r * 2, r * 2, 5);
+                return drawModeSwitch(b, hot);
+            ctx.save();
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            if (ctx.roundRect)
+                ctx.roundRect(b.cx - r, b.cy - r, r * 2, r * 2, 5);
             else
-                c.rect(b.cx - r, b.cy - r, r * 2, r * 2);
-            c.fillStyle = hot ? 'rgba(212,160,82,0.22)' : 'rgba(14,14,19,0.9)';
-            c.fill();
-            c.strokeStyle = hot ? '#f0c080' : 'rgba(212,160,82,0.55)';
-            c.lineWidth = 1.2;
-            c.stroke();
+                ctx.rect(b.cx - r, b.cy - r, r * 2, r * 2);
+            ctx.fillStyle = hot ? 'rgba(212,160,82,0.22)' : 'rgba(14,14,19,0.9)';
+            ctx.fill();
+            ctx.strokeStyle = hot ? '#f0c080' : 'rgba(212,160,82,0.55)';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
             // Icons at unit scale about the button centre, so one set of numbers works at
             // both the mouse and touch sizes.
             const s = r / 11;
-            c.translate(b.cx, b.cy);
-            c.scale(s, s);
-            c.strokeStyle = hot ? '#f6d9a8' : 'rgba(212,160,82,0.9)';
-            c.fillStyle = c.strokeStyle;
-            c.lineWidth = 1.5;
-            c.lineJoin = 'round';
-            c.lineCap = 'round';
+            ctx.translate(b.cx, b.cy);
+            ctx.scale(s, s);
+            ctx.strokeStyle = hot ? '#f6d9a8' : 'rgba(212,160,82,0.9)';
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.lineWidth = 1.5;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
             // Straighten is the only icon this row still draws. The z-order arrows, the align
             // bars and the dashed group box went to the toolbar as SVG — and the group icon's
             // fallback `else` went with them, which is why this is a plain `if`: an unknown name
@@ -18174,116 +18143,116 @@
             if (b.name === 'bt-dash') {
                 const sp0 = state.subpaths[selectedIndices().find(i => state.subpaths[i] && state.subpaths[i]._lazy && state.subpaths[i]._lazy.exact)];
                 const d = lineStyleOf(sp0).dash;
-                c.setLineDash(d === 'dash' ? [3, 2.2] : d === 'dot' ? [0.1, 2.6] : []);
-                c.beginPath();
-                c.moveTo(-6.5, 0);
-                c.lineTo(6.5, 0);
-                c.stroke();
-                c.setLineDash([]);
+                ctx.setLineDash(d === 'dash' ? [3, 2.2] : d === 'dot' ? [0.1, 2.6] : []);
+                ctx.beginPath();
+                ctx.moveTo(-6.5, 0);
+                ctx.lineTo(6.5, 0);
+                ctx.stroke();
+                ctx.setLineDash([]);
             }
             if (b.name === 'bt-arrow') {
                 const sp0 = state.subpaths[selectedIndices().find(i => state.subpaths[i] && state.subpaths[i]._lazy && state.subpaths[i]._lazy.open)];
                 const a = lineStyleOf(sp0).arrows;
-                c.beginPath();
-                c.moveTo(-6.5, 0);
-                c.lineTo(6.5, 0);
-                c.stroke();
+                ctx.beginPath();
+                ctx.moveTo(-6.5, 0);
+                ctx.lineTo(6.5, 0);
+                ctx.stroke();
                 const headAt = (x, dir) => {
-                    c.beginPath();
-                    c.moveTo(x, 0);
-                    c.lineTo(x - dir * 4, -3);
-                    c.lineTo(x - dir * 4, 3);
-                    c.closePath();
-                    c.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x - dir * 4, -3);
+                    ctx.lineTo(x - dir * 4, 3);
+                    ctx.closePath();
+                    ctx.fill();
                 };
                 if (a === 1 || a === 2)
                     headAt(7, 1);
                 if (a === 2 || a === 3)
                     headAt(-7, -1);
                 if (!a) { // none: the line with two plain ends
-                    c.fillRect(-7.5, -1.6, 1.2, 3.2);
-                    c.fillRect(6.3, -1.6, 1.2, 3.2);
+                    ctx.fillRect(-7.5, -1.6, 1.2, 3.2);
+                    ctx.fillRect(6.3, -1.6, 1.2, 3.2);
                 }
             }
             // CORNERS, ALL AT ONCE: a square with its corners rounded
             if (b.name === 'bt-corners') {
-                c.lineWidth = 1.3;
-                c.beginPath();
-                if (c.roundRect)
-                    c.roundRect(-6, -6, 12, 12, 4);
+                ctx.lineWidth = 1.3;
+                ctx.beginPath();
+                if (ctx.roundRect)
+                    ctx.roundRect(-6, -6, 12, 12, 4);
                 else
-                    c.rect(-6, -6, 12, 12);
-                c.stroke();
+                    ctx.rect(-6, -6, 12, 12);
+                ctx.stroke();
             }
             // THE KNIFE: a square cut across by a line, lit while armed
             if (b.name === 'bt-knife') {
-                c.lineWidth = 1;
-                c.strokeRect(-5, -5, 10, 10);
-                c.lineWidth = 1.6;
-                c.strokeStyle = knifeMode ? '#e86050' : c.strokeStyle;
-                c.beginPath();
-                c.moveTo(-8, 7);
-                c.lineTo(8, -7);
-                c.stroke();
+                ctx.lineWidth = 1;
+                ctx.strokeRect(-5, -5, 10, 10);
+                ctx.lineWidth = 1.6;
+                ctx.strokeStyle = knifeMode ? '#e86050' : ctx.strokeStyle;
+                ctx.beginPath();
+                ctx.moveTo(-8, 7);
+                ctx.lineTo(8, -7);
+                ctx.stroke();
             }
             // OFFSET AND OUTLINE: a square, and the same grown round it, dashed
             if (b.name === 'bt-offset') {
-                c.lineWidth = 1;
-                c.fillRect(-3.5, -3.5, 7, 7);
-                c.setLineDash([2, 1.6]);
-                c.beginPath();
-                if (c.roundRect)
-                    c.roundRect(-7, -7, 14, 14, 3.5);
+                ctx.lineWidth = 1;
+                ctx.fillRect(-3.5, -3.5, 7, 7);
+                ctx.setLineDash([2, 1.6]);
+                ctx.beginPath();
+                if (ctx.roundRect)
+                    ctx.roundRect(-7, -7, 14, 14, 3.5);
                 else
-                    c.rect(-7, -7, 14, 14);
-                c.stroke();
-                c.setLineDash([]);
+                    ctx.rect(-7, -7, 14, 14);
+                ctx.stroke();
+                ctx.setLineDash([]);
             }
             // COMBINING EXACT SHAPES: two overlapping squares, the answer filled
             if (b.name === 'bt-union' || b.name === 'bt-subtract' || b.name === 'bt-intersect') {
-                c.lineWidth = 1;
-                c.strokeRect(-6.5, -6.5, 8, 8);
-                c.strokeRect(-1.5, -1.5, 8, 8);
-                c.beginPath();
+                ctx.lineWidth = 1;
+                ctx.strokeRect(-6.5, -6.5, 8, 8);
+                ctx.strokeRect(-1.5, -1.5, 8, 8);
+                ctx.beginPath();
                 if (b.name === 'bt-union') {
-                    c.rect(-6.5, -6.5, 8, 8);
-                    c.rect(-1.5, -1.5, 8, 8);
-                    c.fill('nonzero');
+                    ctx.rect(-6.5, -6.5, 8, 8);
+                    ctx.rect(-1.5, -1.5, 8, 8);
+                    ctx.fill('nonzero');
                 } else if (b.name === 'bt-subtract') {
-                    c.rect(-6.5, -6.5, 8, 8);
-                    c.rect(-1.5, -1.5, 3, 3);
-                    c.fill('evenodd');
+                    ctx.rect(-6.5, -6.5, 8, 8);
+                    ctx.rect(-1.5, -1.5, 3, 3);
+                    ctx.fill('evenodd');
                 } else
-                    c.fillRect(-1.5, -1.5, 3, 3);
+                    ctx.fillRect(-1.5, -1.5, 3, 3);
             }
             if (b.name === 'bt-group') {
                 const grouped = selectionIsGrouped();
-                c.fillRect(-3.8, -3.8, 7.6, 7.6);
+                ctx.fillRect(-3.8, -3.8, 7.6, 7.6);
                 if (grouped) {
-                    c.lineWidth = 1.3;
-                    c.beginPath();
-                    c.arc(0, 0, 7.4, 0, TAU);
-                    c.stroke();
+                    ctx.lineWidth = 1.3;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 7.4, 0, TAU);
+                    ctx.stroke();
                 }
             }
             if (b.name === 'bt-straighten') {
-                c.beginPath();
-                c.moveTo(-4.5, 4.5);
-                c.lineTo(4.5, -4.5);
-                c.stroke();
-                c.strokeRect(-6.5, 2.5, 4, 4);
-                c.strokeRect(2.5, -6.5, 4, 4);
+                ctx.beginPath();
+                ctx.moveTo(-4.5, 4.5);
+                ctx.lineTo(4.5, -4.5);
+                ctx.stroke();
+                ctx.strokeRect(-6.5, 2.5, 4, 4);
+                ctx.strokeRect(2.5, -6.5, 4, 4);
             }
             // The same icon with the line BENT, and the same two pinned ends — because that is
             // exactly the difference between the two operations. Anything more decorative would
             // hide the one thing worth knowing at a glance: they act on the same thing.
             if (b.name === 'bt-smooth') {
-                c.beginPath();
-                c.moveTo(-4.5, 4.5);
-                c.bezierCurveTo(-4.5, -3.2, -3.2, -4.5, 4.5, -4.5);
-                c.stroke();
-                c.strokeRect(-6.5, 2.5, 4, 4);
-                c.strokeRect(2.5, -6.5, 4, 4);
+                ctx.beginPath();
+                ctx.moveTo(-4.5, 4.5);
+                ctx.bezierCurveTo(-4.5, -3.2, -3.2, -4.5, 4.5, -4.5);
+                ctx.stroke();
+                ctx.strokeRect(-6.5, 2.5, 4, 4);
+                ctx.strokeRect(2.5, -6.5, 4, 4);
             }
             // ROUND OFF: a CLOSED figure with its corners taken off, and pointedly WITHOUT the
             // two pinned end squares the other two carry. Those squares are the whole difference
@@ -18292,23 +18261,23 @@
             // sharp square is drawn faint underneath so the icon is the operation rather than
             // just its result.
             if (b.name === 'bt-roundoff') {
-                const a = c.globalAlpha;
-                c.globalAlpha = a * 0.32;
-                c.beginPath();
-                c.rect(-6, -6, 12, 12);
-                c.stroke();
-                c.globalAlpha = a;
+                const a = ctx.globalAlpha;
+                ctx.globalAlpha = a * 0.32;
+                ctx.beginPath();
+                ctx.rect(-6, -6, 12, 12);
+                ctx.stroke();
+                ctx.globalAlpha = a;
                 const r = 5.2;
-                c.beginPath();
-                c.moveTo(-6 + r, -6);
-                c.arcTo(6, -6, 6, 6, r);
-                c.arcTo(6, 6, -6, 6, r);
-                c.arcTo(-6, 6, -6, -6, r);
-                c.arcTo(-6, -6, 6, -6, r);
-                c.closePath();
-                c.stroke();
+                ctx.beginPath();
+                ctx.moveTo(-6 + r, -6);
+                ctx.arcTo(6, -6, 6, 6, r);
+                ctx.arcTo(6, 6, -6, 6, r);
+                ctx.arcTo(-6, 6, -6, -6, r);
+                ctx.arcTo(-6, -6, 6, -6, r);
+                ctx.closePath();
+                ctx.stroke();
             }
-            c.restore();
+            ctx.restore();
         }
 
         // The v/h picture — the ray, the two radii, the believed circle, the register's rungs
@@ -31498,7 +31467,7 @@
             // strip left empty at the bottom.
             if (state.editMode)
                 return 0;
-            if (!selectedIndices().length || state.panelHidden || !sliderRowsUnderBox)
+            if (!selectedIndices().length || state.panelHidden)
                 return 0;
             let btns = [];
             try {
@@ -38036,10 +38005,6 @@
             // frame and goes stale for the same reasons, so it refreshes on the same beat.
             if (typeof window.syncChecksumPanel === 'function')
                 window.syncChecksumPanel();
-            // the selection's options in the strip at the foot follow every redraw, as the panel under the box did
-            // (it rebuilds only when what it shows has changed: THE SELECTION'S OPTIONS ARE THE STRIP'S)
-            if (typeof window.__selStripSync === 'function')
-                window.__selStripSync();
             const {w, h} = resizeCanvas();
             // EXPORT PASS: the same renderer, with every piece of editor furniture switched
             // off. exportPng used to grab the live canvas, so a exported picture came out with
@@ -55091,15 +55056,16 @@
             }
         }
         // EVERY BUTTON LIGHTS WHILE ITS PANEL IS OPEN (13 Nov 2026, Tom: "1 then 3", the third "light every button while
-        // its panel is open"). The reading's eye did (above), and the strip's buttons light while the strip shows theirs,
-        // but Text, Plot, Play, Arrange, Morph, Tools, Grid, Build and AI opened their panels and stayed as they were, so
-        // which button a panel belonged to was a guess. Each now wears the lit look while its panel is open. A class of its
-        // own, .pop-open, styled as .active: the grid's button already says with .active that the grid is ON, and a panel
-        // closing must not switch that off. Driven by the panels' own class, watched, so it cannot disagree with the screen
-        // whichever of the many ways a panel opens or closes.
+        // its panel is open"; kept when the rest of that change was taken back, Tom: "keep the options in the header and the
+        // footer is just for the values of that option"). The reading's eye did (above), and the strip's buttons light while
+        // the strip shows theirs, but Text, Plot, Play, Arrange, Morph, Tools, Grid, Build, AI and Name opened their panels
+        // and stayed as they were, so which button a panel belonged to was a guess. Each now wears the lit look while its
+        // panel is open. A class of its own, .pop-open, styled as .active: the grid's button already says with .active that
+        // the grid is ON, and a panel closing must not switch that off. Driven by the panels' own class, watched, so it
+        // cannot disagree with the screen whichever of the many ways a panel opens or closes.
         (function() {
             const OPENER = { playPop: 'bPlayShape', textPop: 'bText', plotPop: 'bPlot', arrangePop: 'bArrangeOpen',
-                morphPop: 'bMorphOpen', toolsPop: 'bTools', gridPop: 'bGrid', buildPop: 'bBuild', aiPop: 'bAi' };
+                morphPop: 'bMorphOpen', toolsPop: 'bTools', gridPop: 'bGrid', buildPop: 'bBuild', aiPop: 'bAi', descPop: 'bDesc' };
             const sync = () => {
                 for (const [pid, bid] of Object.entries(OPENER)) {
                     const p = $(pid), b = $(bid);
@@ -56594,29 +56560,7 @@
         // phone's ring has room for three whole chips between the lock and the menu, so the page opens with +, Fill and
         // Outline in view and Align coming in at the edge; a tablet shows all six. On a screen wide enough for the whole bar
         // the ring lies flat and they simply lead it, after the lock.
-        //
-        // THE SELECTION'S BUTTONS LEAVE THE TOP BAR (the same day, Tom: "1 then 3", the first "move all the selection
-        // buttons into the bottom strip"). Fill, Outline, Align, Order, Group, Merge and Name act only on what is
-        // selected, and with something selected the strip at the foot is already the selection's (THE SELECTION'S
-        // OPTIONS ARE THE STRIP'S): so they are tiles there now, and the top bar keeps what makes things. Group was
-        // there twice (the panel's group tile does the same), so its bar button simply goes. The buttons are not
-        // deleted: they are moved into a hidden holder before the ring is built, so the code that keeps their
-        // enabled state and titles (syncArrangeBtns) and the code that opens their rings and panels still finds them,
-        // and the strip's tiles read and press them. With nothing selected, the bar no longer holds a row of grey
-        // buttons, and a phone opens on what it can use.
-        const SEL_BUTTONS_MOVED = ['bStyle', 'bLine', 'bAlign', 'bOrder', 'bGroup', 'bMergeTop', 'bDesc'];
-        {
-            const hold = document.createElement('div');
-            hold.id = 'selButtonsHeld';
-            hold.hidden = true;
-            document.body.appendChild(hold);
-            for (const id of SEL_BUTTONS_MOVED) {
-                const b = $(id);
-                if (b)
-                    hold.appendChild(b);
-            }
-        }
-        const STRIP_FIRST = ['bAddStrip', 'bBuild'];
+        const STRIP_FIRST = ['bAddStrip', 'bStyle', 'bLine', 'bAlign', 'bOrder', 'bBuild'];
         {
             const bar = document.querySelector('.topbar .controls');
             const lead = STRIP_FIRST.map(id => $(id)).filter(b => b && b.parentNode === bar);
@@ -56702,15 +56646,7 @@
                     }
             };
             // a ring of tiles standing for a popover's buttons, in the popover's order
-            const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
             const mirrorTiles = (host, sources, opts) => {
-                // these four act on the selection and are opened from its strip now: the first tile goes back to it
-                const back = document.createElement('button');
-                back.type = 'button';
-                back.className = 'icon-btn strip-back';
-                back.setAttribute('aria-label', 'Back');
-                back.innerHTML = BACK;
-                host.appendChild(back);
                 if (opts.more) {
                     const m = document.createElement('button');
                     m.type = 'button';
@@ -56740,31 +56676,6 @@
                     more: 'linePop', moreLabel: 'Line width and opacity' },
                 align: { btn: 'bAlign', sources: () => [...document.querySelectorAll('#alignPop .align-btn, #alignPop .dist-btn')] },
                 order: { btn: 'bOrder', sources: () => [...document.querySelectorAll('#orderPop .z-btn')] },
-                select: { btn: null, build: selBuild,
-                    tap: t => {
-                        const nav = t.dataset.nav && SEL_NAV.find(n => n.id === t.dataset.nav);
-                        if (nav) {
-                            if (nav.mode) { // its ring, with a way back to these (the ring's first tile)
-                                closeAllPops();
-                                setMode(nav.mode);
-                            } else if (nav.pop) { // its panel, above the tile
-                                const p = $(nav.pop);
-                                const was = p && p.classList.contains('open');
-                                closeAllPops();
-                                if (p && !was) {
-                                    placePop(p, t);
-                                    syncStylePop();
-                                }
-                            } else
-                                $(nav.id).click(); // an action (Merge): the button's own handler
-                            selSig = '';
-                            drawAll();
-                            return;
-                        }
-                        runBoxButton(t.dataset.name);
-                        selSig = ''; // what the button did may change what the row shows
-                        drawAll();
-                    } },
                 build: { btn: 'bBuild',
                     build: host => {
                         for (const f of (__buildPanel && __buildPanel.families ? __buildPanel.families() : [])) {
@@ -56785,91 +56696,6 @@
                     },
                     on: b => !!(__buildPanel && __buildPanel.family === b.dataset.family) }
             };
-            // THE SELECTION'S OPTIONS ARE THE STRIP'S (13 Nov 2026, Tom: "When a shape is selected move the options to the
-            // footer. Remove them from the bottom of the selection", and of three ways, the options replacing the
-            // drawing's tiles while something is selected). The panel under the selection box was its track (smoothing,
-            // or an exact shape's corners) and the row of buttons that apply to what is selected (visibleBoxButtons:
-            // round off, group, exact or leaves, line style, arrowheads, union, subtract, intersect, offset, corners,
-            // the knife, straighten, smooth), drawn on the canvas between the shape and whatever lay under it. Now the
-            // strip says them: the track as a slider at the strip's left, the buttons as its tiles, each drawn by the
-            // panel's own drawBoxButton into a canvas of its own and pressing runBoxButton as the panel did. It is the
-            // strip's 'select' mode and takes itself: on when a selection can be worked (the box's handles are up, the
-            // panel not put away, not the edit view or a live morph), off when the selection goes, giving the strip back
-            // to the drawing's tiles; a button on the top bar (Shapes, Fill, …) still takes the strip while it is
-            // pressed, and letting it go hands the strip back to the selection.
-            const SEL_NAMES = {
-                'bt-roundoff': 'Round', 'bt-group': 'Group', 'bt-mode': 'Mode', 'bt-dash': 'Dash', 'bt-arrow': 'Arrows',
-                'bt-union': 'Union', 'bt-subtract': 'Subtract', 'bt-intersect': 'Intersect', 'bt-offset': 'Offset',
-                'bt-corners': 'Corners', 'bt-knife': 'Knife', 'bt-straighten': 'Straighten', 'bt-smooth': 'Smooth'
-            };
-            let selSig = '', selIdxKey = null;
-            const selWant = () => !state.editMode && !document.body.classList.contains('morphing') && !state.panelHidden
-                && selectedIndices().length > 0 && handlesVisible();
-            const selSlider = document.createElement('div');
-            selSlider.className = 'sel-slider';
-            selSlider.innerHTML = '<span class="sel-lab"></span><input type="range" min="0" max="1" step="0.01" aria-label="smoothing">';
-            box.appendChild(selSlider);
-            const selIn = selSlider.querySelector('input'), selLab = selSlider.querySelector('.sel-lab');
-            let selDragging = false;
-            selIn.addEventListener('input', () => {
-                selDragging = true;
-                const u = +selIn.value;
-                if (selectionShapeMode() === 'exact')
-                    setSelectionExactSimp(u);
-                else
-                    setSelectionSmoothing(Math.round((SMOOTH_MIN + u * (SMOOTH_MAX - SMOOTH_MIN)) / 0.05) * 0.05);
-                drawAll();
-            });
-            selIn.addEventListener('change', () => {
-                selDragging = false;
-                pushHistory(); // one step for the whole drag, as the track's release made one
-                scheduleSave();
-                drawAll();
-            });
-            function selTileDraw(t) {
-                const name = t.dataset.name, cvs = t.querySelector('canvas'), dpr = window.devicePixelRatio || 1;
-                const W = 64;
-                cvs.width = cvs.height = Math.round(W * dpr);
-                const c = cvs.getContext('2d');
-                c.setTransform(dpr, 0, 0, dpr, 0, 0);
-                c.clearRect(0, 0, W, W);
-                // the mode switch is a pill with both words on it ("exact", "leaves"), as wide as the tile allows
-                if (name === 'bt-mode')
-                    drawBoxButton({ name, cx: W / 2, cy: W / 2, r: 10, hw: W / 2 - 2 }, false, c);
-                else
-                    drawBoxButton({ name, cx: W / 2, cy: W / 2, r: 20 }, false, c);
-            }
-            // the selection's own buttons, first in its strip: each the top bar's old button, read and pressed through it
-            const SEL_NAV = [
-                { id: 'bStyle', name: 'Fill', mode: 'fill' }, { id: 'bLine', name: 'Outline', mode: 'line' },
-                { id: 'bAlign', name: 'Align', mode: 'align' }, { id: 'bOrder', name: 'Order', mode: 'order' },
-                { id: 'bMergeTop', name: 'Merge' }, { id: 'bDesc', name: 'Name', pop: 'descPop' }
-            ];
-            const selNavOn = () => SEL_NAV.filter(n => { const b = $(n.id); return b && !b.disabled; });
-            function selBuild(host) {
-                host.textContent = '';
-                for (const n of selNavOn()) {
-                    const t = document.createElement('button');
-                    t.type = 'button';
-                    t.className = 'icon-btn sel-nav';
-                    t.dataset.nav = n.id;
-                    t.setAttribute('aria-label', n.name);
-                    t.title = $(n.id).title || '';
-                    t.innerHTML = $(n.id).innerHTML;
-                    host.appendChild(t);
-                }
-                for (const b of visibleBoxButtons()) {
-                    const t = document.createElement('button');
-                    t.type = 'button';
-                    t.className = 'icon-btn strip-tile sel-btn';
-                    t.dataset.name = b.name;
-                    t.setAttribute('aria-label', SEL_NAMES[b.name] || b.title || b.name);
-                    t.title = b.title || '';
-                    t.innerHTML = '<canvas aria-hidden="true"></canvas>';
-                    host.appendChild(t);
-                    selTileDraw(t);
-                }
-            }
             const rings = {};
             let mode = null;
             const hostOf = m => {
@@ -56934,7 +56760,6 @@
                 mirror(mode);
                 if (!rings[mode])
                     rings[mode] = makeRing(host);
-                rings[mode].refresh();
                 requestAnimationFrame(() => rings[mode] && rings[mode].refresh());
             }
             // THE BUTTONS ARE THE STRIP'S NOW. Each of these opened its popover from a click handler of its own, in the
@@ -56950,14 +56775,11 @@
                         return;
                     closeAllPops();
                     setMode(mode === k ? null : k);
-                    selSync(); // let go, the strip goes back to the selection's options if there is a selection
                 }, true);
                 // a button that can no longer act (its selection went) takes its ring away with it
                 new MutationObserver(() => {
-                    if (b.disabled && mode === k) {
+                    if (b.disabled && mode === k)
                         setMode(null);
-                        selSync();
-                    }
                 }).observe(b, { attributes: true, attributeFilter: ['disabled'] });
             }
             box.addEventListener('click', e => {
@@ -56965,11 +56787,6 @@
                 if (!t || !mode || t.disabled)
                     return;
                 const M = MODES[mode];
-                if (t.classList.contains('strip-back')) {
-                    setMode(null);
-                    selSync();
-                    return;
-                }
                 if (t.classList.contains('strip-more')) {
                     const p = $(M.more);
                     if (!p)
@@ -57080,51 +56897,6 @@
                             mirror(mode);
                     }).observe(g, { subtree: true, attributes: true, attributeFilter: ['class'] });
             }
-            // the selection's options take the strip when there is a selection to work and nothing else holds it, and
-            // give it back when the selection goes; the tiles are built again only when what they show has changed
-            function selSync() {
-                const want = selWant();
-                if (want && !mode)
-                    setMode('select');
-                else if (!want && mode === 'select')
-                    setMode(null);
-                if (mode !== 'select') {
-                    selIdxKey = null; // shown again later, it asks afresh, whatever was selected before
-                    return;
-                }
-                const idx = selectedIndices(), ex = selectionShapeMode() === 'exact';
-                // the first tiles are the old bar buttons, shown when they can act; whether they can is theirs to say
-                // (syncArrangeBtns), and every path that changes the selection is meant to ask it, but not all do (a
-                // check's select, an undo): asked here once per new selection, so the row is right the first time it is
-                // built, rather than growing under a finger a moment later
-                const idxKey = idx.join() + '#' + state.subpaths.length; // the same indices after an undo can be other shapes
-                if (idxKey !== selIdxKey) {
-                    selIdxKey = idxKey;
-                    if (typeof syncArrangeBtns === 'function')
-                        syncArrangeBtns();
-                }
-                let style = '';
-                try {
-                    style = JSON.stringify(lineStyleOf(state.subpaths[idx[0]]) || '');
-                } catch (_) {}
-                const sig = selNavOn().map(n => n.id).join() + '/' + visibleBoxButtons().map(b => b.name).join() + '|' + selectionShapeMode() + '|' + selectionIsGrouped()
-                    + '|' + idx.join() + '|' + style + '|' + (state.selected ? state.selected.size : 0);
-                if (sig !== selSig) {
-                    selSig = sig;
-                    selBuild(MODES.select.host);
-                    // laid out at once, not on the next frame: a press can come before it (a check, or a quick hand)
-                    if (rings.select)
-                        rings.select.refresh();
-                }
-                if (!selDragging) {
-                    selLab.textContent = ex ? 'corners' : 'smooth';
-                    selIn.setAttribute('aria-label', ex ? "the exact shape's corners" : 'smoothing');
-                    const v = ex ? selectionExactSimp() : (selectionSmoothing().value - SMOOTH_MIN) / (SMOOTH_MAX - SMOOTH_MIN);
-                    if (isFinite(v))
-                        selIn.value = String(Math.max(0, Math.min(1, v)));
-                }
-            }
-            window.__selStripSync = selSync;
             window.__strip = {
                 open: setMode,
                 get mode() {
@@ -62914,34 +62686,15 @@
             recordGif: () => morphRecordGif().then(b => b ? b.size : 0),
             recordVideo: () => morphRecordVideo().then(b => b ? { size: b.size, type: b.type } : null),
             // the group button's place in the panel's row, or null while it is not shown
-            group: () => window.__box.button('bt-group'),
-            // the panel is up when the strip at the foot is showing the selection's options (it was under the box)
-            panelUp: () => {
-                if (window.__selStripSync)
-                    window.__selStripSync();
-                return document.body.dataset.strip === 'select';
+            group: () => {
+                const rows = sliderRows();
+                return (rows && rows.buttons && rows.buttons.find(b => b.name === 'bt-group')) || null;
             },
+            panelUp: () => !!sliderRows(),
             // any panel button's place by name (the mode switch: 'bt-mode'), or null
-            // a panel button, in canvas pixels: under the box once, a tile in the strip at the foot now (the panel moved
-            // there, 13 Nov 2026), so a check that clicks what this returns presses the tile
             button: name => {
                 const rows = sliderRows();
-                const b = rows && rows.buttons && rows.buttons.find(q => q.name === name);
-                if (b)
-                    return b;
-                // brought up to date first: the strip follows redraws, and a state can change between them (a tool let go)
-                if (window.__selStripSync)
-                    window.__selStripSync();
-                const t = document.querySelector('.add-strip > .controls[data-mode="select"] .sel-btn[data-name="' + name + '"]');
-                if (!t || !t.parentNode.offsetParent) // no tile, or the strip is not showing the selection's options
-                    return null;
-                // a tile round the far side of the ring is turned to, as a hand would spin the strip to reach it
-                if (t.style.display === 'none' && window.__strip && window.__strip.ring('select'))
-                    window.__strip.ring('select').focus([...t.parentNode.children].indexOf(t));
-                if (t.style.display === 'none')
-                    return null;
-                const r = t.getBoundingClientRect(), c = cv.getBoundingClientRect();
-                return { name, cx: r.left + r.width / 2 - c.left, cy: r.top + r.height / 2 - c.top, r: r.width / 2 };
+                return (rows && rows.buttons && rows.buttons.find(b => b.name === name)) || null;
             },
             mode: () => selectionShapeMode(), // 'exact', 'leaves' or 'mixed'
             // the one exact shape selected: its corners and edge rings in canvas pixels, the picked corner
@@ -62983,20 +62736,14 @@
                     } : null)(roundHandleOf(r.width, r.height))
                 };
             },
-            // the track (smoothing, or an exact shape's corners) in canvas pixels: the slider in the strip at the foot now
-            // (13 Nov 2026), its ends where the knob's centre can go, so a drag from one to the other runs it end to end
             track: () => {
                 const rows = sliderRows();
-                if (rows && rows.smooth)
-                    return { ax: rows.smooth.ax, bx: rows.smooth.bx, y: rows.smooth.y, knobX: rows.smooth.knobX };
-                if (window.__selStripSync)
-                    window.__selStripSync();
-                const inp = document.querySelector('.sel-slider input');
-                if (!inp || document.body.dataset.strip !== 'select')
-                    return null;
-                const r = inp.getBoundingClientRect(), c = cv.getBoundingClientRect(), k = 10; // half the knob
-                const ax = r.left + k - c.left, bx = r.right - k - c.left;
-                return { ax, bx, y: r.top + r.height / 2 - c.top, knobX: ax + (+inp.value) * (bx - ax) };
+                return rows && rows.smooth ? {
+                    ax: rows.smooth.ax,
+                    bx: rows.smooth.bx,
+                    y: rows.smooth.y,
+                    knobX: rows.smooth.knobX
+                } : null;
             },
             handles: () => handlePoints(), // the box's grips in canvas pixels, for driving a drag
             grouped: () => selectionIsGrouped(),
