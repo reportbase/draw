@@ -2788,25 +2788,9 @@
                     .add-strip > .controls > .icon-btn.on { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-dim); }
                     /* the panel a swatch ring opens holds only its sliders: the strip is showing its swatches */
                     body[data-strip="fill"] #spFillGrid, body[data-strip="line"] #spLineGrid { display: none; }
-                    /* THE SELECTION'S OPTIONS: the track as a slider at the strip's left, the ring of buttons after it; each
-                       button's glyph is the panel's own, drawn into the tile's canvas */
-                    .sel-slider {
-                      display: none; position: absolute; left: 12px; top: 0; bottom: 0; width: 168px; z-index: 2;
-                      flex-direction: column; justify-content: center; gap: 6px;
-                      color: var(--fg-muted); font: 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.6px;
-                    }
-                    .sel-slider input { -webkit-appearance: none; appearance: none; width: 100%; height: 30px; margin: 0; background: transparent; cursor: pointer; }
-                    .sel-slider input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: rgba(212,160,82,0.35); }
-                    .sel-slider input::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(212,160,82,0.35); }
-                    .sel-slider input::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%; background: var(--gold); border: 0; }
-                    .sel-slider input::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--gold); border: 0; }
-                    body[data-strip="select"] .sel-slider { display: flex; }
-                    .add-strip > .controls[data-mode="select"] { margin-left: 192px; }
+                    /* THE SELECTION'S OPTIONS: its buttons as the strip's tiles, each glyph the panel's own, drawn into the
+                       tile's canvas (the track is under the box) */
                     .add-strip > .controls > .sel-btn canvas { width: 64px; height: 64px; }
-                    @media (pointer: coarse), (max-width: 700px) {
-                      .sel-slider { width: 120px; }
-                      .add-strip > .controls[data-mode="select"] { margin-left: 140px; }
-                    }
                     /* a library tile lifted out of the strip, following the pointer to where it will be dropped */
                     .strip-ghost {
                       position: fixed; z-index: 1000; pointer-events: none; width: 72px; height: 72px; margin: -36px 0 0 -36px;
@@ -16628,7 +16612,12 @@
             return BTN_ROW_GAP() + BTN_R() + (rows - 1) * (BTN_R() * 2 + BTN_GAP());
         }
 
-        let sliderRowsUnderBox = false; // the panel under the selection box: off since it moved to the strip
+        // THE TRACK IS BACK UNDER THE BOX; THE BUTTONS STAY IN THE STRIP (13 Nov 2026, Tom: "The slider should be returned
+        // to the selection box"). The track is a drag that reshapes the shape it stands under, and under the box it is
+        // read as the shape's; the buttons are the strip's (THE SELECTION'S OPTIONS ARE THE STRIP'S). So the panel under
+        // the box is the track alone: sliderRowsUnderBox draws it, and sliderButtonsUnderBox, off, keeps the buttons out.
+        let sliderRowsUnderBox = true;
+        const sliderButtonsUnderBox = false;
         function sliderRows() {
             // ALWAYS SHOWN, in both views, whenever there is a selection to smooth. The flag and
             // the two switches that drove it — the round button beside the rotate grip and the
@@ -16647,12 +16636,10 @@
             // divergence with a direction — the track is a drag that WRITES to the shape, and the
             // lock's one promise is that no drag writes to the document — so the scene view's
             // answer is the right one and it is now the only one.
-            // THE PANEL IS THE STRIP'S NOW (13 Nov 2026, Tom: "When a shape is selected move the options to the footer.
-            // Remove them from the bottom of the selection"). The track and the buttons stand in the strip at the foot
-            // while something is selected (THE SELECTION'S OPTIONS ARE THE STRIP'S), so under the box nothing is drawn,
-            // nothing answers a press, and the fit keeps no room for it. The lines below are what laid the panel out
-            // under the box; they are kept for the strip's sake, which reads the same buttons (visibleBoxButtons) and
-            // applies the track by the same rule (applySliderRow), through selPanelRows below.
+            // THE BUTTONS ARE THE STRIP'S NOW (13 Nov 2026, Tom: "When a shape is selected move the options to the footer"),
+            // and the track came back here the same day ("The slider should be returned to the selection box"): what is
+            // laid out under the box is the track alone (sliderButtonsUnderBox is off), and the buttons stand in the strip
+            // at the foot (THE SELECTION'S OPTIONS ARE THE STRIP'S), which reads the same list (BOX_BUTTONS).
             if (!sliderRowsUnderBox)
                 return null;
             if (!handlesVisible())
@@ -16767,7 +16754,7 @@
             // it has to be inside the height the fit decision is made against. When no button
             // qualifies, the row costs nothing: the panel ends at the last track instead of
             // leaving a strip of empty plate where the buttons would have been.
-            const btns = visibleBoxButtons();
+            const btns = sliderButtonsUnderBox ? visibleBoxButtons() : [];
             const stack = (list.length - 1) * row + buttonBlockHeight(btns.length);
             // The edit toolbar is positioned OVER the canvas rather than in the flow, so the
             // canvas's own height is not the space that is actually free. Measuring it keeps
@@ -31501,7 +31488,7 @@
                 return 0;
             let btns = [];
             try {
-                btns = visibleBoxButtons();
+                btns = sliderButtonsUnderBox ? visibleBoxButtons() : [];
             } catch (_) {}
             const stack = (SLIDER_ROW_NAMES.length - 1) * ROW_GAP()
             + buttonBlockHeight(btns.length);
@@ -56749,7 +56736,7 @@
             // to the drawing's tiles; a button on the top bar (Shapes, Fill, …) still takes the strip while it is
             // pressed, and letting it go hands the strip back to the selection.
             const SEL_NAMES = {
-                'bt-roundoff': 'Round', 'bt-group': 'Group', 'bt-mode': 'Mode', 'bt-dash': 'Dash', 'bt-arrow': 'Arrows',
+                'bt-roundoff': 'Round', 'bt-group': 'Group', 'bt-mode': 'Exact', 'bt-dash': 'Dash', 'bt-arrow': 'Arrows',
                 'bt-union': 'Union', 'bt-subtract': 'Subtract', 'bt-intersect': 'Intersect', 'bt-offset': 'Offset',
                 'bt-corners': 'Corners', 'bt-knife': 'Knife', 'bt-straighten': 'Straighten', 'bt-smooth': 'Smooth'
             };
@@ -56757,31 +56744,50 @@
             // Under the lock too. A phone starts locked, the lock hides the box's handles, and this asked for the handles,
             // so a tapped shape there brought nothing to the strip. The lock is about what a drag on the canvas does, and
             // the strip is not the canvas, so what it asks is the selection's frame, which the lock leaves up. The knife
-            // alone stays out under the lock (selBoxButtons): it cuts by a drag across the shape, and locked that drag pans.
+            // alone cannot act under the lock (selCan): it cuts by a drag across the shape, and locked that drag pans.
             const selWant = () => !state.editMode && !document.body.classList.contains('morphing') && !state.panelHidden
                 && selectedIndices().length > 0 && selectionFrameVisible();
-            const selBoxButtons = () => visibleBoxButtons().filter(b => !(state.locked && b.name === 'bt-knife'));
-            const selSlider = document.createElement('div');
-            selSlider.className = 'sel-slider';
-            selSlider.innerHTML = '<span class="sel-lab"></span><input type="range" min="0" max="1" step="0.01" aria-label="smoothing">';
-            box.appendChild(selSlider);
-            const selIn = selSlider.querySelector('input'), selLab = selSlider.querySelector('.sel-lab');
-            let selDragging = false;
-            selIn.addEventListener('input', () => {
-                selDragging = true;
-                const u = +selIn.value;
-                if (selectionShapeMode() === 'exact')
-                    setSelectionExactSimp(u);
+            // EVERY BUTTON SHOWN, THE ONES THAT CANNOT ACT DISABLED (13 Nov 2026, Tom: "All buttons should be visible, just
+            // disabled when not available"). The row used to be only the buttons that applied, so it changed length with
+            // every selection and a button was in a different place each time, or not there to be found. Now the strip
+            // holds all of BOX_BUTTONS, always in the same order, and a button's show() says whether it is enabled.
+            const selCan = b => {
+                if (state.locked && b.name === 'bt-knife')
+                    return false;
+                try {
+                    return !!b.show();
+                } catch (_) {
+                    return false;
+                }
+            };
+            // THE MODE SWITCH IS A TOGGLE (13 Nov 2026, Tom: "The leaves/exact butten should be a toggle"). Under the box it
+            // was a pill with both words on it, a press flipping it; in a tile that pill was too small to read. A tile says
+            // it as the strip's other on/off buttons do: a switch whose knob is over and gold when the shape is exact, back
+            // and dim when it is leaves, at the middle when the selection holds both, and the word for what it is under it.
+            function drawModeToggle(c, W) {
+                const m = selectionShapeMode(), on = m === 'exact', mixed = m !== 'exact' && m !== 'leaves';
+                const tw = 40, th = 22, x0 = (W - tw) / 2, y0 = 12;
+                c.beginPath();
+                if (c.roundRect)
+                    c.roundRect(x0, y0, tw, th, th / 2);
                 else
-                    setSelectionSmoothing(Math.round((SMOOTH_MIN + u * (SMOOTH_MAX - SMOOTH_MIN)) / 0.05) * 0.05);
-                drawAll();
-            });
-            selIn.addEventListener('change', () => {
-                selDragging = false;
-                pushHistory(); // one step for the whole drag, as the track's release made one
-                scheduleSave();
-                drawAll();
-            });
+                    c.rect(x0, y0, tw, th);
+                c.fillStyle = on ? '#d4a052' : 'rgba(14,14,19,0.9)';
+                c.fill();
+                c.strokeStyle = 'rgba(212,160,82,0.7)';
+                c.lineWidth = 1.4;
+                c.stroke();
+                const kx = mixed ? W / 2 : on ? x0 + tw - th / 2 : x0 + th / 2;
+                c.beginPath();
+                c.arc(kx, y0 + th / 2, th / 2 - 3, 0, Math.PI * 2);
+                c.fillStyle = on ? '#14141a' : 'rgba(212,160,82,0.9)';
+                c.fill();
+                c.font = '600 12px system-ui, sans-serif';
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.fillStyle = 'rgba(212,160,82,0.95)';
+                c.fillText(mixed ? 'mixed' : on ? 'exact' : 'leaves', W / 2, 48);
+            }
             function selTileDraw(t) {
                 const name = t.dataset.name, cvs = t.querySelector('canvas'), dpr = window.devicePixelRatio || 1;
                 const W = 64;
@@ -56789,15 +56795,14 @@
                 const c = cvs.getContext('2d');
                 c.setTransform(dpr, 0, 0, dpr, 0, 0);
                 c.clearRect(0, 0, W, W);
-                // the mode switch is a pill with both words on it ("exact", "leaves"), as wide as the tile allows
                 if (name === 'bt-mode')
-                    drawBoxButton({ name, cx: W / 2, cy: W / 2, r: 10, hw: W / 2 - 2 }, false, c);
+                    drawModeToggle(c, W);
                 else
                     drawBoxButton({ name, cx: W / 2, cy: W / 2, r: 20 }, false, c);
             }
             function selBuild(host) {
                 host.textContent = '';
-                for (const b of selBoxButtons()) {
+                for (const b of BOX_BUTTONS) {
                     const t = document.createElement('button');
                     t.type = 'button';
                     t.className = 'icon-btn strip-tile sel-btn';
@@ -56806,6 +56811,17 @@
                     t.title = b.title || '';
                     t.innerHTML = '<canvas aria-hidden="true"></canvas>';
                     host.appendChild(t);
+                }
+                selRefresh(host);
+            }
+            // what the tiles say now: each enabled or not, each glyph drawn again (they read the selection: the mode, the
+            // line style, whether it is grouped), and the toggle pressed while the selection is exact
+            function selRefresh(host) {
+                for (const t of host.querySelectorAll('.sel-btn')) {
+                    const b = BOX_BUTTONS.find(q => q.name === t.dataset.name);
+                    t.disabled = !(b && selCan(b));
+                    if (t.dataset.name === 'bt-mode')
+                        t.setAttribute('aria-pressed', String(selectionShapeMode() === 'exact'));
                     selTileDraw(t);
                 }
             }
@@ -56826,6 +56842,10 @@
                 const M = MODES[m], host = M && M.host;
                 if (!host)
                     return;
+                if (m === 'select') { // its tiles say what BOX_BUTTONS say, not a panel's buttons
+                    selRefresh(host);
+                    return;
+                }
                 const src = M.sources ? M.sources() : null;
                 for (const t of host.querySelectorAll('.strip-tile')) {
                     const s = src && src[+t.dataset.i];
@@ -57024,26 +57044,20 @@
                     setMode(null);
                 if (mode !== 'select')
                     return;
-                const idx = selectedIndices(), ex = selectionShapeMode() === 'exact';
+                const idx = selectedIndices();
                 let style = '';
                 try {
                     style = JSON.stringify(lineStyleOf(state.subpaths[idx[0]]) || '');
                 } catch (_) {}
-                const sig = selBoxButtons().map(b => b.name).join() + '|' + selectionShapeMode() + '|' + selectionIsGrouped()
-                    + '|' + idx.join() + '|' + style + '|' + (state.selected ? state.selected.size : 0);
+                const sig = BOX_BUTTONS.filter(selCan).map(b => b.name).join() + '|' + selectionShapeMode() + '|'
+                    + selectionIsGrouped() + '|' + idx.join() + '|' + style + '|' + (state.selected ? state.selected.size : 0);
                 if (sig !== selSig) {
                     selSig = sig;
-                    selBuild(MODES.select.host);
-                    // laid out at once, not on the next frame: a press can come before it (a check, or a quick hand)
-                    if (rings.select)
-                        rings.select.refresh();
-                }
-                if (!selDragging) {
-                    selLab.textContent = ex ? 'corners' : 'smooth';
-                    selIn.setAttribute('aria-label', ex ? "the exact shape's corners" : 'smoothing');
-                    const v = ex ? selectionExactSimp() : (selectionSmoothing().value - SMOOTH_MIN) / (SMOOTH_MAX - SMOOTH_MIN);
-                    if (isFinite(v))
-                        selIn.value = String(Math.max(0, Math.min(1, v)));
+                    // the tiles stay where they are (the same ones, in the same order); only what they say changes
+                    if (MODES.select.host.childElementCount)
+                        selRefresh(MODES.select.host);
+                    else
+                        selBuild(MODES.select.host);
                 }
             }
             window.__selStripSync = selSync;
@@ -62855,7 +62869,7 @@
                 if (window.__selStripSync)
                     window.__selStripSync();
                 const t = document.querySelector('.add-strip > .controls[data-mode="select"] .sel-btn[data-name="' + name + '"]');
-                if (!t || t.style.display === 'none' || !t.offsetParent)
+                if (!t || t.disabled || t.style.display === 'none' || !t.offsetParent)
                     return null;
                 const r = t.getBoundingClientRect(), c = cv.getBoundingClientRect();
                 return { name, cx: r.left + r.width / 2 - c.left, cy: r.top + r.height / 2 - c.top, r: r.width / 2 };
@@ -62900,20 +62914,13 @@
                     } : null)(roundHandleOf(r.width, r.height))
                 };
             },
-            // the track (smoothing, or an exact shape's corners) in canvas pixels: the slider in the strip at the foot now
-            // (13 Nov 2026), its ends where the knob's centre can go, so a drag from one to the other runs it end to end
+            // the track (smoothing, or an exact shape's corners) in canvas pixels, under the box (it was in the strip for a
+            // day, 13 Nov 2026)
             track: () => {
                 const rows = sliderRows();
                 if (rows && rows.smooth)
                     return { ax: rows.smooth.ax, bx: rows.smooth.bx, y: rows.smooth.y, knobX: rows.smooth.knobX };
-                if (window.__selStripSync)
-                    window.__selStripSync();
-                const inp = document.querySelector('.sel-slider input');
-                if (!inp || document.body.dataset.strip !== 'select')
-                    return null;
-                const r = inp.getBoundingClientRect(), c = cv.getBoundingClientRect(), k = 10; // half the knob
-                const ax = r.left + k - c.left, bx = r.right - k - c.left;
-                return { ax, bx, y: r.top + r.height / 2 - c.top, knobX: ax + (+inp.value) * (bx - ax) };
+                return null;
             },
             handles: () => handlePoints(), // the box's grips in canvas pixels, for driving a drag
             grouped: () => selectionIsGrouped(),

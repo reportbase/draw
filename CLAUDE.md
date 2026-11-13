@@ -226,11 +226,13 @@ compatibly.
   top bar. A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
 - The selection's options are the strip's (13 Nov 2026, THE SELECTION'S OPTIONS ARE THE STRIP'S in `draw.html`; Tom, the
   same day, after taking it back: "when an object is selected, show its options in the footer"): with something selected
-  and its frame up (under the lock too), the strip at the foot turns to mode `select` by itself, the track as a slider
-  (`applySliderRow`'s rule) and `visibleBoxButtons()` as tiles drawn by `drawBoxButton(b, hot, c)` into their own
-  canvases, pressing `runBoxButton` (the knife left out under the lock); nothing is drawn under the box
-  (`sliderRowsUnderBox` is false). It follows every `drawAll` (`__selStripSync`, rebuilding only when what it shows
-  changes); `__box.button`, `track`, `group` and `panelUp` answer for the strip.
+  and its frame up (under the lock too), the strip at the foot turns to mode `select` by itself: every one of
+  `BOX_BUTTONS` as a tile, always all of them in the same order, disabled when its `show()` says no (the knife too under
+  the lock; Tom: "All buttons should be visible, just disabled when not available"), drawn by `drawBoxButton(b, hot, c)`
+  into its own canvas and pressing `runBoxButton`. The exact/leaves switch is a toggle tile (`drawModeToggle`, named
+  Exact, `aria-pressed` while exact). The smoothing track stays under the box (`sliderRowsUnderBox`; Tom: "The slider
+  should be returned to the selection box"), without the buttons (`sliderButtonsUnderBox` is false). It follows every
+  `drawAll` (`__selStripSync`); `__box.button` (null for a disabled tile), `group` and `panelUp` answer for the strip.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
