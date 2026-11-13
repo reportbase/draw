@@ -236,6 +236,8 @@ compatibly.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).
+  Panning the strip (a drag, the wheel, a glide) only turns it and selects nothing (Tom: "The fix is to not select the
+  shape when panning the footer"; `STRIP_PAN_SELECTS` is false, so `stripFollowFocus` returns); a tap on a tile selects.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing

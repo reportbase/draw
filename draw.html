@@ -30681,7 +30681,16 @@
             }
             return list[best];
         }
+        // PANNING THE STRIP NO LONGER SELECTS (13 Nov 2026, Tom: "When panning footer shapes it selects the shape, which
+        // then changes the footer bar to the selected shape. The fix is to not select the shape when panning the
+        // footer"). The ruling of Aug 29 above was made when the strip was only ever the drawing's shapes; since a
+        // selection's options take the strip (THE SELECTION'S OPTIONS ARE THE STRIP'S), a pan that selected took the
+        // strip away from the hand panning it after its first tile. So a pan, a wheel and a glide only turn the ring; a
+        // tap on a tile is what selects. The follow below is kept, not called, so the rule can come back with the strip.
+        const STRIP_PAN_SELECTS = false;
         function stripFollowFocus() {
+            if (!STRIP_PAN_SELECTS)
+                return;
             if (state.editMode)
                 return; // the edit strip drives isolation; leave it
             const ent = stripCenteredEntry();

@@ -618,10 +618,20 @@ T.current = 'the strip holds still while put away';
     await clear();
     const t1 = await tiles();
     if (t1 !== t0) throw new Error('the strip moved while put away: ' + t0 + ' → ' + t1);
+    // and panning the strip only turns it (Tom: "The fix is to not select the shape when panning the footer"): a drag
+    // and a wheel on it select nothing, so the strip stays the drawing's
+    const tb = await hp.locator('#shapeScroller .shape-tile').first().boundingBox(), y = tb.y + tb.height / 2;
+    await hp.mouse.move(400, y); await hp.mouse.down(); await hp.mouse.move(900, y, { steps: 12 }); await hp.mouse.up();
+    await hp.waitForTimeout(1200);
+    for (let k = 0; k < 4; k++) { await hp.mouse.move(700, y); await hp.mouse.wheel(0, 120); await hp.waitForTimeout(100); }
+    await hp.waitForTimeout(500);
+    const pan = await hp.evaluate(() => ({ strip: window.__strip.mode, selected: !!window.__box.handles() }));
+    const t2 = await tiles();
+    if (pan.strip !== null || pan.selected || t2 === t1) throw new Error('panning the strip: ' + JSON.stringify(pan) + (t2 === t1 ? ', and it did not turn' : ''));
   } catch (e) {
     failures.push(`[strip holds] ${e.message.split('\n')[0]}`);
   }
-  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the strip holds still while put away`);
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the strip holds still while put away, and a pan selects nothing`);
   await hp.close();
 }
 
