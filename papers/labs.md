@@ -2,7 +2,7 @@
 
 ### *What each lab in the editor's drawer measured, what it found, what the result is called elsewhere, and what in it looks new*
 
-*Written 28 October 2026, from a run of every lab on that day. Revised the same day: the labs moved to `labs/`, the seeded generator mended and every lab run again (§§ "What the run found wrong", "The run again, after the generator"), six faults dealt with, and the seven items that look new searched for in print. Revised 29 October: three labs added from the essays (§§55–57). Revised 3 November: one added from wander's EPI test (§58).*
+*Written 28 October 2026, from a run of every lab on that day. Revised the same day: the labs moved to `labs/`, the seeded generator mended and every lab run again (§§ "What the run found wrong", "The run again, after the generator"), six faults dealt with, and the seven items that look new searched for in print. Revised 29 October: three labs added from the essays (§§55–57). Revised 3 November: one added from wander's EPI test (§58). Revised 13 November 2026: the octave browser (`ocb`, §18) removed from the editor.*
 
 > **Status: a record.** Every number below was read off the editor by `tools/run-labs.mjs`, which opens `draw.html?lab=CODE` for each lab in headless Chromium and keeps what the lab reports: its status line, and the caption and verdict of each cell it lays on the page. Nothing here was copied from a lab's own notes without being run again, except where a section says so (the interactive labs, which report nothing to read back). Where a classical source is named from memory rather than checked, the section says *to check*.
 
@@ -401,10 +401,9 @@ This agrees with the earlier Python run: curls of 290° and 310° reach 82% and 
 
 ## 18. Nested standpoints and the reader's coordinate lay (*readers within readers*)
 
-These four labs are interactive overlays with no scored run:
+These labs are interactive overlays with no scored run (there were four; the octave browser, `ocb`, was removed on 13 November 2026, and its button on the top bar with it):
 - **Readers within readers (`nsr`):** places child viewpoints where the parent saw farthest, up to three children each, and colours the outline by the generation that first sees it.
 - **The strange tier (`stg`):** applies the same rule to eight outlines with many hidden sides, such as a Hilbert curve, fjords and a double spiral.
-- **The octave browser (`ocb`):** draws a shape in the reader's coordinates. Ratio and distance are each kept proportional up to 1 and folded by the reciprocal past it, one dyadic interval at a time.
 - **Signals as landscapes (`sgl`):** applies the rule to a 1D signal seen from height h, where crests hide what lies behind them.
 
 **Found.** No headless numbers. From the notes, the generation needed is spiral5 level 6 and Hilbert level 7. It counts how many times the way in turns out of sight, not how intricate the outline is. Placing the same number of viewpoints without nesting does not get further.
@@ -413,7 +412,7 @@ These four labs are interactive overlays with no scored run:
 
 **Ours.** Nothing claimed. These are tools for seeing the rule.
 
-**In the editor.** `?lab=nsr`, `?lab=stg`, `?lab=ocb`, `?lab=sgl`. Its code: `labs/sheets.js`.
+**In the editor.** `?lab=nsr`, `?lab=stg`, `?lab=sgl`. Its code: `labs/sheets.js`.
 
 ## 19. Storing the multilevel representation in TVF, adaptively (*depth in TVF*)
 
