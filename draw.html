@@ -3599,18 +3599,6 @@
                     <circle cx="12" cy="12" r="3.1"/>
                 </svg>
             </button>
-            <!-- THE OCTAVE BROWSER, promoted to the bar (Tom, 5 Oct: "i really like the octal shaper browser. how can
-                     promote in svg.html?"). It sits beside the reading eye: both change what you SEE of a shape and neither
-                     touches it. The glyph is the lay itself: the ground, the corner across the middle, the octaves halving
-                     above it. Opens on the selected shape (or the first on the page); the lab pane keeps its own entry. -->
-            <button id="bOctaveTool" class="icon-btn" title="the octave browser — read the selected shape through the reader's lay: up the screen the reading v/h, across it distance, each in proportion to the corner and in halving octaves past it. Drag to pan through the octaves, tap to enter one.">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M4 3.5V20h16.5"/>
-                    <path d="M4 12h16.5" stroke-dasharray="1.6 2.4"/>
-                    <path d="M4 8h16.5M4 6h16.5M4 5h16.5" stroke-width="1.1"/>
-                    <circle cx="4" cy="20" r="1.4" fill="currentColor"/>
-                </svg>
-            </button>
             <!-- The background grid: graph paper under the artwork. It sits with the reading eye
                      because both change what you SEE and neither touches the geometry. The button
                      lights while the grid is on; the popover holds the dials. -->
@@ -4872,6 +4860,9 @@
 
                  5 Oct 2026  OCB the octave browser (a sheet) added WITHOUT a removal (Tom, 13:37). About +10 kB.
 
+                 13 Nov 2026  OCB the octave browser REMOVED, with its button on the top bar (Tom: "remove octave
+                             browser and button"); it lived in labs/sheets.js by then.
+
                Candidates, heaviest first (sizes measured 3 Oct; Claude's ranking, not ruled):
                  1. the contact walker, WLK WRS WSV WCO WMZ WRD WSP WJR — about 68 kB in its
                     main block ("The contact walker", near the end of the script), plus this
@@ -5375,7 +5366,6 @@
                 <div class="group row" style="margin-top:6px;gap:8px;flex-wrap:wrap;">
                     <button id="bNestReaders" data-code="nsr" class="res-btn" title="readers within readers: each child reader stands where its parent saw furthest; the outline coloured by the level that first sees it; start from 16 readers outside or tap to place one. An overlay: nothing on the page is touched.">readers within readers</button>
                     <button id="bStrangeTier" data-code="stg" class="res-btn" title="the strange tier: eight outlines with many hidden sides (hilbert, double spiral, fjords, cave, coral, hooked comb, pinwheel, spiral of spirals), their levels and facing entries; tap one to read it, or put them on the page as ordinary shapes.">the strange tier</button>
-                    <button id="bOctaveBrowser" data-code="ocb" class="res-btn" title="the octave browser (Launch from Somewhere's lay) on a shape: up the screen the reading v/h, across it distance, each in proportion to the corner and in halving octaves past it; drag to pan through the octaves of either, tap to enter an octave (a whole sweep again inside it), tap inside to go deeper; gold marks where each of the reader's bars first meets the outline. An overlay: nothing on the page is touched.">the octave browser</button>
                     <button id="bSignalLand" data-code="sgl" class="res-btn" title="signals as landscapes: a reader at h above the line, peaks hiding what lies behind them, children where a ray clears a crest; the recursion runs along the signal. Drag to place the first reader. An overlay: nothing on the page is touched.">signals as landscapes</button>
                 </div>
             </div>
@@ -7037,7 +7027,6 @@
             cls: 'sheets',
             cyc: 'sheets',
             nsr: 'sheets',
-            ocb: 'sheets',
             sgl: 'sheets',
             stg: 'sheets',
             tfe: 'sheets',
@@ -56792,7 +56781,7 @@
                 bPlayShape: 'Play the shape', bBuild: 'Build from numbers', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
                 bAi: 'AI', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
-                bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bOctaveTool: 'Octave browser', bGrid: 'Grid',
+                bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bGrid: 'Grid',
                 bStyle: 'Fill', bLine: 'Outline', bDesc: 'Name and note', bFit: 'Fit to view', gearBtn: 'Settings',
                 // the edit view's bar
                 bLockEdit: 'Lock', bCancelEdit: 'Close', bUndoEdit: 'Undo', bRedoEdit: 'Redo',
