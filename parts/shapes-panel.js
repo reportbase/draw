@@ -28,6 +28,12 @@
             // panel most visits never open. So the tiles wait for the first press of the button; the builder, the
             // grid's click and the double-click door below are wired at the start as they were, being cheap and
             // being what other parts of the page reach for. window.__shapeGridFilled says whether it has been drawn.
+            //
+            // ON TOUCH THE PICTURES GROW WITH THEIR TILES (13 Nov 2026, Tom: "2 3 4", the fourth "bigger tiles in the
+            // shapes panel on a phone"). A finger's tile was already 54px against a mouse's 44 (the coarse rule in
+            // draw.html), but the shape drawn in it stayed the 28px a mouse's tile was drawn for, a small picture
+            // in a large box. On touch it is drawn at 42, the same share of its tile.
+            const TILE_PX = matchMedia('(pointer: coarse)').matches ? 42 : 28;
             function fillShapeGrid() {
                 if (grid.childElementCount)
                     return;
@@ -49,7 +55,7 @@
                         b2.dataset.shape = spec.key;
                         b2.title = spec.label;
                         b2.setAttribute('aria-label', spec.label);
-                        b2.innerHTML = tileSvg(spec, 28);
+                        b2.innerHTML = tileSvg(spec, TILE_PX);
                         grid.appendChild(b2);
                     }
                 }

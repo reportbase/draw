@@ -1642,7 +1642,9 @@
            finger is held on it. See THE BUTTONS SAY THEIR NAMES in the script. */
         .btn-name {
             position: fixed;
-            z-index: 9000;
+            /* above the bars (40) and the strip (25), under the popovers (900): a tap that opens a panel leaves
+               the name showing for a moment, and the panel the tap asked for is what should be on top */
+            z-index: 800;
             pointer-events: none;
             padding: 3px 8px;
             border-radius: 6px;
@@ -1652,7 +1654,9 @@
             box-shadow: var(--chip-shadow);
             font-size: 12px;
             line-height: 16px;
-            white-space: nowrap;
+            /* a tile's title can carry its note, so a long one wraps rather than running off the screen */
+            max-width: min(320px, 90vw);
+            text-align: center;
             opacity: 0;
             transform: translateY(-3px);
             transition: opacity 0.12s ease, transform 0.12s ease;
@@ -56542,6 +56546,13 @@
         // The title stays as it was, the longer account for a mouse that waits; it changes with the state of the
         // page ("nothing to undo"), where the name does not. A press that turns into a spin of the ring hides it.
         // A button the list does not name says its aria-label, or nothing.
+        //
+        // THE EDIT BAR AND THE TILES TOO (the same day, Tom: "2 3 4"). The edit view's bar is sixteen more icons with
+        // only titles, so its buttons are in the list as well. And a shape's tile in the strip tells its name, its
+        // count and its note, or how to give it a name ("Long press to Change Name"), only in its title, which is
+        // exactly the hint a finger never sees: so on touch a tile says its title the same way when pressed. A mouse
+        // already has the tile's title, the whole of what it says, so a mouse is not shown it twice. The strip is at
+        // the foot of the page, so where there is no room below a thing its name goes above it.
         (function() {
             const NAMES = {
                 bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
@@ -56549,17 +56560,21 @@
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
                 bAi: 'AI', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
                 bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bOctaveTool: 'Octave browser', bGrid: 'Grid',
-                bStyle: 'Fill', bLine: 'Outline', bDesc: 'Name and note', bFit: 'Fit to view', gearBtn: 'Settings'
+                bStyle: 'Fill', bLine: 'Outline', bDesc: 'Name and note', bFit: 'Fit to view', gearBtn: 'Settings',
+                // the edit view's bar
+                bLockEdit: 'Lock', bCancelEdit: 'Close', bUndoEdit: 'Undo', bRedoEdit: 'Redo',
+                bLeafVH: 'Tangent construction', bAutoEdit: 'Walk the contour', bCascadeEdit: 'Cascade dial',
+                bSeenEdit: 'What the reader holds', bRegisterEdit: 'Register strip', bSerialEdit: 'Relation bar',
+                bChecksumEdit: 'Checksum', b4AtomsEdit: 'Four quarters', bCauchyView: "The reader's circle",
+                bSeamEdit: 'The seam', bMarkEdit: 'Readers', bReadEdit: 'Reading settings'
             };
-            const bar = document.querySelector('.topbar');
-            if (!bar)
-                return;
+            const BUTTONS = '.topbar .icon-btn, .edit-bar .icon-btn', TILES = '.shape-tile';
             const tip = document.createElement('div');
             tip.className = 'btn-name';
             tip.setAttribute('aria-hidden', 'true');
             document.body.appendChild(tip);
             let shown = null, hideT = null, press = null;
-            const nameOf = b => NAMES[b.id] || b.getAttribute('aria-label') || '';
+            const nameOf = b => b.matches(TILES) ? (b.title || '') : (NAMES[b.id] || b.getAttribute('aria-label') || '');
             function show(b) {
                 const name = nameOf(b);
                 clearTimeout(hideT);
@@ -56567,9 +56582,9 @@
                     return hide();
                 shown = b;
                 tip.textContent = name;
-                const r = b.getBoundingClientRect(), w = tip.offsetWidth;
+                const r = b.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
                 tip.style.left = Math.max(4, Math.min(innerWidth - w - 4, r.left + r.width / 2 - w / 2)) + 'px';
-                tip.style.top = (r.bottom + 6) + 'px';
+                tip.style.top = (r.bottom + 6 + h <= innerHeight - 4 ? r.bottom + 6 : Math.max(4, r.top - h - 6)) + 'px';
                 tip.classList.add('on');
             }
             function hide(after) {
@@ -56583,22 +56598,24 @@
                 else
                     go();
             }
-            const btnOf = e => e.target && e.target.closest && e.target.closest('.topbar .icon-btn');
-            bar.addEventListener('pointerover', e => {
-                const b = btnOf(e);
-                if (b && e.pointerType === 'mouse')
+            const at = (e, sel) => e.target && e.target.closest && e.target.closest(sel);
+            document.addEventListener('pointerover', e => {
+                const b = e.pointerType === 'mouse' && at(e, BUTTONS);
+                if (b)
                     show(b);
             });
-            bar.addEventListener('pointerout', e => {
-                const b = btnOf(e);
-                if (b && e.pointerType === 'mouse' && !(e.relatedTarget && b.contains(e.relatedTarget)))
+            document.addEventListener('pointerout', e => {
+                const b = e.pointerType === 'mouse' && at(e, BUTTONS);
+                if (b && !(e.relatedTarget && b.contains(e.relatedTarget)))
                     hide();
             });
-            // capture, so the ring taking the press for a spin does not keep it from us
-            bar.addEventListener('pointerdown', e => {
-                const b = btnOf(e);
-                if (!b || e.pointerType === 'mouse')
+            // capture, so neither a ring taking the press for a spin nor a tile claiming it stops it reaching us
+            document.addEventListener('pointerdown', e => {
+                if (e.pointerType === 'mouse')
                     return;
+                const b = at(e, BUTTONS) || at(e, TILES);
+                if (!b)
+                    return hide();
                 press = { x: e.clientX, y: e.clientY, id: e.pointerId };
                 show(b);
             }, true);
@@ -56612,12 +56629,19 @@
                 window.addEventListener(ev, e => {
                     if (press && e.pointerId === press.id) {
                         press = null;
-                        hide(900);
+                        hide(shown && shown.matches(TILES) ? 1600 : 900);
                     }
                 }, true);
-            // a resized window moves the buttons out from under the name
+            // a resized window moves the buttons out from under the name, and a rename box opening over a
+            // tile (its long press) has said what the tip would have
             window.addEventListener('resize', () => hide());
+            document.addEventListener('focusin', e => {
+                if (e.target && e.target.classList && e.target.classList.contains('trename'))
+                    hide();
+            });
             window.__buttonName = () => shown && tip.classList.contains('on') ? { id: shown.id, name: tip.textContent } : null;
+            // every button the two bars hold, with the name it would say: the smoke test fails on one with none
+            window.__buttonNames = () => [...document.querySelectorAll(BUTTONS)].map(b => [b.id, nameOf(b)]);
         })();
 
         // The three arrange buttons follow the SAME predicates the selection-box row used, so

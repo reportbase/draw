@@ -59,11 +59,15 @@ try {
     if (unnamed) throw new Error(unnamed + ' top-bar buttons have no id to name them by');
     await page.mouse.move(640, 500);
     if (await page.evaluate(() => window.__buttonName())) throw new Error('the name stayed after the mouse left the button');
+    // and every button of the top bar and the edit view's bar has one (13 Nov 2026, Tom: "2 3 4": the edit bar too)
+    const all = await page.evaluate(() => window.__buttonNames());
+    const none = all.filter(([, n]) => !n).map(([id]) => id || '(no id)');
+    if (all.length < 40 || none.length) throw new Error(all.length + ' buttons; without a name: ' + none.join(' '));
   });
 
   /* On a phone the top bar's chips are 52px (13 Nov 2026, Tom: "the tool bar buttons should be larger on mobile"),
      the corner pair with them, while the other bars' chips keep the touch size of 42. */
-  await step('the top bar is finger-sized on a phone', async () => {
+  await step('the top bar is finger-sized on a phone, and says its names to a finger', async () => {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
     const mp = await ctx.newPage();
     mp.on('pageerror', e => failures.push(`[phone] ${e.message}`));
@@ -75,6 +79,27 @@ try {
       if (w.bLock !== 52 || w.bUndo !== 52 || w.gearBtn !== 52) throw new Error('top bar chips on a phone: ' + JSON.stringify(w));
       const edit = await mp.evaluate(() => { const b = document.querySelector('.edit-bar .icon-btn'); return b ? parseFloat(getComputedStyle(b).width) : null; });
       if (edit !== null && edit !== 42) throw new Error('an edit bar chip on a phone is ' + edit + 'px, not 42');
+      // a finger sees a button's name while it is held (13 Nov 2026), and the shapes panel's pictures are drawn
+      // for a finger's tile, 42 not a mouse's 28 (Tom: "2 3 4")
+      const cdp = await ctx.newCDPSession(mp);
+      const at = await mp.evaluate(() => { const r = document.getElementById('bUndo').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: at[0], y: at[1] }] });
+      await mp.waitForTimeout(150);
+      const held = await mp.evaluate(() => window.__buttonName());
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      if (!held || held.name !== 'Undo') throw new Error('a finger held on Undo was shown ' + JSON.stringify(held));
+      await mp.evaluate(() => document.getElementById('bShapes').click());
+      const px = await mp.evaluate(() => { const s = document.querySelector('#shapeGrid .shape-pick svg'); return s && +s.getAttribute('width'); });
+      if (px !== 40) throw new Error("a shapes panel picture on a phone is " + px + 'px wide, not 40 (drawn at 42)');
+      // and a tile, pressed, says its title: what it is, or how to give it a name
+      await mp.evaluate(() => document.querySelector('#shapeGrid .shape-pick[data-shape="circle"]').click());
+      await mp.waitForFunction(() => document.querySelector('#shapeScroller .shape-tile[title]'), null, { timeout: 10000 });
+      const tile = await mp.evaluate(() => { const t = document.querySelector('#shapeScroller .shape-tile[title]'); const r = t.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2, t.title]; });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tile[0], y: tile[1] }] });
+      await mp.waitForTimeout(150);
+      const said = await mp.evaluate(() => window.__buttonName());
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      if (!said || said.name !== tile[2]) throw new Error('a tile pressed said ' + JSON.stringify(said) + ', its title is ' + tile[2]);
     } finally { await ctx.close(); }
   });
 
