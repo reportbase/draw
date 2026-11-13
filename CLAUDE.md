@@ -221,10 +221,16 @@ compatibly.
   drawing is placed there (`addPrimitive(key, at)`; the ring lets go through `__ringHeld`). `__strip.open(mode)` and `__strip.mode` for tests. Those six buttons lead the top ring
   (`STRIP_FIRST`, moved to the front before the ring is built) and it opens turned to Fill, so a phone shows Shapes, Fill and
   Outline at once; a phone test that needs another top-bar button in view has to turn the ring to it.
-- The top bar holds the options and the strip at the foot only an option's values (13 Nov 2026, Tom: "keep the options in
-  the header and the footer is just for the values of that option", taking back the selection's options and buttons moved
-  to the strip that day): the selection's panel stays under its box, and Fill, Outline, Align, Order, Group, Merge and Name
-  stay on the top bar. A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
+- The top bar holds the options and the strip at the foot their values (13 Nov 2026, Tom: "keep the options in the header
+  and the footer is just for the values of that option"): Fill, Outline, Align, Order, Group, Merge and Name stay on the
+  top bar. A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
+- The selection's options are the strip's (13 Nov 2026, THE SELECTION'S OPTIONS ARE THE STRIP'S in `draw.html`; Tom, the
+  same day, after taking it back: "when an object is selected, show its options in the footer"): with something selected
+  and its frame up (under the lock too), the strip at the foot turns to mode `select` by itself, the track as a slider
+  (`applySliderRow`'s rule) and `visibleBoxButtons()` as tiles drawn by `drawBoxButton(b, hot, c)` into their own
+  canvases, pressing `runBoxButton` (the knife left out under the lock); nothing is drawn under the box
+  (`sliderRowsUnderBox` is false). It follows every `drawAll` (`__selStripSync`, rebuilding only when what it shows
+  changes); `__box.button`, `track`, `group` and `panelUp` answer for the strip.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
