@@ -207,9 +207,10 @@ compatibly.
   no API key).
 - The bucket picker reads from `flare.tangent.workers.dev`; draw only reads from
   flare, never writes.
-- The top bar's buttons are 52px on touch and narrow windows (the other bars' 42), and show a short name under
-  them on hover or while held (13 Nov 2026, THE BUTTONS SAY THEIR
-  NAMES, `NAMES` in `draw.html`): a new top-bar button needs an entry there; its `title` stays the longer account.
+- The top bar's buttons are 52px on touch and narrow windows (the other bars' 42). They and the edit view's bar show
+  a short name under them on hover or while held, and on touch a shape's tile shows its title when pressed (13 Nov
+  2026, THE BUTTONS SAY THEIR NAMES, `NAMES` in `draw.html`): a new button on either bar needs an entry there, or
+  `npm test` (editor) fails; its `title` stays the longer account.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
