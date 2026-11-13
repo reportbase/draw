@@ -141,6 +141,47 @@ try {
     if (back[0] || back[1] !== 'visible') throw new Error('the + again did not bring the drawing\'s strip back: ' + JSON.stringify(back));
   });
 
+  /* Other buttons use the strip too (13 Nov 2026, Tom: "other buttons on top could take advantage of the footer like
+     this", for Fill, Outline, Align and Order, Build): each turns the strip to its own big tiles and lights while it
+     shows them. A colour tile paints the selection and takes the ring; Align's tile aligns; a Build tile opens the
+     builder on its family; pressing the button again puts the drawing's strip back. */
+  await step('fill, outline, align, order and build use the strip', async () => {
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.waitForTimeout(300);
+    const open = async (btn, mode) => {
+      await page.click('#' + btn);
+      await page.waitForTimeout(300);
+      const r = await page.evaluate(() => ({ mode: window.__strip.mode, n: document.querySelectorAll('.add-strip > .controls.on .icon-btn').length,
+        pressed: [...document.querySelectorAll('.topbar [aria-pressed="true"]')].map(b => b.id) }));
+      if (r.mode !== mode || r.n < 4 || r.pressed.join() !== btn) throw new Error(`#${btn} opened ${JSON.stringify(r)}`);
+    };
+    const tap = async label => page.evaluate(l => { const t = document.querySelector(`.add-strip > .controls.on .icon-btn[aria-label="${l}"]`); t.click(); return !!t; }, label);
+    await open('bStyle', 'fill');
+    const sw = await page.evaluate(() => [...document.querySelectorAll('.add-strip > .controls.on .strip-sw')].map(t => t.getAttribute('aria-label')).filter(l => /^#/.test(l))[9]);
+    await tap(sw);
+    await page.waitForTimeout(300);
+    const ringed = await page.evaluate(() => [...document.querySelectorAll('.add-strip > .controls.on .strip-sw.on')].map(t => t.getAttribute('aria-label')));
+    if (ringed.join() !== sw) throw new Error(`the fill tile ${sw} was tapped; the ring is on ${JSON.stringify(ringed)}`);
+    const fill = await page.evaluate(() => document.querySelectorAll('#spFillGrid .sw.on').length && document.querySelector('#spFillGrid .sw.on').title);
+    if (fill !== sw) throw new Error(`the fill panel says the selection wears ${fill}, not ${sw}`);
+    await open('bLine', 'line');
+    await open('bAlign', 'align');
+    await tap('align top edges');
+    await page.waitForTimeout(300);
+    if (!/aligned/.test(await page.evaluate(() => document.getElementById('status').textContent))) throw new Error('the align tile did not align');
+    await open('bBuild', 'build');
+    await tap('star');
+    await page.waitForTimeout(300);
+    const b = await page.evaluate(() => [document.getElementById('buildPop').classList.contains('open'), document.getElementById('shapeCustomType').value]);
+    if (!b[0] || b[1] !== 'star') throw new Error('a Build tile: the builder ' + JSON.stringify(b));
+    await page.click('#bBuild');
+    await page.waitForTimeout(300);
+    const shut = await page.evaluate(() => [window.__strip.mode, getComputedStyle(document.getElementById('shapeScroller')).visibility, document.querySelectorAll('.topbar [aria-pressed="true"]').length]);
+    if (shut[0] !== null || shut[1] !== 'visible' || shut[2]) throw new Error('Build pressed again: ' + JSON.stringify(shut));
+    await page.keyboard.press('Escape');
+  });
+
   await step('drag on the canvas', () => drag([[640, 400], [700, 430], [760, 460]]));
   await step('freehand stroke', async () => {
     await page.click('#bDraw');

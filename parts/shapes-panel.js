@@ -1109,6 +1109,23 @@
                 get family() {
                     return fam;
                 },
+                // the strip's Build ring (THE STRIP SAYS ONE OF SEVERAL THINGS, in draw.html): every family, drawn at its
+                // starting numbers, and a family chosen from it as the drop-down chooses one (the link dropped with it)
+                families() {
+                    return Object.keys(FAMILIES).map(key => {
+                        const v = {};
+                        for (const p of FAMILIES[key].params)
+                            v[p.key] = p.val;
+                        const opt = typeEl && [...typeEl.options].find(o => o.value === key);
+                        return { key, label: opt ? opt.textContent.trim() : key, spec: FAMILIES[key].make(v) };
+                    });
+                },
+                set family(key) {
+                    if (!FAMILIES[key] || !typeEl)
+                        return;
+                    typeEl.value = key;
+                    typeEl.dispatchEvent(new Event('change'));
+                },
                 values,
                 open: openBuilder,
                 rebuild: rebuildLinked,

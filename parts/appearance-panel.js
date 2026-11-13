@@ -18,10 +18,12 @@
             const pop = $('stylePop');
             if (!pop)
                 return;
+            // (or the strip at the foot showing the swatches as its tiles, which reads its rings from these: 13 Nov 2026,
+            // THE STRIP SAYS ONE OF SEVERAL THINGS in draw.html)
             const anyOpen = () => PANES.some(id => {
                 const e = $(id);
                 return e && e.classList.contains('open');
-            });
+            }) || /^(fill|line)$/.test(document.body.dataset.strip || '');
             const fillGrid = $('spFillGrid'),
                 lineGrid = $('spLineGrid');
             const wIn = $('spWidth'),

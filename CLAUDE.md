@@ -211,10 +211,13 @@ compatibly.
   a short name under them on hover or while held, and on touch a shape's tile shows its title when pressed (13 Nov
   2026, THE BUTTONS SAY THEIR NAMES, `NAMES` in `draw.html`): a new button on either bar needs an entry there, or
   `npm test` (editor) fails; its `title` stays the longer account.
-- The strip at the foot adds shapes (13 Nov 2026, THE STRIP ADDS SHAPES TOO in `draw.html`): the + on the top bar
-  (`#bAddStrip`, where the Shapes button and its popover were) turns it to the library (`PRIMITIVES`) on a ring of its
-  own (`makeRing`), a tap adds one (`addPrimitive`), and + again goes back. The drawing's strip only steps aside
-  (`body.adding`); the library hides in the edit view and while a morph is live (its bar has the foot then).
+- The strip at the foot says one of several things (13 Nov 2026, THE STRIP ADDS SHAPES TOO and THE STRIP SAYS ONE OF
+  SEVERAL THINGS in `draw.html`, `MODES`): the + on the top bar (`#bAddStrip`, where the Shapes button and its popover
+  were) turns it to the library of shapes, and Fill, Outline, Align, Order and Build to theirs, each on a ring of its
+  own (`makeRing`), the button lit (`aria-pressed`) while it shows. A tile of Fill, Outline, Align or Order clicks the
+  popover button it mirrors, so those panels stay the code that acts; the colour rings' first tile opens the panel's
+  sliders. The drawing's strip only steps aside (`body.adding`, `body.dataset.strip`); the strip hides in the edit view
+  and while a morph is live. `__strip.open(mode)` and `__strip.mode` for tests.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
