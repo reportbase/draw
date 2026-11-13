@@ -674,6 +674,61 @@ T.current = 'few shapes lie as a centred row';
   await rp.close();
 }
 
+/* A hold builds the selection and never hides the bars (13 Nov 2026, Tom: "Long press should multi select objects, not
+   toggle the toolbar visibility"). On a phone (locked, as it starts): tap one shape, hold another and both are held,
+   hold the first again and it goes out; a hold on empty canvas leaves the bars where they are. */
+T.current = 'a hold multi-selects';
+{
+  const hctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
+  const hp = await hctx.newPage();
+  hp.on('pageerror', e => failures.push(`[hold] ${e.message}`));
+  await hp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await hp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await hp.waitForSelector('#bAddStrip', { timeout: 60000 });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+      + '<rect x="110" y="10" width="80" height="80" fill="#48c"/><circle cx="250" cy="50" r="40" fill="#4c8"/></svg>';
+    await hp.setInputFiles('#fLoad', { name: 'three.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+    await hp.waitForTimeout(1500);
+    const cv = await hp.locator('#cv').boundingBox();
+    // where shapes 0 and 2 stand, read off their boxes with the lock off for a moment (the lock hides the handles)
+    await hp.click('#bLock');
+    const at = [];
+    for (const i of [0, 2]) {
+      await hp.evaluate(i => window.__box.select([i]), i);
+      const b = await hp.evaluate(() => window.__box.handles().box);
+      at.push([cv.x + (b.x0 + b.x1) / 2, cv.y + (b.y0 + b.y1) / 2]);
+    }
+    await hp.click('#bLock');
+    await hp.evaluate(() => window.__box.select([]));
+    const cdp = await hctx.newCDPSession(hp);
+    const touch = async ([x, y], ms) => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      if (ms) await hp.waitForTimeout(ms);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await hp.waitForTimeout(400);
+    };
+    const held = () => hp.evaluate(() => ({ off: document.body.classList.contains('chrome-off'),
+      w: (h => h ? Math.round(h.box.x1 - h.box.x0) : 0)(window.__box.handles && window.__box.handles()) }));
+    // the box's width says what is held: one circle, or the span from one circle to the other
+    await hp.click('#bLock'); await touch(at[0]); const one = await held(); await hp.click('#bLock');
+    await touch(at[0]);
+    await touch(at[1], 700);
+    await hp.click('#bLock'); const two = await held(); await hp.click('#bLock');
+    await touch(at[0], 700);
+    await hp.click('#bLock'); const back = await held(); await hp.click('#bLock');
+    await touch([cv.x + 20, cv.y + cv.height * 0.25], 700);
+    const empty = await held();
+    if (one.w <= 0 || !(two.w > one.w * 2) || !(back.w > 0 && back.w < two.w) || one.off || two.off || back.off || empty.off)
+      throw new Error('holds: ' + JSON.stringify({ one, two, back, empty }));
+  } catch (e) {
+    failures.push(`[hold] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a hold multi-selects, and never hides the bars`);
+  await hctx.close();
+}
+
 /* The group button lives in the selection's options (BOX_BUTTONS 'bt-group', a tile in the strip at the foot since
    13 Nov 2026, under the selection before), no longer
    beside the rotate grip, and the menu's "selection panel" switch (#tSelPanel) puts the panel away

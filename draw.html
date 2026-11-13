@@ -40846,6 +40846,7 @@
         // Edit mode is excluded: the CSS hides the strip there, and a toggle with no
         // visible effect is a switch flipped in the dark.
         let _browserPress = null; // { mx, my, timer } — the pending long-press, if any
+        const HOLD_HIDES_CHROME = false; // see A HOLD NO LONGER HIDES THE BARS, at startBrowserLongPress
         function cancelBrowserLongPress() {
             if (_browserPress) {
                 clearTimeout(_browserPress.timer);
@@ -40888,7 +40889,7 @@
             if (typeof resizeCanvas === 'function')
                 resizeCanvas();
             drawAll();
-            flashStatus(off ? 'bars hidden — long-press the canvas (or press Escape) to bring them back'
+            flashStatus(off ? 'bars hidden — press Escape to bring them back'
             : 'bars back');
             if (navigator.vibrate) {
                 try {
@@ -40993,7 +40994,7 @@
                 // should also toggle the headers and footers." The leaf-selection toggle yields
                 // here; ⌘/Ctrl-click, shift-range and the brush still build a multi-leaf
                 // selection. The press is spent exactly as the selection toggle would spend it.
-                if (state.editMode) {
+                if (state.editMode && HOLD_HIDES_CHROME) {
                     state.longPressFired = true;
                     state.drag = null;
                     lockTap = null;
@@ -41002,6 +41003,10 @@
                     cancelShapeLongPress();
                     toggleChrome();
                     return;
+                }
+                if (state.editMode) {
+                    leafScrub = null; // the hold is the leaf's: it joins the selection (A HOLD NO LONGER HIDES THE BARS)
+                    cancelShapeLongPress();
                 }
                 dropProvisionalLeaf(); // see the note above — edit mode's hover puts it there
                 const had = state.selected.has(lkey);
@@ -41080,6 +41085,10 @@
                     // set already matched. That is the scene's business and never edit mode's, so edit
                     // mode leaves before it is consulted. The press is spent exactly as below.
                     if (state.editMode) {
+                        // the edit view's shape is its leaves, and a hold builds a selection of those (the leaf
+                        // hold); on the body there is nothing to add, so the press is left to be what it was
+                        if (!HOLD_HIDES_CHROME)
+                            return;
                         lockTap = null;
                         leafScrub = null;
                         if (state.shapeMove)
@@ -41123,7 +41132,9 @@
                         // and footers on/off." The one press this gesture has no selection work for —
                         // holding exactly what you already hold — is the press with a job free, so it
                         // takes the chrome. Hold a DIFFERENT shape and it still builds the selection.
-                        toggleChrome();
+                        // Not any more (A HOLD NO LONGER HIDES THE BARS): the press is spent and nothing happens.
+                        if (HOLD_HIDES_CHROME)
+                            toggleChrome();
                         return;
                     }
                     for (const i of set) {
@@ -41163,8 +41174,17 @@
             const sp = state.subpaths[idx];
             return (sp && sp.gid != null) ? membersOfGroup(sp.gid) : [idx];
         }
+        // ── A HOLD NO LONGER HIDES THE BARS (13 Nov 2026, Tom: "Long press should multi select objects, not toggle the
+        // toolbar visibility"). The hold is the touch half of ⌘/Ctrl-click (the shape and leaf holds above): it adds a
+        // shape or a leaf to the selection, or takes it out. Where it had no selection work to do (on empty canvas, on
+        // the shape already held, anywhere in the edit view) it took the chrome instead (Aug 29), and so the same
+        // gesture that built a selection could, a little to one side, make the toolbar vanish. Now it does nothing
+        // there. The bars hide only for the tour (setChromeOff), and Escape brings them back. (HOLD_HIDES_CHROME is
+        // declared beside _browserPress, before the holds that read it.)
         function startBrowserLongPress(mx, my) {
             cancelBrowserLongPress();
+            if (!HOLD_HIDES_CHROME)
+                return;
             _browserPress = {
                 mx,
                 my,
