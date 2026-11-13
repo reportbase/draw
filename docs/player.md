@@ -12,8 +12,11 @@ they use (the closure skips locals, object keys, regex literals and property nam
 editor's order, between a small shim (`state`'s ease, hold, gravity and wind, `morphLive`, `morphRuns`) and
 `player/runtime.js` (loading, the clock, drawing: leaves reconstructed with the kernel at about one point every
 two pixels, exact poses as their cubics, stills through `exactDense`). Names the engine mentions that belong to
-the editor's page are in its `STUBS`; an unknown one fails the build. After changing the morph engine in
-draw.html, run it, or `npm test` fails. A `.tvfs` (`{format: 'tvf-scene', v: 1, name, loop, ease, hold,
+the editor's page are in its `STUBS`; an unknown one fails the build. After changing the morph engine,
+run it, or `npm test` fails. Since 12 Nov 2026 the engine's lines are `parts/morph-engine.js`: `editorSource()` in the build reads
+`draw.html` with its `var { … } = partRun('morph-engine');` replaced by those lines (`engineLines`, between the file's opening
+`= function () {` and the foot where it hands its names back), which is the page as it was, so the player came out byte for byte
+the same. A `.tvfs` (`{format: 'tvf-scene', v: 1, name, loop, ease, hold,
 gravity, wind, trail, camera, stops, path, items, morphs}`) is written by the morph bar's **tvfs** button (`morphTvfScene`, hook
 `__box.tvfScene()`): `items` the drawing order (`{morph: i}`, or a still's `leaves` as float32 base64 or its
 `exact` corners, roundings, smooth corners, handles and holes, with fill and stroke), `morphs` each as its keys

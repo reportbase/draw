@@ -41,6 +41,24 @@ try {
     if (!/opened .smoke ring. . 1 shape from the link/.test(r[1])) throw new Error('status: ' + r[1]);
   });
 
+  /* The shapes panel draws its hundred tiles when it is first opened, not as the page starts (12 Nov 2026, the
+     tiles were nearly all that panel's start-up cost): none before the press, all of them after it, and a pick
+     from the grid still adds its shape. */
+  await step('the shapes grid is drawn when first opened', async () => {
+    const before = await page.evaluate(() => document.querySelectorAll('#shapeGrid .shape-pick').length);
+    if (before) throw new Error(before + ' tiles drawn before the panel was opened');
+    await page.click('#bShapes');
+    const after = await page.evaluate(() => [document.querySelectorAll('#shapeGrid .shape-pick').length, document.getElementById('shapePop').classList.contains('open')]);
+    if (after[0] < 50 || !after[1]) throw new Error('after the press: ' + after[0] + ' tiles, open ' + after[1]);
+    await page.click('#shapeGrid .shape-pick[data-shape="circle"]');
+    await page.waitForTimeout(300);
+    if (!await page.evaluate(() => !!window.__box.button('bt-mode'))) throw new Error('a pick from the grid added no shape (nothing selected)');
+    await page.click('#bShapes');
+    await page.keyboard.press('Escape');
+    const again = await page.evaluate(() => document.querySelectorAll('#shapeGrid .shape-pick').length);
+    if (again !== after[0]) throw new Error('opened again, the grid has ' + again + ' tiles, not ' + after[0]);
+  });
+
   await step('drag on the canvas', () => drag([[640, 400], [700, 430], [760, 460]]));
   await step('freehand stroke', async () => {
     await page.click('#bDraw');

@@ -22,8 +22,8 @@ When a change adds something a later session would need to know, put the rule he
 line and the account of it in the `docs/` file, dated, in the voice those have.
 
 ## Files
-- `draw.html`: **the editor and the file to edit.** About 68,000 lines, one page with no
-  build step. It loads three library files beside it and twelve of its own blocks from `parts/`,
+- `draw.html`: **the editor and the file to edit.** About 63,400 lines, one page with no
+  build step. It loads three library files beside it and thirteen of its own blocks from `parts/`,
   and the labs' files in `labs/` only when one is asked for. All are classic scripts loaded by
   `<script src>`, so the page still works opened from disk.
 - `tvf-core.js`: **the curve library**, the editor's numerics: the kernel, the leaf layout,
@@ -45,13 +45,19 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   (the AI popover, `apiCall`, the prompts and `ANIM_MORPH_FIELDS`, `animApply`), `shapes-panel.js`,
   `bucket-picker.js`, `scene-link.js` (`openScene`, `applySceneMorphs`, `sceneOfEditor`), `timeline.js` (the
   morph bar's timeline), `morph-strip.js` (a morph's own settings), `appearance-panel.js`, `text-panel.js`,
-  `bucket-panel.js`, `checksum-panel.js`, `instruments.js` (the edit view's strips) and `shape-link.js`
-  (`#tvf=`). A file hands
+  `bucket-panel.js`, `checksum-panel.js`, `instruments.js` (the edit view's strips), `shape-link.js`
+  (`#tvf=`) and `morph-engine.js` (the morph engine, below). A file hands
   its code over as `(window.TVF_PARTS = …)[name] = function () { … }`; the page names it in a
   `<script src>` above its own script and runs it where the block stood (`partRun(name)`, PARTS OF THE
   EDITOR IN parts/), by a direct `eval` inside the editor's closure, so the code reads every editor name
   and runs at the same point of the start as it did. Edit them as the editor. A block can move there
   when it is one function run once at the start whose names nothing else in the page uses.
+  **The morph engine** (`parts/morph-engine.js`, 4,300 lines from MORPH: THE ONE OPERATION THE FORMAT IS BUILT FOR to
+  THE MORPH'S OWN SETTINGS, IN THE EDITOR) is the one the page calls into: its function ends by returning every
+  name it declares at its top, and the page takes them where it stood, `var { … } = partRun('morph-engine');`
+  (a `var`: the first frames ask `_morphReady` before that line runs). A name added at the engine's top goes in
+  both lists; `npm test` (labs) fails when the three differ. `npm run player` reads the engine's lines from the
+  file, put back where the page takes them. The shapes panel draws its grid of tiles on its first opening.
 - `index.html`: forwards `/draw/` to `draw.html`, keeping `?lab=` and `?bucket=`.
 - `labs/` and `labs.html`: every lab group in the drawer is a file in `labs/`, loaded on the
   first press of its button (`LAB_FILES` in the editor maps a lab's data-code to its file) and
@@ -77,7 +83,7 @@ Nothing here is edited by hand in its generated form; `npm test` fails when one 
 | After changing | Run | It writes |
 | --- | --- | --- |
 | a lab's button, heading or description in `draw.html` | `npm run labs` | `labs.html` |
-| the morph engine in `draw.html`, or `player/runtime.js` | `npm run player` | `player/tvf-player.js` |
+| the morph engine (`parts/morph-engine.js`, and what it takes from `draw.html`), or `player/runtime.js` | `npm run player` | `player/tvf-player.js` |
 | an example in `gallery/animated.html`, the scene link, the `.tvfs` writer | `npm run examples` (`-- id …` for some) | `player/examples/*.tvfs`, `index.json` |
 | `player/lottie.js` or an interactive example | `node tools/write-interactive.mjs` | `player/interactive/` |
 | anything the gallery pages share (next list), or the order of the pages | `npm run sync` | every copy, from its source |

@@ -47,7 +47,7 @@ The gallery's *played* page shows the rest (`TVFPlayer.play`, states, touch, Lot
 | `tvf-core.js` | The curve library (the kernel, leaves, reconstruction, spectral routines). The editor loads it; it also runs under Node. |
 | `svg-import.js` | The SVG importer. The editor loads it. |
 | `tvf-reader.js` | The `.tvf` reader. The editor loads it; it also runs under Node. |
-| `parts/` | Twelve blocks of the editor's own script (the AI panel, the shapes panel, the bucket picker, the scene link, the timeline, the morph strip, …), which the page loads and runs in place. |
+| `parts/` | Thirteen blocks of the editor's own script (the morph engine, the AI panel, the shapes panel, the bucket picker, the scene link, the timeline, …), which the page loads and runs in place. |
 | `labs/` | The labs, one file a group, loaded when a lab is first run. `labs.html` lists them (generated). |
 | `player/` | The player (`tvf-player.js`, generated from the editor's morph engine and `runtime.js`), the Lottie reader, example scenes. |
 | `gallery/` | The teaching pages, the playground, the inspector, `tvf.js` (the library as an ES module) and their shared `style.css`. |
@@ -80,7 +80,7 @@ python3 -m http.server 8000
 | `npm run test:unit` | The library files alone, in Node, under a second. |
 | `npm run sync` | Writes every copy the gallery pages carry from its source (`-- --check` only says what differs). |
 | `npm run labs` | Writes `labs.html` from the editor's lab buttons. |
-| `npm run player` | Writes `player/tvf-player.js` from the editor's morph engine. |
+| `npm run player` | Writes `player/tvf-player.js` from the editor's morph engine (`parts/morph-engine.js`). |
 | `npm run examples` | Writes `player/examples/` from the animated gallery. |
 | `npm run measure` | Times every example in the player on an emulated phone. |
 | `npm run video -- <id>` | Writes an explainer as an MP4 (needs ffmpeg). |

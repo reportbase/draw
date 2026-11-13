@@ -159,16 +159,17 @@ await step('tvf-reader.js stands alone', async () => {
   if (html.includes('function parseTvfText(')) throw new Error('draw.html carries its own parseTvfText again');
 });
 
-/* Twelve blocks of the editor's script are files in parts/ (12 Nov 2026), which the page names above its own
+/* Thirteen blocks of the editor's script are files in parts/ (12 Nov 2026), which the page names above its own
    script and runs where each stood (partRun). Each must parse, hand over one function under its name, be named
-   by a script tag before the page's own script and run exactly once; and the page must not carry a block again. */
+   by a script tag before the page's own script and run exactly once; and the page must not carry a block again.
+   The morph engine, the one the page calls into, must hand back exactly the names it declares, and the page take them. */
 await step('parts/ are handed over and run in place', async () => {
   const vm = await import('node:vm');
   const html = await readFile(join(ROOT, 'draw.html'), 'utf8');
   const own = html.indexOf('<script>\n    \'use strict\';');
   if (own < 0) throw new Error('the page\'s own script was not found');
   for (const name of ['ai-panel', 'shapes-panel', 'bucket-picker', 'scene-link', 'timeline', 'morph-strip', 'appearance-panel',
-                      'instruments', 'bucket-panel', 'checksum-panel', 'text-panel', 'shape-link']) {
+                      'instruments', 'bucket-panel', 'checksum-panel', 'text-panel', 'shape-link', 'morph-engine']) {
     const src = await readFile(join(ROOT, 'parts', name + '.js'), 'utf8');
     const ctx = { window: {} };
     vm.createContext(ctx);
@@ -181,6 +182,19 @@ await step('parts/ are handed over and run in place', async () => {
   for (const first of ["const pop = $('aiPop'),", "const pop = $('shapePop'),", "const BUCKET_API = ", 'function applySceneMorphs(',
                        "const btn = $('bMorphTimeline');", "const num = (id, fn) => $(id).addEventListener('change', e => {", "const btn = $('bBucketEdit');", "const panel = $('checksumPanel');", "const pop = $('textPop'),"])
     if (html.includes(first)) throw new Error('draw.html carries a block of parts/ again: ' + first);
+  // the morph engine hands its names back: the names its lines declare at their top, the return list at its foot and
+  // the page's var { … } = partRun('morph-engine') must be the same names, or the page cannot see one of them
+  const { declarations, engineLines, ENGINE_TAKE } = await import('../tools/build-player.mjs');
+  const part = await readFile(join(ROOT, 'parts', 'morph-engine.js'), 'utf8');
+  if (html.includes('function morphPoseInto(')) throw new Error('draw.html carries the morph engine again');
+  const engine = [...declarations(engineLines(part)).keys()].sort().join(),
+    list = s => s.replace(/\s+/g, '').split(',').filter(Boolean).sort().join(),
+    back = part.match(/\n {8}return \{([^}]*)\};\n\};\s*$/), take = html.match(ENGINE_TAKE);
+  if (!back) throw new Error('parts/morph-engine.js does not end by handing back its names');
+  if (list(back[1]) !== engine) throw new Error('parts/morph-engine.js hands back other names than it declares: ' + diff(list(back[1]), engine));
+  if (!take || list(take[0].slice(take[0].indexOf('{') + 1, take[0].indexOf('}'))) !== engine)
+    throw new Error("draw.html's var { … } = partRun('morph-engine') takes other names than the engine declares: " + (take ? diff(list(take[0].slice(take[0].indexOf('{') + 1, take[0].indexOf('}'))), engine) : 'not found'));
+  function diff(a, b) { const A = new Set(a.split(',')), B = new Set(b.split(',')); return 'missing ' + [...B].filter(x => !A.has(x)).join(' ') + '; extra ' + [...A].filter(x => !B.has(x)).join(' '); }
 });
 
 /* Every copy is what npm run sync would write: the gallery's library, bundle and tile code from the catalogue,
