@@ -221,6 +221,12 @@ compatibly.
   drawing is placed there (`addPrimitive(key, at)`; the ring lets go through `__ringHeld`). `__strip.open(mode)` and `__strip.mode` for tests. Those six buttons lead the top ring
   (`STRIP_FIRST`, moved to the front before the ring is built) and it opens turned to Fill, so a phone shows Shapes, Fill and
   Outline at once; a phone test that needs another top-bar button in view has to turn the ring to it.
+- The selection's options are the strip's (13 Nov 2026, THE SELECTION'S OPTIONS ARE THE STRIP'S in `draw.html`): with
+  something selected and its box up, the strip at the foot turns to mode `select` by itself, the track as a slider
+  (`applySliderRow`'s rule) and `visibleBoxButtons()` as tiles drawn by `drawBoxButton(b, hot, c)` into their own
+  canvases, pressing `runBoxButton`; nothing is drawn under the box (`sliderRowsUnderBox` is false). It follows every
+  `drawAll` (`__selStripSync`, rebuilding only when what it shows changes); `__box.button`, `track`, `group` and
+  `panelUp` answer for the strip.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
