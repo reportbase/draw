@@ -233,6 +233,13 @@ compatibly.
   Exact, `aria-pressed` while exact). The smoothing track stays under the box (`sliderRowsUnderBox`; Tom: "The slider
   should be returned to the selection box"), without the buttons (`sliderButtonsUnderBox` is false). It follows every
   `drawAll` (`__selStripSync`); `__box.button` (null for a disabled tile), `group` and `panelUp` answer for the strip.
+- The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
+  footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
+  mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).
+  Panning the strip (a drag, the wheel, a glide) only turns it and selects nothing (Tom: "The fix is to not select the
+  shape when panning the footer"; `STRIP_PAN_SELECTS` is false, so `stripFollowFocus` returns); a tap on a tile selects.
+  When every tile fits across (`stripFits()`), the strip is a centred row in order and does not turn (Tom: "you should
+  center the shapes, as the wrap around is not needed"); the wrapping ring is for more shapes than fit.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing

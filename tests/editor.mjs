@@ -588,6 +588,92 @@ T.current = 'the selection\'s options in the strip';
   await sp.close();
 }
 
+/* The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
+   footer bar is not open"). A pick on the canvas turned it to the shape picked, though the selection's buttons were
+   taking the strip, so it came back somewhere else; now it comes back as it was left. */
+T.current = 'the strip holds still while put away';
+{
+  const hp = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  hp.on('pageerror', e => failures.push(`[strip holds] ${e.message}`));
+  await hp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await hp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await hp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 100">';
+    for (let i = 0; i < 18; i++) svg += `<circle cx="${50 + i * 100}" cy="50" r="40" fill="#c84"/>`;
+    await hp.setInputFiles('#fLoad', { name: 'row.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg + '</svg>') });
+    await hp.waitForTimeout(1500);
+    const cv = await hp.locator('#cv').boundingBox();
+    await hp.evaluate(() => window.__box.select([15]));
+    const bx = await hp.evaluate(() => window.__box.handles().box);
+    const clear = async () => { await hp.keyboard.press('Escape'); await hp.mouse.click(700, 150); await hp.waitForTimeout(400); };
+    await clear();
+    const tiles = () => hp.evaluate(() => [...document.querySelectorAll('#shapeScroller .shape-tile')].filter(t => t.style.display !== 'none')
+      .map(t => t.dataset.idx + '@' + Math.round(t.getBoundingClientRect().left)).join(' '));
+    const t0 = await tiles();
+    await hp.mouse.click(cv.x + (bx.x0 + bx.x1) / 2, cv.y + (bx.y0 + bx.y1) / 2);
+    await hp.waitForTimeout(400);
+    if (await hp.evaluate(() => window.__strip.mode) !== 'select') throw new Error('a shape picked on the canvas did not bring its options');
+    await clear();
+    const t1 = await tiles();
+    if (t1 !== t0) throw new Error('the strip moved while put away: ' + t0 + ' → ' + t1);
+    // and panning the strip only turns it (Tom: "The fix is to not select the shape when panning the footer"): a drag
+    // and a wheel on it select nothing, so the strip stays the drawing's
+    const tb = await hp.locator('#shapeScroller .shape-tile').first().boundingBox(), y = tb.y + tb.height / 2;
+    await hp.mouse.move(400, y); await hp.mouse.down(); await hp.mouse.move(900, y, { steps: 12 }); await hp.mouse.up();
+    await hp.waitForTimeout(1200);
+    for (let k = 0; k < 4; k++) { await hp.mouse.move(700, y); await hp.mouse.wheel(0, 120); await hp.waitForTimeout(100); }
+    await hp.waitForTimeout(500);
+    const pan = await hp.evaluate(() => ({ strip: window.__strip.mode, selected: !!window.__box.handles() }));
+    const t2 = await tiles();
+    if (pan.strip !== null || pan.selected || t2 === t1) throw new Error('panning the strip: ' + JSON.stringify(pan) + (t2 === t1 ? ', and it did not turn' : ''));
+  } catch (e) {
+    failures.push(`[strip holds] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the strip holds still while put away, and a pan selects nothing`);
+  await hp.close();
+}
+
+/* Few shapes lie as a centred row (13 Nov 2026, Tom: "If the number of shapes width is less then the width of the screen
+   then you should center the shapes, as the wrap around is not needed"): five tiles stand in their order, a pitch apart,
+   centred on the strip, and a drag across them does not turn them. */
+T.current = 'few shapes lie as a centred row';
+{
+  const rp = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  rp.on('pageerror', e => failures.push(`[centred row] ${e.message}`));
+  await rp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await rp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await rp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 100">';
+    for (let i = 0; i < 5; i++) svg += `<circle cx="${50 + i * 100}" cy="50" r="40" fill="#c84"/>`;
+    await rp.setInputFiles('#fLoad', { name: 'five.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg + '</svg>') });
+    await rp.waitForTimeout(1500);
+    await rp.keyboard.press('Escape'); await rp.mouse.click(700, 150); await rp.waitForTimeout(400);
+    const row = () => rp.evaluate(() => {
+      const s = document.getElementById('shapeScroller').getBoundingClientRect();
+      const t = [...document.querySelectorAll('#shapeScroller .shape-tile')].filter(e => e.style.display !== 'none')
+        .map(e => { const r = e.getBoundingClientRect(); return [+e.dataset.idx, r.left + r.width / 2]; });
+      return { mid: s.left + s.width / 2, t };
+    });
+    const r0 = await row();
+    const xs = r0.t.map(a => a[1]), order = r0.t.slice().sort((a, b) => a[1] - b[1]).map(a => a[0]).join();
+    const centre = (Math.min(...xs) + Math.max(...xs)) / 2;
+    if (r0.t.length !== 5 || order !== '0,1,2,3,4' || Math.abs(centre - r0.mid) > 2)
+      throw new Error('five shapes in the strip: ' + JSON.stringify(r0));
+    const y = (await rp.locator('#shapeScroller .shape-tile').first().boundingBox()).y + 36;
+    await rp.mouse.move(400, y); await rp.mouse.down(); await rp.mouse.move(900, y, { steps: 12 }); await rp.mouse.up();
+    await rp.waitForTimeout(1000);
+    if (JSON.stringify((await row()).t) !== JSON.stringify(r0.t)) throw new Error('a drag turned a row that fits');
+  } catch (e) {
+    failures.push(`[centred row] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} few shapes lie as a centred row`);
+  await rp.close();
+}
+
 /* The group button lives in the selection's options (BOX_BUTTONS 'bt-group', a tile in the strip at the foot since
    13 Nov 2026, under the selection before), no longer
    beside the rotate grip, and the menu's "selection panel" switch (#tSelPanel) puts the panel away
