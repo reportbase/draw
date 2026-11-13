@@ -62,7 +62,7 @@ try {
     // and every button of the top bar and the edit view's bar has one (13 Nov 2026, Tom: "2 3 4": the edit bar too)
     const all = await page.evaluate(() => window.__buttonNames());
     const none = all.filter(([, n]) => !n).map(([id]) => id || '(no id)');
-    if (all.length < 40 || none.length) throw new Error(all.length + ' buttons; without a name: ' + none.join(' '));
+    if (all.length < 30 || none.length) throw new Error(all.length + ' buttons; without a name: ' + none.join(' '));
   });
 
   /* On a phone the top bar's chips are 52px (13 Nov 2026, Tom: "the tool bar buttons should be larger on mobile"),
@@ -87,7 +87,7 @@ try {
       const inView = await mp.evaluate(() => { const l = document.getElementById('bLock').getBoundingClientRect().right, g = document.getElementById('gearBtn').getBoundingClientRect().left;
         return [...document.querySelectorAll('.topbar .controls > .icon-btn')].filter(b => b.style.display !== 'none').map(b => [b.id, b.getBoundingClientRect()])
           .filter(([, r]) => r.left >= l - 2 && r.right <= g + 2).sort((a, b) => a[1].left - b[1].left).map(a => a[0]); });
-      if (inView.slice(0, 3).join() !== 'bAddStrip,bStyle,bLine') throw new Error('a phone opens with ' + inView.join(' ') + ' in view');
+      if (inView.slice(0, 2).join() !== 'bAddStrip,bBuild') throw new Error('a phone opens with ' + inView.join(' ') + ' in view');
       const at = await mp.evaluate(() => { const r = document.getElementById('bAddStrip').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: at[0], y: at[1] }] });
       await mp.waitForTimeout(150);
@@ -184,17 +184,18 @@ try {
     await page.keyboard.press('Escape');
     await page.keyboard.press('ControlOrMeta+a');
     await page.waitForTimeout(300);
-    const open = async (btn, mode) => {
-      await page.click('#' + btn);
+    const tap = async label => page.evaluate(l => { const t = document.querySelector(`.add-strip > .controls.on .icon-btn[aria-label="${l}"]`); t.click(); return !!t; }, label);
+    // Build from the top bar, lit while its ring shows; Fill, Outline and Align from the selection's own strip (they
+    // left the top bar, 13 Nov 2026, Tom: "1 then 3"), whose rings begin with a way back to it
+    const open = async (via, mode) => {
+      if (via.startsWith('#')) await page.click(via); else if (!await tap(via)) throw new Error(`no ${via} tile in the selection's strip`);
       await page.waitForTimeout(300);
       const r = await page.evaluate(() => ({ mode: window.__strip.mode, n: document.querySelectorAll('.add-strip > .controls.on .icon-btn').length,
-        pressed: [...document.querySelectorAll('.topbar [aria-pressed="true"]')].map(b => b.id),
         // lit as the grid's button is when the grid is on (button.icon-btn.active, Tom: "the same color scheme as the grid toggle button")
         lit: [...document.querySelectorAll('.topbar .controls > .icon-btn.active')].map(b => b.id).filter(id => id !== 'bGrid') }));
-      if (r.mode !== mode || r.n < 4 || r.pressed.join() !== btn || r.lit.join() !== btn) throw new Error(`#${btn} opened ${JSON.stringify(r)}`);
+      if (r.mode !== mode || r.n < 4 || r.lit.join() !== (via.startsWith('#') ? via.slice(1) : '')) throw new Error(`${via} opened ${JSON.stringify(r)}`);
     };
-    const tap = async label => page.evaluate(l => { const t = document.querySelector(`.add-strip > .controls.on .icon-btn[aria-label="${l}"]`); t.click(); return !!t; }, label);
-    await open('bStyle', 'fill');
+    await open('Fill', 'fill');
     const sw = await page.evaluate(() => [...document.querySelectorAll('.add-strip > .controls.on .strip-sw')].map(t => t.getAttribute('aria-label')).filter(l => /^#/.test(l))[9]);
     await tap(sw);
     await page.waitForTimeout(300);
@@ -202,12 +203,17 @@ try {
     if (ringed.join() !== sw) throw new Error(`the fill tile ${sw} was tapped; the ring is on ${JSON.stringify(ringed)}`);
     const fill = await page.evaluate(() => document.querySelectorAll('#spFillGrid .sw.on').length && document.querySelector('#spFillGrid .sw.on').title);
     if (fill !== sw) throw new Error(`the fill panel says the selection wears ${fill}, not ${sw}`);
-    await open('bLine', 'line');
-    await open('bAlign', 'align');
+    await tap('Back');
+    await page.waitForTimeout(200);
+    if (await page.evaluate(() => window.__strip.mode) !== 'select') throw new Error('Back did not return to the selection\'s strip');
+    await open('Outline', 'line');
+    await tap('Back');
+    await page.waitForTimeout(200);
+    await open('Align', 'align');
     await tap('align top edges');
     await page.waitForTimeout(300);
     if (!/aligned/.test(await page.evaluate(() => document.getElementById('status').textContent))) throw new Error('the align tile did not align');
-    await open('bBuild', 'build');
+    await open('#bBuild', 'build');
     await tap('star');
     await page.waitForTimeout(300);
     const b = await page.evaluate(() => [document.getElementById('buildPop').classList.contains('open'), document.getElementById('shapeCustomType').value]);

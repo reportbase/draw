@@ -1748,12 +1748,12 @@
                    one "this is live" signal and it must not depend on what is behind it. The dark
                    glyph inside it is fixed for the same reason: gold is a light colour, so the
                    contrast partner is dark on a light page and on a dark one alike. */
-                button.icon-btn.active {
+                button.icon-btn.active, button.icon-btn.pop-open {
                   color: #14141a; background: var(--gold); border-color: rgba(212,160,82,0.9);
                   box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 4px 14px rgba(212,160,82,0.28), inset 0 1px 0 rgba(255,255,255,0.35);
                 }
-                button.icon-btn.active svg { filter: none; }
-                button.icon-btn.active:hover { background: #e8b96b; color: #14141a; border-color: var(--gold); }
+                button.icon-btn.active svg, button.icon-btn.pop-open svg { filter: none; }
+                button.icon-btn.active:hover, button.icon-btn.pop-open:hover { background: #e8b96b; color: #14141a; border-color: var(--gold); }
                 /* A disabled icon button has to LOOK unavailable, or the affordance is worse than
                    no button at all: it would look pressable and do nothing. It also loses the lift:
                    a raised surface is a promise that pressing it does something. */
@@ -2782,6 +2782,7 @@
                     .add-strip > .controls > .strip-more svg, .add-strip > .controls[data-mode="align"] svg,
                     .add-strip > .controls[data-mode="order"] svg { width: 34px; height: 34px; }
                     .add-strip > .controls > .icon-btn:disabled { opacity: 0.35; }
+                    .add-strip > .controls > .sel-nav svg, .add-strip > .controls > .strip-back svg { width: 34px; height: 34px; }
                     /* a swatch tile is its colour, a disc in a chip; the colour in use has the gold ring the panel gave it */
                     .add-strip .sw-disc { display: block; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--chip-line); }
                     .add-strip .sw-disc.none { background: linear-gradient(135deg, transparent 46%, var(--red) 46%, var(--red) 54%, transparent 54%) !important; }
@@ -55089,6 +55090,31 @@
                     b.classList.toggle('active', open);
             }
         }
+        // EVERY BUTTON LIGHTS WHILE ITS PANEL IS OPEN (13 Nov 2026, Tom: "1 then 3", the third "light every button while
+        // its panel is open"). The reading's eye did (above), and the strip's buttons light while the strip shows theirs,
+        // but Text, Plot, Play, Arrange, Morph, Tools, Grid, Build and AI opened their panels and stayed as they were, so
+        // which button a panel belonged to was a guess. Each now wears the lit look while its panel is open. A class of its
+        // own, .pop-open, styled as .active: the grid's button already says with .active that the grid is ON, and a panel
+        // closing must not switch that off. Driven by the panels' own class, watched, so it cannot disagree with the screen
+        // whichever of the many ways a panel opens or closes.
+        (function() {
+            const OPENER = { playPop: 'bPlayShape', textPop: 'bText', plotPop: 'bPlot', arrangePop: 'bArrangeOpen',
+                morphPop: 'bMorphOpen', toolsPop: 'bTools', gridPop: 'bGrid', buildPop: 'bBuild', aiPop: 'bAi' };
+            const sync = () => {
+                for (const [pid, bid] of Object.entries(OPENER)) {
+                    const p = $(pid), b = $(bid);
+                    if (p && b)
+                        b.classList.toggle('pop-open', p.classList.contains('open'));
+                }
+            };
+            const watch = new MutationObserver(sync);
+            for (const pid of Object.keys(OPENER)) {
+                const p = $(pid);
+                if (p)
+                    watch.observe(p, { attributes: true, attributeFilter: ['class'] });
+            }
+            sync();
+        })();
         // Any click that is not inside an open popover, and not on the button that opened
         // it, dismisses. Capture phase so it beats the canvas handlers.
         document.addEventListener('mousedown', e => {
@@ -56568,7 +56594,29 @@
         // phone's ring has room for three whole chips between the lock and the menu, so the page opens with +, Fill and
         // Outline in view and Align coming in at the edge; a tablet shows all six. On a screen wide enough for the whole bar
         // the ring lies flat and they simply lead it, after the lock.
-        const STRIP_FIRST = ['bAddStrip', 'bStyle', 'bLine', 'bAlign', 'bOrder', 'bBuild'];
+        //
+        // THE SELECTION'S BUTTONS LEAVE THE TOP BAR (the same day, Tom: "1 then 3", the first "move all the selection
+        // buttons into the bottom strip"). Fill, Outline, Align, Order, Group, Merge and Name act only on what is
+        // selected, and with something selected the strip at the foot is already the selection's (THE SELECTION'S
+        // OPTIONS ARE THE STRIP'S): so they are tiles there now, and the top bar keeps what makes things. Group was
+        // there twice (the panel's group tile does the same), so its bar button simply goes. The buttons are not
+        // deleted: they are moved into a hidden holder before the ring is built, so the code that keeps their
+        // enabled state and titles (syncArrangeBtns) and the code that opens their rings and panels still finds them,
+        // and the strip's tiles read and press them. With nothing selected, the bar no longer holds a row of grey
+        // buttons, and a phone opens on what it can use.
+        const SEL_BUTTONS_MOVED = ['bStyle', 'bLine', 'bAlign', 'bOrder', 'bGroup', 'bMergeTop', 'bDesc'];
+        {
+            const hold = document.createElement('div');
+            hold.id = 'selButtonsHeld';
+            hold.hidden = true;
+            document.body.appendChild(hold);
+            for (const id of SEL_BUTTONS_MOVED) {
+                const b = $(id);
+                if (b)
+                    hold.appendChild(b);
+            }
+        }
+        const STRIP_FIRST = ['bAddStrip', 'bBuild'];
         {
             const bar = document.querySelector('.topbar .controls');
             const lead = STRIP_FIRST.map(id => $(id)).filter(b => b && b.parentNode === bar);
@@ -56654,7 +56702,15 @@
                     }
             };
             // a ring of tiles standing for a popover's buttons, in the popover's order
+            const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
             const mirrorTiles = (host, sources, opts) => {
+                // these four act on the selection and are opened from its strip now: the first tile goes back to it
+                const back = document.createElement('button');
+                back.type = 'button';
+                back.className = 'icon-btn strip-back';
+                back.setAttribute('aria-label', 'Back');
+                back.innerHTML = BACK;
+                host.appendChild(back);
                 if (opts.more) {
                     const m = document.createElement('button');
                     m.type = 'button';
@@ -56686,6 +56742,25 @@
                 order: { btn: 'bOrder', sources: () => [...document.querySelectorAll('#orderPop .z-btn')] },
                 select: { btn: null, build: selBuild,
                     tap: t => {
+                        const nav = t.dataset.nav && SEL_NAV.find(n => n.id === t.dataset.nav);
+                        if (nav) {
+                            if (nav.mode) { // its ring, with a way back to these (the ring's first tile)
+                                closeAllPops();
+                                setMode(nav.mode);
+                            } else if (nav.pop) { // its panel, above the tile
+                                const p = $(nav.pop);
+                                const was = p && p.classList.contains('open');
+                                closeAllPops();
+                                if (p && !was) {
+                                    placePop(p, t);
+                                    syncStylePop();
+                                }
+                            } else
+                                $(nav.id).click(); // an action (Merge): the button's own handler
+                            selSig = '';
+                            drawAll();
+                            return;
+                        }
                         runBoxButton(t.dataset.name);
                         selSig = ''; // what the button did may change what the row shows
                         drawAll();
@@ -56727,7 +56802,7 @@
                 'bt-union': 'Union', 'bt-subtract': 'Subtract', 'bt-intersect': 'Intersect', 'bt-offset': 'Offset',
                 'bt-corners': 'Corners', 'bt-knife': 'Knife', 'bt-straighten': 'Straighten', 'bt-smooth': 'Smooth'
             };
-            let selSig = '';
+            let selSig = '', selIdxKey = null;
             const selWant = () => !state.editMode && !document.body.classList.contains('morphing') && !state.panelHidden
                 && selectedIndices().length > 0 && handlesVisible();
             const selSlider = document.createElement('div');
@@ -56764,8 +56839,25 @@
                 else
                     drawBoxButton({ name, cx: W / 2, cy: W / 2, r: 20 }, false, c);
             }
+            // the selection's own buttons, first in its strip: each the top bar's old button, read and pressed through it
+            const SEL_NAV = [
+                { id: 'bStyle', name: 'Fill', mode: 'fill' }, { id: 'bLine', name: 'Outline', mode: 'line' },
+                { id: 'bAlign', name: 'Align', mode: 'align' }, { id: 'bOrder', name: 'Order', mode: 'order' },
+                { id: 'bMergeTop', name: 'Merge' }, { id: 'bDesc', name: 'Name', pop: 'descPop' }
+            ];
+            const selNavOn = () => SEL_NAV.filter(n => { const b = $(n.id); return b && !b.disabled; });
             function selBuild(host) {
                 host.textContent = '';
+                for (const n of selNavOn()) {
+                    const t = document.createElement('button');
+                    t.type = 'button';
+                    t.className = 'icon-btn sel-nav';
+                    t.dataset.nav = n.id;
+                    t.setAttribute('aria-label', n.name);
+                    t.title = $(n.id).title || '';
+                    t.innerHTML = $(n.id).innerHTML;
+                    host.appendChild(t);
+                }
                 for (const b of visibleBoxButtons()) {
                     const t = document.createElement('button');
                     t.type = 'button';
@@ -56873,6 +56965,11 @@
                 if (!t || !mode || t.disabled)
                     return;
                 const M = MODES[mode];
+                if (t.classList.contains('strip-back')) {
+                    setMode(null);
+                    selSync();
+                    return;
+                }
                 if (t.classList.contains('strip-more')) {
                     const p = $(M.more);
                     if (!p)
@@ -56991,14 +57088,26 @@
                     setMode('select');
                 else if (!want && mode === 'select')
                     setMode(null);
-                if (mode !== 'select')
+                if (mode !== 'select') {
+                    selIdxKey = null; // shown again later, it asks afresh, whatever was selected before
                     return;
+                }
                 const idx = selectedIndices(), ex = selectionShapeMode() === 'exact';
+                // the first tiles are the old bar buttons, shown when they can act; whether they can is theirs to say
+                // (syncArrangeBtns), and every path that changes the selection is meant to ask it, but not all do (a
+                // check's select, an undo): asked here once per new selection, so the row is right the first time it is
+                // built, rather than growing under a finger a moment later
+                const idxKey = idx.join() + '#' + state.subpaths.length; // the same indices after an undo can be other shapes
+                if (idxKey !== selIdxKey) {
+                    selIdxKey = idxKey;
+                    if (typeof syncArrangeBtns === 'function')
+                        syncArrangeBtns();
+                }
                 let style = '';
                 try {
                     style = JSON.stringify(lineStyleOf(state.subpaths[idx[0]]) || '');
                 } catch (_) {}
-                const sig = visibleBoxButtons().map(b => b.name).join() + '|' + selectionShapeMode() + '|' + selectionIsGrouped()
+                const sig = selNavOn().map(n => n.id).join() + '/' + visibleBoxButtons().map(b => b.name).join() + '|' + selectionShapeMode() + '|' + selectionIsGrouped()
                     + '|' + idx.join() + '|' + style + '|' + (state.selected ? state.selected.size : 0);
                 if (sig !== selSig) {
                     selSig = sig;
@@ -62824,7 +62933,12 @@
                 if (window.__selStripSync)
                     window.__selStripSync();
                 const t = document.querySelector('.add-strip > .controls[data-mode="select"] .sel-btn[data-name="' + name + '"]');
-                if (!t || t.style.display === 'none' || !t.offsetParent)
+                if (!t || !t.parentNode.offsetParent) // no tile, or the strip is not showing the selection's options
+                    return null;
+                // a tile round the far side of the ring is turned to, as a hand would spin the strip to reach it
+                if (t.style.display === 'none' && window.__strip && window.__strip.ring('select'))
+                    window.__strip.ring('select').focus([...t.parentNode.children].indexOf(t));
+                if (t.style.display === 'none')
                     return null;
                 const r = t.getBoundingClientRect(), c = cv.getBoundingClientRect();
                 return { name, cx: r.left + r.width / 2 - c.left, cy: r.top + r.height / 2 - c.top, r: r.width / 2 };
