@@ -2788,13 +2788,8 @@
                     .add-strip > .controls > .icon-btn.on { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-dim); }
                     /* the panel a swatch ring opens holds only its sliders: the strip is showing its swatches */
                     body[data-strip="fill"] #spFillGrid, body[data-strip="line"] #spLineGrid { display: none; }
-                    /* the switch is on the top bar now, a chip like its neighbours; open, it is the way back: gold, and
-                       the + turned to an × */
-                    #bAddStrip svg { transition: transform 0.15s ease; }
-                    /* the buttons that turn the strip light while it shows theirs (only these: the lock says its own state
-                       with aria-pressed too, in its own way) */
-                    :is(#bAddStrip, #bStyle, #bLine, #bAlign, #bOrder, #bBuild)[aria-pressed="true"] { color: var(--gold); border-color: var(--gold-dim); }
-                    #bAddStrip[aria-pressed="true"] svg { transform: rotate(45deg); }
+
+
                     /* and while a morph is live its bar takes the foot of the page (body.morphing #shapeBar) */
                     body.editing .add-strip, body.morphing .add-strip { display: none; }
                     /* The edit footer, hidden by the canvas long-press. Edit mode is where the drawing wants
@@ -3412,10 +3407,15 @@
                      session its strip. -->
             <!-- THE SHAPES BUTTON TURNS THE STRIP (13 Nov 2026, Tom: "move the shape toggle button to the top toolbar.
                      remove the shape button on top"). It opened a popover of a hundred small tiles; the strip at the
-                     foot shows the same library as big ones (THE STRIP ADDS SHAPES TOO), and this is its switch: +
-                     turns the strip to the library, and pressed again (an × then) back to the drawing's shapes. -->
+                     foot shows the same library as big ones (THE STRIP ADDS SHAPES TOO), and this is its switch: it
+                     turns the strip to the library, and pressed again back to the drawing's shapes. It wears the Shapes
+                     button's own glyph, the circle and the square (the same day, Tom: "use the old shapes not a plus
+                     sign"), and lights as the grid's button does while the library shows. -->
             <button id="bAddStrip" class="icon-btn" title="add shapes: the strip at the foot shows the library of shapes, and a tap on one puts it in the drawing (press again to go back to the drawing's shapes)" aria-label="Add shapes">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="8.5" cy="8.5" r="5"/>
+                    <rect x="11" y="11" width="9.5" height="9.5" rx="1.2"/>
+                </svg>
             </button>
             <!-- THE BUILDER'S OWN SLOT, beside the globe for the same reason the globe has one:
                      a panel you dial rather than a list you pick from. The icon is a slider over a
@@ -56687,8 +56687,13 @@
                     delete document.body.dataset.strip;
                 for (const [k, M] of Object.entries(MODES)) {
                     const b = $(M.btn);
-                    if (b)
+                    // lit as the grid's button is while the grid is on, and the lock's while it holds
+                    // (button.icon-btn.active, 13 Nov 2026, Tom: "when a toolbar button is selected, it should
+                    // follow the same color scheme as the grid toggle button")
+                    if (b) {
                         b.setAttribute('aria-pressed', String(k === mode));
+                        b.classList.toggle('active', k === mode);
+                    }
                     if (M.host)
                         M.host.classList.toggle('on', k === mode);
                 }
