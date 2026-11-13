@@ -240,6 +240,10 @@ compatibly.
   shape when panning the footer"; `STRIP_PAN_SELECTS` is false, so `stripFollowFocus` returns); a tap on a tile selects.
   When every tile fits across (`stripFits()`), the strip is a centred row in order and does not turn (Tom: "you should
   center the shapes, as the wrap around is not needed"); the wrapping ring is for more shapes than fit.
+- A long press builds the selection and never hides the bars (13 Nov 2026, Tom: "Long press should multi select objects,
+  not toggle the toolbar visibility"; A HOLD NO LONGER HIDES THE BARS, `HOLD_HIDES_CHROME` false): a hold on a shape adds it
+  or takes it out, a hold on a leaf (the edit view too) the same for the leaf; on the shape already held it does nothing,
+  and on empty canvas it is a tap there. The bars hide only for the tour, and Escape brings them back.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
