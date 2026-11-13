@@ -111,8 +111,8 @@ try {
       await mp.evaluate(() => window.__box.select([0]));
       await mp.waitForFunction(() => window.__strip.mode === 'select', null, { timeout: 10000 }).catch(() => {});
       const sel = await mp.evaluate(() => ({ locked: document.getElementById('bLock').getAttribute('aria-pressed'), mode: window.__strip.mode,
-        tiles: [...document.querySelectorAll('.add-strip [data-mode="select"] [aria-label]')].map(t => t.getAttribute('aria-label')) }));
-      if (sel.locked !== 'true' || sel.mode !== 'select' || !sel.tiles.includes('Mode') || sel.tiles.includes('Knife'))
+        on: [...document.querySelectorAll('.add-strip [data-mode="select"] .sel-btn')].filter(t => !t.disabled).map(t => t.getAttribute('aria-label')) }));
+      if (sel.locked !== 'true' || sel.mode !== 'select' || !sel.on.includes('Exact') || sel.on.includes('Knife'))
         throw new Error('a shape selected on a locked phone: ' + JSON.stringify(sel));
     } finally { await ctx.close(); }
   });
@@ -546,29 +546,36 @@ T.current = 'the selection\'s options in the strip';
     if (await sp.evaluate(() => window.__strip.mode) !== null) throw new Error('with nothing selected the strip is not the drawing\'s');
     await sp.mouse.click(640, 400);
     await sp.waitForTimeout(300);
-    const st = await sp.evaluate(() => ({ mode: window.__strip.mode, slider: getComputedStyle(document.querySelector('.sel-slider')).display,
-      tiles: [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => t.dataset.name),
-      under: !!(window.__box.track() && window.__box.track().y < 600) }));
-    if (st.mode !== 'select' || st.slider !== 'flex' || !st.tiles.includes('bt-mode') || st.under)
+    // every button is a tile, the ones that cannot act disabled (Tom: "All buttons should be visible, just disabled when
+    // not available"), and the track is under the box again (Tom: "The slider should be returned to the selection box")
+    const st = await sp.evaluate(() => ({ mode: window.__strip.mode, slider: !!document.querySelector('.sel-slider'),
+      tiles: [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => (t.disabled ? '-' : '+') + t.dataset.name),
+      under: !!window.__box.track() }));
+    if (st.mode !== 'select' || st.slider || st.tiles.length !== 13 || !st.tiles.includes('+bt-mode') || !st.tiles.includes('-bt-union') || !st.under)
       throw new Error('a circle selected, the strip says ' + JSON.stringify(st));
-    // the slider: dragged end to end it writes to the shape, and one undo puts it back
+    // the track under the box: dragged end to end it writes to the shape, and one undo puts it back
     const tr = await sp.evaluate(() => window.__box.track()), cv = await sp.locator('#cv').boundingBox();
-    const v0 = await sp.evaluate(() => document.querySelector('.sel-slider input').value);
-    await sp.mouse.move(cv.x + tr.ax + 1, cv.y + tr.y); await sp.mouse.down();
+    const k0 = tr.knobX;
+    await sp.mouse.move(cv.x + tr.knobX, cv.y + tr.y); await sp.mouse.down();
     await sp.mouse.move(cv.x + tr.bx, cv.y + tr.y, { steps: 6 }); await sp.mouse.up();
     await sp.waitForTimeout(300);
-    const v1 = await sp.evaluate(() => document.querySelector('.sel-slider input').value);
-    if (!(+v1 > +v0)) throw new Error(`the slider dragged right went from ${v0} to ${v1}`);
+    const k1 = await sp.evaluate(() => window.__box.track().knobX);
+    if (!(k1 > k0 + 5)) throw new Error(`the track dragged right went from ${k0} to ${k1}`);
     await sp.keyboard.press('ControlOrMeta+z');
     await sp.waitForTimeout(300);
-    if (await sp.evaluate(() => document.querySelector('.sel-slider input').value) !== v0) throw new Error('one undo did not put the track back');
-    // a tile presses its button: the mode switch turns the circle exact, and the tiles follow
-    const m0 = await sp.evaluate(() => window.__box.mode());
+    if (Math.abs(await sp.evaluate(() => window.__box.track().knobX) - k0) > 1) throw new Error('one undo did not put the track back');
+    // the mode tile is a toggle: pressed while the circle is exact, and a press turns it to leaves and back, the
+    // tiles staying where they were and only their enabled state following
+    const order = st.tiles.map(t => t.slice(1)).join();
+    const m0 = await sp.evaluate(() => [window.__box.mode(), document.querySelector('.sel-btn[data-name="bt-mode"]').getAttribute('aria-pressed')]);
     const bt = await sp.evaluate(() => window.__box.button('bt-mode'));
     await sp.mouse.click(cv.x + bt.cx, cv.y + bt.cy);
     await sp.waitForTimeout(300);
-    const m1 = await sp.evaluate(() => [window.__box.mode(), [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => t.dataset.name)]);
-    if (m1[0] === m0 || !m1[1].includes('bt-corners')) throw new Error(`the mode tile: ${m0} → ${JSON.stringify(m1)}`);
+    const m1 = await sp.evaluate(() => [window.__box.mode(), document.querySelector('.sel-btn[data-name="bt-mode"]').getAttribute('aria-pressed'),
+      [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => t.dataset.name).join(),
+      document.querySelector('.sel-btn[data-name="bt-corners"]').disabled]);
+    if (m1[0] === m0[0] || m1[1] === m0[1] || m1[1] !== String(m1[0] === 'exact') || m1[2] !== order || m1[3] !== (m1[0] !== 'exact'))
+      throw new Error(`the mode toggle: ${JSON.stringify(m0)} → ${JSON.stringify(m1)}`);
     await sp.keyboard.press('Escape');
     await sp.mouse.click(1200, 120);
     await sp.waitForTimeout(300);
