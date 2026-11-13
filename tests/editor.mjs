@@ -74,7 +74,7 @@ try {
     await mp.route(/fonts\.g/, r => r.abort());
     try {
       await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
-      await mp.waitForSelector('#bUndo', { timeout: 60000 });
+      await mp.waitForSelector('#bAddStrip', { timeout: 60000 });
       const w = await mp.evaluate(() => Object.fromEntries(['bLock', 'bUndo', 'gearBtn'].map(id => [id, parseFloat(getComputedStyle(document.getElementById(id)).width)])));
       if (w.bLock !== 52 || w.bUndo !== 52 || w.gearBtn !== 52) throw new Error('top bar chips on a phone: ' + JSON.stringify(w));
       const edit = await mp.evaluate(() => { const b = document.querySelector('.edit-bar .icon-btn'); return b ? parseFloat(getComputedStyle(b).width) : null; });
@@ -82,12 +82,19 @@ try {
       // a finger sees a button's name while it is held (13 Nov 2026), and the shapes panel's pictures are drawn
       // for a finger's tile, 42 not a mouse's 28 (Tom: "2 3 4")
       const cdp = await ctx.newCDPSession(mp);
-      const at = await mp.evaluate(() => { const r = document.getElementById('bUndo').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+      // the buttons that turn the strip lead the ring, which opens on them (13 Nov 2026, Tom: "I cant find the buttons on
+      // top toolbar to toggle the bottom footerbar"): +, Fill and Outline whole between the lock and the menu
+      const inView = await mp.evaluate(() => { const l = document.getElementById('bLock').getBoundingClientRect().right, g = document.getElementById('gearBtn').getBoundingClientRect().left;
+        return [...document.querySelectorAll('.topbar .controls > .icon-btn')].filter(b => b.style.display !== 'none').map(b => [b.id, b.getBoundingClientRect()])
+          .filter(([, r]) => r.left >= l - 2 && r.right <= g + 2).sort((a, b) => a[1].left - b[1].left).map(a => a[0]); });
+      if (inView.slice(0, 3).join() !== 'bAddStrip,bStyle,bLine') throw new Error('a phone opens with ' + inView.join(' ') + ' in view');
+      const at = await mp.evaluate(() => { const r = document.getElementById('bAddStrip').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: at[0], y: at[1] }] });
       await mp.waitForTimeout(150);
       const held = await mp.evaluate(() => window.__buttonName());
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      if (!held || held.name !== 'Undo') throw new Error('a finger held on Undo was shown ' + JSON.stringify(held));
+      if (!held || held.name !== 'Add shapes') throw new Error('a finger held on the + was shown ' + JSON.stringify(held));
+      await mp.evaluate(() => window.__strip.open(null)); // the lift was a tap, which opened the library
       // and a tile, pressed, says its title: what it is, or how to give it a name (a circle put in from the strip)
       await mp.evaluate(() => { document.getElementById('bAddStrip').click(); document.querySelector('#addRing .add-pick[data-shape="circle"]').click(); document.getElementById('bAddStrip').click(); });
       await mp.waitForFunction(() => document.querySelector('#shapeScroller .shape-tile[title]'), null, { timeout: 10000 });

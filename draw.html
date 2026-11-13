@@ -56482,6 +56482,15 @@
                     forgetExtent();
                     layout();
                 },
+                // turn the ring so the i-th chip is in the middle (getCenteredIndex, read backwards)
+                focus(i) {
+                    const n = items().length;
+                    if (!n)
+                        return;
+                    stop();
+                    angle = boma.normalizeAngle(-i * Math.PI / n);
+                    layout();
+                },
                 get angle() {
                     return angle;
                 },
@@ -56494,7 +56503,25 @@
             };
         }
 
+        // THE STRIP'S BUTTONS COME FIRST, AND THE RING OPENS ON THEM (13 Nov 2026, Tom: "I cant find the buttons on top
+        // toolbar to toggle the bottom footerbar", and of three answers, "group them at the front"). On a phone the ring
+        // shows five of its twenty-seven chips, and the six that turn the strip at the foot (+, Fill, Outline, Align,
+        // Order, Build: THE STRIP SAYS ONE OF SEVERAL THINGS) stood seventh and later, round the far side of the ring
+        // until it was spun to them. They are taken to the front of the ring here, in that order, before it is built
+        // (the markup keeps each beside the comment that explains it), and the ring is turned to Fill, the second: a
+        // phone's ring has room for three whole chips between the lock and the menu, so the page opens with +, Fill and
+        // Outline in view and Align coming in at the edge; a tablet shows all six. On a screen wide enough for the whole bar
+        // the ring lies flat and they simply lead it, after the lock.
+        const STRIP_FIRST = ['bAddStrip', 'bStyle', 'bLine', 'bAlign', 'bOrder', 'bBuild'];
+        {
+            const bar = document.querySelector('.topbar .controls');
+            const lead = STRIP_FIRST.map(id => $(id)).filter(b => b && b.parentNode === bar);
+            if (bar && lead.length)
+                bar.prepend(...lead);
+        }
         const _topRing = makeRing(document.querySelector('.topbar .controls'));
+        if (_topRing)
+            _topRing.focus(1);
         // The footer's ring is laid out in a strip that is DISPLAY:NONE until the mode opens, so
         // its clientWidth is 0 at load and every chip lands on top of the middle. enterEditMode
         // re-lays it once the strip has a width — see syncEditBtn.
