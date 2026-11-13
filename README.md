@@ -87,7 +87,7 @@ python3 -m http.server 8000
 
 ## Testing
 
-Every pull request runs the smoke test in GitHub Actions, each of its seven parts as a
+Every pull request runs the smoke test in GitHub Actions, each of its eight parts as a
 job of its own. It opens the editor in headless Chromium, drags on the canvas, draws,
 selects everything and presses every enabled toolbar button, failing on any uncaught
 error; then it checks each feature in turn, walks every gallery page, and checks that

@@ -57,7 +57,10 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   name it declares at its top, and the page takes them where it stood, `var { … } = partRun('morph-engine');`
   (a `var`: the first frames ask `_morphReady` before that line runs). A name added at the engine's top goes in
   both lists; `npm test` (labs) fails when the three differ. `npm run player` reads the engine's lines from the
-  file, put back where the page takes them. The shapes panel draws its grid of tiles on its first opening.
+  file, put back where the page takes them. `partRun` returns what a part's function returns; the other twelve
+  return nothing. The shapes panel draws its grid of tiles on its first opening. The AI panel must run at the
+  start: it takes the sign-in redirect's token from the address (`captureRedirect`) and sets the hooks the scene
+  link reads (`__animOutline`, `__sceneBoxOf`); it costs 2 to 4 ms there, so it is not worth deferring.
 - `index.html`: forwards `/draw/` to `draw.html`, keeping `?lab=` and `?bucket=`.
 - `labs/` and `labs.html`: every lab group in the drawer is a file in `labs/`, loaded on the
   first press of its button (`LAB_FILES` in the editor maps a lab's data-code to its file) and
@@ -74,7 +77,7 @@ line and the account of it in the `docs/` file, dated, in the voice those have.
   JavaScript so it opens from disk as one file, so the pages carry **copies** of what they
   share: see below.
 - `papers/` and `papers.html`: the owner's papers and their reader (below).
-- `docs/`: the notes above. `tests/`: the smoke test, in seven parts (Testing, below). `tools/`: the
+- `docs/`: the notes above. `tests/`: the smoke test, in eight parts (Testing, below). `tools/`: the
   generators and measures.
 
 ## Generated and copied: what to run

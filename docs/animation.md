@@ -16,6 +16,14 @@ throw where the var reads undefined, as it did inline. The labs step "parts/ are
 names the engine declares at its top, its return list and the page's var differ (it reads the declarations with the player
 build's own scanner, `declarations` in `tools/build-player.mjs`). `draw.html` went from 67,700 lines to 63,400.
 
+The AI panel was measured for loading on first use the same day (Tom: "1,2", the second "lazy-load draw's AI panel") and
+left as it is: `partRun('ai-panel')` took 2 to 4 ms of the page's start in the sandbox, against 37 to 67 for the shapes panel,
+and it must run at the start anyway. `captureRedirect` takes `claude_gateway_token` from the address when the sign-in sends
+the visitor back, and the scene link reads `window.__animOutline` and `window.__sceneBoxOf`, which the panel sets, when a
+scene opens. The shapes panel's cost was its grid of a hundred tile svgs, which is now drawn on its first opening
+(`fillShapeGrid` in `parts/shapes-panel.js`); the editor was ready 50 ms sooner for it (265 to 318 ms against 322 to 370,
+six loads each from disk).
+
 ## The animated gallery, the scene link and the morph engine
 
   - `animated` (25 Oct 2026, Tom: "could you creae a gallery page that has examples that can be loaded into
