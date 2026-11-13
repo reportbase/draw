@@ -44,6 +44,40 @@ try {
   /* The shapes panel draws its hundred tiles when it is first opened, not as the page starts (12 Nov 2026, the
      tiles were nearly all that panel's start-up cost): none before the press, all of them after it, and a pick
      from the grid still adds its shape. */
+  /* The top bar's buttons say their names (13 Nov 2026, Tom: "The header buttons should show button title"): under
+     the button while the mouse is over it, gone when it leaves. */
+  await step('the header buttons say their names', async () => {
+    const names = {};
+    for (const id of ['bUndo', 'bShapes', 'bDraw', 'bFit', 'gearBtn']) {
+      await page.hover('#' + id);
+      names[id] = await page.evaluate(() => window.__buttonName());
+    }
+    const want = { bUndo: 'Undo', bShapes: 'Add a shape', bDraw: 'Pencil', bFit: 'Fit to view', gearBtn: 'Settings' };
+    for (const [id, name] of Object.entries(want))
+      if (!names[id] || names[id].id !== id || names[id].name !== name) throw new Error(`over #${id} the name shown was ${JSON.stringify(names[id])}`);
+    const unnamed = await page.evaluate(() => [...document.querySelectorAll('.topbar .icon-btn')].filter(b => b.offsetParent && !b.id).length);
+    if (unnamed) throw new Error(unnamed + ' top-bar buttons have no id to name them by');
+    await page.mouse.move(640, 500);
+    if (await page.evaluate(() => window.__buttonName())) throw new Error('the name stayed after the mouse left the button');
+  });
+
+  /* On a phone the top bar's chips are 52px (13 Nov 2026, Tom: "the tool bar buttons should be larger on mobile"),
+     the corner pair with them, while the other bars' chips keep the touch size of 42. */
+  await step('the top bar is finger-sized on a phone', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
+    const mp = await ctx.newPage();
+    mp.on('pageerror', e => failures.push(`[phone] ${e.message}`));
+    await mp.route(/fonts\.g/, r => r.abort());
+    try {
+      await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await mp.waitForSelector('#bUndo', { timeout: 60000 });
+      const w = await mp.evaluate(() => Object.fromEntries(['bLock', 'bUndo', 'gearBtn'].map(id => [id, parseFloat(getComputedStyle(document.getElementById(id)).width)])));
+      if (w.bLock !== 52 || w.bUndo !== 52 || w.gearBtn !== 52) throw new Error('top bar chips on a phone: ' + JSON.stringify(w));
+      const edit = await mp.evaluate(() => { const b = document.querySelector('.edit-bar .icon-btn'); return b ? parseFloat(getComputedStyle(b).width) : null; });
+      if (edit !== null && edit !== 42) throw new Error('an edit bar chip on a phone is ' + edit + 'px, not 42');
+    } finally { await ctx.close(); }
+  });
+
   await step('the shapes grid is drawn when first opened', async () => {
     const before = await page.evaluate(() => document.querySelectorAll('#shapeGrid .shape-pick').length);
     if (before) throw new Error(before + ' tiles drawn before the panel was opened');
@@ -63,6 +97,15 @@ try {
   await step('freehand stroke', async () => {
     await page.click('#bDraw');
     await drag(Array.from({ length: 24 }, (_, i) => [300 + i * 25, 600 + Math.round(Math.sin(i / 3) * 60)]));
+  });
+  /* A shape with no name says, on its tile in the strip, how to give it one: by the long press that renames it (13 Nov
+     2026, Tom: "'double click to name' tooltip of footer should be changed to 'Long press to Change Name'"). The stroke
+     just drawn has none. */
+  await step('an unnamed tile says how to name it', async () => {
+    await page.waitForFunction(() => document.querySelectorAll('#shapeScroller [data-thumb]').length >= 2, null, { timeout: 10000 }).catch(() => {});
+    const tips = await page.evaluate(() => [...document.querySelectorAll('#shapeScroller [data-thumb]')].map(t => t.title));
+    if (!tips.includes('Long press to Change Name') || tips.some(t => /double-click/.test(t)))
+      throw new Error("the tiles' tips: " + JSON.stringify(tips));
   });
   await step('straight line', async () => {
     await page.click('#bDrawLine');
