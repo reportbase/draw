@@ -61,6 +61,23 @@ try {
     if (await page.evaluate(() => window.__buttonName())) throw new Error('the name stayed after the mouse left the button');
   });
 
+  /* On a phone the top bar's chips are 52px (13 Nov 2026, Tom: "the tool bar buttons should be larger on mobile"),
+     the corner pair with them, while the other bars' chips keep the touch size of 42. */
+  await step('the top bar is finger-sized on a phone', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
+    const mp = await ctx.newPage();
+    mp.on('pageerror', e => failures.push(`[phone] ${e.message}`));
+    await mp.route(/fonts\.g/, r => r.abort());
+    try {
+      await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await mp.waitForSelector('#bUndo', { timeout: 60000 });
+      const w = await mp.evaluate(() => Object.fromEntries(['bLock', 'bUndo', 'gearBtn'].map(id => [id, parseFloat(getComputedStyle(document.getElementById(id)).width)])));
+      if (w.bLock !== 52 || w.bUndo !== 52 || w.gearBtn !== 52) throw new Error('top bar chips on a phone: ' + JSON.stringify(w));
+      const edit = await mp.evaluate(() => { const b = document.querySelector('.edit-bar .icon-btn'); return b ? parseFloat(getComputedStyle(b).width) : null; });
+      if (edit !== null && edit !== 42) throw new Error('an edit bar chip on a phone is ' + edit + 'px, not 42');
+    } finally { await ctx.close(); }
+  });
+
   await step('the shapes grid is drawn when first opened', async () => {
     const before = await page.evaluate(() => document.querySelectorAll('#shapeGrid .shape-pick').length);
     if (before) throw new Error(before + ' tiles drawn before the panel was opened');

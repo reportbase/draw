@@ -3061,6 +3061,17 @@
                          tiles, because they ARE those chips. Height, radius and thumbnail all follow, and
                          the strip follows the header's 56px. */
                       .shape-tile { min-width: 0; }
+                      /* THE TOP BAR'S CHIPS GROW AGAIN, to 52px (13 Nov 2026, Tom: "the tool bar buttons should be
+                         larger on mobile"). 42 is about a fingertip and no more, on the one bar a finger uses most,
+                         and the ring around it shows a handful at full size whatever their size: it measures the
+                         chip for its pitch (makeRing), so bigger chips mean fewer at once, each easier to hit,
+                         not a bar that overflows. Only the top bar: the edit bar and the strip of tiles keep the
+                         42 they were laid out for. The corner pair grows with them, and the ring keeps clear. */
+                      .topbar button.icon-btn, .topbar label.icon-btn { width: 52px; height: 52px; border-radius: 14px; }
+                      .topbar button.icon-btn svg, .topbar label.icon-btn svg { width: 26px; height: 26px; }
+                      .topbar { min-height: 68px; }
+                      .topbar .controls { height: 56px; padding-right: 64px; padding-left: 64px; }
+                      .topbar .controls > .icon-btn { margin: -26px 0 0 -26px; }
                     }
                     /* An align/distribute button is an icon, not a label — it needs to be square at any
                        pointer size, and the 3-column grid the align popover sets inline must survive the
