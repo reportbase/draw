@@ -4,7 +4,17 @@ Moved here from `CLAUDE.md` (12 Nov 2026), unchanged: the dated notes of what wa
 
 Since 12 Nov 2026 two of the blocks these notes place "in `draw.html`" are files beside it, cut out line for line: THE SCENE
 LINK (`openScene`, `applySceneMorphs`, `sceneOfEditor`) is `parts/scene-link.js`, and the AI panel (ANIMATE IT WITH AI, MAKE A
-SCENE, `ANIM_MORPH_FIELDS`, `SYS_ANIM`, `SYS_SCENE`, `apiCall`, `animApply`) is `parts/ai-panel.js`.
+SCENE, `ANIM_MORPH_FIELDS`, `SYS_ANIM`, `SYS_SCENE`, `apiCall`, `animApply`) is `parts/ai-panel.js`. The morph engine followed
+the same day (Tom: "1 2 3", the third "move the morph engine into its own file"): everything from MORPH: THE ONE OPERATION THE
+FORMAT IS BUILT FOR up to THE MORPH'S OWN SETTINGS, IN THE EDITOR, 4,304 lines and 188 names (the blend, the live morph and its
+clock, the eases, corners, holes, paths, physical motions, contact, emitters, clips, the camera and stops, colour, riders,
+following and facing, the trails), is `parts/morph-engine.js`. Unlike the other parts the rest of the page calls into it, so
+its function ends with `return { …188 names… }` and the page takes them back where the lines stood, `var { … } =
+partRun('morph-engine');`. A var and not a const because drawAll runs in the page's first frames, before that line, and asks
+`_morphReady` (a var in the engine for that reason: undefined until it has run) whether the morphs are there; a const would
+throw where the var reads undefined, as it did inline. The labs step "parts/ are handed over and run in place" fails when the
+names the engine declares at its top, its return list and the page's var differ (it reads the declarations with the player
+build's own scanner, `declarations` in `tools/build-player.mjs`). `draw.html` went from 67,700 lines to 63,400.
 
 ## The animated gallery, the scene link and the morph engine
 

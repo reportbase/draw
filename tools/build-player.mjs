@@ -1,6 +1,6 @@
 // Build player/tvf-player.js: the TVF-native player, its engine taken from the editor.
 //
-//   npm run player        rewrites player/tvf-player.js from draw.html
+//   npm run player        rewrites player/tvf-player.js from draw.html (and parts/morph-engine.js, the engine's lines)
 //
 // THE ENGINE IS THE EDITOR'S, NOT A SECOND ONE. A scene plays in the player exactly as it plays in the
 // editor because the player runs the editor's own functions: the kernel weights, the eases and holds,
@@ -148,10 +148,27 @@ function codeOnly(s) {
     return out;
 }
 
-export async function buildPlayer() {
-    const html = await readFile(ROOT + 'draw.html', 'utf8');
-    // the editor's main script: its top-level names sit eight spaces in
-    const decl = new Map(); // name → { start, end, text }
+// THE ENGINE IS A FILE OF parts/ (12 Nov 2026): parts/morph-engine.js holds the lines, and draw.html takes its names back
+// with one statement where they stood (var { … } = partRun('morph-engine');). The page as this reads it is draw.html
+// with that statement replaced by the file's lines, which is the page as it was before they moved, so what is
+// written here is too. The file's lines are those between its opening `= function () {` and the foot where it hands
+// its names back.
+export const ENGINE_TAKE = /^ {8}var \{[^}]*\} = partRun\('morph-engine'\);$/m;
+export function engineLines(part) {
+    const open = part.match(/^\(window\.TVF_PARTS = [^\n]*\['morph-engine'\] = function \(\) \{\n/m),
+        foot = part.lastIndexOf('\n        // what the page takes back');
+    if (!open || foot < open.index) throw new Error('parts/morph-engine.js: its opening or its foot was not found');
+    return part.slice(open.index + open[0].length, foot);
+}
+export async function editorSource() {
+    const html = await readFile(ROOT + 'draw.html', 'utf8'), part = await readFile(ROOT + 'parts/morph-engine.js', 'utf8');
+    if (!ENGINE_TAKE.test(html)) throw new Error("draw.html does not take the morph engine's names (var { … } = partRun('morph-engine');)");
+    return html.replace(ENGINE_TAKE, () => engineLines(part));
+}
+
+// the top-level declarations of the editor's main script (its names sit eight spaces in): name → { start, end, text }
+export function declarations(html) {
+    const decl = new Map();
     const re = /^ {8}(?:async\s+)?(function\s+([A-Za-z_$][\w$]*)\s*\(|(const|let|var)\s+)/gm;
     let m;
     while ((m = re.exec(html))) {
@@ -185,6 +202,12 @@ export async function buildPlayer() {
             if (!decl.has(n)) decl.set(n, { start, end, text });
         re.lastIndex = end;
     }
+    return decl;
+}
+
+export async function buildPlayer() {
+    const html = await editorSource();
+    const decl = declarations(html);
     // the closure of what the roots need
     const want = new Set(), stubs = new Set(), todo = [...ROOTS];
     while (todo.length) {

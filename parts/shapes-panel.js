@@ -21,28 +21,41 @@
 
             // Headings come from SHAPE_CATS so the order is declared in one place; anything
             // carrying an unknown category still lands at the end rather than vanishing.
-            const cats = SHAPE_CATS.slice();
-            for (const spec of PRIMITIVES)
-                if (spec.cat && !cats.includes(spec.cat))
-                    cats.push(spec.cat);
-            for (const cat of cats) {
-                const list = PRIMITIVES.filter(q => (q.cat || cats[cats.length - 1]) === cat);
-                if (!list.length)
-                    continue;
-                const head = document.createElement('div');
-                head.className = 'shape-cat';
-                head.textContent = cat;
-                grid.appendChild(head);
-                for (const spec of list) {
-                    const b2 = document.createElement('button');
-                    b2.className = 'shape-pick';
-                    b2.dataset.shape = spec.key;
-                    b2.title = spec.label;
-                    b2.setAttribute('aria-label', spec.label);
-                    b2.innerHTML = tileSvg(spec, 28);
-                    grid.appendChild(b2);
+            //
+            // THE GRID IS DRAWN WHEN IT IS FIRST OPENED (12 Nov 2026, Tom: "1 2 3", the second "load the shapes panel
+            // on first use"). Its hundred tiles are each an svg drawn from the primitive's points, and drawing them was
+            // nearly all this block cost as the page started (35 to 58 ms of 36 to 59, measured in the sandbox), for a
+            // panel most visits never open. So the tiles wait for the first press of the button; the builder, the
+            // grid's click and the double-click door below are wired at the start as they were, being cheap and
+            // being what other parts of the page reach for. window.__shapeGridFilled says whether it has been drawn.
+            function fillShapeGrid() {
+                if (grid.childElementCount)
+                    return;
+                const cats = SHAPE_CATS.slice();
+                for (const spec of PRIMITIVES)
+                    if (spec.cat && !cats.includes(spec.cat))
+                        cats.push(spec.cat);
+                for (const cat of cats) {
+                    const list = PRIMITIVES.filter(q => (q.cat || cats[cats.length - 1]) === cat);
+                    if (!list.length)
+                        continue;
+                    const head = document.createElement('div');
+                    head.className = 'shape-cat';
+                    head.textContent = cat;
+                    grid.appendChild(head);
+                    for (const spec of list) {
+                        const b2 = document.createElement('button');
+                        b2.className = 'shape-pick';
+                        b2.dataset.shape = spec.key;
+                        b2.title = spec.label;
+                        b2.setAttribute('aria-label', spec.label);
+                        b2.innerHTML = tileSvg(spec, 28);
+                        grid.appendChild(b2);
+                    }
                 }
+                window.__shapeGridFilled = true;
             }
+
             grid.addEventListener('click', e => {
                 const t = e.target.closest('.shape-pick');
                 if (!t)
@@ -1125,6 +1138,7 @@
                 closeAllPops();
                 if (open)
                     return; // a second press closes it
+                fillShapeGrid();
                 pop.classList.add('open');
                 placePop(pop, btn);
             });
