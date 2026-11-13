@@ -2811,6 +2811,34 @@
                        getting around the scene is navigation the mode has deliberately taken away
                        — and the triangle strip now lives where the tiles sat. */
                     body.editing .shape-scroller { display: none; }
+                    /* THE STRIP ADDS SHAPES TOO (13 Nov 2026, Tom: "the footer is very useful … I propose we also use it to
+                       add more shapes … the bottom footer is much better"). The library is a second strip in the same
+                       band, the same plate and the same 72px tiles, and the drawing's strip steps aside while it shows:
+                       one band at the foot of the page, saying one of two things, with the + at its left end to say
+                       which. The + is always there (but in the edit view, which has its own footer), so a page with
+                       nothing on it yet still has the way in. */
+                    .add-strip {
+                      position: fixed; left: 0; right: 0; bottom: 0; z-index: 26; height: 104px;
+                      background: var(--bar-bg); border-top: 1px solid var(--bar-line);
+                      display: none;
+                    }
+                    body.adding .add-strip { display: block; }
+                    body.adding .shape-scroller { visibility: hidden; }
+                    /* the ring's box starts after the + (12px in, 52 wide, and air), as the top bar's starts after its
+                       corner buttons: a ring clips at its own box, so a tile spinning past the + slides under the box's
+                       edge rather than showing behind the button */
+                    #addRing { height: 100%; margin-left: 76px; padding: 0; }
+                    #addRing > .icon-btn { width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 20px; padding: 0; }
+                    #addRing > .icon-btn svg { width: 54px; height: 54px; }
+                    #bAddStrip { position: fixed; left: 12px; bottom: 26px; z-index: 30; width: 52px; height: 52px; border-radius: 14px; }
+                    #bAddStrip svg { width: 26px; height: 26px; transition: transform 0.15s ease; }
+                    /* open, it is the way back: gold like the other corner buttons, and the + turned to an × */
+                    body.adding #bAddStrip { color: var(--gold); border-color: var(--gold-dim); }
+                    body.adding #bAddStrip svg { transform: rotate(45deg); }
+                    /* and while a morph is live: its bar takes the foot of the page then (body.morphing #shapeBar), and
+                       the + would sit on its first controls */
+                    body.editing #bAddStrip, body.editing .add-strip,
+                    body.morphing #bAddStrip, body.morphing .add-strip { display: none; }
                     /* The edit footer, hidden by the canvas long-press. Edit mode is where the drawing wants
                        the whole window — you are inside one shape, working close — and the footer is the
                        widest piece of furniture on the screen. Outside edit mode the same hold takes the
@@ -6932,6 +6960,12 @@
          buried three scrolls into the settings menu. -->
 
     <div class="shape-scroller" id="shapeScroller"></div>
+    <!-- THE STRIP ADDS SHAPES TOO (13 Nov 2026): the + at its left end turns the strip from the shapes in the drawing
+         to the library of shapes to add, and back. See THE STRIP ADDS SHAPES TOO in the script. -->
+    <div class="add-strip" id="addStrip" role="toolbar" aria-label="add a shape"><div class="controls" id="addRing"></div></div>
+    <button id="bAddStrip" class="icon-btn" title="add shapes: the strip shows the library of shapes, and a tap puts one in the drawing (press + again to go back to the drawing's shapes)" aria-label="Add shapes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="plus" d="M12 5v14M5 12h14"/></svg>
+    </button>
 
     <!-- PARTS OF THE EDITOR, each a file in parts/ (12 Nov 2026): blocks of this page's script that it runs in place,
          inside its own closure (partRun, in the script below). They only hand their code over here. -->
@@ -56509,6 +56543,12 @@
             }
             return {
                 layout,
+                // measure the chip again and lay out: for a ring shown again after the window changed
+                // while it was hidden, when the observer above sees the same width it last saw
+                refresh() {
+                    forgetExtent();
+                    layout();
+                },
                 get angle() {
                     return angle;
                 },
@@ -56536,6 +56576,80 @@
         };
         window.__toolbarRing = _topRing;
         window.__editRing = _editRing;
+
+        // THE STRIP ADDS SHAPES TOO (13 Nov 2026, Tom: "the footer is very useful that shapes in the image. I propose
+        // we also use it also to add more shapes to insert into the image. We do that with the header shape button,
+        // but the bottom footer is much better", and of three ways to do it, the switch). The strip along the foot is
+        // where a person already looks for shapes: it is the drawing's table of contents, big tiles a thumb can
+        // spin through. Adding a shape meant going up to the header's Shapes button for a popover of small tiles that
+        // closes after one pick. Now the + at the strip's left end turns the strip into the library, every shape the
+        // Shapes panel offers, in its order, as tiles of the same size on the same kind of ring; a tap adds that
+        // shape (addPrimitive, exactly as the panel does) and the strip stays the library, so several can go in
+        // one after another; + again, now an ×, turns it back to the drawing's shapes.
+        //
+        // A SECOND STRIP, NOT A SECOND MEANING FOR THE FIRST. The drawing's strip is a pool of recycled tiles whose
+        // every gesture means something about a shape in the drawing: a tap selects and then walks the camera, a
+        // spin selects as it passes, a long press renames. A library tile is none of those things, so the library is
+        // its own ring (makeRing, the factory the two button bars use, which already spins, throws and refuses the
+        // click at the end of a spin) and the drawing's strip only steps aside while it shows. The tiles are drawn on
+        // the first opening, as the panel's grid is. The header's Shapes button stays as it was.
+        (function() {
+            const btn = $('bAddStrip'), box = $('addStrip'), host = $('addRing');
+            if (!btn || !box || !host)
+                return;
+            let ring = null;
+            function fill() {
+                if (host.childElementCount)
+                    return;
+                const cats = SHAPE_CATS.slice();
+                for (const spec of PRIMITIVES)
+                    if (spec.cat && !cats.includes(spec.cat))
+                        cats.push(spec.cat);
+                for (const cat of cats)
+                    for (const spec of PRIMITIVES.filter(q => (q.cat || cats[cats.length - 1]) === cat)) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'icon-btn add-pick';
+                        b.dataset.shape = spec.key;
+                        // the label is its name, said by the name under it (THE BUTTONS SAY THEIR NAMES)
+                        b.setAttribute('aria-label', spec.label);
+                        b.innerHTML = tileSvg(spec, 56);
+                        host.appendChild(b);
+                    }
+            }
+            function setAdding(on) {
+                on = !!on;
+                document.body.classList.toggle('adding', on);
+                btn.setAttribute('aria-pressed', String(on));
+                btn.setAttribute('aria-label', on ? 'Back to the drawing' : 'Add shapes');
+                if (!on)
+                    return;
+                fill();
+                if (!ring)
+                    ring = makeRing(host);
+                requestAnimationFrame(() => ring && ring.refresh());
+            }
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                setAdding(!document.body.classList.contains('adding'));
+            });
+            host.addEventListener('click', e => {
+                const b = e.target.closest && e.target.closest('.add-pick');
+                if (!b)
+                    return;
+                addPrimitive(b.dataset.shape);
+                scheduleSave();
+            });
+            window.__addStrip = {
+                open: setAdding,
+                get on() {
+                    return document.body.classList.contains('adding');
+                },
+                get ring() {
+                    return ring;
+                }
+            };
+        })();
 
         // THE BUTTONS SAY THEIR NAMES (13 Nov 2026, Tom: "The header buttons should show button title", and "what do
         // you think?" to a label under every icon, a name that pops up, or both). The top bar is thirty icons with no
@@ -56568,13 +56682,16 @@
                 bChecksumEdit: 'Checksum', b4AtomsEdit: 'Four quarters', bCauchyView: "The reader's circle",
                 bSeamEdit: 'The seam', bMarkEdit: 'Readers', bReadEdit: 'Reading settings'
             };
-            const BUTTONS = '.topbar .icon-btn, .edit-bar .icon-btn', TILES = '.shape-tile';
+            // the strip's + and the library's tiles too (THE STRIP ADDS SHAPES TOO): a tile says its aria-label,
+            // the shape's name, and the + says what it will do
+            const BUTTONS = '.topbar .icon-btn, .edit-bar .icon-btn, #bAddStrip, #addRing .icon-btn', TILES = '.shape-tile';
             const tip = document.createElement('div');
             tip.className = 'btn-name';
             tip.setAttribute('aria-hidden', 'true');
             document.body.appendChild(tip);
             let shown = null, hideT = null, press = null;
             const nameOf = b => b.matches(TILES) ? (b.title || '') : (NAMES[b.id] || b.getAttribute('aria-label') || '');
+            // (#bAddStrip is left out of NAMES on purpose: its aria-label changes with what a press will do)
             function show(b) {
                 const name = nameOf(b);
                 clearTimeout(hideT);

@@ -211,6 +211,10 @@ compatibly.
   a short name under them on hover or while held, and on touch a shape's tile shows its title when pressed (13 Nov
   2026, THE BUTTONS SAY THEIR NAMES, `NAMES` in `draw.html`): a new button on either bar needs an entry there, or
   `npm test` (editor) fails; its `title` stays the longer account.
+- The strip at the foot adds shapes too (13 Nov 2026, THE STRIP ADDS SHAPES TOO in `draw.html`): its + turns it to
+  the library (`PRIMITIVES`, as the Shapes panel offers them) on a ring of its own (`makeRing`), a tap adds one
+  (`addPrimitive`), and + again goes back. The drawing's strip only steps aside (`body.adding`); the + hides in the
+  edit view and while a morph is live (its bar has the foot then).
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
