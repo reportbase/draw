@@ -212,13 +212,13 @@ compatibly.
   2026, THE BUTTONS SAY THEIR NAMES, `NAMES` in `draw.html`): a new button on either bar needs an entry there, or
   `npm test` (editor) fails; its `title` stays the longer account.
 - The strip at the foot says one of several things (13 Nov 2026, THE STRIP ADDS SHAPES TOO and THE STRIP SAYS ONE OF
-  SEVERAL THINGS in `draw.html`, `MODES`): the + on the top bar (`#bAddStrip`, where the Shapes button and its popover
-  were) turns it to the library of shapes, and Fill, Outline, Align, Order and Build to theirs, each on a ring of its
+  SEVERAL THINGS in `draw.html`, `MODES`): the Shapes button on the top bar (`#bAddStrip`, the old button's glyph and
+  name, its popover gone) turns it to the library of shapes, and Fill, Outline, Align, Order and Build to theirs, each on a ring of its
   own (`makeRing`), the button lit as the grid's is when on (`.active`, and `aria-pressed`) while it shows. A tile of Fill, Outline, Align or Order clicks the
   popover button it mirrors, so those panels stay the code that acts; the colour rings' first tile opens the panel's
   sliders. The drawing's strip only steps aside (`body.adding`, `body.dataset.strip`); the strip hides in the edit view
   and while a morph is live. `__strip.open(mode)` and `__strip.mode` for tests. Those six buttons lead the top ring
-  (`STRIP_FIRST`, moved to the front before the ring is built) and it opens turned to Fill, so a phone shows +, Fill and
+  (`STRIP_FIRST`, moved to the front before the ring is built) and it opens turned to Fill, so a phone shows Shapes, Fill and
   Outline at once; a phone test that needs another top-bar button in view has to turn the ring to it.
 - Comments explain *why*, at length. Keep the voice.
 

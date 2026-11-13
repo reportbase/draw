@@ -3411,7 +3411,7 @@
                      turns the strip to the library, and pressed again back to the drawing's shapes. It wears the Shapes
                      button's own glyph, the circle and the square (the same day, Tom: "use the old shapes not a plus
                      sign"), and lights as the grid's button does while the library shows. -->
-            <button id="bAddStrip" class="icon-btn" title="add shapes: the strip at the foot shows the library of shapes, and a tap on one puts it in the drawing (press again to go back to the drawing's shapes)" aria-label="Add shapes">
+            <button id="bAddStrip" class="icon-btn" title="add shapes: the strip at the foot shows the library of shapes, and a tap on one puts it in the drawing (press again to go back to the drawing's shapes)" aria-label="Shapes">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <circle cx="8.5" cy="8.5" r="5"/>
                     <rect x="11" y="11" width="9.5" height="9.5" rx="1.2"/>
@@ -56697,9 +56697,6 @@
                     if (M.host)
                         M.host.classList.toggle('on', k === mode);
                 }
-                const add = $('bAddStrip');
-                if (add)
-                    add.setAttribute('aria-label', mode === 'add' ? 'Back to the drawing' : 'Add shapes');
                 if (!mode)
                     return;
                 const M = MODES[mode], host = hostOf(mode);
@@ -56809,6 +56806,9 @@
         // the foot of the page, so where there is no room below a thing its name goes above it.
         (function() {
             const NAMES = {
+                // the shapes button's name is one word like its neighbours', open or shut (13 Nov 2026, Tom: "tool tip for
+                // shapes button should just be shapes, one word like the others"); it said what a press would do
+                bAddStrip: 'Shapes',
                 bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
                 bPlayShape: 'Play the shape', bBuild: 'Build from numbers', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
@@ -56831,7 +56831,6 @@
             document.body.appendChild(tip);
             let shown = null, hideT = null, press = null;
             const nameOf = b => b.matches(TILES) ? (b.title || '') : (NAMES[b.id] || b.getAttribute('aria-label') || '');
-            // (#bAddStrip is left out of NAMES on purpose: its aria-label changes with what a press will do)
             function show(b) {
                 const name = nameOf(b);
                 clearTimeout(hideT);
