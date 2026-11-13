@@ -1638,6 +1638,29 @@
            happens to be. Polarity then handles the tone. Where backdrop-filter is not
            supported the chip is simply more opaque; @supports below does that. */
 
+        /* THE TOOLBAR'S NAMES (13 Nov 2026): a button's short name, shown under it while the mouse is over it or a
+           finger is held on it. See THE BUTTONS SAY THEIR NAMES in the script. */
+        .btn-name {
+            position: fixed;
+            z-index: 9000;
+            pointer-events: none;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: var(--chip-bg);
+            color: var(--chip-fg);
+            border: 1px solid var(--chip-line);
+            box-shadow: var(--chip-shadow);
+            font-size: 12px;
+            line-height: 16px;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(-3px);
+            transition: opacity 0.12s ease, transform 0.12s ease;
+        }
+        .btn-name.on {
+            opacity: 1;
+            transform: none;
+        }
         button.icon-btn, label.icon-btn {
             display: inline-flex;
             align-items: center;
@@ -30186,7 +30209,10 @@
                 parts.push(ent.members.length + ' shapes');
             if (note)
                 parts.push(note);
-            const tip = parts.join(' — ') || 'double-click to name';
+            // (13 Nov 2026, Tom: "'double click to name' tooltip of footer should be changed to 'Long press to
+            // Change Name'": the tile has been renamed by a long press, not a double-click, since the press-and-hold
+            // below took the gesture over, and the tip still told of the old one)
+            const tip = parts.join(' — ') || 'Long press to Change Name';
             if (tile.title !== tip)
                 tile.title = tip;
             tile.dataset.thumb = '1';
@@ -56495,6 +56521,93 @@
         };
         window.__toolbarRing = _topRing;
         window.__editRing = _editRing;
+
+        // THE BUTTONS SAY THEIR NAMES (13 Nov 2026, Tom: "The header buttons should show button title", and "what do
+        // you think?" to a label under every icon, a name that pops up, or both). The top bar is thirty icons with no
+        // words, and what each one is was told only by its title: a sentence, which a mouse sees after a second's
+        // rest and a finger never sees at all. A word under every icon would make the bar taller and, on a phone,
+        // a ring longer than the screen, so the name comes when it is asked for instead: under the button while the
+        // mouse is over it, and while a finger is held on it (and a moment after it lifts, so a tap shows it too).
+        // The title stays as it was, the longer account for a mouse that waits; it changes with the state of the
+        // page ("nothing to undo"), where the name does not. A press that turns into a spin of the ring hides it.
+        // A button the list does not name says its aria-label, or nothing.
+        (function() {
+            const NAMES = {
+                bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
+                bPlayShape: 'Play the shape', bShapes: 'Add a shape', bBuild: 'Build from numbers', bDraw: 'Pencil',
+                bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
+                bAi: 'AI', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
+                bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bOctaveTool: 'Octave browser', bGrid: 'Grid',
+                bStyle: 'Fill', bLine: 'Outline', bDesc: 'Name and note', bFit: 'Fit to view', gearBtn: 'Settings'
+            };
+            const bar = document.querySelector('.topbar');
+            if (!bar)
+                return;
+            const tip = document.createElement('div');
+            tip.className = 'btn-name';
+            tip.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(tip);
+            let shown = null, hideT = null, press = null;
+            const nameOf = b => NAMES[b.id] || b.getAttribute('aria-label') || '';
+            function show(b) {
+                const name = nameOf(b);
+                clearTimeout(hideT);
+                if (!name)
+                    return hide();
+                shown = b;
+                tip.textContent = name;
+                const r = b.getBoundingClientRect(), w = tip.offsetWidth;
+                tip.style.left = Math.max(4, Math.min(innerWidth - w - 4, r.left + r.width / 2 - w / 2)) + 'px';
+                tip.style.top = (r.bottom + 6) + 'px';
+                tip.classList.add('on');
+            }
+            function hide(after) {
+                clearTimeout(hideT);
+                const go = () => {
+                    shown = null;
+                    tip.classList.remove('on');
+                };
+                if (after)
+                    hideT = setTimeout(go, after);
+                else
+                    go();
+            }
+            const btnOf = e => e.target && e.target.closest && e.target.closest('.topbar .icon-btn');
+            bar.addEventListener('pointerover', e => {
+                const b = btnOf(e);
+                if (b && e.pointerType === 'mouse')
+                    show(b);
+            });
+            bar.addEventListener('pointerout', e => {
+                const b = btnOf(e);
+                if (b && e.pointerType === 'mouse' && !(e.relatedTarget && b.contains(e.relatedTarget)))
+                    hide();
+            });
+            // capture, so the ring taking the press for a spin does not keep it from us
+            bar.addEventListener('pointerdown', e => {
+                const b = btnOf(e);
+                if (!b || e.pointerType === 'mouse')
+                    return;
+                press = { x: e.clientX, y: e.clientY, id: e.pointerId };
+                show(b);
+            }, true);
+            window.addEventListener('pointermove', e => {
+                if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > LONG_PRESS_MOVE_TOL) {
+                    press = null;
+                    hide();
+                }
+            }, true);
+            for (const ev of ['pointerup', 'pointercancel'])
+                window.addEventListener(ev, e => {
+                    if (press && e.pointerId === press.id) {
+                        press = null;
+                        hide(900);
+                    }
+                }, true);
+            // a resized window moves the buttons out from under the name
+            window.addEventListener('resize', () => hide());
+            window.__buttonName = () => shown && tip.classList.contains('on') ? { id: shown.id, name: tip.textContent } : null;
+        })();
 
         // The three arrange buttons follow the SAME predicates the selection-box row used, so
         // nothing about when an action is available has changed — only where it is expressed.

@@ -207,6 +207,8 @@ compatibly.
   no API key).
 - The bucket picker reads from `flare.tangent.workers.dev`; draw only reads from
   flare, never writes.
+- The top bar's buttons show a short name under them on hover or while held (13 Nov 2026, THE BUTTONS SAY THEIR
+  NAMES, `NAMES` in `draw.html`): a new top-bar button needs an entry there; its `title` stays the longer account.
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing
