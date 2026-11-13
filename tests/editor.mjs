@@ -155,8 +155,8 @@ try {
       const ghost = await page.evaluate(() => !!document.querySelector('.strip-ghost'));
       await page.mouse.up(); await page.waitForTimeout(300);
       const n1 = await page.evaluate(() => window.__box.count());
-      const at = await page.evaluate(() => { const h = window.__box.handles(), r = document.getElementById('cv').getBoundingClientRect(); return h && [(h.box.x0 + h.box.x1) / 2 + r.left, (h.box.y0 + h.box.y1) / 2 + r.top]; });
-      if (!ghost || n1 !== n0 + 1 || !at || Math.abs(at[0] - 300) > 40) throw new Error(`a tile dragged to (300, 260): ghost ${ghost}, ${n0} → ${n1} shapes, its box centred at ${JSON.stringify(at)}`);
+      const at = await page.evaluate(() => { const b = window.__box.button('bt-mode'), r = document.getElementById('cv').getBoundingClientRect(); return b && [b.cx + r.left, b.cy + r.top]; });
+      if (!ghost || n1 !== n0 + 1 || !at || Math.abs(at[0] - 300) > 40) throw new Error(`a tile dragged to (300, 260): ghost ${ghost}, ${n0} → ${n1} shapes, its switch at ${JSON.stringify(at)}`);
       t = await mid();
       await page.mouse.move(t[0], t[1]); await page.mouse.down();
       await page.mouse.move(t[0], t[1] - 40, { steps: 3 }); await page.mouse.move(t[0] + 120, t[1], { steps: 5 });
@@ -165,15 +165,8 @@ try {
     }
     await page.click('#bAddStrip');
     await page.waitForTimeout(300);
-    // let go, the strip goes to what is selected (the shapes just added are): the selection's options, which take the
-    // strip while something is selected; with nothing selected, the drawing's own tiles
-    const back = await page.evaluate(() => [window.__addStrip.on, window.__strip.mode, window.__box.panelUp()]);
-    if (back[0] || back[1] !== 'select' || !back[2]) throw new Error('the shapes button again did not hand the strip to the selection: ' + JSON.stringify(back));
-    await page.keyboard.press('Escape');
-    await page.mouse.click(1200, 120);
-    await page.waitForTimeout(300);
-    const none = await page.evaluate(() => [window.__strip.mode, getComputedStyle(document.getElementById('shapeScroller')).visibility]);
-    if (none[0] !== null || none[1] !== 'visible') throw new Error('with nothing selected the drawing\'s strip is not back: ' + JSON.stringify(none));
+    const back = await page.evaluate(() => [window.__addStrip.on, getComputedStyle(document.getElementById('shapeScroller')).visibility]);
+    if (back[0] || back[1] !== 'visible') throw new Error('the + again did not bring the drawing\'s strip back: ' + JSON.stringify(back));
   });
 
   /* Other buttons use the strip too (13 Nov 2026, Tom: "other buttons on top could take advantage of the footer like
@@ -215,8 +208,7 @@ try {
     await page.click('#bBuild');
     await page.waitForTimeout(300);
     const shut = await page.evaluate(() => [window.__strip.mode, getComputedStyle(document.getElementById('shapeScroller')).visibility, document.querySelectorAll('.topbar [aria-pressed="true"]').length]);
-    // everything is still selected, so the strip goes back to the selection's options, and no button is lit
-    if (shut[0] !== 'select' || shut[2]) throw new Error('Build pressed again: ' + JSON.stringify(shut));
+    if (shut[0] !== null || shut[1] !== 'visible' || shut[2]) throw new Error('Build pressed again: ' + JSON.stringify(shut));
     await page.keyboard.press('Escape');
   });
 
@@ -516,63 +508,7 @@ T.current = 'crowded import';
   await cp.close();
 }
 
-/* The selection's options are the strip's (13 Nov 2026, Tom: "When a shape is selected move the options to the footer.
-   Remove them from the bottom of the selection"): with a shape selected the strip at the foot shows the track as a
-   slider and the panel's buttons as tiles, nothing is under the box, the track's slider writes to the shape (one undo
-   step), a tile presses its button, and with nothing selected the strip goes back to the drawing's shapes. */
-T.current = 'the selection\'s options in the strip';
-{
-  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  sp.on('pageerror', e => failures.push(`[selection's options] ${e.message}`));
-  await sp.route(/fonts\.g/, r => r.abort());
-  const before = failures.length;
-  try {
-    await sp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
-    await sp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
-    await sp.evaluate(() => { window.__strip.open('add'); document.querySelector('#addRing .add-pick[data-shape="circle"]').click(); window.__strip.open(null); });
-    await sp.keyboard.press('Escape');
-    await sp.mouse.click(1200, 120);
-    await sp.waitForTimeout(300);
-    if (await sp.evaluate(() => window.__strip.mode) !== null) throw new Error('with nothing selected the strip is not the drawing\'s');
-    await sp.mouse.click(640, 400);
-    await sp.waitForTimeout(300);
-    const st = await sp.evaluate(() => ({ mode: window.__strip.mode, slider: getComputedStyle(document.querySelector('.sel-slider')).display,
-      tiles: [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => t.dataset.name),
-      under: !!(window.__box.track() && window.__box.track().y < 600) }));
-    if (st.mode !== 'select' || st.slider !== 'flex' || !st.tiles.includes('bt-mode') || st.under)
-      throw new Error('a circle selected, the strip says ' + JSON.stringify(st));
-    // the slider: dragged end to end it writes to the shape, and one undo puts it back
-    const tr = await sp.evaluate(() => window.__box.track()), cv = await sp.locator('#cv').boundingBox();
-    const v0 = await sp.evaluate(() => document.querySelector('.sel-slider input').value);
-    await sp.mouse.move(cv.x + tr.ax + 1, cv.y + tr.y); await sp.mouse.down();
-    await sp.mouse.move(cv.x + tr.bx, cv.y + tr.y, { steps: 6 }); await sp.mouse.up();
-    await sp.waitForTimeout(300);
-    const v1 = await sp.evaluate(() => document.querySelector('.sel-slider input').value);
-    if (!(+v1 > +v0)) throw new Error(`the slider dragged right went from ${v0} to ${v1}`);
-    await sp.keyboard.press('ControlOrMeta+z');
-    await sp.waitForTimeout(300);
-    if (await sp.evaluate(() => document.querySelector('.sel-slider input').value) !== v0) throw new Error('one undo did not put the track back');
-    // a tile presses its button: the mode switch turns the circle exact, and the tiles follow
-    const m0 = await sp.evaluate(() => window.__box.mode());
-    const bt = await sp.evaluate(() => window.__box.button('bt-mode'));
-    await sp.mouse.click(cv.x + bt.cx, cv.y + bt.cy);
-    await sp.waitForTimeout(300);
-    const m1 = await sp.evaluate(() => [window.__box.mode(), [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => t.dataset.name)]);
-    if (m1[0] === m0 || !m1[1].includes('bt-corners')) throw new Error(`the mode tile: ${m0} → ${JSON.stringify(m1)}`);
-    await sp.keyboard.press('Escape');
-    await sp.mouse.click(1200, 120);
-    await sp.waitForTimeout(300);
-    const back = await sp.evaluate(() => [window.__strip.mode, getComputedStyle(document.getElementById('shapeScroller')).visibility]);
-    if (back[0] !== null || back[1] !== 'visible') throw new Error('deselected, the strip is ' + JSON.stringify(back));
-  } catch (e){
-    failures.push(`[selection's options] ${e.message.split('\n')[0]}`);
-  }
-  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the selection's options in the strip`);
-  await sp.close();
-}
-
-/* The group button lives in the selection's options (BOX_BUTTONS 'bt-group', a tile in the strip at the foot since
-   13 Nov 2026, under the selection before), no longer
+/* The group button lives in the panel under the selection (BOX_BUTTONS 'bt-group'), no longer
    beside the rotate grip, and the menu's "selection panel" switch (#tSelPanel) puts the panel away
    and brings it back; a double-click on a shape no longer does. Three shapes, all selected: the
    button is in the panel's row and pressing it groups them; a double-click leaves the panel up;
