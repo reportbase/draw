@@ -895,7 +895,7 @@ T.current = 'animate with ai';
    Animate, with shapes selected, goes straight into a live morph; the strip at the foot is its keys, with the animation's
    bar above it (play, the slider, the chips) and the old bar shut behind More. A key's tile stands the morph on it; a key
    added is a tile more; Motion, Ease and Effect are tiles that set what the bar's selects held; Export's tiles are the
-   bar's ways out; Exit ends it and gives the strip back. */
+   bar's ways out; Path, Physics, Timing and Advanced hold the rest; Exit ends it and gives the strip back. */
 T.current = 'the animation\'s bar and strip';
 {
   const ap = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -946,9 +946,41 @@ T.current = 'the animation\'s bar and strip';
     const ex = await tiles();
     const [dl] = await Promise.all([ap.waitForEvent('download', { timeout: 30000 }), ap.click('.add-strip [data-mode="animExport"] [aria-label="Scene file"]')]);
     if (ex !== 'Video,GIF,Animated SVG,Scene file,Copy link,Copy embed code' || !/\.tvfs$/.test(dl.suggestedFilename())) throw new Error('export: ' + ex + ' ' + dl.suggestedFilename());
-    // More brings the old bar up; Exit ends the morph and the strip is given back
-    await ap.click('.ab-chip[data-anim="more"]');
-    const more = await ap.evaluate(() => document.getElementById('bMorphKeep').getBoundingClientRect().height > 0);
+    // PATH, PHYSICS, TIMING AND ADVANCED (Tom: "1 2 3 4 5"): tiles and dials for what was left on the old bar, which no
+    // chip opens any more; a key's tile is its pose
+    const pose = await ap.evaluate(() => { document.querySelector('.ab-chip[data-anim="keys"]').click();
+      const p = document.querySelector('.add-strip [data-mode="animKeys"] [data-key="0"] path'); return p ? p.getAttribute('d').split('L').length : 0; });
+    const chips = await ap.evaluate(() => [...document.querySelectorAll('#animBar .ab-chip')].map(c => c.textContent).join());
+    if (chips !== 'Keys,Motion,Ease,Effect,Path,Physics,Timing,Export,Advanced,Exit' || !(pose > 12)) throw new Error('chips and a key\'s pose: ' + chips + ' ' + pose);
+    await pick('path', 'animPath', '[data-tr="echoes"]');
+    await ap.click('.add-strip [data-mode="animPath"] [data-pm="back"]');
+    const dial = async (name, v) => { await ap.evaluate(([n, v]) => { const r = document.querySelector(`#abDials input[aria-label="${n}"]`); r.value = v; r.dispatchEvent(new Event('input')); }, [name, v]); };
+    await dial('trail length', 80);
+    const pa = await ap.evaluate(() => [document.getElementById('morphTrail').value, document.getElementById('morphPathMode').value, document.getElementById('morphTrailLen').value,
+      document.querySelector('.add-strip [data-mode="animPath"] [data-tr="echoes"]').classList.contains('on')].join());
+    await ap.click('.add-strip [data-mode="animPath"] [data-act="draw"]'); // armed: the morph plays, and a line drawn is its path
+    await ap.waitForTimeout(200);
+    const cvb = await ap.locator('#cv').boundingBox();
+    await ap.mouse.move(cvb.x + 300, cvb.y + 150); await ap.mouse.down();
+    await ap.mouse.move(cvb.x + 600, cvb.y + 200, { steps: 8 }); await ap.mouse.move(cvb.x + 900, cvb.y + 150, { steps: 8 }); await ap.mouse.up();
+    await ap.waitForTimeout(400);
+    const drawn = await ap.evaluate(() => !!document.querySelector('#mrPath') && window.__morph && window.__morph.runs ? window.__morph.runs().some(r => r.path) : null);
+    await ap.evaluate(() => { if (document.getElementById('abPlay').getAttribute('aria-label') === 'Pause') document.getElementById('abPlay').click(); });
+    await pick('physics', 'animPhysics', '[data-g="400"]');
+    await ap.click('.add-strip [data-mode="animPhysics"] [data-w="-50"]');
+    await ap.waitForTimeout(200);
+    const ph = await ap.evaluate(() => [document.getElementById('morphGravity').value, document.getElementById('morphWind').value,
+      document.querySelector('.add-strip [data-mode="animPhysics"] [data-w="-50"]').classList.contains('on'), document.querySelectorAll('#abDials input').length].join());
+    await pick('timing', 'animTiming', '[data-loop="2"]');
+    await ap.click('.add-strip [data-mode="animTiming"] [data-hold="50"]');
+    const ti = await ap.evaluate(() => [document.getElementById('morphLoop').value, document.getElementById('morphHold').value,
+      document.querySelector('.add-strip [data-mode="animTiming"] [data-loop="2"]').classList.contains('on')].join());
+    await pick('adv', 'animAdv', '[data-fps="60"]');
+    await ap.click('.add-strip [data-mode="animAdv"] [data-act="onion"]');
+    const ad = await ap.evaluate(() => [document.getElementById('morphFps').value, document.getElementById('tMorphOnion').checked, document.getElementById('shapeBar').getBoundingClientRect().height < 1].join());
+    if (pa !== 'echoes,back,80,true' || ph !== '400,-50,true,2' || ti !== '2,50,true' || ad !== '60,true,true' || drawn === false)
+      throw new Error('path, physics, timing, advanced: ' + JSON.stringify({ pa, drawn, ph, ti, ad }));
+    const more = true;
     await ap.click('#abExit');
     await ap.waitForTimeout(500);
     const end = await ap.evaluate(() => ({ live: document.body.classList.contains('morphing'), mode: window.__strip.mode, bar: getComputedStyle(document.getElementById('animBar')).display }));
