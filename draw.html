@@ -2781,6 +2781,7 @@
                     /* an action's icon and the sliders tile are glyphs, not pictures: drawn at a glyph's share of the tile */
                     .add-strip > .controls > .strip-more svg, .add-strip > .controls[data-mode="align"] svg,
                     .add-strip > .controls[data-mode="order"] svg { width: 34px; height: 34px; }
+                    .add-strip > .controls[data-mode="arrows"] svg { width: 46px; height: 46px; }
                     .add-strip > .controls > .icon-btn:disabled { opacity: 0.35; }
                     /* a swatch tile is its colour, a disc in a chip; the colour in use has the gold ring the panel gave it */
                     .add-strip .sw-disc { display: block; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--chip-line); }
@@ -3641,6 +3642,15 @@
                     <path d="M4 7h16" stroke-width="1"/>
                     <path d="M4 12h16" stroke-width="2.2"/>
                     <path d="M4 17.5h16" stroke-width="3.8"/>
+                </svg>
+            </button>
+            <!-- ARROWS (14 Nov 2026, Tom: "move the arrows to the main tool bar and show the arrows on bottom"): an option
+                 of a line, so a button here, and its four values, none, at the end, at both ends, at the start, are the
+                 strip's tiles (MODES.arrows), as Fill's colours are. Only for an exact open line, so disabled otherwise. -->
+            <button id="bArrows" class="icon-btn" title="arrows — arrowheads on a line: none, at the end, at both ends, at the start">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 12h15"/>
+                    <path d="M15 8l4 4-4 4"/>
                 </svg>
             </button>
             <!-- NAME AND DESCRIPTION. A card with a heading rule and two body rules: the shape of
@@ -16460,10 +16470,10 @@
         // condition to keep in step here.
         {
             name: 'bt-roundoff',
-            title: 'round off the whole contour — the track above picks the band',
+            title: 'round: round off the contour (the track picks the band), or an exact shape\'s corners',
             // not on an exact selection: there the track counts corners, and rounding off is
             // a matter for leaves (the mode switch beside it)
-            show: () => selectedIndices().length > 0 && selectionShapeMode() !== 'exact'
+            show: () => selectedIndices().length > 0 && (selectionShapeMode() !== 'exact' || selectionHasExact(false))
         }, // GROUP, SECOND (22 Oct 2026, Tom: "move the group button next to the rotate button
         // selection to the bottom panel"). It stood beside the rotate grip, the one control on
         // the box's top edge that is not a handle; the panel is where the box's actions live,
@@ -17165,8 +17175,15 @@
                 runSmooth();
                 return;
             }
+            // ROUND AND CORNERS ARE ONE BUTTON (14 Nov 2026, Tom: "merge round corners"). Round rounded a leaves shape off
+            // and Corners an exact shape's corners: the same wish for the two ways a shape is held, never both at once, so
+            // the strip always showed one of them dead. One tile now does whichever the selection is: on an exact shape it
+            // opens the corners panel (round, sharp, smooth, at a radius), on leaves it rounds off as before.
             if (name === 'bt-roundoff') {
-                runRoundOff();
+                if (selectionShapeMode() === 'exact' || (selectionShapeMode() !== 'leaves' && selectionHasExact(false)))
+                    setCornersTool(!$('cornersTool').classList.contains('open'));
+                else
+                    runRoundOff();
                 return;
             }
             // The edges. lr = the left and right edges = the vertical mirror LINE = mode 'v';
@@ -20979,6 +20996,23 @@
             });
         }
         // The panel's two style buttons: each press steps every exact shape selected on.
+        // the arrowheads of every exact open line selected, set to n (0 none, 1 at the end, 2 both, 3 at the start): the
+        // Arrows strip's tiles (MODES.arrows), where the panel's button stepped through them
+        function setLineArrows(n) {
+            const sel = selectedIndices().map(i => state.subpaths[i]).filter(sp => sp && sp._lazy && sp._lazy.exact && sp._lazy.open);
+            if (!sel.length)
+                return;
+            for (const sp of sel) {
+                const L = lineStyleOf(sp);
+                L.arrows = n;
+                sp.lineStyle = (L.dash || L.arrows) ? L : null;
+                sp._lazyP2d = null;
+            }
+            pushHistory();
+            scheduleSave();
+            drawAll();
+            flashStatus('arrowheads: ' + ['none', 'at the end', 'at both ends', 'at the start'][n]);
+        }
         function stepLineStyle(what) {
             const sel = selectedIndices().map(i => state.subpaths[i]).filter(sp => sp && sp._lazy && sp._lazy.exact && (what === 'dash' || sp._lazy.open));
             if (!sel.length)
@@ -56680,7 +56714,7 @@
                 hold.appendChild(b);
             }
         }
-        const STRIP_FIRST = ['bAddStrip', 'bStyle', 'bLine', 'bAlign', 'bOrder', 'bBuild'];
+        const STRIP_FIRST = ['bAddStrip', 'bStyle', 'bLine', 'bArrows', 'bAlign', 'bOrder', 'bBuild'];
         {
             const bar = document.querySelector('.topbar .controls');
             const lead = STRIP_FIRST.map(id => $(id)).filter(b => b && b.parentNode === bar);
@@ -56805,10 +56839,32 @@
                         // panels above the footer, the same way as you do with the fill slider panel"). Their panels were
                         // placed under the top bar, the far side of the window from the tile that opened them; opened from
                         // the strip, each now stands above its tile as Fill's sliders do (placePop, the same placing).
-                        const tool = { 'bt-offset': 'offsetTool', 'bt-corners': 'cornersTool' }[t.dataset.name];
+                        const tool = { 'bt-offset': 'offsetTool', 'bt-corners': 'cornersTool', 'bt-roundoff': 'cornersTool' }[t.dataset.name];
                         const el = tool && $(tool);
                         if (el && el.classList.contains('open'))
                             placePop(el, t);
+                    } },
+                arrows: { btn: 'bArrows',
+                    build: host => {
+                        // a line with its heads as each choice puts them, drawn as the editor draws them
+                        const head = (x, d) => `<path d="M${x - 7 * d} 21L${x} 28L${x - 7 * d} 35"/>`;
+                        const NAMES_ = ['No arrows', 'Arrow at the end', 'Arrows at both ends', 'Arrow at the start'];
+                        for (let n = 0; n < 4; n++) {
+                            const b = document.createElement('button');
+                            b.type = 'button';
+                            b.className = 'icon-btn strip-tile';
+                            b.dataset.arrows = String(n);
+                            b.setAttribute('aria-label', NAMES_[n]);
+                            b.innerHTML = '<svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"'
+                                + ' stroke-linejoin="round" aria-hidden="true"><path d="M10 28h36"/>'
+                                + (n === 1 || n === 2 ? head(46, 1) : '') + (n === 3 || n === 2 ? head(10, -1) : '') + '</svg>';
+                            host.appendChild(b);
+                        }
+                    },
+                    tap: b => setLineArrows(+b.dataset.arrows),
+                    on: b => {
+                        const sp = selectedIndices().map(i => state.subpaths[i]).find(q => q && q._lazy && q._lazy.exact && q._lazy.open);
+                        return !!sp && lineStyleOf(sp).arrows === +b.dataset.arrows;
                     } },
                 build: { btn: 'bBuild',
                     build: host => {
@@ -56907,9 +56963,13 @@
                 else
                     drawBoxButton({ name, cx: W / 2, cy: W / 2, r: 20 }, false, c);
             }
+            // NOT IN THE STRIP (14 Nov 2026, Tom: "merge round corners and remove offset and knife"): Corners is Round's on an
+            // exact shape now, and Offset and the knife are gone from the strip. Their code stays (runBoxButton, the tools'
+            // panels), so either can come back by leaving this list.
+            const SEL_LEFT_OUT = new Set(['bt-corners', 'bt-offset', 'bt-knife', 'bt-arrow']); // Arrows: the top bar's, 14 Nov 2026
             function selBuild(host) {
                 host.textContent = '';
-                for (const b of BOX_BUTTONS) {
+                for (const b of BOX_BUTTONS.filter(q => !SEL_LEFT_OUT.has(q.name))) {
                     const t = document.createElement('button');
                     t.type = 'button';
                     t.className = 'icon-btn strip-tile sel-btn';
@@ -57176,7 +57236,7 @@
                 try {
                     style = JSON.stringify(lineStyleOf(state.subpaths[idx[0]]) || '');
                 } catch (_) {}
-                const sig = BOX_BUTTONS.filter(selCan).map(b => b.name).join() + '|' + selectionShapeMode() + '|'
+                const sig = BOX_BUTTONS.filter(q => !SEL_LEFT_OUT.has(q.name) && selCan(q)).map(b => b.name).join() + '|' + selectionShapeMode() + '|'
                     + selectionIsGrouped() + '|' + idx.join() + '|' + style + '|' + (state.selected ? state.selected.size : 0);
                 if (sig !== selSig) {
                     selSig = sig;
@@ -57231,7 +57291,7 @@
                 bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
                 bPlayShape: 'Play the shape', bBuild: 'Build', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
-                bAi: 'AI', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
+                bAi: 'AI', bArrows: 'Arrows', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
                 bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bGrid: 'Grid',
                 bStyle: 'Fill', bLine: 'Outline', bDesc: 'Name and note', bFit: 'Fit to view', gearBtn: 'Settings',
                 // the edit view's bar
@@ -57425,6 +57485,10 @@
             set($('bLine'), anySel,
             anySel ? 'line — outline width, colour and opacity'
             : 'select a shape to change its outline');
+            const lineSel = selectionHasExact(true);
+            set($('bArrows'), lineSel,
+            lineSel ? 'arrows — arrowheads on a line: none, at the end, at both ends, at the start'
+            : 'select a line (drawn with the line tool) to give it arrowheads');
             set($('bDesc'), anySel,
             anySel ? 'name and description — what this shape is called and what it is for'
             : 'select a shape to name it');
@@ -63054,6 +63118,7 @@
             grouped: () => selectionIsGrouped(),
             units: () => selectionUnitCount(),
             press: () => runBoxButton('bt-group'),
+            run: name => runBoxButton(name), // a panel button by name, tile or not (Offset and the knife have none now)
             hit: (x, y) => handleAt(x, y),
             // the shapes selected, each its corner count, its area in the page's units, smooth or not
             shapes: () => selectedIndices().map(i => {

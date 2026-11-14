@@ -508,8 +508,13 @@ T.current = 'combining exact shapes';
     await xp.keyboard.up('Shift');
     await xp.waitForTimeout(300);
     await xp.evaluate(() => window.__box.select([2]));
-    await press('bt-arrow');
-    await press('bt-arrow');
+    // arrows are the top bar's since 14 Nov 2026 (Tom: "move the arrows to the main tool bar and show the arrows on
+    // bottom"): the button turns the strip to the four choices, and "at both ends" is pressed there
+    await xp.click('#bArrows');
+    await xp.click('.add-strip [data-mode="arrows"] [data-arrows="2"]');
+    await xp.waitForTimeout(300);
+    if (!(await xp.evaluate(() => document.querySelector('.add-strip [data-mode="arrows"] [data-arrows="2"]').classList.contains('on'))))
+      throw new Error('the strip does not show "at both ends" as the line\'s arrows');
     const [dl] = await Promise.all([xp.waitForEvent('download', { timeout: 30000 }), xp.evaluate(() => document.getElementById('bExportSvg').click())]);
     const svg = await readFile(await dl.path(), 'utf8');
     if (!/stroke-dasharray="/.test(svg)) throw new Error('the dashed square exported without a dash array');
@@ -535,7 +540,9 @@ T.current = 'combining exact shapes';
     await xp.keyboard.press('ControlOrMeta+z');
     await xp.waitForTimeout(250);
     await xp.evaluate(() => window.__box.select([0]));
-    await press('bt-offset');
+    // Offset and the knife have no tile since 14 Nov 2026 (Tom: "remove offset and knife"); their tools are run by name
+    await xp.evaluate(() => window.__box.run('bt-offset'));
+    await xp.waitForTimeout(300);
     if (!(await xp.evaluate(() => document.getElementById('offsetTool').classList.contains('open')))) throw new Error('the offset strip did not open');
     await xp.fill('#otD', '0.05');
     const sq0 = (await shapes())[0];
@@ -563,8 +570,8 @@ T.current = 'combining exact shapes';
     await xp.waitForTimeout(200);
     const nAll = await xp.evaluate(() => window.__box.count());
     await xp.evaluate(n => window.__box.select([n - 1]), nAll);
-    await press('bt-offset');
-    if (!(await xp.evaluate(() => document.getElementById('offsetTool').classList.contains('open')))) await press('bt-offset');
+    if (!(await xp.evaluate(() => document.getElementById('offsetTool').classList.contains('open')))) await xp.evaluate(() => window.__box.run('bt-offset'));
+    await xp.waitForTimeout(300);
     await xp.fill('#otD', '0.05');
     await xp.click('#otOutline');
     await xp.waitForTimeout(300);
@@ -697,7 +704,8 @@ T.current = 'combining exact shapes';
     await xp.evaluate(() => window.__box.select([0]));
     const fr0 = (await shapes())[0];
     const whole = fr0.area - fr0.holes.reduce((t, h) => t + h.area, 0); // the frame's own area: its outline less its hole
-    await press('bt-knife');
+    await xp.evaluate(() => window.__box.run('bt-knife'));
+    await xp.waitForTimeout(300);
     await xp.mouse.move(...P(300, 250));
     await xp.mouse.down();
     await xp.mouse.move(...P(300, 650), { steps: 5 });
@@ -719,7 +727,8 @@ T.current = 'combining exact shapes';
     await xp.waitForTimeout(200);
     await xp.evaluate(() => window.__box.select([0]));
     const disc = (await shapes())[0].drawn;
-    await press('bt-knife');
+    await xp.evaluate(() => window.__box.run('bt-knife'));
+    await xp.waitForTimeout(300);
     await xp.mouse.move(...P(380, 300));
     await xp.mouse.down();
     await xp.mouse.move(...P(620, 500), { steps: 5 });
@@ -808,7 +817,7 @@ T.current = 'combining exact shapes';
     await fresh();
     await rect(150, 300, 350, 500);
     await xp.evaluate(() => window.__box.select([0]));
-    await press('bt-corners');
+    await press('bt-roundoff'); // Round opens the corners panel on an exact shape (Corners merged into it, 14 Nov 2026)
     await xp.fill('#ctR', '0.05');
     await xp.click('#ctRound');
     let cq = (await shapes())[0];
