@@ -244,6 +244,8 @@ compatibly.
   not toggle the toolbar visibility"; A HOLD NO LONGER HIDES THE BARS, `HOLD_HIDES_CHROME` false): a hold on a shape adds it
   or takes it out, a hold on a leaf (the edit view too) the same for the leaf; on the shape already held it does nothing,
   and on empty canvas it is a tap there. The bars hide only for the tour, and Escape brings them back.
+  Locked or not: unlocked a press selects the shape it lands on at once (select and move), so the hold works from the
+  selection as it was before the press (`startShapeLongPress(idx, members, before)`; 14 Nov 2026, "it deselects").
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing

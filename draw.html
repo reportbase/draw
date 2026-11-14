@@ -41069,7 +41069,13 @@
         //
         // One of SEVERAL is still droppable, which is what makes the gesture a toggle: hold a
         // third shape twice and it goes back out. Only the last one standing is protected.
-        function startShapeLongPress(idx, members) {
+        // FROM THE SELECTION AS IT WAS BEFORE THE PRESS (14 Nov 2026, Tom: "Long press Multi select not working, it
+        // deselects"). Unlocked, a press on a shape that is not selected selects it at once, so it can be dragged in the
+        // same gesture (select + move); by the time the hold fired the selection was already that one shape, the hold
+        // read it as "the shape already held" and did nothing, and the shape tapped before was gone. The press now hands
+        // over what was selected before it (`before`), and the hold adds to or takes from that. Under the lock the press
+        // selects nothing, so there it is the same set either way.
+        function startShapeLongPress(idx, members, before) {
             cancelShapeLongPress();
             const set = (members && members.length) ? members.slice() : [idx];
             _shapePress = {
@@ -41104,7 +41110,7 @@
                     }
                     // Still the same press, still standing still? The move handler clears this when it
                     // travels, and the release clears it too.
-                    const cur = new Set(state.activeSet || []);
+                    const cur = new Set(before || state.activeSet || []);
                     const had = set.every(i => cur.has(i));
                     // THE PRESS IS SPENT FIRST, and unconditionally, WHICHEVER WAY THIS GOES.
                     //
@@ -42219,6 +42225,7 @@
                     // A tap (no drag) toggles — selects an unselected group, deselects a
                     // selected one — resolved on release, so a drag never deselects.
                     e.preventDefault();
+                    const selBefore = selectedIndices().slice(); // for a hold: see FROM THE SELECTION AS IT WAS
                     const wasSel = hullUnder.sel;
                     if (!wasSel)
                         applyShapeSelection(new Set(hullUnder.members));
@@ -42234,7 +42241,7 @@
                         hullToggle: true,
                         hullMembers: hullUnder.members.slice()
                     };
-                    startShapeLongPress(hullUnder.members[0], hullUnder.members);
+                    startShapeLongPress(hullUnder.members[0], hullUnder.members, selBefore);
                     return;
                 }
                 if (insideSel || grpUnder || soloUnder) {
@@ -42252,6 +42259,7 @@
                     // shift-CLICK that never travels completes as a toggle on release — so
                     // shift still adds and removes from the selection, it never replaces.
                     const _tog = _mod || e.shiftKey;
+                    const selBefore = selectedIndices().slice(); // for a hold: see FROM THE SELECTION AS IT WAS
                     const _wasIn = spUnder >= 0 && !!(state.activeSet && state.activeSet.has(spUnder));
                     if (_tog && spUnder >= 0) {
                         if (!_wasIn) {
@@ -42281,7 +42289,7 @@
                     // pointer means the press landed in the selection's own box rather than on
                     // anything — there is no one shape to toggle there, so the strip keeps it.
                     if (spUnder >= 0)
-                        startShapeLongPress(spUnder, membersOfShape(spUnder));
+                        startShapeLongPress(spUnder, membersOfShape(spUnder), selBefore);
                     else
                         startBrowserLongPress(mx, my);
                     return;
@@ -63053,6 +63061,7 @@
                 state.selected.clear();
                 drawAll();
             },
+            selected: () => selectedIndices().slice().sort((a, b) => a - b), // the shapes selected now
             held: () => state.subpaths.map(sp => !!(sp && sp._lazy)),
             // the exact shapes selected as their corners (and their holes'), in world units
             rings: () => selectedIndices().map(i => {
