@@ -277,8 +277,106 @@ try {
       const other = await fp.evaluate(() => document.querySelector('#spFillGrid .sw.on') ? document.querySelector('#spFillGrid .sw.on').title : '');
       if (held !== 'fill,' + sw || after[0] !== 'fill' || after[1] !== sw || other === sw)
         throw new Error('painting: ' + JSON.stringify({ sw, held, after, other }));
+      // A STROKE PAINTS EVERY SHAPE IT CROSSES, AND A COLOUR CAN BE PICKED UP (the third of the next "1 2 3 4 5 6"):
+      // another colour held, one drag from the rectangle to the circle paints both and moves neither; then the
+      // dropper takes a colour off a shape that wears it, and that colour is the one held
+      const wears = i => fp.evaluate(async i => { window.__box.select([i]); await new Promise(r => setTimeout(r, 250));
+        const s = document.querySelector('#spFillGrid .sw.on'); return s ? s.title : ''; }, i);
+      await fp.evaluate(() => window.__box.select([]));
+      await fp.waitForTimeout(200);
+      const sw2 = await fp.evaluate(() => { const t = [...document.querySelectorAll('.add-strip > .controls.on .strip-sw')].filter(t => /^#/.test(t.getAttribute('aria-label')))[14];
+        t.click(); return t.getAttribute('aria-label'); });
+      const mid = { x: cv.x + cv.width / 2, y: cv.y + cv.height / 2 };
+      await fp.mouse.move(mid.x + 150, mid.y); await fp.mouse.down();
+      await fp.mouse.move(mid.x - 150, mid.y, { steps: 12 }); await fp.mouse.up();
+      await fp.waitForTimeout(400);
+      const both = [await wears(0), await wears(1)];
+      await fp.evaluate(() => window.__box.select([]));
+      // the circle given the first colour by a tap, the dropper pressed, the circle pressed: the first colour is held
+      await fp.evaluate(l => document.querySelector(`.add-strip > .controls.on .strip-sw[aria-label="${l}"]`).click(), sw);
+      await fp.mouse.click(mid.x - 150, mid.y);
+      await fp.waitForTimeout(300);
+      await fp.evaluate(() => window.__box.select([]));
+      await fp.waitForTimeout(200);
+      await fp.evaluate(l => document.querySelector(`.add-strip > .controls.on .strip-sw[aria-label="${l}"]`).click(), sw2);
+      await fp.click('.add-strip > .controls.on .strip-pick');
+      const dropper = await fp.evaluate(() => document.querySelector('.add-strip > .controls.on .strip-pick').classList.contains('on'));
+      await fp.mouse.click(mid.x - 150, mid.y);
+      await fp.waitForTimeout(400);
+      const picked = await fp.evaluate(() => [window.__strip.mode, [...document.querySelectorAll('.add-strip > .controls.on .strip-sw.on')].map(t => t.getAttribute('aria-label')).join(),
+        document.querySelector('.add-strip > .controls.on .strip-pick').classList.contains('on')].join());
+      await fp.mouse.click(mid.x + 150, mid.y); // and it paints: the rectangle wears the first colour again
+      await fp.waitForTimeout(400);
+      const again = await wears(1);
+      if (both.join() !== sw2 + ',' + sw2 || !dropper || picked !== 'fill,' + sw + ',false' || again !== sw)
+        throw new Error('a stroke and the dropper: ' + JSON.stringify({ sw, sw2, both, dropper, picked, again }));
     } finally {
       await fp.close();
+    }
+  });
+
+  // ALIGN, ORDER AND ANIMATE GATHER THEIR SHAPES BY TAPS (14 Nov 2026, Tom: "1 2 3 4 5 6", the fourth and fifth): with
+  // nothing selected Align is there all the same; two shapes tapped are both selected and the strip stays; a tile
+  // aligns them. Animate with nothing selected turns the strip to Start: the shapes tapped, Start begins the morph.
+  // And on a phone the selection's eight tiles all show (the sixth).
+  await step('align and animate gather their shapes by taps; a phone shows every selection tile', async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+      + '<rect x="170" y="30" width="80" height="60" fill="#48c"/></svg>';
+    const open = async vp => {
+      const c = await browser.newContext(vp);
+      const p = await c.newPage();
+      p.on('pageerror', e => failures.push(`[gather by taps] ${e.message}`));
+      await p.route(/fonts\.g/, r => r.abort());
+      await p.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await p.waitForSelector('#bUndo', { state: 'attached', timeout: 60000 });
+      await p.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+      await p.waitForTimeout(1200);
+      return [c, p];
+    };
+    const [gc, gp] = await open({ viewport: { width: 1280, height: 800 } });
+    try {
+      await gp.evaluate(() => window.__box.select([]));
+      await gp.waitForTimeout(200);
+      const cv = await gp.locator('#cv').boundingBox();
+      const mx = cv.x + cv.width / 2, my = cv.y + cv.height / 2;
+      const count = () => gp.evaluate(() => { const m = document.getElementById('status').textContent; return m; });
+      if (await gp.evaluate(() => document.getElementById('bAlign').disabled || document.getElementById('bOrder').disabled)) throw new Error('Align or Order is off with nothing selected');
+      await gp.click('#bAlign');
+      await gp.waitForTimeout(300);
+      await gp.mouse.click(mx + 150, my + 10);
+      await gp.mouse.click(mx - 150, my);
+      await gp.waitForTimeout(300);
+      const m1 = await gp.evaluate(() => window.__strip.mode);
+      await gp.evaluate(() => document.querySelector('.add-strip > .controls.on .icon-btn[aria-label="align top edges"]').click());
+      await gp.waitForTimeout(300);
+      const al = await count();
+      await gp.click('#bAlign');
+      await gp.keyboard.press('Escape');
+      await gp.waitForTimeout(300);
+      if (m1 !== 'align' || !/aligned 2/.test(al)) throw new Error('align by taps: ' + JSON.stringify({ m1, al }));
+      await gp.click('#bMorphOpen');
+      await gp.waitForTimeout(300);
+      const a0 = await gp.evaluate(() => [window.__strip.mode, document.getElementById('morphPop').classList.contains('open'),
+        [...document.querySelectorAll('.add-strip > .controls.on .anim-tile')].map(t => t.querySelector('.cap').textContent).join()].join());
+      await gp.mouse.click(mx + 150, my + 10);
+      await gp.mouse.click(mx - 150, my);
+      await gp.waitForTimeout(300);
+      await gp.click('.add-strip [data-mode="animPick"] [data-act="start"]');
+      await gp.waitForTimeout(700);
+      const a1 = await gp.evaluate(() => [document.body.classList.contains('morphing'), window.__strip.mode].join());
+      if (a0 !== 'animPick,false,start,all shapes,options' || a1 !== 'true,animKeys') throw new Error('animate by taps: ' + JSON.stringify({ a0, a1 }));
+    } finally {
+      await gc.close();
+    }
+    const [pc, pp] = await open({ viewport: { width: 390, height: 780 }, hasTouch: true });
+    try {
+      await pp.evaluate(() => window.__box.select([0, 1]));
+      await pp.waitForTimeout(500);
+      const row = await pp.evaluate(() => { const t = [...document.querySelectorAll('.add-strip > .controls.on .sel-btn')].map(b => b.getBoundingClientRect());
+        return [window.__strip.mode, t.length, t.every(r => r.width > 0 && r.left >= 0 && r.right <= innerWidth), t.every((r, i) => !i || r.left >= t[i - 1].right)].join(); });
+      if (row !== 'select,8,true,true') throw new Error("a phone's selection tiles: " + row);
+    } finally {
+      await pc.close();
     }
   });
 

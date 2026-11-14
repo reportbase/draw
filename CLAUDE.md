@@ -288,7 +288,18 @@ compatibly.
   buttons are enabled with nothing selected (outside the edit view). A colour tile tapped is held (`paint`, lit when
   nothing is selected) while that strip is up, and a tap on a shape selects it and presses the same swatch; a held
   colour makes the strip a tool's, so a change of selection does not take it. With something selected a tile still
-  colours the selection at once.
+  colours the selection at once. Since the next "1 2 3 4 5 6" a press on a shape while a colour is held is taken from
+  the editor (the window's capture, before the canvas's listeners: no move, no pan) and a stroke paints every shape
+  it crosses; a press on empty canvas is still the editor's. The dropper tile (`.strip-pick`, `paint.pick`) takes the
+  next shape pressed's colour as the one held.
+- Align, Order and Animate gather their shapes by taps (the same day, ALIGN, ORDER AND ANIMATE GATHER THEIR SHAPES BY
+  TAPS, `PICKS`): `#bAlign` and `#bOrder` are enabled outside the edit view whatever is selected, and while either
+  strip is up a press on a shape puts it in the selection or takes it out (a group whole), the strip staying. Animate
+  with nothing selected turns the strip to `MODES.animPick` (Start, All shapes, Options; the popover is behind
+  Options) and the shapes are tapped the same way. On a phone (`max-width: 700px`) the selection's tiles are narrow
+  and tall so all eight show as a row.
+- The edit view is a lab surface (`?lab=1`; `enterEditMode` refuses without it) and its bar is already a ring of
+  buttons at the foot.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).

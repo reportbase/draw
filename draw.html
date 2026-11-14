@@ -2779,7 +2779,7 @@
                     .add-strip > .controls > .icon-btn { width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 20px; padding: 0; }
                     .add-strip > .controls > .icon-btn svg { width: 54px; height: 54px; }
                     /* an action's icon and the sliders tile are glyphs, not pictures: drawn at a glyph's share of the tile */
-                    .add-strip > .controls > .strip-more svg, .add-strip > .controls[data-mode="align"] svg,
+                    .add-strip > .controls > .strip-more svg, .add-strip > .controls > .strip-pick svg, .add-strip > .controls[data-mode="align"] svg,
                     .add-strip > .controls[data-mode="order"] svg { width: 34px; height: 34px; }
                     .add-strip > .controls[data-mode="arrows"] svg { width: 46px; height: 46px; }
                     .add-strip > .controls[data-mode="shape"] svg { width: 46px; height: 46px; }
@@ -2807,6 +2807,13 @@
                     /* THE SELECTION'S OPTIONS: its buttons as the strip's tiles, each glyph the panel's own, drawn into the
                        tile's canvas (the track is under the box) */
                     .add-strip > .controls > .sel-btn canvas { width: 64px; height: 64px; }
+                    /* ON A PHONE THE SELECTION'S TILES ALL SHOW (14 Nov 2026, Tom: "1 2 3 4 5 6", the sixth). Eight tiles of 72
+                       were a ring to pan with three in view; narrow and tall they fit across, and a ring whose tiles fit is
+                       a centred row that does not turn (makeRing). Not grouped: a group would put every action a tap further. */
+                    @media (max-width: 700px) {
+                      .add-strip > .controls[data-mode="select"] > .sel-btn { width: 42px; height: 64px; margin: -32px 0 0 -21px; border-radius: 12px; }
+                      .add-strip > .controls[data-mode="select"] > .sel-btn canvas { width: 42px; height: 42px; }
+                    }
                     /* a library tile lifted out of the strip, following the pointer to where it will be dropped */
                     .strip-ghost {
                       position: fixed; z-index: 1000; pointer-events: none; width: 72px; height: 72px; margin: -36px 0 0 -36px;
@@ -57401,6 +57408,14 @@
                     m.innerHTML = SLIDERS;
                     host.appendChild(m);
                 }
+                if (opts.swatch) { // the dropper: the next shape pressed gives its colour (FILL AND OUTLINE PAINT)
+                    const d = document.createElement('button');
+                    d.type = 'button';
+                    d.className = 'icon-btn strip-pick';
+                    d.setAttribute('aria-label', 'Pick up a colour from a shape');
+                    d.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l4 4M12.5 7.5l4 4L9 19H5v-4z"/><path d="M15 4.5a2.1 2.1 0 0 1 3-.1l1.6 1.6a2.1 2.1 0 0 1-.1 3L17 11.5 12.5 7z"/></svg>';
+                    host.appendChild(d);
+                }
                 sources().forEach((src, i) => {
                     const b = document.createElement('button');
                     b.type = 'button';
@@ -57640,6 +57655,31 @@
                     on: b => b.dataset.act === 'onion' ? $('tMorphOnion').checked
                         : b.dataset.act === 'bMorphTimeline' ? $('bMorphTimeline').classList.contains('active')
                         : b.dataset.fps != null && $('morphFps').value === b.dataset.fps },
+                // the strip Animate turns to when nothing is selected: the shapes are tapped on the drawing (PICKS), then Start
+                animPick: { btn: null,
+                    build: host => {
+                        animTile(host, { act: 'start' }, 'Start animating the shapes tapped', 'start', '<path d="M20 14v28l24-14z" fill="currentColor"/>');
+                        animTile(host, { act: 'all' }, 'Every shape in the drawing', 'all shapes', '<rect x="8" y="10" width="18" height="18" rx="2"/><circle cx="38" cy="20" r="9"/><path d="M12 46l8-12l8 12zM34 36h14v10H34z"/>');
+                        animTile(host, { act: 'opts' }, 'Animation options, before it starts', 'options', '<path d="M10 16h36M10 28h36M10 40h36"/><circle cx="20" cy="16" r="4" fill="currentColor"/><circle cx="36" cy="28" r="4" fill="currentColor"/><circle cx="26" cy="40" r="4" fill="currentColor"/>');
+                    },
+                    tap: b => {
+                        const act = b.dataset.act;
+                        if (act === 'all') {
+                            applyShapeSelection(new Set(state.subpaths.map((_, i) => i)));
+                            drawAll();
+                        } else if (act === 'opts') {
+                            animAsk = true;
+                            try {
+                                setMode(null);
+                                $('bMorphOpen').click();
+                            } finally {
+                                animAsk = false;
+                            }
+                        } else if (!selectedIndices().length)
+                            flashStatus('tap the shapes to animate first');
+                        else
+                            $('bMorphLive').click();
+                    } },
                 // ONE SHAPE'S OWN SETTINGS (14 Nov 2026, "1 2 3 4 5 6", the first): what the morph's own panel holds for
                 // the animated shape selected, the common ones as tiles. Each sets the panel's control and fires its
                 // event, so the panel stays the code that acts; the last tile brings the whole panel up, for the rest
@@ -58042,7 +58082,7 @@
             }
             const rings = {};
             let mode = null;
-            let paint = null, paintAt = null; // a colour held by the Fill or Outline strip (FILL AND OUTLINE PAINT, below)
+            let paint = null; // a colour held by the Fill or Outline strip (FILL AND OUTLINE PAINT, below)
             const hostOf = m => {
                 const M = MODES[m];
                 if (!M.host) {
@@ -58063,10 +58103,13 @@
                     return;
                 }
                 const src = M.sources ? M.sources() : null;
+                const pk = host.querySelector('.strip-pick');
+                if (pk)
+                    pk.classList.toggle('on', !!(paint && paint.mode === m && paint.pick));
                 for (const t of host.querySelectorAll('.strip-tile')) {
                     const s = src && src[+t.dataset.i];
                     // (a colour held with nothing selected is the lit one: FILL AND OUTLINE PAINT)
-                    t.classList.toggle('on', paint && paint.mode === m && !selectedIndices().length ? +t.dataset.i === paint.i
+                    t.classList.toggle('on', paint && paint.mode === m && (paint.pick || !selectedIndices().length) ? +t.dataset.i === paint.i
                         : s ? s.classList.contains('on') : !!(M.on && M.on(t)));
                     t.disabled = !!(s && s.disabled);
                 }
@@ -58172,6 +58215,11 @@
                     syncStylePop();
                     return;
                 }
+                if (t.classList.contains('strip-pick')) { // the dropper, pressed again, is put down
+                    paint = paint && paint.mode === mode && paint.pick ? null : { mode, pick: true };
+                    mirror(mode);
+                    return;
+                }
                 if (M.tap)
                     M.tap(t);
                 else {
@@ -58185,32 +58233,98 @@
             });
             // FILL AND OUTLINE PAINT (14 Nov 2026, Tom: "1 2 3 4 5 6", the fourth: "pick a colour tile, then tap shapes to
             // paint them, without selecting first"). A colour chosen in the Fill or Outline strip is held, as the line
-            // tool holds its stroke: while that strip stays up, a tap on a shape gives it the colour. The tap selects the
+            // tool holds its stroke: while that strip stays up, a press on a shape gives it the colour. It selects the
             // shape and presses the same swatch the tile pressed, so the appearance panel is still the code that acts,
-            // and the strip stays (selSync takes a held colour for a tool). A drag is still a move, and a tap on empty
-            // canvas still clears the selection. Closing the strip, or turning it to another mode, lets the colour go.
-            cv.addEventListener('pointerdown', e => {
-                paintAt = paint && paint.mode === mode && !state.editMode ? { x: e.clientX, y: e.clientY, t: performance.now() } : null;
-            }, true);
-            cv.addEventListener('pointerup', e => {
-                const d = paintAt;
-                paintAt = null;
-                if (!d || !paint || paint.mode !== mode || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6 || performance.now() - d.t > 600)
+            // and the strip stays (selSync takes a held colour for a tool). Closing the strip, or turning it to another
+            // mode, lets the colour go.
+            //
+            // A STROKE PAINTS EVERY SHAPE IT CROSSES, AND A COLOUR CAN BE PICKED UP (the same day, the next "1 2 3 4 5 6",
+            // the third). A press that lands on a shape while a colour is held is the paint's, not the editor's: it is
+            // stopped on its way down to the canvas (the window's capture, before any of the canvas's own listeners),
+            // so the shape is not moved and the view is not panned, and every shape the pointer then crosses is painted,
+            // each once a stroke. A press on empty canvas is still the editor's (a pan, a pinch, the selection cleared).
+            // The strip's dropper tile holds no colour but the wish for one: the next shape pressed is asked for its
+            // own (selected, the panel says which swatch it wears), and that colour is then the one held.
+            let stroke = null; // { id, seen: the shapes painted this stroke }
+            const paintOver = (cx, cy) => {
+                const r = cv.getBoundingClientRect();
+                const hit = findShapeAt(cx - r.left, cy - r.top, r.width, r.height);
+                if (hit < 0 || stroke.seen.has(hit))
                     return;
-                const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-                setTimeout(() => { // after the editor's own handling of the tap
-                    if (!paint || paint.mode !== mode)
-                        return;
-                    const hit = findShapeAt(x, y, r.width, r.height);
-                    const s = hit >= 0 && MODES[mode].sources()[paint.i];
-                    if (!s)
-                        return;
-                    applyShapeSelection(new Set([hit]));
-                    s.click();
+                stroke.seen.add(hit);
+                const src = MODES[mode].sources();
+                applyShapeSelection(new Set([hit]));
+                if (paint.pick) {
+                    syncStylePop();
+                    const i = src.findIndex(s => s.classList.contains('on'));
+                    applyShapeSelection(new Set());
+                    if (i >= 0)
+                        paint = { mode, i };
+                    flashStatus(i >= 0 ? 'colour picked up · tap or stroke across the shapes to paint' : 'that colour is not one of the palette\'s');
+                } else if (src[paint.i])
+                    src[paint.i].click();
+                drawAll();
+                requestAnimationFrame(() => mirror(mode));
+            };
+            // ALIGN, ORDER AND ANIMATE GATHER THEIR SHAPES BY TAPS (the same day, the fourth and fifth): while one of
+            // those strips is up, a press on a shape puts it in the selection or takes it out, with nothing held and
+            // nothing moved, so the shapes to align, to reorder or to animate are tapped one after another and the
+            // strip's tiles then act on them. It is the same taking of the press as the paint's.
+            const PICKS = new Set(['align', 'order', 'animPick']);
+            const stripTakes = () => !state.editMode && (PICKS.has(mode) || (!!paint && paint.mode === mode));
+            const paintTakes = e => stripTakes() && e.target === cv;
+            window.addEventListener('pointerdown', e => {
+                if (!paintTakes(e) || (e.pointerType === 'mouse' && e.button !== 0))
+                    return;
+                const r = cv.getBoundingClientRect();
+                if (findShapeAt(e.clientX - r.left, e.clientY - r.top, r.width, r.height) < 0)
+                    return; // empty canvas: the editor's
+                e.stopPropagation();
+                e.preventDefault();
+                stroke = { id: e.pointerId, seen: new Set() };
+                if (PICKS.has(mode)) {
+                    const hit = findShapeAt(e.clientX - r.left, e.clientY - r.top, r.width, r.height), sp = state.subpaths[hit];
+                    const mine = sp && sp.gid != null ? membersOfGroup(sp.gid) : [hit]; // a group goes in or out whole
+                    const sel = new Set(selectedIndices()), out = mine.every(i => sel.has(i));
+                    for (const i of mine)
+                        out ? sel.delete(i) : sel.add(i);
+                    applyShapeSelection(sel);
                     drawAll();
                     requestAnimationFrame(() => mirror(mode));
-                }, 0);
-            });
+                    return;
+                }
+                paintOver(e.clientX, e.clientY);
+            }, true);
+            window.addEventListener('pointermove', e => {
+                if (!stroke || e.pointerId !== stroke.id)
+                    return;
+                e.stopPropagation();
+                if (paint && paint.mode === mode && !paint.pick)
+                    paintOver(e.clientX, e.clientY);
+            }, true);
+            for (const ev of ['pointerup', 'pointercancel'])
+                window.addEventListener(ev, e => {
+                    if (!stroke || e.pointerId !== stroke.id)
+                        return;
+                    e.stopPropagation();
+                    stroke = null;
+                }, true);
+            // the mouse and touch events of the same press, which the canvas also listens to
+            for (const ev of ['mousedown', 'mousemove', 'mouseup', 'touchstart', 'touchmove', 'touchend', 'click', 'dblclick'])
+                window.addEventListener(ev, e => {
+                    if (e.target !== cv || !stripTakes())
+                        return;
+                    let on = !!stroke;
+                    if (!on && (ev === 'click' || ev === 'dblclick' || ev === 'mouseup' || ev === 'touchend')) { // (the stroke has just ended)
+                        const p = e.changedTouches ? e.changedTouches[0] : e, r = cv.getBoundingClientRect();
+                        on = !!p && findShapeAt(p.clientX - r.left, p.clientY - r.top, r.width, r.height) >= 0;
+                    }
+                    if (on) {
+                        e.stopPropagation();
+                        if (e.cancelable && ev.slice(0, 5) === 'touch')
+                            e.preventDefault();
+                    }
+                }, { capture: true, passive: false });
             // A SHAPE CAN BE DRAGGED OUT OF THE LIBRARY (13 Nov 2026, Tom: "1 2", the second "drag a shape from the strip
             // onto the drawing"). A tap adds a shape at the middle of the view; a press that goes UP out of the strip
             // lifts the tile instead, a picture of it follows the finger or the mouse, and letting go over the drawing
@@ -58334,7 +58448,7 @@
                 selSeen = seen;
                 // …and not from a drawing tool (the line, shape and text tools): while one is armed a press on the drawing is
                 // the tool's, so what is selected changes only by the tool's own doing (a word set again in bold)
-                const tool = mode === 'arrows' || mode === 'shape' || mode === 'text' || !!(paint && paint.mode === mode);
+                const tool = mode === 'arrows' || mode === 'shape' || mode === 'text' || !!(paint && paint.mode === mode) || PICKS.has(mode);
                 if (want && (!mode || (picked && mode !== 'select' && !tool)))
                     setMode('select');
                 else if (!want && mode === 'select')
@@ -58421,6 +58535,7 @@
                 }
             }
             const animLive = () => document.body.classList.contains('morphing');
+            let animAsk = false; // Animate pressed for its popover (the Options tile)
             // the strip turned to a chip's values. One shape's settings are the selected shape's; with none selected,
             // every live shape's
             function animTurn(next) {
@@ -58538,12 +58653,20 @@
                             e.stopImmediatePropagation();
                             closeAllPops();
                             $('bMorphLive').click();
+                        } else if (!state.editMode && !animAsk) {
+                            // ANIMATE WITH NOTHING SELECTED ASKS FOR THE SHAPES (the fourth): the strip turns to Start
+                            // and Options, and the shapes are tapped on the drawing; the popover is behind Options
+                            e.stopImmediatePropagation();
+                            closeAllPops();
+                            setMode(mode === 'animPick' ? null : 'animPick');
+                            if (mode === 'animPick')
+                                flashStatus('tap the shapes to animate, then Start');
                         }
                     }, true);
             }
             // Escape puts a drawing tool away (the line tool, the shape tool), as it does the pen
             window.addEventListener('keydown', e => {
-                if (e.key === 'Escape' && (mode === 'arrows' || mode === 'shape' || mode === 'text'))
+                if (e.key === 'Escape' && (mode === 'arrows' || mode === 'shape' || mode === 'text' || mode === 'animPick'))
                     setMode(null);
             });
             window.__selStripSync = selSync;
@@ -58720,14 +58843,15 @@
                 canZ = canMoveZ();
             } catch (_) {}
 
-            set($('bAlign'), !editing && units >= 2,
+            // (always there outside the edit view since 14 Nov 2026: the strip gathers their shapes by taps, PICKS)
+            set($('bAlign'), !editing,
             editing ? 'align — not in edit mode'
             : (units >= 2 ? 'align and distribute the selection'
-            : 'select two or more shapes to align'));
-            set($('bOrder'), !editing && canZ,
+            : 'align — tap two or more shapes, then pick how in the strip'));
+            set($('bOrder'), !editing,
             editing ? 'draw order — not in edit mode'
             : (canZ ? 'draw order — bring forward or send back'
-            : 'select a shape (and leave one unselected) to change its draw order'));
+            : 'draw order — tap a shape, then pick where it goes in the strip'));
             set($('bGroup'), !editing && (units >= 2 || grouped),
             editing ? 'group — not in edit mode'
             : (grouped ? 'ungroup the selected group'
