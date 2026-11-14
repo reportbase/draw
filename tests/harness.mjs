@@ -84,6 +84,15 @@ export async function begin(part){
   const launch = { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] };
   if (process.env.CHROMIUM_PATH) launch.executablePath = process.env.CHROMIUM_PATH;
   const browser = await chromium.launch(launch);
+  // THE ANIMATION'S BAR (14 Nov 2026): a live morph's old bar is behind the bar's More now. The checks drive that bar's
+  // own buttons, so every page a part opens starts with More up (window.__animMore, read as a morph begins); a check of
+  // the bar itself takes it down again.
+  {
+    const np = browser.newPage.bind(browser), nc = browser.newContext.bind(browser);
+    const more = () => { window.__animMore = true; };
+    browser.newPage = async o => { const p = await np(o); await p.addInitScript(more); return p; };
+    browser.newContext = async o => { const c = await nc(o); await c.addInitScript(more); return c; };
+  }
   // the part's own page: the editor's walk loads the editor in it, and step() settles on it
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 

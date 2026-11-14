@@ -2493,7 +2493,7 @@
                        one shape in the scene and it IS the morph. So the bar comes back for it, and for
                        nothing else — the class is set by morphBarSync and by no other code. */
                     #shapeBar { display: none; }
-                    body.morphing #shapeBar { display: flex; z-index: 30; }
+                    /* (behind the animation's bar's More since 14 Nov 2026: see #animBar, further down) */
                     /* …and the browser stands down while it is up. They occupy the same strip at the foot
                        of the window, and during a morph the browser has nothing to browse: the scene is one
                        shape by construction. Hiding it is also the honest state — a one-tile carousel is a
@@ -2819,7 +2819,35 @@
 
 
                     /* and while a morph is live its bar takes the foot of the page (body.morphing #shapeBar) */
-                    body.editing .add-strip, body.morphing .add-strip { display: none; }
+                    body.editing .add-strip { display: none; }
+                    /* THE ANIMATION'S BAR, above the strip while a morph is live, and the morph bar behind its More */
+                    #animBar {
+                      display: none; position: fixed; left: 0; right: 0; bottom: 104px; z-index: 27;
+                      align-items: center; gap: 8px 10px; flex-wrap: wrap; padding: 6px 12px;
+                      background: var(--bar-bg); border-top: 1px solid var(--bar-line);
+                    }
+                    body.morphing #animBar { display: flex; }
+                    #animBar #abPlay { width: 40px; height: 40px; flex: 0 0 auto; }
+                    #animBar #abPlay svg { width: 20px; height: 20px; }
+                    #animBar #abT { display: flex; align-items: center; gap: 8px; flex: 1 1 180px; min-width: 150px; }
+                    #animBar #abT input[type=range] { flex: 1 1 auto; width: auto !important; min-width: 90px; accent-color: var(--gold); }
+                    #animBar #abT .val { color: var(--gold); font: 12px 'DM Mono', monospace; min-width: 42px; }
+                    #animBar .ab-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+                    #animBar .ab-chip {
+                      font: 12px system-ui, sans-serif; padding: 7px 11px; border-radius: 16px; cursor: pointer;
+                      color: var(--fg); background: var(--chip-bg); border: 1px solid var(--chip-line);
+                    }
+                    #animBar .ab-chip.on { background: var(--gold); color: #14141a; border-color: var(--gold); }
+                    /* The morph bar keeps its place in the page's column while a morph is live, as it had: it is what makes
+                       the canvas end above the animation's bar and the strip (its margin is their height), so the drawing
+                       is never under them. Shut (no More) it is that margin and nothing else; with More up it is itself. */
+                    body.morphing #shapeBar { display: flex; z-index: 30; margin-bottom: calc(104px + var(--anim-h, 52px)); }
+                    body.morphing:not(.anim-more) #shapeBar { height: 0; min-height: 0; padding: 0; overflow: hidden; }
+                    /* a tile of the animation's strips is a picture with its word under it */
+                    .add-strip > .controls > .anim-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--fg); }
+                    .add-strip > .controls > .anim-tile svg { width: 36px; height: 36px; }
+                    .add-strip > .controls > .anim-tile .cap { font: 10px system-ui, sans-serif; color: var(--fg-muted); line-height: 1; }
+                    .add-strip > .controls > .anim-tile.on .cap { color: var(--gold); }
                     /* The edit footer, hidden by the canvas long-press. Edit mode is where the drawing wants
                        the whole window — you are inside one shape, working close — and the footer is the
                        widest piece of furniture on the screen. Outside edit mode the same hold takes the
@@ -6954,6 +6982,23 @@
     <!-- THE STRIP ADDS SHAPES TOO (13 Nov 2026): the + on the top bar (#bAddStrip) turns the strip from the shapes in
          the drawing to the library of shapes to add, and back. See THE STRIP ADDS SHAPES TOO in the script. -->
     <div class="add-strip" id="addStrip" role="toolbar" aria-label="add a shape"><div class="controls" id="addRing"></div></div>
+    <!-- THE ANIMATION'S BAR (14 Nov 2026, Tom: "1 2 3", after "animation, morphing etc could be improved similarly"). While
+         a morph is live this row stands just above the strip at the foot: play, the time slider (moved here from the
+         morph bar as the page starts), and the animation's options as chips; the strip below shows the values of the chip
+         chosen (THE ANIMATION'S BAR AND STRIP, in the script). The morph bar's thirty controls are behind More. -->
+    <div id="animBar" role="toolbar" aria-label="animation">
+        <button type="button" id="abPlay" class="icon-btn" aria-label="Play" title="run the animation, or pause it"></button>
+        <span id="abT"></span>
+        <span class="ab-chips">
+            <button type="button" class="ab-chip" data-anim="keys" title="the poses the animation passes through: tap one to stand on it, add the pose you are looking at, take one away">Keys</button>
+            <button type="button" class="ab-chip" data-anim="motion" title="a physical motion for the animated shape: bounce, fall, swing, spring, roll, throw, sway, pop, drift">Motion</button>
+            <button type="button" class="ab-chip" data-anim="ease" title="how it moves from one key to the next">Ease</button>
+            <button type="button" class="ab-chip" data-anim="fx" title="an effect on the outline's detail">Effect</button>
+            <button type="button" class="ab-chip" data-anim="export" title="save or share the animation: video, GIF, animated SVG, scene file, link, embed code">Export</button>
+            <button type="button" class="ab-chip" data-anim="more" title="every other setting of the animation: loop length, hold, gravity, wind, paths, trails, the timeline">More</button>
+            <button type="button" class="ab-chip" id="abExit" title="end the animation and put its keys back where they were">Exit</button>
+        </span>
+    </div>
 
     <!-- PARTS OF THE EDITOR, each a file in parts/ (12 Nov 2026): blocks of this page's script that it runs in place,
          inside its own closure (partRun, in the script below). They only hand their code over here. -->
@@ -57351,6 +57396,105 @@
                         if (el && el.classList.contains('open'))
                             placePop(el, t);
                     } },
+                // THE ANIMATION'S STRIPS: the values of the chip chosen on the animation's bar (below)
+                animKeys: { btn: null,
+                    build: host => {
+                        const run = morphRuns[0], K = run ? run.keys.length : 0;
+                        for (let k = 0; k < K; k++)
+                            animTile(host, { key: String(k) }, 'Key ' + (k + 1), 'key ' + (k + 1),
+                                '<path d="M28 8L48 28L28 48L8 28Z"/><text x="28" y="34" font-size="17" font-weight="600" font-family="system-ui,sans-serif" text-anchor="middle" fill="currentColor" stroke="none">' + (k + 1) + '</text>');
+                        animTile(host, { act: 'bMorphAddKey' }, 'Add key', 'add', '<path d="M28 8L48 28L28 48L8 28Z"/><path d="M28 20v16M20 28h16"/>');
+                        animTile(host, { act: 'bMorphDelKey' }, 'Delete key', 'delete', '<path d="M28 8L48 28L28 48L8 28Z"/><path d="M20 28h16"/>');
+                    },
+                    tap: b => {
+                        const run = morphRuns[0];
+                        if (b.dataset.key != null && run)
+                            morphSetT(morphKeyTimes(run)[+b.dataset.key]);
+                        else if (b.dataset.act)
+                            $(b.dataset.act).click();
+                        drawAll();
+                    },
+                    on: b => b.dataset.key != null && !!morphRuns[0] && morphKeyAt(morphRuns[0], morphLive.t) === +b.dataset.key },
+                animMotion: { btn: null,
+                    build: host => {
+                        const G = {
+                            '': '<circle cx="28" cy="28" r="14"/><path d="M18 38L38 18"/>',
+                            bounce: '<circle cx="28" cy="16" r="7"/><path d="M12 46h32M28 28v10M22 34l6 6l6-6"/>',
+                            fall: '<circle cx="28" cy="14" r="7"/><path d="M28 26v18M21 38l7 7l7-7"/>',
+                            swing: '<path d="M28 8L18 38"/><circle cx="16" cy="43" r="6"/><path d="M28 8L38 38" stroke-dasharray="3 4"/>',
+                            spring: '<path d="M28 8l10 6l-20 6l20 6l-20 6l10 6"/><circle cx="28" cy="46" r="5"/>',
+                            roll: '<circle cx="24" cy="30" r="12"/><path d="M24 30l8-8M40 44h8M8 44h30"/>',
+                            throw: '<path d="M8 44C16 10 36 10 46 34"/><path d="M46 24v10h-10"/>',
+                            sway: '<path d="M28 46V30M28 30C20 26 18 16 22 8M28 30C36 26 38 16 34 8" /><path d="M14 46h28"/>',
+                            pop: '<circle cx="28" cy="28" r="7"/><path d="M28 8v7M28 41v7M8 28h7M41 28h7M14 14l5 5M37 37l5 5M42 14l-5 5M19 37l-5 5"/>',
+                            drift: '<path d="M8 20c8-8 12 8 20 0s12 8 20 0M8 36c8-8 12 8 20 0s12 8 20 0"/>'
+                        };
+                        for (const o of $('mrMotion').options)
+                            if (o.value !== 'chain') // a chain is built in the morph's own settings, a step at a time
+                                animTile(host, { v: o.value }, o.value ? o.textContent : 'No motion', o.textContent, G[o.value] || G['']);
+                    },
+                    tap: b => {
+                        // a motion is the selected morph's; with none selected it is every live shape's
+                        if (!morphRunToolRuns().length)
+                            applyShapeSelection(new Set(morphRuns.map(r => state.subpaths.indexOf(r.sp)).filter(i => i >= 0)));
+                        const sel = $('mrMotion');
+                        sel.value = b.dataset.v;
+                        sel.dispatchEvent(new Event('change'));
+                    },
+                    on: b => {
+                        const r = morphRunToolRuns()[0] || morphRuns[0];
+                        return !!r && ((r.motion && r.motion.kind) || '') === b.dataset.v;
+                    } },
+                animEase: { btn: null,
+                    build: host => {
+                        const G = {
+                            '': '<path d="M10 46L46 10"/>',
+                            inout: '<path d="M10 46C28 46 28 10 46 10"/>',
+                            in: '<path d="M10 46C34 46 44 34 46 10"/>',
+                            out: '<path d="M10 46C12 22 22 10 46 10"/>',
+                            anticipate: '<path d="M10 40C22 54 30 44 46 10"/>',
+                            overshoot: '<path d="M10 46C20 10 32 0 46 14"/>',
+                            elastic: '<path d="M10 46C16 46 18 4 24 14S30 24 34 16S40 12 46 14"/>'
+                        };
+                        for (const o of $('morphEase').options)
+                            animTile(host, { v: o.value }, o.value ? 'Ease ' + o.textContent : 'No easing', o.value ? o.textContent : 'even', G[o.value] || G['']);
+                    },
+                    tap: b => {
+                        const sel = $('morphEase');
+                        sel.value = b.dataset.v;
+                        sel.dispatchEvent(new Event('change'));
+                    },
+                    on: b => $('morphEase').value === b.dataset.v },
+                animFx: { btn: null,
+                    build: host => {
+                        const G = {
+                            '': '<circle cx="28" cy="28" r="15"/>',
+                            shimmer: '<path d="M28 12c4 0 5 3 9 4s6 4 6 8s-1 6-3 9s-5 6-9 7s-7-1-10-3s-6-4-7-8s1-7 3-10s7-7 11-7z" stroke-dasharray="2 3"/>',
+                            grow: '<circle cx="28" cy="28" r="5"/><circle cx="28" cy="28" r="11"/><circle cx="28" cy="28" r="17"/>',
+                            boil: '<path d="M28 10l4 5l6-2l1 6l6 2l-3 6l4 5l-6 3l0 6l-6-1l-4 5l-4-5l-6 1l0-6l-6-3l4-5l-3-6l6-2l1-6l6 2z"/>'
+                        };
+                        for (const o of $('morphFx').options)
+                            animTile(host, { v: o.value }, o.value ? o.textContent : 'No effect', o.textContent, G[o.value] || G['']);
+                    },
+                    tap: b => {
+                        const sel = $('morphFx');
+                        sel.value = b.dataset.v;
+                        sel.dispatchEvent(new Event('change'));
+                    },
+                    on: b => $('morphFx').value === b.dataset.v },
+                animExport: { btn: null,
+                    build: host => {
+                        const film = '<rect x="8" y="14" width="40" height="28" rx="3"/>';
+                        for (const [id, name, cap, g] of [
+                            ['bMorphVideo', 'Video', 'video', film + '<path d="M24 22l10 6l-10 6z"/>'],
+                            ['bMorphGif', 'GIF', 'gif', film + '<text x="28" y="33" font-size="13" font-weight="700" font-family="system-ui,sans-serif" text-anchor="middle" fill="currentColor" stroke="none">GIF</text>'],
+                            ['bMorphSvg', 'Animated SVG', 'svg', film + '<path d="M15 34c5-12 9 6 13-4s8 6 13-4"/>'],
+                            ['bMorphTvfs', 'Scene file', 'scene', '<path d="M16 8h16l10 10v30h-26z"/><path d="M32 8v10h10"/>'],
+                            ['bMorphLink', 'Copy link', 'link', '<path d="M24 32a8 8 0 0 0 11 1l7-7a8 8 0 0 0-11-11l-3 3M32 24a8 8 0 0 0-11-1l-7 7a8 8 0 0 0 11 11l3-3"/>'],
+                            ['bMorphEmbed', 'Copy embed code', 'embed', '<path d="M20 18L8 28l12 10M36 18l12 10l-12 10M31 12l-6 32"/>']])
+                            animTile(host, { act: id }, name, cap, g);
+                    },
+                    tap: b => $(b.dataset.act).click() },
                 draw: { btn: 'bDrawMenu',
                     build: host => {
                         // the four tools, each wearing its own button's glyph
@@ -57681,6 +57825,18 @@
                     selTileDraw(t);
                 }
             }
+            // a tile of the animation's strips: a picture and its word under it
+            function animTile(host, data, label, cap, glyph) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'icon-btn strip-tile anim-tile';
+                Object.assign(b.dataset, data);
+                b.setAttribute('aria-label', label);
+                b.innerHTML = '<svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+                    + glyph + '</svg><span class="cap">' + cap + '</span>';
+                host.appendChild(b);
+                return b;
+            }
             const rings = {};
             let mode = null;
             const hostOf = m => {
@@ -57933,6 +58089,7 @@
             let lineRestyle = '';
             const lineRestyles = () => !!lineRestyle && lineRestyle === selKey();
             function selSync() {
+                animSync(); // THE ANIMATION'S BAR AND STRIP follows every redraw too
                 const want = selWant();
                 const seen = { key: selKey(), n: state.subpaths.length };
                 const picked = !!selSeen && seen.key !== selSeen.key && !(seen.n > selSeen.n);
@@ -57961,6 +58118,115 @@
                     else
                         selBuild(MODES.select.host);
                 }
+            }
+            // THE ANIMATION'S BAR AND STRIP (14 Nov 2026, Tom: "animation, morphing etc could be improved similarly", then
+            // "1 2 3": Animate as a tool with a footer, motion presets as tiles, Export as its own footer). A live morph's
+            // controls were one bar of thirty at the foot: play, the slider, the keys, the loop, an effect, an ease, a hold,
+            // gravity, wind, paths, trails, seven ways out. Now the foot is the strip, as it is for everything else, with
+            // the animation's own bar just above it (#animBar): play, the time slider, and its options as chips. The strip
+            // shows the values of the chip chosen: Keys (a tile a key, tap to stand on it; add; delete), Motion, Ease and
+            // Effect (a picture a choice, the one in use lit), Export (video, GIF, animated SVG, scene file, link, embed).
+            // More brings the old bar up over the drawing for everything else. Nothing of the engine moved: each tile sets
+            // the select or presses the button the bar had, which stay the code that acts (and what the checks drive).
+            // Animate on the top bar starts it: with something selected it goes straight in (what "live" in its popover
+            // did); with nothing selected the popover opens, as before; while one is live it shows or hides the strip.
+            const animBar = $('animBar');
+            const ANIM_TABS = { keys: 'animKeys', motion: 'animMotion', ease: 'animEase', fx: 'animFx', export: 'animExport' };
+            const animLive = () => document.body.classList.contains('morphing');
+            let animSig = '';
+            function animSync() {
+                if (!animLive())
+                    return;
+                const play = !!morphLive.play;
+                const sig = play + '|' + (morphRuns[0] ? morphRuns[0].keys.length : 0) + '|' + mode + '|' + document.body.classList.contains('anim-more');
+                if (sig !== animSig) {
+                    animSig = sig;
+                    const bp = $('abPlay');
+                    bp.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'
+                        + (play ? '<rect x="6" y="5" width="4.5" height="14" rx="1"/><rect x="13.5" y="5" width="4.5" height="14" rx="1"/>' : '<path d="M7 4.5v15l12.5-7.5z"/>') + '</svg>';
+                    bp.setAttribute('aria-label', play ? 'Pause' : 'Play');
+                    bp.classList.toggle('active', play);
+                    for (const c of animBar.querySelectorAll('.ab-chip[data-anim]'))
+                        c.classList.toggle('on', c.dataset.anim === 'more' ? document.body.classList.contains('anim-more') : ANIM_TABS[c.dataset.anim] === mode);
+                    // the keys' strip is as many tiles as there are keys
+                    const kh = MODES.animKeys.host;
+                    if (kh && kh.querySelectorAll('[data-key]').length !== (morphRuns[0] ? morphRuns[0].keys.length : 0)) {
+                        kh.textContent = '';
+                        MODES.animKeys.build(kh);
+                        if (rings.animKeys)
+                            rings.animKeys.refresh();
+                    }
+                    const ah = animBar.offsetHeight + 'px';
+                    if (document.body.style.getPropertyValue('--anim-h') !== ah) {
+                        document.body.style.setProperty('--anim-h', ah);
+                        if (typeof resizeCanvas === 'function')
+                            requestAnimationFrame(() => { resizeCanvas(); drawAll(); });
+                    }
+                }
+                if (mode && mode.slice(0, 4) === 'anim')
+                    mirror(mode);
+            }
+            if (animBar) {
+                // the time slider and its reading stand on the animation's bar, always in reach
+                for (const id of ['morphT', 'morphTVal']) {
+                    const el = $(id);
+                    if (el)
+                        $('abT').appendChild(el);
+                }
+                $('abPlay').addEventListener('click', () => {
+                    $('bMorphPlay').click();
+                    animSync();
+                });
+                $('abExit').addEventListener('click', () => $('bMorphExit').click());
+                animBar.addEventListener('click', e => {
+                    const c = e.target.closest('.ab-chip[data-anim]');
+                    if (!c)
+                        return;
+                    if (c.dataset.anim === 'more') {
+                        document.body.classList.toggle('anim-more');
+                        if (typeof resizeCanvas === 'function')
+                            resizeCanvas(); // the bar is in the page's column: the canvas is another height now
+                        drawAll();
+                    }
+                    else
+                        setMode(mode === ANIM_TABS[c.dataset.anim] ? null : ANIM_TABS[c.dataset.anim]);
+                    animSync();
+                });
+                // a morph begun or ended, however it was (the engine's morphBarSync sets the class, and nothing else does)
+                let wasLive = false;
+                new MutationObserver(() => {
+                    const live = animLive();
+                    if (live === wasLive)
+                        return;
+                    wasLive = live;
+                    animSig = '';
+                    if (live) {
+                        document.body.classList.toggle('anim-more', !!window.__animMore); // (the checks start with More up)
+                        setMode('animKeys');
+                        animSync();
+                    } else {
+                        document.body.classList.remove('anim-more');
+                        if (mode && mode.slice(0, 4) === 'anim')
+                            setMode(null);
+                    }
+                    const b = $('bMorphOpen');
+                    if (b)
+                        b.classList.toggle('active', live);
+                }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+                const bo = $('bMorphOpen');
+                if (bo)
+                    bo.addEventListener('click', e => {
+                        if (animLive()) {
+                            e.stopImmediatePropagation();
+                            closeAllPops();
+                            setMode(mode && mode.slice(0, 4) === 'anim' ? null : 'animKeys');
+                            animSync();
+                        } else if (selectedIndices().length >= 1 && !state.editMode) {
+                            e.stopImmediatePropagation();
+                            closeAllPops();
+                            $('bMorphLive').click();
+                        }
+                    }, true);
             }
             // Escape puts a drawing tool away (the line tool, the shape tool), as it does the pen
             window.addEventListener('keydown', e => {

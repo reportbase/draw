@@ -239,3 +239,32 @@ part, a draw-on clip staggered across them, a camera fit taking them all (`scene
 RIDE A STILL: a one-key exact morph keeps its key's holes (`run.holes`), carried to each pose by the affine
 map that best takes the key's corners to the pose's (`morphAffineOf`, `morphHolesAt`); saved, in the `.tvfs`
 (`holes`), drawn by the player, and written in the SVG export as keyhole bridges under `fill-rule="evenodd"`.
+
+## The animation's bar and strip
+
+**14 Nov 2026** (Tom: "animation, morphing etc could be improved similarly. what do you think?", then "1 2 3": Animate as
+a tool with a footer, motion presets as tiles, Export as its own footer). The drawing tools had just become a button on
+the top bar with their choices as tiles in the strip at the foot; a live morph still had one bar of thirty controls
+there. Now, while a morph is live:
+
+- `#animBar` stands just above the strip: play (`#abPlay`, pressing `#bMorphPlay`), the time slider and its reading
+  (`#morphT`, `#morphTVal`, moved out of the morph bar as the page starts, so their handlers are the same ones), and the
+  chips Keys, Motion, Ease, Effect, Export, More and Exit.
+- The strip shows the chip's values, each a tile with its word under it (`animTile`): `MODES.animKeys` (a tile a key of
+  the first morph, pressing `morphSetT` to that key's time, then Add and Delete pressing `#bMorphAddKey` and
+  `#bMorphDelKey`; rebuilt by `animSync` when the key count changes), `animMotion` (the options of `#mrMotion` but
+  chain, set on the select with a `change`; with no morph selected every live shape is selected first), `animEase`
+  (`#morphEase`), `animFx` (`#morphFx`) and `animExport` (`#bMorphVideo`, `#bMorphGif`, `#bMorphSvg`, `#bMorphTvfs`,
+  `#bMorphLink`, `#bMorphEmbed`).
+- More (`body.anim-more`) shows the morph bar, which holds everything else: loop length, hold, gravity, wind, the path,
+  trails, fps, lag, keep, the timeline. The bar is in the page's column either way: shut, it is no height and a margin
+  the height of the animation's bar and the strip (`--anim-h`, set by `animSync`), so the canvas ends above them, as it
+  ended above the old bar.
+- Animate (`#bMorphOpen`) with a selection presses `#bMorphLive` at once; with none, its popover opens as before (the
+  static blend strip and the options are there); while a morph is live it shows or hides the strip.
+- The engine did not move. `animSync` runs with every redraw (from `__selStripSync`), and a `MutationObserver` on the
+  body's class starts and ends the mode, since `morphBarSync` is the one place the class is set.
+
+Tests: "the animation's bar and strip" in `tests/morph.mjs`. The other morph, motion and player checks drive the morph
+bar's own buttons, so `tests/harness.mjs` starts every page with More up (`window.__animMore`). One motion page is 160
+taller, the canvas being that much shorter than it was under the old bar at that window size.

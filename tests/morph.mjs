@@ -35,7 +35,7 @@ T.current = 'timeline and recording';
     await mp.setInputFiles('#fLoad', { name: 'three.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
     await mp.waitForTimeout(1200);
     await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(300);
-    await mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    await mp.evaluate(() => { document.getElementById('bMorphLive').click(); /* (Animate itself goes straight in now, 14 Nov 2026) */ });
     await mp.waitForTimeout(400);
     const m = () => mp.evaluate(() => window.__box.morph());
     let s = await m();
@@ -94,7 +94,7 @@ T.current = 'timeline and recording';
     // loop's ends meet, grow at full amount starts from the base ellipse, and the effect is saved
     await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(200);
     await mp.evaluate(() => { const s = window.__box; s.select && s.select([2]); });   // the triangle: a circle has no detail to move
-    await mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    await mp.evaluate(() => { document.getElementById('bMorphLive').click(); /* (Animate itself goes straight in now, 14 Nov 2026) */ });
     await mp.waitForTimeout(300);
     const still = await m();
     if (!still || still.K !== 1) throw new Error('one shape did not go live as a still: ' + JSON.stringify(still && still.K));
@@ -140,7 +140,7 @@ T.current = 'path and trails';
     await mp.waitForTimeout(1200);
     await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(200);
     await mp.evaluate(() => window.__box.select([0]));
-    await mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    await mp.evaluate(() => { document.getElementById('bMorphLive').click(); /* (Animate itself goes straight in now, 14 Nov 2026) */ });
     await mp.waitForTimeout(300);
     await mp.evaluate(() => window.__box.select([1]));
     await mp.click('#bMorphPath');
@@ -210,7 +210,7 @@ T.current = 'corners and timing';
     await mp.setInputFiles('#fLoad', { name: 'sq.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
     await mp.waitForTimeout(1200);
     await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(300);
-    const live = () => mp.evaluate(() => { document.getElementById('bMorphOpen').click(); document.getElementById('bMorphLive').click(); });
+    const live = () => mp.evaluate(() => { document.getElementById('bMorphLive').click(); /* (Animate itself goes straight in now, 14 Nov 2026) */ });
     await live(); await mp.waitForTimeout(300);
     const m = () => mp.evaluate(() => window.__box.morph());
     const at = async t => { await mp.evaluate(t => { const r = document.getElementById('morphT'); r.value = Math.round(t * 1000); r.dispatchEvent(new Event('input')); }, t); return m(); };
@@ -889,6 +889,75 @@ T.current = 'animate with ai';
     failures.push(`[animate with ai] ${e.message.split('\n')[0]}`);
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} animate it with ai: a reply lands as morphs, one undo step, and change it keeps the rest`);
+}
+
+/* THE ANIMATION'S BAR AND STRIP (14 Nov 2026, Tom: "animation, morphing etc could be improved similarly", then "1 2 3").
+   Animate, with shapes selected, goes straight into a live morph; the strip at the foot is its keys, with the animation's
+   bar above it (play, the slider, the chips) and the old bar shut behind More. A key's tile stands the morph on it; a key
+   added is a tile more; Motion, Ease and Effect are tiles that set what the bar's selects held; Export's tiles are the
+   bar's ways out; Exit ends it and gives the strip back. */
+T.current = 'the animation\'s bar and strip';
+{
+  const ap = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  ap.on('pageerror', e => failures.push(`[animation bar] ${e.message}`));
+  await ap.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await ap.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await ap.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    await ap.evaluate(() => { window.__animMore = false; }); // as a visitor has it: the old bar shut
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+      + '<rect x="170" y="10" width="80" height="80" fill="#48c"/></svg>';
+    await ap.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+    await ap.waitForTimeout(1200);
+    await ap.evaluate(() => window.__box.select([0, 1]));
+    await ap.click('#bMorphOpen');
+    await ap.waitForTimeout(600);
+    const tiles = () => ap.evaluate(() => [...document.querySelectorAll('.add-strip .controls.on .strip-tile')].map(t => (t.classList.contains('on') ? '*' : '') + t.getAttribute('aria-label')).join());
+    const s0 = await ap.evaluate(() => ({ live: document.body.classList.contains('morphing'), mode: window.__strip.mode, pop: document.getElementById('morphPop').classList.contains('open'),
+      barH: document.getElementById('shapeBar').getBoundingClientRect().height, slider: !!document.querySelector('#animBar #morphT'),
+      under: document.getElementById('cv').getBoundingClientRect().bottom <= document.getElementById('animBar').getBoundingClientRect().top + 1 }));
+    if (!s0.live || s0.mode !== 'animKeys' || s0.pop || s0.barH > 1 || !s0.slider || !s0.under || await tiles() !== '*Key 1,Key 2,Add key,Delete key')
+      throw new Error('Animate pressed: ' + JSON.stringify(s0) + ' ' + await tiles());
+    // a key's tile stands the morph on it; the pose halfway made a key is a tile more
+    await ap.click('.add-strip [data-mode="animKeys"] [aria-label="Key 2"]');
+    const t1 = await ap.evaluate(() => document.getElementById('morphTVal').textContent);
+    await ap.evaluate(() => { const e = document.getElementById('morphT'); e.value = 500; e.dispatchEvent(new Event('input')); });
+    await ap.click('.add-strip [data-mode="animKeys"] [aria-label="Add key"]');
+    await ap.waitForTimeout(300);
+    const k3 = await tiles();
+    if (t1 !== '1.000' || !/Key 3/.test(k3)) throw new Error('keys: ' + t1 + ' ' + k3);
+    // Motion, Ease, Effect: a tile sets what the bar's select held, and is lit
+    const pick = async (chip, mode, sel) => { await ap.click(`.ab-chip[data-anim="${chip}"]`); await ap.click(`.add-strip [data-mode="${mode}"] ${sel}`); await ap.waitForTimeout(300); };
+    await pick('motion', 'animMotion', '[data-v="bounce"]');
+    const mo = await ap.evaluate(() => [document.getElementById('mrMotion').value, document.querySelector('.add-strip [data-mode="animMotion"] [data-v="bounce"]').classList.contains('on')]);
+    await pick('ease', 'animEase', '[data-v="inout"]');
+    const ea = await ap.evaluate(() => [document.getElementById('morphEase').value, document.querySelector('.add-strip [data-mode="animEase"] [data-v="inout"]').classList.contains('on')]);
+    await pick('fx', 'animFx', '[data-v="shimmer"]');
+    const fx = await ap.evaluate(() => [document.getElementById('morphFx').value, document.querySelector('.add-strip [data-mode="animFx"] [data-v="shimmer"]').classList.contains('on')]);
+    if (mo.join() !== 'bounce,true' || ea.join() !== 'inout,true' || fx.join() !== 'shimmer,true') throw new Error('presets: ' + JSON.stringify({ mo, ea, fx }));
+    // play and pause from the bar
+    await ap.click('#abPlay');
+    const playing = await ap.evaluate(() => document.getElementById('abPlay').getAttribute('aria-label'));
+    await ap.click('#abPlay');
+    if (playing !== 'Pause') throw new Error('play from the bar said ' + playing);
+    // Export: the six ways out, and the scene file is written
+    await ap.click('.ab-chip[data-anim="export"]');
+    const ex = await tiles();
+    const [dl] = await Promise.all([ap.waitForEvent('download', { timeout: 30000 }), ap.click('.add-strip [data-mode="animExport"] [aria-label="Scene file"]')]);
+    if (ex !== 'Video,GIF,Animated SVG,Scene file,Copy link,Copy embed code' || !/\.tvfs$/.test(dl.suggestedFilename())) throw new Error('export: ' + ex + ' ' + dl.suggestedFilename());
+    // More brings the old bar up; Exit ends the morph and the strip is given back
+    await ap.click('.ab-chip[data-anim="more"]');
+    const more = await ap.evaluate(() => document.getElementById('bMorphKeep').getBoundingClientRect().height > 0);
+    await ap.click('#abExit');
+    await ap.waitForTimeout(500);
+    const end = await ap.evaluate(() => ({ live: document.body.classList.contains('morphing'), mode: window.__strip.mode, bar: getComputedStyle(document.getElementById('animBar')).display }));
+    if (!more || end.live || (end.mode && end.mode.startsWith('anim')) || end.bar !== 'none') throw new Error('More and Exit: ' + JSON.stringify({ more, end }));
+  } catch (e) {
+    failures.push(`[animation bar] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the animation's bar and strip`);
+  await ap.close();
 }
 
 await T.finish();
