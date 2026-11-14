@@ -3468,6 +3468,17 @@
                     <path d="M17.5 10.5l1.4 3.2 3.4.3-2.6 2.2.8 3.3-3-1.8-3 1.8.8-3.3-2.6-2.2 3.4-.3z"/>
                 </svg>
             </button>
+            <!-- ARROWS (14 Nov 2026, Tom: "move the arrows to the main tool bar and show the arrows on bottom"): and the same
+                 day "the arrow tool should draw the line and the arrows": a drawing tool, so it stands with the pen, the
+                 line and the shape tool. Pressed, a drag on the drawing draws an arrow (THE ARROW TOOL), and the strip
+                 shows the heads it will have, none, at the end, at both ends, at the start (MODES.arrows), as Fill's
+                 colours are shown. -->
+            <button id="bArrows" class="icon-btn" title="arrows — drag on the drawing to draw an arrow; the strip picks its heads, and gives a selected line them">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 12h15"/>
+                    <path d="M15 8l4 4-4 4"/>
+                </svg>
+            </button>
             <button id="bPlot" class="icon-btn" title="plot a formula: a shape whose outline is computed (r = … for a polar curve, x = … and y = … for a curve in t, y = … for a graph), with functions of your own and sums; select a plotted shape and open this to change its formula">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M14.5 4.5c-2.2-.6-3.4.6-3.9 3.2L8.9 17c-.5 2.6-1.7 3.6-3.9 3"/>
@@ -3642,15 +3653,6 @@
                     <path d="M4 7h16" stroke-width="1"/>
                     <path d="M4 12h16" stroke-width="2.2"/>
                     <path d="M4 17.5h16" stroke-width="3.8"/>
-                </svg>
-            </button>
-            <!-- ARROWS (14 Nov 2026, Tom: "move the arrows to the main tool bar and show the arrows on bottom"): an option
-                 of a line, so a button here, and its four values, none, at the end, at both ends, at the start, are the
-                 strip's tiles (MODES.arrows), as Fill's colours are. Only for an exact open line, so disabled otherwise. -->
-            <button id="bArrows" class="icon-btn" title="arrows — arrowheads on a line: none, at the end, at both ends, at the start">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M4 12h15"/>
-                    <path d="M15 8l4 4-4 4"/>
                 </svg>
             </button>
             <!-- NAME AND DESCRIPTION. A card with a heading rule and two body rules: the shape of
@@ -20547,6 +20549,13 @@
                     const j = (k + 1) % n;
                     edgeLabel(P(k), P(j), fmtLen(len(k, j)));
                 }
+                return;
+            }
+            if (shapeDrag && shapeDrag.arrow) {
+                const a = shapeDrag.a,
+                    b = arrowEnd(shapeDrag);
+                if (Math.hypot(b.x - a.x, b.y - a.y) >= 4)
+                    measureLabel(b.x, b.y + 22, fmtLen(Math.hypot(b.x - a.x, b.y - a.y) * wpp));
                 return;
             }
             if (shapeDrag) {
@@ -41612,7 +41621,7 @@
                 return;
             }
             // THE SHAPE TOOL takes the press before anything else: it is a drawing tool
-            if (shapeTool) {
+            if (shapeTool || arrowTool) {
                 e.preventDefault();
                 const rr = cv.getBoundingClientRect();
                 const p = {
@@ -41625,7 +41634,8 @@
                     a,
                     b: a,
                     shift: e.shiftKey,
-                    targets
+                    targets,
+                    arrow: arrowTool && !shapeTool // THE ARROW TOOL: a line from a to b, not an outline
                 };
                 drawAll();
                 return;
@@ -54495,6 +54505,8 @@
         // already has shapes, a new stroke is ADDED as another subpath; otherwise it
         // starts the first shape.
         function setDrawMode(on, straight) {
+            if (on && arrowTool && window.__strip)
+                window.__strip.open(null); // the arrow tool is the strip's Arrows mode: closing that disarms it
             if (on && shapeTool)
                 setShapeTool(false); // one drawing tool at a time
             drawMode = on;
@@ -54582,7 +54594,29 @@
             n: 6,
             round: 0
         };
+        // THE ARROW TOOL (14 Nov 2026, Tom: "the arrow tool should draw the line and the arrows, dont require a line be
+        // drawn and selected"). Arrows was a style for a line already drawn, so its button was dead until one was; now it
+        // is a drawing tool of its own: armed by the top bar's Arrows (which turns the strip to its four choices), a drag
+        // on the canvas from tail to tip draws an exact line with the heads the strip has lit (arrowCfg), and selects it.
+        // It rides the shape tool's drag (shapeDrag, marked .arrow): the press, the snapping and the release are the same.
+        let arrowTool = false;
+        let arrowCfg = 1; // 0 none, 1 at the end, 2 both ends, 3 at the start (lineStyleOf's arrows)
+        function setArrowTool(on) {
+            on = !!on;
+            if (on === arrowTool)
+                return;
+            if (on && drawMode)
+                setDrawMode(false);
+            if (on && shapeTool)
+                setShapeTool(false);
+            arrowTool = on;
+            if (shapeDrag && shapeDrag.arrow)
+                shapeDrag = null;
+            cv.style.cursor = on ? 'crosshair' : '';
+        }
         function setShapeTool(on) {
+            if (on && arrowTool && window.__strip)
+                window.__strip.open(null);
             if (on && drawMode)
                 setDrawMode(false);
             if (on)
@@ -54766,9 +54800,43 @@
                 ctx.restore();
             }
         }
+        // the arrow's tip: where the pointer is, or held to a multiple of 45° from the tail with Shift
+        function arrowEnd(d) {
+            return d.shift ? snap45(d.a, d.b) : d.b;
+        }
         function drawShapeToolPreview() {
             if (!shapeDrag)
                 return;
+            if (shapeDrag.arrow) {
+                const a = shapeDrag.a,
+                    b = arrowEnd(shapeDrag),
+                    L = Math.hypot(b.x - a.x, b.y - a.y);
+                if (L < 4)
+                    return;
+                ctx.save();
+                ctx.strokeStyle = '#ffd479';
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                const ux = (b.x - a.x) / L,
+                    uy = (b.y - a.y) / L,
+                    h = Math.min(14, L / 3);
+                const head = (p, d) => {
+                    ctx.moveTo(p.x - d * h * ux - h * 0.5 * uy, p.y - d * h * uy + h * 0.5 * ux);
+                    ctx.lineTo(p.x, p.y);
+                    ctx.lineTo(p.x - d * h * ux + h * 0.5 * uy, p.y - d * h * uy - h * 0.5 * ux);
+                };
+                if (arrowCfg === 1 || arrowCfg === 2)
+                    head(b, 1);
+                if (arrowCfg === 3 || arrowCfg === 2)
+                    head(a, -1);
+                ctx.stroke();
+                ctx.restore();
+                return;
+            }
             const o = shapeToolOutline(shapeDrag.a, shapeDrag.b, shapeDrag.shift);
             if (!shapeToolBig(o))
                 return;
@@ -54785,6 +54853,26 @@
             const d = shapeDrag;
             shapeDrag = null;
             ptGuides = null;
+            if (d && d.arrow) {
+                const a = d.a,
+                    b = arrowEnd(d);
+                if (Math.hypot(b.x - a.x, b.y - a.y) < 4) {
+                    drawAll();
+                    return;
+                }
+                const rr = cv.getBoundingClientRect();
+                const wpts = [a, b].map(p => pxToWorld(p.x, p.y, rr.width, rr.height));
+                loadExactShape(wpts, state.subpaths.length > 0, true);
+                const k = state.subpaths.length - 1, sp = state.subpaths[k];
+                if (sp && arrowCfg) {
+                    sp.lineStyle = { dash: null, arrows: arrowCfg };
+                    sp._lazyP2d = null;
+                }
+                pushHistory();
+                scheduleSave();
+                drawAll();
+                return;
+            }
             const o = d ? shapeToolOutline(d.a, d.b, d.shift) : null;
             if (!o || !shapeToolBig(o)) {
                 drawAll();
@@ -56714,7 +56802,7 @@
                 hold.appendChild(b);
             }
         }
-        const STRIP_FIRST = ['bAddStrip', 'bStyle', 'bLine', 'bArrows', 'bAlign', 'bOrder', 'bBuild'];
+        const STRIP_FIRST = ['bAddStrip', 'bStyle', 'bLine', 'bAlign', 'bOrder', 'bBuild'];
         {
             const bar = document.querySelector('.topbar .controls');
             const lead = STRIP_FIRST.map(id => $(id)).filter(b => b && b.parentNode === bar);
@@ -56861,11 +56949,11 @@
                             host.appendChild(b);
                         }
                     },
-                    tap: b => setLineArrows(+b.dataset.arrows),
-                    on: b => {
-                        const sp = selectedIndices().map(i => state.subpaths[i]).find(q => q && q._lazy && q._lazy.exact && q._lazy.open);
-                        return !!sp && lineStyleOf(sp).arrows === +b.dataset.arrows;
-                    } },
+                    tap: b => {
+                        arrowCfg = +b.dataset.arrows; // the next arrow drawn
+                        setLineArrows(arrowCfg); // and a line selected now
+                    },
+                    on: b => arrowCfg === +b.dataset.arrows },
                 build: { btn: 'bBuild',
                     build: host => {
                         for (const f of (__buildPanel && __buildPanel.families ? __buildPanel.families() : [])) {
@@ -57028,6 +57116,7 @@
                         p.classList.remove('open');
                 }
                 mode = next;
+                setArrowTool(mode === 'arrows'); // the Arrows mode is the arrow tool armed (THE ARROW TOOL)
                 document.body.classList.toggle('adding', !!mode);
                 if (mode)
                     document.body.dataset.strip = mode;
@@ -57485,10 +57574,7 @@
             set($('bLine'), anySel,
             anySel ? 'line — outline width, colour and opacity'
             : 'select a shape to change its outline');
-            const lineSel = selectionHasExact(true);
-            set($('bArrows'), lineSel,
-            lineSel ? 'arrows — arrowheads on a line: none, at the end, at both ends, at the start'
-            : 'select a line (drawn with the line tool) to give it arrowheads');
+            set($('bArrows'), !editing, 'arrows — drag on the drawing to draw an arrow; the strip picks its heads, and gives a selected line them');
             set($('bDesc'), anySel,
             anySel ? 'name and description — what this shape is called and what it is for'
             : 'select a shape to name it');
