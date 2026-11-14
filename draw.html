@@ -2782,6 +2782,20 @@
                     .add-strip > .controls > .strip-more svg, .add-strip > .controls[data-mode="align"] svg,
                     .add-strip > .controls[data-mode="order"] svg { width: 34px; height: 34px; }
                     .add-strip > .controls[data-mode="arrows"] svg { width: 46px; height: 46px; }
+                    .add-strip > .controls[data-mode="shape"] svg { width: 46px; height: 46px; }
+                    /* the text tool's tiles are letters: the size as an A, the style as B I O, a font as Ag in its face */
+                    .add-strip > .controls > .strip-text { font: 24px system-ui, sans-serif; color: var(--fg); line-height: 1; }
+                    /* the typing box the text tool opens where the drawing was tapped */
+                    #textAt {
+                      position: fixed; z-index: 70; display: flex; gap: 6px; align-items: center; padding: 6px;
+                      background: var(--panel); border: 1px solid var(--gold); border-radius: 8px;
+                      box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+                    }
+                    #textAt button { min-width: 38px; height: 34px; font-size: 16px; }
+                    #textAt input {
+                      width: min(240px, 60vw); font-size: 18px; padding: 6px 8px; color: var(--fg);
+                      background: var(--bg, #0b0b10); border: 1px solid var(--line2); border-radius: 6px; outline: none;
+                    }
                     .add-strip > .controls > .icon-btn:disabled { opacity: 0.35; }
                     /* a swatch tile is its colour, a disc in a chip; the colour in use has the gold ring the panel gave it */
                     .add-strip .sw-disc { display: block; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--chip-line); }
@@ -27590,8 +27604,10 @@
             // 60% a word landed filling the viewport edge to edge and the first thing you did
             // was shrink it.
             const scale = (sizeFrac * visW) / Math.max(bw, bh);
-            const ox = state.view.panX,
-                oy = state.view.panY; // center on the current view
+            // …or on the point asked for (o.at, world units: THE TEXT TOOL's tap)
+            const hR0 = state.hRun || 1;
+            const ox = o.at ? o.at.x / hR0 : state.view.panX,
+                oy = o.at ? o.at.y / hR0 : state.view.panY; // center on the current view
             const N = state.N;
             const made = [];
             // One id for the whole word, carried on every glyph contour it produced. The fill
@@ -41639,6 +41655,13 @@
                 return;
             }
             // THE SHAPE TOOL takes the press before anything else: it is a drawing tool
+            // THE TEXT TOOL: a press says where the words go
+            if (textTool) {
+                e.preventDefault();
+                const rr = cv.getBoundingClientRect();
+                openTextAt(e.clientX - rr.left, e.clientY - rr.top);
+                return;
+            }
             if (shapeTool || arrowTool) {
                 e.preventDefault();
                 const rr = cv.getBoundingClientRect();
@@ -54525,6 +54548,8 @@
         function setDrawMode(on, straight) {
             // the line tool's strip may be up: its Path is this pen, so the strip stays for a straight pen and only the
             // drag is disarmed; the pencil closes it
+            if (on && textTool && window.__strip)
+                window.__strip.open(null);
             const inLine = !!(window.__strip && window.__strip.mode === 'arrows');
             if (on && straight && inLine)
                 setArrowTool(false);
@@ -54632,6 +54657,73 @@
         // tool's strip instead of from a button of its own. The pen's button left the top bar; a path closed on its
         // start is a polygon, and takes the stroke; left open it takes the ends too.
         let linePath = false;
+        // THE TEXT TOOL (14 Nov 2026, Tom: "1 2 3 5", the first "Text in the footer": press Text, pick a font and size
+        // from footer tiles, then tap where the text goes). Text was a popover with a typing box, and what was typed
+        // landed in the middle of the view. Now Text turns the strip to its choices (MODES.text: the size, bold, italic,
+        // outline, then a tile a font, each saying "Ag" in it) and arms this tool: a tap on the drawing opens a typing
+        // box at that point (#textAt), and Enter sets the words there, centred on the tap. The tool stays on for the
+        // next. The popover is kept for a word already set: a double-click on it opens it to retype.
+        let textTool = false;
+        let textAt = null; // { px, py, el, input }: the typing box open on the canvas, if one is
+        function closeTextAt(commit) {
+            const t = textAt;
+            if (!t)
+                return;
+            textAt = null;
+            const val = t.input.value;
+            t.el.remove();
+            if (commit && val && val.trim()) {
+                const r = cv.getBoundingClientRect();
+                addTextShapes(val, { at: pxToWorld(t.px, t.py, r.width, r.height) });
+                scheduleSave();
+            }
+        }
+        function styleTextAt() {
+            if (!textAt)
+                return;
+            const st = textStyle();
+            textAt.input.style.fontFamily = '"' + st.family + '", sans-serif';
+            textAt.input.style.fontWeight = st.bold ? '700' : '400';
+            textAt.input.style.fontStyle = st.italic ? 'italic' : 'normal';
+        }
+        function openTextAt(px, py) {
+            closeTextAt(true); // a tap elsewhere sets what was being typed, and starts the next
+            const r = cv.getBoundingClientRect();
+            const el = document.createElement('div');
+            el.id = 'textAt';
+            el.innerHTML = '<input type="text" placeholder="type, then Enter" autocomplete="off" spellcheck="false" aria-label="the text to set here">'
+                + '<button type="button" class="pop-act" aria-label="set the text" title="set the text (Enter)">✓</button>';
+            document.body.appendChild(el);
+            const input = el.querySelector('input');
+            textAt = { px, py, el, input };
+            styleTextAt();
+            const w = el.offsetWidth, h = el.offsetHeight;
+            el.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + px - w / 2)) + 'px';
+            el.style.top = Math.max(8, Math.min(innerHeight - h - 8, r.top + py - h / 2)) + 'px';
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    closeTextAt(true);
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeTextAt(false);
+                }
+                e.stopPropagation(); // the canvas shortcuts must not fire while typing here
+            });
+            el.querySelector('button').addEventListener('click', () => closeTextAt(true));
+            input.focus();
+        }
+        function setTextTool(on) {
+            on = !!on;
+            if (on === textTool)
+                return;
+            if (on && drawMode)
+                setDrawMode(false);
+            textTool = on;
+            if (!on)
+                closeTextAt(true);
+            cv.style.cursor = on ? 'text' : '';
+        }
         function setArrowTool(on) {
             on = !!on;
             if (on === arrowTool)
@@ -56999,6 +57091,67 @@
                         if (el && el.classList.contains('open'))
                             placePop(el, t);
                     } },
+                text: { btn: 'bText',
+                    build: host => {
+                        const tile = (data, label, html) => {
+                            const b = document.createElement('button');
+                            b.type = 'button';
+                            b.className = 'icon-btn strip-tile strip-text';
+                            Object.assign(b.dataset, data);
+                            b.setAttribute('aria-label', label);
+                            b.innerHTML = html;
+                            host.appendChild(b);
+                            return b;
+                        };
+                        // the size (a share of the view's width, as the popover's slider was), then how the letters
+                        // are drawn, then the fonts this machine has, each in its own face
+                        for (const [v, name, px] of [[0.15, 'Small', 15], [0.30, 'Medium', 24], [0.50, 'Large', 36]])
+                            tile({ size: String(v) }, name, '<span style="font-size:' + px + 'px">A</span>');
+                        tile({ flag: 'bold' }, 'Bold', '<span style="font-weight:700">B</span>');
+                        tile({ flag: 'italic' }, 'Italic', '<span style="font-style:italic;font-family:Georgia,serif">I</span>');
+                        tile({ flag: 'outline' }, 'Outline', '<span style="color:transparent;-webkit-text-stroke:1.2px var(--fg)">O</span>');
+                        for (const [, list] of availableFonts())
+                            for (const f of list)
+                                tile({ font: f }, f, '<span style="font-family:&quot;' + f.replace(/"/g, '') + '&quot;,sans-serif">Ag</span>');
+                    },
+                    tap: b => {
+                        const st = textStyle();
+                        const cur = selectedTextRun();
+                        if (b.dataset.flag === 'outline') {
+                            // paint only, so a word selected wears it at once (as the popover's button did)
+                            st.outline = !st.outline;
+                            state.textOutline = st.outline;
+                            if (cur && cur.members.length) {
+                                setTextRunOutline(cur.members, st.outline);
+                                refreshScrollerThumbs && refreshScrollerThumbs();
+                                pushHistory();
+                            }
+                        } else {
+                            if (b.dataset.size)
+                                st.size = +b.dataset.size;
+                            else if (b.dataset.flag)
+                                st[b.dataset.flag] = !st[b.dataset.flag];
+                            else if (b.dataset.font)
+                                st.family = b.dataset.font;
+                            // a word selected is set again in the new face, weight or slant (its size is its own:
+                            // it has been placed and may have been resized)
+                            if (cur && !b.dataset.size) {
+                                const r = replaceTextRun(cur.meta.text, st);
+                                if (!r.ok)
+                                    flashStatus(r.reason);
+                            }
+                        }
+                        styleTextAt();
+                        if (textAt)
+                            textAt.input.focus();
+                        scheduleSave();
+                        drawAll();
+                    },
+                    on: b => {
+                        const st = textStyle();
+                        return b.dataset.size ? Math.abs(st.size - +b.dataset.size) < 0.026
+                            : b.dataset.flag ? !!st[b.dataset.flag] : st.family === b.dataset.font;
+                    } },
                 shape: { btn: 'bDrawShape',
                     build: host => {
                         // each shape the tool drags out, drawn as it comes out (a regular polygon or star from its centre)
@@ -57267,6 +57420,7 @@
                 setArrowTool(mode === 'arrows' && !linePath); // the Arrows mode is the arrow tool armed (THE ARROW TOOL)
                 if (mode === 'arrows' && linePath && !(drawMode && lineMode))
                     setDrawMode(true, true);
+                setTextTool(mode === 'text'); // and the Text mode the text tool (THE TEXT TOOL)
                 if (typeof setShapeTool === 'function')
                     setShapeTool(mode === 'shape'); // and the Shape mode the shape tool (THE SHAPE TOOL'S CHOICES ARE THE STRIP'S)
                 document.body.classList.toggle('adding', !!mode);
@@ -57466,7 +57620,10 @@
                     n: state.subpaths.length };
                 const picked = !!selSeen && seen.key !== selSeen.key && !(seen.n > selSeen.n);
                 selSeen = seen;
-                if (want && (!mode || (picked && mode !== 'select')))
+                // …and not from a drawing tool (the line, shape and text tools): while one is armed a press on the drawing is
+                // the tool's, so what is selected changes only by the tool's own doing (a word set again in bold)
+                const tool = mode === 'arrows' || mode === 'shape' || mode === 'text';
+                if (want && (!mode || (picked && mode !== 'select' && !tool)))
                     setMode('select');
                 else if (!want && mode === 'select')
                     setMode(null);
@@ -57490,7 +57647,7 @@
             }
             // Escape puts a drawing tool away (the line tool, the shape tool), as it does the pen
             window.addEventListener('keydown', e => {
-                if (e.key === 'Escape' && (mode === 'arrows' || mode === 'shape'))
+                if (e.key === 'Escape' && (mode === 'arrows' || mode === 'shape' || mode === 'text'))
                     setMode(null);
             });
             window.__selStripSync = selSync;

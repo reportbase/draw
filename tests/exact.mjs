@@ -628,7 +628,7 @@ T.current = 'combining exact shapes';
     if ((await xp.evaluate(() => window.__lazy.held())) !== 2) throw new Error('aligning converted a shape');
     // TEXT TO EXACT SHAPES: a word made exact is a shape a letter, its counters holes
     await fresh();
-    await xp.click('#bText');
+    await xp.evaluate(() => window.dispatchEvent(new Event('tangent:edit-text'))); // the popover (Text is the strip's tool since 14 Nov 2026)
     await xp.fill('#textPopInput', 'Bo');
     await xp.click('#textPopAdd');
     await xp.waitForTimeout(1000);
@@ -645,7 +645,7 @@ T.current = 'combining exact shapes';
     // EXACT TEXT FROM THE FONT: in a family whose file the page can fetch (a web font), the
     // letters come from the font's outlines, and the status line says so
     await fresh();
-    await xp.click('#bText');
+    await xp.evaluate(() => window.dispatchEvent(new Event('tangent:edit-text'))); // the popover (Text is the strip's tool since 14 Nov 2026)
     const fams = await xp.evaluate(() => Array.from(document.getElementById('textPopFont').options, o => o.value));
     const fam = ['Inter', 'DM Mono', 'Roboto', 'DM Serif Display'].find(f => fams.includes(f));
     if (fam) {

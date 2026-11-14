@@ -839,6 +839,51 @@ T.current = 'the shape and line tools in the strip';
   await tp.close();
 }
 
+/* The text tool (14 Nov 2026, Tom: "1 2 3 5", the first "Text in the footer"): Text turns the strip to the size, the
+   style and a tile a font; a tap on the drawing opens a typing box there, and Enter sets the words centred on the tap.
+   The tool stays on; Bold picked with the word selected sets it again bold. */
+T.current = 'the text tool';
+{
+  const xp2 = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  xp2.on('pageerror', e => failures.push(`[text tool] ${e.message}`));
+  await xp2.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await xp2.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await xp2.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const n0 = await xp2.evaluate(() => window.__box.count());
+    await xp2.click('#bText');
+    const t0 = await xp2.evaluate(() => ({ mode: window.__strip.mode, pop: document.getElementById('textPop').classList.contains('open'),
+      tiles: [...document.querySelectorAll('.add-strip [data-mode="text"] .strip-tile')].map(t => t.getAttribute('aria-label')) }));
+    if (t0.mode !== 'text' || t0.pop || t0.tiles.slice(0, 6).join() !== 'Small,Medium,Large,Bold,Italic,Outline' || t0.tiles.length < 7)
+      throw new Error('Text pressed: ' + JSON.stringify(t0));
+    const cv = await xp2.locator('#cv').boundingBox();
+    await xp2.mouse.click(cv.x + 300, cv.y + 200);
+    if (!(await xp2.evaluate(() => !!document.getElementById('textAt')))) throw new Error('a tap with the text tool opened no typing box');
+    await xp2.keyboard.type('Hi');
+    await xp2.keyboard.press('Enter');
+    await xp2.waitForTimeout(500);
+    const t1 = await xp2.evaluate(() => { const b = window.__box.handles().box; return { n: window.__box.count(), mode: window.__strip.mode,
+      box: !!document.getElementById('textAt'), cx: (b.x0 + b.x1) / 2, cy: (b.y0 + b.y1) / 2, w: b.x1 - b.x0 }; });
+    if (!(t1.n > n0) || t1.mode !== 'text' || t1.box || Math.abs(t1.cx - 300) > 3 || Math.abs(t1.cy - 200) > 3)
+      throw new Error('the words set: ' + JSON.stringify({ ...t1, n0 }));
+    // Bold, with the word selected: it is set again, wider, and the tile is lit
+    await xp2.click('.add-strip [data-mode="text"] [aria-label="Bold"]');
+    await xp2.waitForTimeout(500);
+    const t2 = await xp2.evaluate(() => { const b = window.__box.handles().box; return { w: b.x1 - b.x0,
+      lit: document.querySelector('.add-strip [data-mode="text"] [aria-label="Bold"]').classList.contains('on') }; });
+    if (!t2.lit || !(t2.w > t1.w)) throw new Error('Bold on the selected word: ' + JSON.stringify({ before: t1.w, ...t2 }));
+    await xp2.click('.add-strip [data-mode="text"] [aria-label="Bold"]');
+    await xp2.keyboard.press('Escape');
+    await xp2.waitForTimeout(200);
+    if (await xp2.evaluate(() => window.__strip.mode) === 'text') throw new Error('Escape did not put the text tool away');
+  } catch (e) {
+    failures.push(`[text tool] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the text tool sets words where the drawing is tapped`);
+  await xp2.close();
+}
+
 /* A hold builds the selection and never hides the bars (13 Nov 2026, Tom: "Long press should multi select objects, not
    toggle the toolbar visibility"), locked or not, with a finger or a mouse (14 Nov 2026, "Long press Multi select not
    working, it deselects": unlocked, the press selected the shape it landed on before the hold fired, so the hold had
