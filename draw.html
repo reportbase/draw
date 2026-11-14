@@ -2858,12 +2858,10 @@
                       color: var(--fg); background: var(--chip-bg); border: 1px solid var(--chip-line);
                     }
                     #animBar .ab-chip.on { background: var(--gold); color: #14141a; border-color: var(--gold); }
-                    /* The morph bar keeps its place in the page's column while a morph is live, as it had: it is what makes
-                       the canvas end above the animation's bar and the strip (its margin is their height), so the drawing
-                       is never under them. It is that margin and nothing else: every control of it has a tile, a dial or a
-                       chip now (14 Nov 2026, "1 2 3 4 5": the old bar retired), and it is kept, shut, as the holder of the
-                       controls those press. Nothing opens it any more (14 Nov 2026, "1 2 3 4 5 6", the second: the checks
-                       press its controls where they are, unseen, as the tiles do). */
+                    /* The shape bar keeps its place in the page's column while a morph is live: it is what makes the canvas
+                       end above the animation's bar and the strip (its margin is their height), so the drawing is never
+                       under them. It is that margin and nothing else; the morph bar it held is gone (14 Nov 2026, THE
+                       ANIMATION'S CONTROLS ARE A TABLE, NOT A BAR). */
                     body.morphing #shapeBar { display: flex; height: 0; min-height: 0; padding: 0; overflow: hidden; margin-bottom: calc(104px + var(--anim-h, 52px)); }
                     /* ON A PHONE THE CHIPS ARE IN GROUPS (the same day, the sixth): eleven chips were a line to pan, most of
                        it out of sight. Keys, Move, Feel, Export, More and Exit fit across; a group opened shows its own
@@ -6932,70 +6930,8 @@
                selection actually has. A button that opens a panel could do neither.
                The settings menu still holds an <input type="color"> for each, which is
                where you go for a colour the palette does not carry. -->
-        <!-- ── THE LIVE MORPH, and it lives HERE because this bar is empty and because the
-               control has to be visible while you look at the thing it moves. Every other
-               control that used to sit in this row left for the selection box, on the argument
-               that a bar slider cannot say which shape it means. This one can: while a morph is
-               live the scene is ONE shape and the slider is the only thing in the room. It is
-               hidden the rest of the time, so .shape-bar:empty still takes the bar off the
-               screen when there is no morph running. -->
-        <div class="control-group" id="morphBar" style="display:none;gap:8px 10px;flex-wrap:wrap;justify-content:center;flex:1 1 auto;min-width:0;">
-            <button id="bMorphPlay" data-code="mpl" class="res-btn" title="run EVERY live morph as a loop. One clock drives all of them, so several morphs started separately stay in register with each other and a still frame is a frame of the same moment. The blend is recomputed from the keys every frame — there is nothing baked, so the shapes you are watching are real shapes at every instant and you can stop anywhere and keep them.">run</button>
-            <label for="morphT">t</label>
-            <input type="range" id="morphT" list="morphTickList" min="0" max="1000" step="1" value="0" style="width:min(340px,38vw);" title="where the blend sits between the keys. With two keys this is a straight lerp; with three or more the keys sit on a TIME CIRCLE and the weights are the same cardinal kernel that reconstructs a contour — so the loop closes and passing t=1 comes back to the first key without a seam.">
-            <span class="val" id="morphTVal">0.000</span>
-            <!-- THE TIMELINE (25 Oct 2026): the keys' places as ticks on the track, a step to the key before or
-                 after, a key added where you stand or taken away, the neighbouring keys as ghosts, and how long
-                 one loop takes. -->
-            <datalist id="morphTickList"></datalist>
-            <button id="bMorphPrevKey" data-code="mkb" class="res-btn" title="to the key before — at a key the blend is that key exactly">◀ key</button>
-            <button id="bMorphNextKey" data-code="mkn" class="res-btn" title="to the key after">key ▶</button>
-            <button id="bMorphAddKey" data-code="mka" class="res-btn" title="make the pose you are looking at a key, between the key before and the key after. Evenly spaced keys stay evenly round the loop, so the others move up to make room; keys at times of their own keep them, and the new one goes where you stand; with two keys this turns the ramp into a loop">+ key</button>
-            <button id="bMorphDelKey" data-code="mkd" class="res-btn" title="take away the key nearest where you stand (a morph keeps at least two)">− key</button>
-            <label title="show the key before (warm) and the key after (cool) as faint outlines"><input type="checkbox" id="tMorphOnion"> onion</label>
-            <button id="bMorphTimeline" type="button" title="THE SCENE'S TIMELINE: every live morph a row, its keys as diamonds on the shared clock. Drag a key to retime it, drag along a row or the ruler to scrub, press a row's number to select that morph">timeline</button>
-            <label for="morphLoop" title="how long one loop takes when it runs, and in a recording">loop</label>
-            <input type="number" id="morphLoop" min="0.5" max="60" step="0.5" value="4" style="width:52px;"><span style="color:var(--fg-muted);font-size:11px;">s</span>
-            <!-- DETAIL EFFECTS: the fine harmonics moved and the silhouette left alone, on the same clock -->
-            <label for="morphFx" title="an effect on the detail, the silhouette left alone: shimmer ripples the edge, grow brings the detail in octave by octave and takes it away, boil makes the outline seethe. It plays, records and keeps with the morph">effect</label>
-            <select id="morphFx"><option value="">none</option><option value="shimmer">shimmer</option><option value="grow">grow</option><option value="boil">boil</option></select>
-            <input type="range" id="morphFxAmt" min="0" max="100" step="1" value="50" style="width:min(110px,12vw);" title="how strong the effect is">
-            <!-- EASING AND HOLDS (25 Oct 2026): how the blend moves from key to key -->
-            <label for="morphEase" title="how the blend moves from one key to the next: evenly (none), slow away from a key and slow into the next (in & out), slow away (in) or slow arriving (out). A key is still exact at its place">ease</label>
-            <select id="morphEase"><option value="">none</option><option value="inout">in &amp; out</option><option value="in">in</option><option value="out">out</option><option value="anticipate">anticipate</option><option value="overshoot">overshoot</option><option value="elastic">elastic</option></select>
-            <label for="morphHold" title="how long the blend rests on each key, as a share of the stretch from one key to the next (half before the key, half after). The effects and the path do not rest">hold</label>
-            <input type="range" id="morphHold" min="0" max="80" step="1" value="0" style="width:min(90px,10vw);">
-            <!-- SCENE-WIDE GRAVITY AND WIND (27 Oct 2026) -->
-            <label for="morphGravity" title="GRAVITY, for every physical motion in the scene: 1 is the floatiest a loop allows (a hop, a fall or a throw takes its whole cycle); more and they are over sooner and rest, and a swing swings faster">gravity</label>
-            <input type="range" id="morphGravity" min="100" max="400" step="10" value="100" style="width:min(80px,9vw);">
-            <label for="morphWind" title="WIND, for the whole scene: left or right, and how hard. Every sway leans its way, every swing hangs pushed its way, every drift is carried along with it">wind</label>
-            <input type="range" id="morphWind" min="-100" max="100" step="5" value="0" style="width:min(80px,9vw);">
-            <!-- MOTION ALONG A PATH and TRAILS (25 Oct 2026): the live shapes ride a line or curve from the
-                 drawing, and leave echoes or a ribbon behind them -->
-            <button id="bMorphPath" data-code="mpa" class="res-btn" title="select a line or a curve in the drawing and press path: every live shape rides it, once a loop, its centre on the path (several shapes spread evenly along it). The path leaves the drawing while it is one and shows as a dashed guide; press again to take it off and put it back">path</button>
-            <label title="the shape turns with the path's direction, as it was drawn at the path's start"><input type="checkbox" id="tMorphTurn" checked> turn</label>
-            <select id="morphPathMode" title="along: start to end once a loop (a closed path, round once); there &amp; back: out and back, slowing at the ends, seamless"><option value="along">along</option><option value="back">there &amp; back</option></select>
-            <label for="morphTrail" title="what a moving shape leaves behind, under the shapes and in a recording: echoes of its earlier poses, fainter the older, or a ribbon along the way its centre came">trail</label>
-            <select id="morphTrail"><option value="">none</option><option value="echoes">echoes</option><option value="ribbon">ribbon</option></select>
-            <input type="range" id="morphTrailLen" min="0" max="100" step="1" value="50" style="width:min(90px,10vw);" title="how far back the trail reaches, up to 40% of a loop">
-            <label for="morphFps" title="frames a second in a video. The video is encoded frame by frame, so every frame is in it however busy the machine">fps</label>
-            <select id="morphFps"><option value="24">24</option><option value="30" selected>30</option><option value="60">60</option></select>
-            <!-- The lag is on the bar as well as in the panel, because it is a thing you dial
-                     WHILE watching — the panel is where you set it before you start, this is where
-                     you find the value that reads right. Both write the same state. -->
-            <label for="morphLagLive" title="how far behind the silhouette the fine harmonics arrive. 0 is the plain lerp.">lag</label>
-            <input type="range" id="morphLagLive" min="0" max="90" step="1" value="0" style="width:min(150px,16vw);" title="Per-harmonic arrival time. The centroid and the base circle are never late; everything above them is staggered over octaves, so the outline crosses first and the detail catches up. With two keys the schedule is a ramp that still lands exactly on the end; with three or more it is a phase shift around the time circle, so the detail runs a little behind the silhouette and the loop still closes.">
-            <span class="val" id="morphLagVal">off</span>
-            <span id="morphKeys" style="color:var(--fg-muted);font-size:11px;"></span>
-            <button id="bMorphKeep" data-code="mkp" class="res-btn" title="Drop a copy of the pose you are looking at into the drawing and KEEP MORPHING. It is an ordinary shape from there on — leaves, rung, colour, everything — and because the morph is still running you can scrub somewhere else and keep again, building a strip by hand one chosen cell at a time. With several morphs live it takes one pose from each, at the same t. SHIFT-CLICK to freeze instead: the morph ends, the pose stays where it stands and the keys are consumed.">keep</button>
-            <button id="bMorphTvfs" type="button" class="res-btn" title="THE TVF SCENE: write what is on the page as a .tvfs file for the TVF player (player/tvf-player.js): the morphs as their keys and settings, the shapes as their leaves or corners, no frames. The player runs this editor's own engine on it and draws the curves at whatever size it is shown, so it plays as it plays here, at any size">tvfs</button>
-            <button id="bMorphSvg" data-code="msv" class="res-btn" title="Write the whole scene out as ONE animated .svg — every live morph on the shared clock, the static shapes around them as a backdrop. It plays in any browser with no library and no runtime, because SMIL's <animate attributeName=&quot;d&quot;> interpolates between path strings and this format guarantees the one thing SMIL requires and cannot check: every frame is the same cubics in the same order. Frame count and loop mode are in the morph panel.">svg</button>
-            <button id="bMorphVideo" data-code="mvd" class="res-btn" title="record one loop as a .webm video (30 frames a second), the drawing alone with no editor marks, the size of the view">video</button>
-            <button id="bMorphGif" data-code="mgf" class="res-btn" title="record one loop as an animated .gif (20 frames a second, at most 480 pixels wide), looping forever">gif</button>
-            <button id="bMorphLink" data-code="msl" class="res-btn" title="copy a link to this scene: the drawing and every live morph, as it plays now (keys, paths, timing, clips, trails, effects, what follows what). Opened, the editor plays it the same way. The gallery's examples are links like this one.">link</button>
-            <button id="bMorphEmbed" data-code="mse" class="res-btn" title="copy embed code for this scene: an &lt;iframe&gt; of the editor as a player (the canvas alone, which never touches anyone's saved drawing), playing it as it plays here">embed</button>
-            <button id="bMorphExit" data-code="mex" class="res-btn" title="end every live morph and put all their keys back exactly where they were. Poses you dropped with `keep` are ordinary shapes and stay.">exit</button>
-        </div>
+        <!-- (the morph bar's thirty controls stood here until 14 Nov 2026. The time slider is on the animation's bar,
+               #animBar; what the rest did is a table in the script, THE ANIMATION'S CONTROLS ARE A TABLE, NOT A BAR.) -->
         <!-- The line-weight slider used to live here. It is a per-SHAPE value, so it moved
                onto the selection box as the "W" row, next to smooth and the rung — the same
                move those two made, and for the same reason: a bar slider cannot say which
@@ -7021,7 +6957,11 @@
          chosen (THE ANIMATION'S BAR AND STRIP, in the script). The morph bar above is shut, the holder of what they press. -->
     <div id="animBar" role="toolbar" aria-label="animation">
         <button type="button" id="abPlay" class="icon-btn" aria-label="Play" title="run the animation, or pause it"></button>
-        <span id="abT"></span>
+        <span id="abT">
+            <input type="range" id="morphT" list="morphTickList" min="0" max="1000" step="1" value="0" style="width:min(340px,38vw);" title="where the blend sits between the keys. With two keys this is a straight lerp; with three or more the keys sit on a TIME CIRCLE and the weights are the same cardinal kernel that reconstructs a contour — so the loop closes and passing t=1 comes back to the first key without a seam.">
+            <span class="val" id="morphTVal">0.000</span>
+            <datalist id="morphTickList"></datalist>
+        </span>
         <span class="ab-chips">
             <button type="button" class="ab-chip ab-back" id="abBack" aria-label="Back to the groups" title="back to the groups">‹</button>
             <button type="button" class="ab-chip" data-anim="keys" title="the poses the animation passes through: tap one to stand on it, add the pose you are looking at, take one away; the dial moves the key you stand on to another time">Keys</button>
@@ -47782,13 +47722,10 @@
                 return;
             const on = !!state.morphTimelineOpen && morphRunning();
             P.classList.toggle('open', on);
-            const b = $('bMorphTimeline');
-            if (b)
-                b.classList.toggle('active', !!state.morphTimelineOpen);
             if (!on)
                 return;
-            const bar = $('morphBar'),
-                top = bar ? (bar.closest('.shape-bar') || bar).getBoundingClientRect().top : innerHeight - 90;
+            const bar = $('animBar'), // it stands on the animation's bar
+                top = bar && bar.offsetHeight ? bar.getBoundingClientRect().top : innerHeight - 90;
             P.style.bottom = Math.max(8, innerHeight - top + 8) + 'px';
             const sel = new Set(morphRunToolRuns());
             // (not the fill: a morph whose colour blends changes it every frame, and the dot keeps the first)
@@ -47956,6 +47893,15 @@
                 return [0, 1];
             return Array.from({ length: K }, (_, k) => (k + 0.5) / K);
         }
+        // the table of the animation's controls (THE ANIMATION'S CONTROLS ARE A TABLE, NOT A BAR). A function, so
+        // that the parts, which run at their own points of the start, can each add to the one table
+        function animCtlOf() {
+            if (!window.__animCtl) {
+                const T = window.__animCtl = {};
+                window.__anim = { get: n => T[n].get(), set: (n, v) => T[n].set(v), press: (n, e) => T[n].press(e || {}), names: () => Object.keys(T) };
+            }
+            return window.__animCtl;
+        }
         let _morphTicksK = '';
         function morphTimelineSync() {
             const run = morphRuns[0],
@@ -47968,56 +47914,8 @@
                 if (dl)
                     dl.innerHTML = T.map(p => `<option value="${Math.round(p * 1000)}"></option>`).join('');
             }
-            const lp = $('morphLoop');
-            if (lp && document.activeElement !== lp) {
-                const v = +(1 / morphLive.speed).toFixed(2);
-                if (+lp.value !== v)
-                    lp.value = String(v);
-            }
-            const on = $('tMorphOnion');
-            if (on)
-                on.checked = !!state.morphOnion;
-            const run0 = morphRuns[0],
-                fxs = $('morphFx'),
-                fxa = $('morphFxAmt');
-            if (fxs && document.activeElement !== fxs)
-                fxs.value = run0 && run0.fx ? run0.fx.kind : '';
-            if (fxa && document.activeElement !== fxa)
-                fxa.value = String(Math.round(100 * (run0 && run0.fx && run0.fx.amount != null ? run0.fx.amount : 0.5)));
-            // EASING AND HOLDS
-            const es = $('morphEase'),
-                hi = $('morphHold');
-            if (es && document.activeElement !== es)
-                es.value = MORPH_EASES.includes(state.morphEase) ? state.morphEase : '';
-            if (hi && document.activeElement !== hi)
-                hi.value = String(Math.round(100 * (+state.morphHold || 0)));
-            const gi = $('morphGravity'), // SCENE-WIDE GRAVITY AND WIND
-                wi = $('morphWind');
-            if (gi && document.activeElement !== gi)
-                gi.value = String(Math.round(100 * morphGravity()));
-            if (wi && document.activeElement !== wi)
-                wi.value = String(Math.round(100 * morphWind()));
-            // MOTION ALONG A PATH and TRAILS
-            const pb = $('bMorphPath');
-            if (pb) {
-                pb.classList.toggle('active', !!morphLive.path);
-                pb.textContent = morphLive.path ? 'path ✓' : 'path';
-            }
-            const tt = $('tMorphTurn');
-            if (tt)
-                tt.checked = state.morphPathTurn !== false;
-            const pm = $('morphPathMode');
-            if (pm && document.activeElement !== pm)
-                pm.value = state.morphPathMode === 'back' ? 'back' : 'along';
-            const tr = $('morphTrail'),
-                tl = $('morphTrailLen');
-            if (tr && document.activeElement !== tr)
-                tr.value = state.morphTrail === 'echoes' || state.morphTrail === 'ribbon' ? state.morphTrail : '';
-            if (tl && document.activeElement !== tl)
-                tl.value = String(Math.round(100 * (state.morphTrailLen != null ? state.morphTrailLen : 0.5)));
-            const fs = $('morphFps');
-            if (fs && document.activeElement !== fs)
-                fs.value = String([24, 30, 60].includes(+state.morphFps) ? +state.morphFps : 30);
+            // (the rest of what stood here wrote the engine's values into the morph bar's controls; they are read
+            // where they live now, through animCtl)
         }
         function morphSetT(t) {
             morphAbsorbEdits(); // EDITING A KEY ON THE CANVAS: taken in where it was made, before the clock moves
@@ -50808,10 +50706,17 @@
 
         {
             {
+                // THE ANIMATION'S CONTROLS ARE A TABLE, NOT A BAR (14 Nov 2026, Tom: "5", after "delete the old morph bar's
+                // markup"). Each of these was a button, a select or a slider on the morph bar with a listener here; the
+                // bar went behind the animation's chips and then out of sight, and its controls stayed in the page only
+                // for the tiles and the checks to press. They are gone now. What each did is an entry of animCtl (the
+                // page's, through animCtlOf): { press } for what was a button, { get, set } for what held a value, with
+                // min, max and step where it was a slider, in the slider's own units, so a dial is made from it
+                // directly. The values were always the engine's (state, morphLive, the runs); a control only showed
+                // them, so get reads what morphTimelineSync used to write into it. window.__anim is the same table
+                // for the checks: __anim.press('addKey'), __anim.set('ease', 'inout'), __anim.get('loop').
                 const rng = $('morphT'),
-                    bp = $('bMorphPlay'),
-                    bk = $('bMorphKeep'),
-                    bx = $('bMorphExit');
+                    ctl = animCtlOf();
                 // Every entry point checks that the live shape is still in the scene, not just the
                 // play loop: an undo taken mid-morph leaves the bar up over a shape that is no longer
                 // there, and the honest answer to a scrub at that point is to end the morph on what
@@ -50851,8 +50756,7 @@
                     });
                 // RUN is global by design: one clock drives every live morph, so this starts and stops
                 // all of them together and the poses stay in register with each other.
-                if (bp)
-                    bp.addEventListener('click', () => {
+                ctl.play = { press: () => {
                         if (orphaned())
                             return;
                         // Stopping CANCELS the pending frame rather than letting the next tick notice the
@@ -50869,9 +50773,8 @@
                         morphBarSync();
                         if (!morphLive.raf)
                             morphLive.raf = requestAnimationFrame(morphTick);
-                    });
-                if (bk)
-                    bk.addEventListener('click', e => {
+                    } };
+                ctl.keep = { press: e => {
                         if (orphaned())
                             return;
                         if (e.shiftKey) {
@@ -50884,99 +50787,87 @@
                             + ' · the morph is still running, so keep again anywhere else and build the strip by hand'
                             + ' — shift-click to freeze and end it instead');
                         }
-                    });
+                    } };
                 // THE TIMELINE and RECORDING A LOOP
-                const onKey = (id, fn) => {
-                    const el = $(id);
-                    if (el)
-                        el.addEventListener('click', () => {
-                            if (orphaned())
-                                return;
-                            fn();
-                        });
+                const onKey = (name, fn) => {
+                    ctl[name] = { press: () => {
+                        if (orphaned())
+                            return;
+                        fn();
+                    } };
                 };
-                onKey('bMorphPrevKey', () => morphStepKey(-1));
-                onKey('bMorphNextKey', () => morphStepKey(1));
-                onKey('bMorphAddKey', morphAddKey);
-                onKey('bMorphDelKey', morphDelKey);
-                onKey('bMorphVideo', () => morphRecordVideo().catch(e => flashStatus('video failed: ' + e.message)));
-                onKey('bMorphGif', () => morphRecordGif().catch(e => flashStatus('gif failed: ' + e.message)));
-                const onion = $('tMorphOnion');
-                if (onion)
-                    onion.addEventListener('change', () => {
-                        state.morphOnion = onion.checked;
+                onKey('prevKey', () => morphStepKey(-1));
+                onKey('nextKey', () => morphStepKey(1));
+                onKey('addKey', morphAddKey);
+                onKey('delKey', morphDelKey);
+                onKey('video', () => morphRecordVideo().catch(e => flashStatus('video failed: ' + e.message)));
+                onKey('gif', () => morphRecordGif().catch(e => flashStatus('gif failed: ' + e.message)));
+                ctl.onion = { get: () => !!state.morphOnion,
+                    set: v => {
+                        state.morphOnion = !!v;
                         drawAll();
                         scheduleSave();
-                    });
-                const fxSel = $('morphFx'),
-                    fxAmt = $('morphFxAmt');
-                if (fxSel)
-                    fxSel.addEventListener('change', () => {
+                    } };
+                const fxOf = () => morphRuns[0] && morphRuns[0].fx;
+                ctl.fx = { options: [['', 'none'], ['shimmer', 'shimmer'], ['grow', 'grow'], ['boil', 'boil']],
+                    get: () => fxOf() ? fxOf().kind : '',
+                    set: v => {
                         if (orphaned())
                             return;
-                        morphSetFx(fxSel.value, fxAmt ? (+fxAmt.value) / 100 : 0.5);
+                        morphSetFx(v, ctl.fxAmt.get() / 100);
                         pushHistory();
-                    });
-                if (fxAmt)
-                    fxAmt.addEventListener('input', () => {
+                    } };
+                ctl.fxAmt = { min: 0, max: 100, step: 1,
+                    get: () => Math.round(100 * (fxOf() && fxOf().amount != null ? fxOf().amount : 0.5)),
+                    set: v => {
                         if (orphaned())
                             return;
-                        morphSetFx(fxSel ? fxSel.value : '', (+fxAmt.value) / 100);
-                    });
+                        morphSetFx(ctl.fx.get(), (+v) / 100);
+                    } };
                 // EASING AND HOLDS
-                const easeSel = $('morphEase'),
-                    holdIn = $('morphHold');
-                if (easeSel)
-                    easeSel.addEventListener('change', () => morphSetTiming(easeSel.value, null));
-                if (holdIn)
-                    holdIn.addEventListener('input', () => morphSetTiming(null, (+holdIn.value) / 100));
+                ctl.ease = { options: [['', 'none'], ['inout', 'in & out'], ['in', 'in'], ['out', 'out'], ['anticipate', 'anticipate'], ['overshoot', 'overshoot'], ['elastic', 'elastic']],
+                    get: () => MORPH_EASES.includes(state.morphEase) ? state.morphEase : '',
+                    set: v => morphSetTiming(v, null) };
+                ctl.hold = { min: 0, max: 80, step: 1,
+                    get: () => Math.round(100 * (+state.morphHold || 0)),
+                    set: v => morphSetTiming(null, (+v) / 100) };
                 // SCENE-WIDE GRAVITY AND WIND: every motion feels them at once; one undo step once the slider rests
-                for (const [id, key] of [['morphGravity', 'morphGravity'], ['morphWind', 'morphWind']]) {
-                    const el = $(id);
-                    if (el)
-                        el.addEventListener('input', () => {
+                for (const [name, key, min, max, step, read] of [['gravity', 'morphGravity', 100, 400, 10, morphGravity], ['wind', 'morphWind', -100, 100, 5, morphWind]])
+                    ctl[name] = { min, max, step,
+                        get: () => Math.round(100 * read()),
+                        set: v => {
                             if (orphaned())
                                 return;
-                            state[key] = (+el.value) / 100;
+                            state[key] = (+v) / 100;
                             morphWrite();
                             drawAll();
                             scheduleSave();
                             morphHistorySoon();
-                        });
-                }
+                        } };
                 // MOTION ALONG A PATH and TRAILS
-                onKey('bMorphPath', () => morphSetPath());
-                const turnT = $('tMorphTurn'),
-                    pathMode = $('morphPathMode');
-                if (turnT)
-                    turnT.addEventListener('change', () => morphPathOptions(turnT.checked, null));
-                if (pathMode)
-                    pathMode.addEventListener('change', () => morphPathOptions(null, pathMode.value));
-                const trailSel = $('morphTrail'),
-                    trailLen = $('morphTrailLen');
-                if (trailSel)
-                    trailSel.addEventListener('change', () => morphSetTrail(trailSel.value, null));
-                if (trailLen)
-                    trailLen.addEventListener('input', () => morphSetTrail(null, (+trailLen.value) / 100));
-                const fpsSel = $('morphFps');
-                if (fpsSel)
-                    fpsSel.addEventListener('change', () => {
-                        state.morphFps = +fpsSel.value || 30;
+                onKey('path', () => morphSetPath());
+                ctl.turn = { get: () => state.morphPathTurn !== false, set: v => morphPathOptions(!!v, null) };
+                ctl.pathMode = { get: () => state.morphPathMode === 'back' ? 'back' : 'along', set: v => morphPathOptions(null, v) };
+                ctl.trail = { get: () => state.morphTrail === 'echoes' || state.morphTrail === 'ribbon' ? state.morphTrail : '',
+                    set: v => morphSetTrail(v, null) };
+                ctl.trailLen = { min: 0, max: 100, step: 1,
+                    get: () => Math.round(100 * (state.morphTrailLen != null ? state.morphTrailLen : 0.5)),
+                    set: v => morphSetTrail(null, (+v) / 100) };
+                ctl.fps = { get: () => [24, 30, 60].includes(+state.morphFps) ? +state.morphFps : 30,
+                    set: v => {
+                        state.morphFps = +v || 30;
                         scheduleSave();
-                    });
-                const loopIn = $('morphLoop');
-                if (loopIn)
-                    loopIn.addEventListener('change', () => {
-                        const v = parseFloat(loopIn.value);
+                    } };
+                ctl.loop = { get: () => +(1 / morphLive.speed).toFixed(2),
+                    set: x => {
+                        const v = parseFloat(x);
                         if (isFinite(v) && v > 0)
                             morphLive.speed = 1 / Math.max(0.5, Math.min(60, v));
                         morphBarSync();
                         scheduleSave();
                         morphHistorySoon();
-                    });
-                const bt = $('bMorphTvfs'); // THE TVF SCENE
-                if (bt)
-                    bt.addEventListener('click', () => {
+                    } };
+                ctl.tvfs = { press: () => { // THE TVF SCENE
                         if (orphaned()) {
                             flashStatus('tvfs: no morph is live');
                             return;
@@ -50985,10 +50876,8 @@
                             name = String(d.name || 'scene').replace(/^example · /, '').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'scene';
                         downloadTextFile(JSON.stringify(d), name + '.tvfs');
                         flashStatus('tvfs: ' + d.morphs.length + ' morph' + (d.morphs.length === 1 ? '' : 's') + ' and ' + d.items.filter(it => it.morph == null).length + ' shapes written for the TVF player (player/player.html plays it)');
-                    });
-                const bs = $('bMorphSvg');
-                if (bs)
-                    bs.addEventListener('click', () => {
+                    } };
+                ctl.svg = { press: () => {
                         if (orphaned()) {
                             flashStatus('morph export: no morph is live');
                             return;
@@ -50998,28 +50887,24 @@
                         } catch (e) {
                             flashStatus('morph export failed: ' + e.message);
                         }
-                    });
-                if (bx)
-                    bx.addEventListener('click', () => {
+                    } };
+                ctl.exit = { press: () => {
                         if (orphaned())
                             return;
                         const n = morphExit(null);
                         flashStatus('morph exited · the keys of ' + n + ' morph' + (n === 1 ? '' : 's') + ' are back where they were');
-                    });
+                    } };
             }
-            // ── The lag, from either end. Two sliders, one value, and while a morph is live the
-            //    shape is rewritten as it moves so you are dialling against the thing itself.
+            // ── The lag, from either end: the popover's slider and the animation's dial (animCtl.lag), one value, and
+            //    while a morph is live the shape is rewritten as it moves so you are dialling against the thing itself.
             {
                 const set = (v, from) => {
                     state.morphLag = Math.max(0, Math.min(MORPH_LAG_MAX, v / 100));
                     const a = $('morphLag'),
-                        b = $('morphLagLive'),
                         n = $('vMorphLag');
                     const shown = Math.round(state.morphLag * 100);
                     if (a && from !== 'pop')
                         a.value = String(shown);
-                    if (b && from !== 'bar')
-                        b.value = String(shown);
                     if (n)
                         n.textContent = state.morphLag > 0 ? state.morphLag.toFixed(2) : 'off';
                     if (morphRunning()) {
@@ -51031,21 +50916,21 @@
                     }
                     morphBarSync();
                 };
-                const a = $('morphLag'),
-                    b = $('morphLagLive');
-                if (a)
-                    a.addEventListener('input', e => set(+e.target.value, 'pop'));
-                if (b)
-                    b.addEventListener('input', e => set(+e.target.value, 'bar'));
+                const a = $('morphLag');
                 // One history frame per gesture, taken on release — the rule every slider here follows.
-                for (const el of [a, b])
-                    if (el)
-                        el.addEventListener('change', () => {
-                            if (morphRunning()) {
-                                pushHistory();
-                            }
-                            scheduleSave();
-                        });
+                const done = () => {
+                    if (morphRunning()) {
+                        pushHistory();
+                    }
+                    scheduleSave();
+                };
+                if (a) {
+                    a.addEventListener('input', e => set(+e.target.value, 'pop'));
+                    a.addEventListener('change', done);
+                }
+                animCtlOf().lag = { min: 0, max: 90, step: 1, done,
+                    get: () => Math.round(100 * (morphRunning() ? morphLive.lag : +state.morphLag || 0)),
+                    set: v => set(+v, 'bar') };
             }
             {
                 const tMC = $('tMorphCorners'); // MORPHS THAT KEEP THEIR CORNERS
@@ -57481,15 +57366,15 @@
                         };
                         for (let k = 0; k < K; k++)
                             animTile(host, { key: String(k) }, 'Key ' + (k + 1), 'key ' + (k + 1), pose(k));
-                        animTile(host, { act: 'bMorphAddKey' }, 'Add key', 'add', '<path d="M28 8L48 28L28 48L8 28Z"/><path d="M28 20v16M20 28h16"/>');
-                        animTile(host, { act: 'bMorphDelKey' }, 'Delete key', 'delete', '<path d="M28 8L48 28L28 48L8 28Z"/><path d="M20 28h16"/>');
+                        animTile(host, { act: 'addKey' }, 'Add key', 'add', '<path d="M28 8L48 28L28 48L8 28Z"/><path d="M28 20v16M20 28h16"/>');
+                        animTile(host, { act: 'delKey' }, 'Delete key', 'delete', '<path d="M28 8L48 28L28 48L8 28Z"/><path d="M20 28h16"/>');
                     },
                     tap: b => {
                         const run = morphRuns[0];
                         if (b.dataset.key != null && run)
                             morphSetT(morphKeyTimes(run)[+b.dataset.key]);
                         else if (b.dataset.act)
-                            $(b.dataset.act).click();
+                            animCtlOf()[b.dataset.act].press({});
                         drawAll();
                     },
                     on: b => b.dataset.key != null && !!morphRuns[0] && morphKeyAt(morphRuns[0], morphLive.t) === +b.dataset.key },
@@ -57534,15 +57419,11 @@
                             overshoot: '<path d="M10 46C20 10 32 0 46 14"/>',
                             elastic: '<path d="M10 46C16 46 18 4 24 14S30 24 34 16S40 12 46 14"/>'
                         };
-                        for (const o of $('morphEase').options)
-                            animTile(host, { v: o.value }, o.value ? 'Ease ' + o.textContent : 'No easing', o.value ? o.textContent : 'even', G[o.value] || G['']);
+                        for (const [v, name] of animCtlOf().ease.options)
+                            animTile(host, { v }, v ? 'Ease ' + name : 'No easing', v ? name : 'even', G[v] || G['']);
                     },
-                    tap: b => {
-                        const sel = $('morphEase');
-                        sel.value = b.dataset.v;
-                        sel.dispatchEvent(new Event('change'));
-                    },
-                    on: b => $('morphEase').value === b.dataset.v },
+                    tap: b => animCtlOf().ease.set(b.dataset.v),
+                    on: b => animCtlOf().ease.get() === b.dataset.v },
                 animFx: { btn: null,
                     build: host => {
                         const G = {
@@ -57551,15 +57432,11 @@
                             grow: '<circle cx="28" cy="28" r="5"/><circle cx="28" cy="28" r="11"/><circle cx="28" cy="28" r="17"/>',
                             boil: '<path d="M28 10l4 5l6-2l1 6l6 2l-3 6l4 5l-6 3l0 6l-6-1l-4 5l-4-5l-6 1l0-6l-6-3l4-5l-3-6l6-2l1-6l6 2z"/>'
                         };
-                        for (const o of $('morphFx').options)
-                            animTile(host, { v: o.value }, o.value ? o.textContent : 'No effect', o.textContent, G[o.value] || G['']);
+                        for (const [v, name] of animCtlOf().fx.options)
+                            animTile(host, { v }, v ? name : 'No effect', name, G[v] || G['']);
                     },
-                    tap: b => {
-                        const sel = $('morphFx');
-                        sel.value = b.dataset.v;
-                        sel.dispatchEvent(new Event('change'));
-                    },
-                    on: b => $('morphFx').value === b.dataset.v },
+                    tap: b => animCtlOf().fx.set(b.dataset.v),
+                    on: b => animCtlOf().fx.get() === b.dataset.v },
                 animPath: { btn: null,
                     build: host => {
                         animTile(host, { act: 'draw' }, 'Draw a path', 'draw', '<path d="M8 40C14 14 26 44 34 22S46 18 48 14"/><path d="M40 44l8-8l-3-3l-8 8l-1 4z"/>');
@@ -57572,28 +57449,26 @@
                         animTile(host, { tr: 'ribbon' }, 'Ribbon trail', 'ribbon', '<path d="M6 36c8-12 14 6 24-6" stroke-width="5" opacity="0.5"/><circle cx="38" cy="24" r="9"/>');
                     },
                     tap: b => {
-                        const d = b.dataset;
+                        const d = b.dataset, C = animCtlOf();
                         if (d.act === 'draw') {
                             // the path is the selected morph's; with none selected it is every live shape's
                             if (!_morphPathRec && !morphRunToolRuns().length)
                                 applyShapeSelection(new Set(morphRuns.map(r => state.subpaths.indexOf(r.sp)).filter(i => i >= 0)));
                             morphPathRecArm(!_morphPathRec);
                         } else if (d.act === 'ride')
-                            $('bMorphPath').click();
-                        else if (d.act === 'turn') {
-                            const t = $('tMorphTurn');
-                            t.checked = !t.checked;
-                            t.dispatchEvent(new Event('change'));
-                        } else {
-                            const sel = $(d.pm != null ? 'morphPathMode' : 'morphTrail');
-                            sel.value = d.pm != null ? d.pm : d.tr;
-                            sel.dispatchEvent(new Event('change'));
-                        }
+                            C.path.press({});
+                        else if (d.act === 'turn')
+                            C.turn.set(!C.turn.get());
+                        else if (d.pm != null)
+                            C.pathMode.set(d.pm);
+                        else
+                            C.trail.set(d.tr);
+                        drawAll();
                     },
                     on: b => {
-                        const d = b.dataset;
-                        return d.act === 'draw' ? !!_morphPathRec : d.act === 'ride' ? !!morphLive.path : d.act === 'turn' ? $('tMorphTurn').checked
-                            : d.pm != null ? $('morphPathMode').value === d.pm : $('morphTrail').value === d.tr;
+                        const d = b.dataset, C = animCtlOf();
+                        return d.act === 'draw' ? !!_morphPathRec : d.act === 'ride' ? !!morphLive.path : d.act === 'turn' ? C.turn.get()
+                            : d.pm != null ? C.pathMode.get() === d.pm : C.trail.get() === d.tr;
                     } },
                 animPhysics: { btn: null,
                     build: host => {
@@ -57607,12 +57482,10 @@
                         animTile(host, { w: '50' }, 'Wind to the right', 'wind right', gust);
                     },
                     tap: b => {
-                        const el = $(b.dataset.g ? 'morphGravity' : 'morphWind');
-                        el.value = b.dataset.g || b.dataset.w;
-                        el.dispatchEvent(new Event('input'));
+                        animCtlOf()[b.dataset.g ? 'gravity' : 'wind'].set(+(b.dataset.g || b.dataset.w));
                     },
-                    on: b => b.dataset.g ? Math.abs(+$('morphGravity').value - +b.dataset.g) < 1
-                        : Math.sign(+$('morphWind').value) === Math.sign(+b.dataset.w) },
+                    on: b => b.dataset.g ? Math.abs(animCtlOf().gravity.get() - +b.dataset.g) < 1
+                        : Math.sign(animCtlOf().wind.get()) === Math.sign(+b.dataset.w) },
                 animTiming: { btn: null,
                     build: host => {
                         const clock = a => '<circle cx="28" cy="28" r="17"/><path d="M28 28V15M28 28L' + (28 + 12 * Math.sin(a)).toFixed(1) + ' ' + (28 - 12 * Math.cos(a)).toFixed(1) + '"/>';
@@ -57624,37 +57497,35 @@
                         animTile(host, { hold: '50' }, 'A long hold on each key', 'long hold', rest(12));
                     },
                     tap: b => {
-                        const loop = b.dataset.loop != null, el = $(loop ? 'morphLoop' : 'morphHold');
-                        el.value = loop ? b.dataset.loop : b.dataset.hold;
-                        el.dispatchEvent(new Event(loop ? 'change' : 'input'));
+                        if (b.dataset.loop != null)
+                            animCtlOf().loop.set(b.dataset.loop);
+                        else
+                            animCtlOf().hold.set(+b.dataset.hold);
+                        drawAll();
                     },
                     on: b => b.dataset.loop != null ? Math.abs(1 / morphLive.speed - +b.dataset.loop) < 0.01
-                        : Math.abs(+$('morphHold').value - +b.dataset.hold) < 1 },
+                        : Math.abs(animCtlOf().hold.get() - +b.dataset.hold) < 1 },
                 animAdv: { btn: null,
                     build: host => {
-                        animTile(host, { act: 'bMorphTimeline' }, 'The timeline', 'timeline', '<path d="M8 16h40M8 28h40M8 40h40"/><path d="M18 12l4 4l-4 4l-4-4zM36 24l4 4l-4 4l-4-4zM26 36l4 4l-4 4l-4-4z" fill="currentColor"/>');
+                        animTile(host, { act: 'timeline' }, 'The timeline', 'timeline', '<path d="M8 16h40M8 28h40M8 40h40"/><path d="M18 12l4 4l-4 4l-4-4zM36 24l4 4l-4 4l-4-4zM26 36l4 4l-4 4l-4-4z" fill="currentColor"/>');
                         animTile(host, { act: 'onion' }, 'Onion skin: the keys before and after, faint', 'onion', '<circle cx="20" cy="28" r="12" opacity="0.4"/><circle cx="28" cy="28" r="12"/><circle cx="36" cy="28" r="12" opacity="0.4"/>');
-                        animTile(host, { act: 'bMorphKeep' }, 'Keep this pose as a shape', 'keep pose', '<circle cx="28" cy="24" r="12"/><path d="M28 38v10M22 43h12"/>');
+                        animTile(host, { act: 'keep' }, 'Keep this pose as a shape', 'keep pose', '<circle cx="28" cy="24" r="12"/><path d="M28 38v10M22 43h12"/>');
                         for (const f of [24, 30, 60])
                             animTile(host, { fps: String(f) }, f + ' frames a second in a video', f + ' fps', '<rect x="8" y="14" width="40" height="28" rx="3"/><text x="28" y="34" font-size="15" font-weight="600" font-family="system-ui,sans-serif" text-anchor="middle" fill="currentColor" stroke="none">' + f + '</text>');
                     },
                     tap: b => {
-                        const d = b.dataset;
-                        if (d.act === 'onion') {
-                            const t = $('tMorphOnion');
-                            t.checked = !t.checked;
-                            t.dispatchEvent(new Event('change'));
-                        } else if (d.act)
-                            $(d.act).click();
-                        else {
-                            const sel = $('morphFps');
-                            sel.value = d.fps;
-                            sel.dispatchEvent(new Event('change'));
-                        }
+                        const d = b.dataset, C = animCtlOf();
+                        if (d.act === 'onion')
+                            C.onion.set(!C.onion.get());
+                        else if (d.act)
+                            C[d.act].press({});
+                        else
+                            C.fps.set(+d.fps);
+                        drawAll();
                     },
-                    on: b => b.dataset.act === 'onion' ? $('tMorphOnion').checked
-                        : b.dataset.act === 'bMorphTimeline' ? $('bMorphTimeline').classList.contains('active')
-                        : b.dataset.fps != null && $('morphFps').value === b.dataset.fps },
+                    on: b => b.dataset.act === 'onion' ? animCtlOf().onion.get()
+                        : b.dataset.act === 'timeline' ? !!state.morphTimelineOpen
+                        : b.dataset.fps != null && animCtlOf().fps.get() === +b.dataset.fps },
                 // the strip Animate turns to when nothing is selected: the shapes are tapped on the drawing (PICKS), then Start
                 animPick: { btn: null,
                     build: host => {
@@ -57729,15 +57600,15 @@
                     build: host => {
                         const film = '<rect x="8" y="14" width="40" height="28" rx="3"/>';
                         for (const [id, name, cap, g] of [
-                            ['bMorphVideo', 'Video', 'video', film + '<path d="M24 22l10 6l-10 6z"/>'],
-                            ['bMorphGif', 'GIF', 'gif', film + '<text x="28" y="33" font-size="13" font-weight="700" font-family="system-ui,sans-serif" text-anchor="middle" fill="currentColor" stroke="none">GIF</text>'],
-                            ['bMorphSvg', 'Animated SVG', 'svg', film + '<path d="M15 34c5-12 9 6 13-4s8 6 13-4"/>'],
-                            ['bMorphTvfs', 'Scene file', 'scene', '<path d="M16 8h16l10 10v30h-26z"/><path d="M32 8v10h10"/>'],
-                            ['bMorphLink', 'Copy link', 'link', '<path d="M24 32a8 8 0 0 0 11 1l7-7a8 8 0 0 0-11-11l-3 3M32 24a8 8 0 0 0-11-1l-7 7a8 8 0 0 0 11 11l3-3"/>'],
-                            ['bMorphEmbed', 'Copy embed code', 'embed', '<path d="M20 18L8 28l12 10M36 18l12 10l-12 10M31 12l-6 32"/>']])
+                            ['video', 'Video', 'video', film + '<path d="M24 22l10 6l-10 6z"/>'],
+                            ['gif', 'GIF', 'gif', film + '<text x="28" y="33" font-size="13" font-weight="700" font-family="system-ui,sans-serif" text-anchor="middle" fill="currentColor" stroke="none">GIF</text>'],
+                            ['svg', 'Animated SVG', 'svg', film + '<path d="M15 34c5-12 9 6 13-4s8 6 13-4"/>'],
+                            ['tvfs', 'Scene file', 'scene', '<path d="M16 8h16l10 10v30h-26z"/><path d="M32 8v10h10"/>'],
+                            ['link', 'Copy link', 'link', '<path d="M24 32a8 8 0 0 0 11 1l7-7a8 8 0 0 0-11-11l-3 3M32 24a8 8 0 0 0-11-1l-7 7a8 8 0 0 0 11 11l3-3"/>'],
+                            ['embed', 'Copy embed code', 'embed', '<path d="M20 18L8 28l12 10M36 18l12 10l-12 10M31 12l-6 32"/>']])
                             animTile(host, { act: id }, name, cap, g);
                     },
-                    tap: b => $(b.dataset.act).click() },
+                    tap: b => animCtlOf()[b.dataset.act].press({}) },
                 draw: { btn: 'bDrawMenu',
                     build: host => {
                         // the four tools, each wearing its own button's glyph
@@ -58505,8 +58376,9 @@
                         morphSetT(at); // still standing on the key, where it is now
                     drawAll();
                 } };
-            const ANIM_DIALS = { animKeys: [["this key's time", keyDial]], animFx: [['strength', 'morphFxAmt']], animPath: [['trail length', 'morphTrailLen']],
-                animPhysics: [['gravity', 'morphGravity'], ['wind', 'morphWind']], animAdv: [['detail lag', 'morphLagLive']],
+            const ctlDial = n => animCtlOf()[n]; // (an entry of the table with min, max and step is a dial as it stands)
+            const ANIM_DIALS = { animKeys: [["this key's time", keyDial]], animFx: [['strength', ctlDial('fxAmt')]], animPath: [['trail length', ctlDial('trailLen')]],
+                animPhysics: [['gravity', ctlDial('gravity')], ['wind', ctlDial('wind')]], animAdv: [['detail lag', ctlDial('lag')]],
                 animShape: [['ahead of the clock', 'mrPhase'], ['start along its path', 'mrAt']] };
             function animDials() {
                 const box = $('abDials'), list = ANIM_DIALS[mode] || [];
@@ -58530,6 +58402,8 @@
                         src.value = r.value;
                         src.dispatchEvent(new Event('input'));
                     });
+                    if (own && own.done)
+                        r.addEventListener('change', () => own.done()); // (let go: the one undo step of the gesture)
                     lab.append(name, r);
                     box.appendChild(lab);
                 }
@@ -58590,17 +58464,11 @@
                 }
             }
             if (animBar) {
-                // the time slider and its reading stand on the animation's bar, always in reach
-                for (const id of ['morphT', 'morphTVal']) {
-                    const el = $(id);
-                    if (el)
-                        $('abT').appendChild(el);
-                }
                 $('abPlay').addEventListener('click', () => {
-                    $('bMorphPlay').click();
+                    animCtlOf().play.press({});
                     animSync();
                 });
-                $('abExit').addEventListener('click', () => $('bMorphExit').click());
+                $('abExit').addEventListener('click', () => animCtlOf().exit.press({}));
                 animBar.addEventListener('click', e => {
                     const g = e.target.closest('.ab-group, .ab-back');
                     if (g) { // a phone's groups: one opened shows its chips, turned to the one in use or its first
@@ -63708,9 +63576,6 @@
                 const ml = $('morphLag');
                 if (ml)
                     ml.value = String(shown);
-                const mlv = $('morphLagLive');
-                if (mlv)
-                    mlv.value = String(shown);
                 const mln = $('vMorphLag');
                 if (mln)
                     mln.textContent = state.morphLag > 0 ? (+state.morphLag).toFixed(2) : 'off';

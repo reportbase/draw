@@ -994,12 +994,8 @@
                     ? (which === 'embed' ? 'embed code copied (' + kb + ') — paste it into a page: the editor plays the scene in an <iframe>, the canvas alone' : 'scene link copied (' + kb + ') — it opens this drawing in the editor, playing as it plays here')
                     : 'the browser would not let the page copy — try again after clicking the page');
             }
-            const bLink = $('bMorphLink'),
-                bEmbed = $('bMorphEmbed');
-            if (bLink)
-                bLink.addEventListener('click', () => shareCopy('link'));
-            if (bEmbed)
-                bEmbed.addEventListener('click', () => shareCopy('embed'));
+            animCtlOf().link = { press: () => shareCopy('link') };
+            animCtlOf().embed = { press: () => shareCopy('embed') };
             window.decodeScene = decodeScene; // for the smoke test
             window.openScene = openScene;
             window.applySceneMorphs = applySceneMorphs; // ANIMATE IT WITH AI

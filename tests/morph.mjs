@@ -40,19 +40,18 @@ T.current = 'timeline and recording';
     const m = () => mp.evaluate(() => window.__box.morph());
     let s = await m();
     if (!s || s.K !== 3 || s.ticks.join() !== '167,500,833') throw new Error('no live morph with three keys ticked on the track: ' + JSON.stringify(s && { K: s.K, ticks: s.ticks }));
-    await mp.dispatchEvent('#bMorphNextKey', 'click'); await mp.dispatchEvent('#bMorphNextKey', 'click');
+    await mp.evaluate(() => window.__anim.press('nextKey')); await mp.evaluate(() => window.__anim.press('nextKey'));
     s = await m();
     const key1 = await mp.evaluate(() => window.__box.morphKey(1).x);
     if (Math.abs(s.t - 0.5) > 1e-9 || Math.max(...s.leaves.map((v, i) => Math.abs(v - key1[i]))) > 1e-9) throw new Error('stepping to a key did not land on it exactly: t ' + s.t);
     await mp.evaluate(() => { const r = document.getElementById('morphT'); r.value = 600; r.dispatchEvent(new Event('input')); });
     const pose = (await m()).leaves;
-    await mp.dispatchEvent('#bMorphAddKey', 'click');
+    await mp.evaluate(() => window.__anim.press('addKey'));
     s = await m();
     if (s.K !== 4 || s.ticks.length !== 4 || Math.max(...s.leaves.map((v, i) => Math.abs(v - pose[i]))) > 1e-9) throw new Error('+ key did not keep the pose as a fourth key: K ' + s.K);
-    await mp.dispatchEvent('#bMorphDelKey', 'click');
+    await mp.evaluate(() => window.__anim.press('delKey'));
     if ((await m()).K !== 3) throw new Error('− key did not take a key away');
-    await mp.evaluate(() => { const c = document.getElementById('tMorphOnion'); c.checked = true; c.dispatchEvent(new Event('change'));
-      const l = document.getElementById('morphLoop'); l.value = 2; l.dispatchEvent(new Event('change')); });
+    await mp.evaluate(() => { window.__anim.set('onion', true); window.__anim.set('loop', 2); });
     if (Math.abs((await m()).loop - 2) > 1e-9) throw new Error('the loop length did not take');
     const [dg] = await Promise.all([mp.waitForEvent('download', { timeout: 60000 }), mp.evaluate(() => window.__box.recordGif())]);
     const gif = await readFile(await dg.path());
@@ -80,15 +79,15 @@ T.current = 'timeline and recording';
     // THE TIMELINE IS SAVED: a reload brings the morph back, its keys, place, loop and onion, and exit
     // still puts the original three shapes back
     await mp.evaluate(() => { const r = document.getElementById('morphT'); r.value = 600; r.dispatchEvent(new Event('input')); });
-    await mp.dispatchEvent('#bMorphAddKey', 'click');
+    await mp.evaluate(() => window.__anim.press('addKey'));
     const kept = await m();
     await mp.waitForTimeout(1200);
     await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(500);
     const back = await m();
-    if (!back || back.K !== kept.K || Math.abs(back.t - kept.t) > 1e-9 || Math.abs(back.loop - 2) > 1e-9 || !(await mp.evaluate(() => document.getElementById('tMorphOnion').checked)))
+    if (!back || back.K !== kept.K || Math.abs(back.t - kept.t) > 1e-9 || Math.abs(back.loop - 2) > 1e-9 || !(await mp.evaluate(() => window.__anim.get('onion'))))
       throw new Error('the morph did not come back from a reload: ' + JSON.stringify(back && { K: back.K, t: back.t, loop: back.loop }));
     if (Math.max(...back.leaves.map((v, i) => Math.abs(v - kept.leaves[i]))) > 1e-5) throw new Error('the morph came back in another pose');
-    await mp.dispatchEvent('#bMorphExit', 'click'); await mp.waitForTimeout(300);
+    await mp.evaluate(() => window.__anim.press('exit')); await mp.waitForTimeout(300);
     if ((await mp.evaluate(() => window.__box.count())) !== 3) throw new Error('exit after a reload did not put the three shapes back');
     // DETAIL EFFECTS: one shape goes live as a still; shimmer moves its edge and not its centroid, the
     // loop's ends meet, grow at full amount starts from the base ellipse, and the effect is saved
@@ -99,19 +98,19 @@ T.current = 'timeline and recording';
     const still = await m();
     if (!still || still.K !== 1) throw new Error('one shape did not go live as a still: ' + JSON.stringify(still && still.K));
     const at = async t => { await mp.evaluate(t => { const r = document.getElementById('morphT'); r.value = Math.round(t * 1000); r.dispatchEvent(new Event('input')); }, t); return (await m()).leaves; };
-    await mp.$eval('#morphFx', (e, v) => { e.value = v; e.dispatchEvent(new Event('change', { bubbles: true })); }, 'shimmer');
+    await mp.evaluate(v => window.__anim.set('fx', v), 'shimmer');
     const a0 = await at(0), a1 = await at(1), a3 = await at(0.3);
     const mean = v => v.reduce((x, y) => x + y, 0) / v.length;
     if (Math.max(...a0.map((v, i) => Math.abs(v - a1[i]))) > 1e-9) throw new Error('the shimmer loop does not meet at its ends');
     if (!(Math.max(...a3.map((v, i) => Math.abs(v - a0[i]))) > 1e-4) || Math.abs(mean(a3) - mean(still.leaves)) > 1e-9) throw new Error('shimmer did not move the edge, or moved the centroid');
-    await mp.$eval('#morphFx', (e, v) => { e.value = v; e.dispatchEvent(new Event('change', { bubbles: true })); }, 'grow');
-    await mp.evaluate(() => { const a = document.getElementById('morphFxAmt'); a.value = 100; a.dispatchEvent(new Event('input')); });
+    await mp.evaluate(v => window.__anim.set('fx', v), 'grow');
+    await mp.evaluate(() => window.__anim.set('fxAmt', 100));
     const g0 = await at(0), g5 = await at(0.5);
     const rough = v => { let s = 0; for (let i = 0; i < v.length; i++) { const d = v[(i + 1) % v.length] - 2 * v[i] + v[(i + v.length - 1) % v.length]; s += d * d; } return s; };
     if (!(rough(g0) < rough(g5) / 20)) throw new Error('grow did not start from the base ellipse: ' + rough(g0) + ' against ' + rough(g5));
     await mp.waitForTimeout(1200);
     await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(500);
-    if ((await mp.evaluate(() => document.getElementById('morphFx').value)) !== 'grow') throw new Error('the effect was not saved with the morph');
+    if ((await mp.evaluate(() => window.__anim.get('fx'))) !== 'grow') throw new Error('the effect was not saved with the morph');
   } catch (e){
     failures.push(`[timeline] ${e.message.split('\n')[0]}`);
   }
@@ -143,7 +142,7 @@ T.current = 'path and trails';
     await mp.evaluate(() => { document.getElementById('bMorphLive').click(); /* (Animate itself goes straight in now, 14 Nov 2026) */ });
     await mp.waitForTimeout(300);
     await mp.evaluate(() => window.__box.select([1]));
-    await mp.dispatchEvent('#bMorphPath', 'click');
+    await mp.evaluate(() => window.__anim.press('path'));
     const m = () => mp.evaluate(() => window.__box.morph());
     const at = async t => { await mp.evaluate(t => { const r = document.getElementById('morphT'); r.value = Math.round(t * 1000); r.dispatchEvent(new Event('input')); }, t); return m(); };
     const mean = v => v.reduce((x, y) => x + y, 0) / v.length;
@@ -164,15 +163,15 @@ T.current = 'path and trails';
     const turned = Math.abs(((ang(s5) - ang(s0) - Math.PI) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); // how far from a half turn
     if (turned > 0.1) throw new Error('the shape did not turn half round with the path: off by ' + turned);
     if (Math.max(...s0.leaves.map((v, i) => Math.abs(v - s1.leaves[i]))) > 1e-9) throw new Error('the ride\'s loop does not meet at its ends');
-    await mp.$eval('#morphPathMode', (e, v) => { e.value = v; e.dispatchEvent(new Event('change', { bubbles: true })); }, 'back');
+    await mp.evaluate(v => window.__anim.set('pathMode', v), 'back');
     const b25 = await at(0.25), p50 = pts[4];
     if (Math.hypot(mean(b25.leaves) - p50.x, mean(b25.leavesY) - p50.y) > 1e-6) throw new Error('there and back is not at the far side at a quarter');
-    await mp.$eval('#morphPathMode', (e, v) => { e.value = v; e.dispatchEvent(new Event('change', { bubbles: true })); }, 'along');
+    await mp.evaluate(v => window.__anim.set('pathMode', v), 'along');
     await at(0.3);
     const none = await mp.evaluate(() => window.__box.canvasUrl());
-    await mp.$eval('#morphTrail', (e, v) => { e.value = v; e.dispatchEvent(new Event('change', { bubbles: true })); }, 'ribbon');
+    await mp.evaluate(v => window.__anim.set('trail', v), 'ribbon');
     const ribbon = await mp.evaluate(() => window.__box.canvasUrl());
-    await mp.$eval('#morphTrail', (e, v) => { e.value = v; e.dispatchEvent(new Event('change', { bubbles: true })); }, 'echoes');
+    await mp.evaluate(v => window.__anim.set('trail', v), 'echoes');
     const echoes = await mp.evaluate(() => window.__box.canvasUrl());
     if (ribbon === none || echoes === none || echoes === ribbon) throw new Error('a trail drew nothing');
     await mp.waitForTimeout(1200);
@@ -181,7 +180,7 @@ T.current = 'path and trails';
     if (!s || !s.path || s.trail !== 'echoes' || Math.abs(s.t - 0.3) > 1e-9) throw new Error('the path and trail did not come back from a reload: ' + JSON.stringify(s && { path: s.path, trail: s.trail, t: s.t }));
     const p3 = await mp.evaluate(() => window.__box.pathAt(0.3));
     if (Math.hypot(mean(s.leaves) - p3.x, mean(s.leavesY) - p3.y) > 1e-5) throw new Error('after a reload the shape is off its path');
-    await mp.dispatchEvent('#bMorphExit', 'click'); await mp.waitForTimeout(300);
+    await mp.evaluate(() => window.__anim.press('exit')); await mp.waitForTimeout(300);
     if ((await mp.evaluate(() => window.__box.count())) !== 2) throw new Error('exit did not put the path\'s circle back');
   } catch (e){
     failures.push(`[path] ${e.message.split('\n')[0]}`);
@@ -227,21 +226,21 @@ T.current = 'corners and timing';
     const rs = s.leaves.map((x, i) => Math.hypot(x - mx, s.leavesY[i] - my)).sort((a, b) => a - b);
     if (Math.abs(rs[9] / rs[0] - 40 / 18) > 0.01 || Math.abs(rs[4] / rs[0] - 1) > 0.01) throw new Error('the star did not arrive with its points and dips: ' + rs.map(r => r.toFixed(3)));
     // EASING AND HOLDS: rest on a key exactly, the middle unmoved
-    await mp.$eval('#morphEase', (e, v) => { e.value = v; e.dispatchEvent(new Event('change', { bubbles: true })); }, 'inout');
-    await mp.evaluate(() => { const a = document.getElementById('morphHold'); a.value = 40; a.dispatchEvent(new Event('input')); });
+    await mp.evaluate(v => window.__anim.set('ease', v), 'inout');
+    await mp.evaluate(() => window.__anim.set('hold', 40));
     const h0 = await at(0), h1 = await at(0.15), h5 = await at(0.5), h3 = await at(0.3);
     const diff = (a, b) => Math.max(...a.leaves.map((v, i) => Math.abs(v - b.leaves[i])), ...a.leavesY.map((v, i) => Math.abs(v - b.leavesY[i])));
     if (diff(h0, h1) > 1e-12) throw new Error('the hold did not rest on the key');
     if (diff(h5, mid) > 1e-9) throw new Error('easing moved the middle of the stretch');
     if (!(diff(h3, h0) > 1e-3) || !(diff(h3, mid) > 1e-3)) throw new Error('past the hold the blend did not move');
     await at(0.6);
-    await mp.dispatchEvent('#bMorphAddKey', 'click');
+    await mp.evaluate(() => window.__anim.press('addKey'));
     s = await m();
     if (s.K !== 3 || !s.exact) throw new Error('+ key did not make a third exact key');
     const n0 = await mp.evaluate(() => window.__box.count());
-    await mp.dispatchEvent('#bMorphKeep', 'click');
+    await mp.evaluate(() => window.__anim.press('keep'));
     if ((await mp.evaluate(() => window.__box.count())) !== n0 + 1) throw new Error('keep did not drop a pose');
-    const [dl] = await Promise.all([mp.waitForEvent('download', { timeout: 30000 }), mp.evaluate(() => document.getElementById('bMorphSvg').click())]);
+    const [dl] = await Promise.all([mp.waitForEvent('download', { timeout: 30000 }), mp.evaluate(() => window.__anim.press('svg'))]);
     const anim = (await readFile(await dl.path())).toString();
     const vals = (anim.match(/attributeName="d"[^>]*values="([^"]*)"/) || [, ''])[1].split(';'); // the outline's own frames
     const counts = new Set(vals.map(v => (v.match(/C/g) || []).length));
@@ -250,7 +249,7 @@ T.current = 'corners and timing';
     await mp.reload(); await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await mp.waitForTimeout(500);
     s = await m();
     if (!s || !s.exact || !s.lazy || s.K !== 3 || s.ease !== 'inout' || Math.abs(s.hold - 0.4) > 1e-9) throw new Error('the exact morph, ease and hold did not come back from a reload: ' + JSON.stringify(s && { exact: s.exact, K: s.K, ease: s.ease, hold: s.hold }));
-    await mp.dispatchEvent('#bMorphExit', 'click'); await mp.waitForTimeout(300);
+    await mp.evaluate(() => window.__anim.press('exit')); await mp.waitForTimeout(300);
     await mp.keyboard.press('ControlOrMeta+a'); await mp.waitForTimeout(300);
     const back = await mp.evaluate(() => window.__box.shapes());
     if (back.length !== 3 || back.some(g => !g)) throw new Error('exit did not leave the square, the star and the kept pose as exact shapes: ' + JSON.stringify(back.map(g => g && g.n)));
@@ -310,7 +309,7 @@ T.current = 'examples';
     s = await open('word-draw');
     if (!s || s.runs !== 6) throw new Error('the written word opened as ' + (s && s.runs) + ' shapes, not the paper and five letters');
     s = await open('shimmer');
-    const fx = await ep.evaluate(() => document.getElementById('morphFx').value);
+    const fx = await ep.evaluate(() => window.__anim.get('fx'));
     if (!s || s.K !== 1 || s.exact || fx !== 'shimmer') throw new Error('the shimmering leaf did not open as a leaf still with shimmer: ' + JSON.stringify(s) + ' ' + fx);
     // THE SHOWPIECES, and what each morph has of its own
     const runsAt = async t => { await ep.evaluate(t => { const r = document.getElementById('morphT'); r.value = Math.round(t * 1000); r.dispatchEvent(new Event('input')); }, t); return ep.evaluate(() => window.__box.morph().runs); };
@@ -361,7 +360,7 @@ T.current = 'examples';
     await ep.reload(); await ep.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await ep.waitForTimeout(600);
     const back = await ep.evaluate(() => window.__box.morph().runs);
     if (back.slice(1, 6).map(r => (r.path ? 'p' : '-') + r.laps).join() !== 'p5,p4,p3,p2,p1' || back[6].parent !== 3) throw new Error('a reload lost the planets\' own paths or the moon\'s earth: ' + JSON.stringify(back));
-    await ep.dispatchEvent('#bMorphExit', 'click'); await ep.waitForTimeout(300);
+    await ep.evaluate(() => window.__anim.press('exit')); await ep.waitForTimeout(300);
     if ((await ep.evaluate(() => window.__box.count())) !== nOrrery + 6) throw new Error('exit did not put the six orbits back');
     // ripple: forty morphs on staggered clocks, their colour blending with their keys
     s = await open('ripple');
@@ -388,7 +387,7 @@ T.current = 'examples';
     if (r0.length !== 6 || r0[0].fade !== 1 || r0[4].fade !== 0) throw new Error('the seed: ' + JSON.stringify(r0.map(q => [q.clip, q.fade])));
     // over a drawing of the user's: asked first, and "keep my drawing" keeps it
     s = await open('shimmer');
-    await ep.dispatchEvent('#bMorphKeep', 'click', { shiftKey: true }); await ep.waitForTimeout(200);
+    await ep.evaluate(() => window.__anim.press('keep', { shiftKey: true })); await ep.waitForTimeout(200);
     await ep.evaluate(() => { const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="10" y="10" width="40" height="40"/><rect x="60" y="60" width="30" height="30"/></svg>';
       return new Promise(res => { const dt = new DataTransfer(); dt.items.add(new File([svg], 'mine.svg', { type: 'image/svg+xml' })); const f = document.getElementById('fLoad'); f.files = dt.files; f.dispatchEvent(new Event('change')); setTimeout(res, 1200); }); });
     const mine = await ep.evaluate(() => window.__box.count());
@@ -562,7 +561,7 @@ T.current = 'smooth corners and key times';
     await kp.reload(); await kp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 }); await kp.waitForTimeout(700);
     m = await kp.evaluate(() => window.__box.morph());
     if (Math.abs(m.runs[0].times[1] - 0.45) > 0.01 || m.runs[0].eases.join() !== 'linear,inout,linear') throw new Error('the times did not come back from a reload: ' + JSON.stringify(m.runs[0]));
-    await setT(0.5); await kp.dispatchEvent('#bMorphAddKey', 'click');
+    await setT(0.5); await kp.evaluate(() => window.__anim.press('addKey'));
     m = await kp.evaluate(() => window.__box.morph());
     if (m.K !== 4 || Math.abs(m.runs[0].times[2] - 0.5) > 1e-9 || m.runs[0].eases.length !== 4) throw new Error('a key added between timed keys: ' + JSON.stringify([m.K, m.runs[0].times, m.runs[0].eases]));
     await kp.close();
@@ -631,7 +630,7 @@ T.current = 'timeline and following';
       + '<rect x="220" y="40" width="120" height="40" fill="#4fbf8a"/><circle cx="60" cy="200" r="30" fill="#f2c14e"/><rect x="140" y="170" width="60" height="60" fill="#b07de0"/></svg>';
     await fp.goto(scene({ name: 'tl', svg, play: false, morphs: [{ keys: [0, 1, 2] }, { keys: [3, 4], rate: 2, phase: 0.25 }] }), { waitUntil: 'load' });
     await ready();
-    await fp.dispatchEvent('#bMorphTimeline', 'click');
+    await fp.evaluate(() => window.__anim.press('timeline'));
     await fp.waitForTimeout(300);
     const lefts = await fp.$$eval('.tl-key', l => l.map(e => e.dataset.r + ':' + e.dataset.k + ':' + e.dataset.m + '@' + parseFloat(e.style.left).toFixed(1)));
     if (lefts.join() !== '0:0:0@16.7,0:1:0@50.0,0:2:0@83.3,1:0:0@37.5,1:0:1@87.5,1:1:0@37.5,1:1:1@87.5') throw new Error('the timeline\'s keys: ' + lefts.join());
@@ -743,7 +742,7 @@ T.current = 'canvas keys';
       + '<rect x="160" y="20" width="60" height="60" fill="#e05a6a"/><circle cx="190" cy="200" r="30" fill="#e05a6a"/><rect x="300" y="20" width="60" height="60" fill="#4fbf8a"/><circle cx="330" cy="200" r="30" fill="#4fbf8a"/></svg>';
     await cp.goto(scene({ name: 'seq', svg, play: false, morphs: [[0, 1], [2, 3], [4, 5]] }), { waitUntil: 'load' });
     await ready();
-    await cp.dispatchEvent('#bMorphTimeline', 'click'); await cp.waitForTimeout(200);
+    await cp.evaluate(() => window.__anim.press('timeline')); await cp.waitForTimeout(200);
     await cp.click('#tlTurn');
     const cys = async t => { await setT(t); return (await cp.evaluate(() => window.__box.morph().runs)).map(r => r.cy); };
     const a0 = await cys(0), a1 = await cys(0.2), a2 = await cys(0.5), a3 = await cys(0.95);
@@ -803,7 +802,7 @@ T.current = 'undo morphs';
     const c = await up.evaluate(() => { const r = window.__box.morph().runs[0]; return window.__box.toPx(r.cx, r.cy); });
     await up.mouse.move(c.x, c.y); await up.mouse.down(); await up.mouse.move(c.x + 50, c.y, { steps: 5 }); await up.mouse.up(); await up.waitForTimeout(300);
     const s3 = await st();
-    await up.dispatchEvent('#bMorphTimeline', 'click'); await up.waitForTimeout(200);
+    await up.evaluate(() => window.__anim.press('timeline')); await up.waitForTimeout(200);
     await up.evaluate(() => window.__box.select([])); await up.waitForTimeout(200);
     await up.click('#tlTurn');
     const s4 = await st();
@@ -932,9 +931,9 @@ T.current = 'the animation\'s bar and strip';
     await pick('motion', 'animMotion', '[data-v="bounce"]');
     const mo = await ap.evaluate(() => [document.getElementById('mrMotion').value, document.querySelector('.add-strip [data-mode="animMotion"] [data-v="bounce"]').classList.contains('on')]);
     await pick('ease', 'animEase', '[data-v="inout"]');
-    const ea = await ap.evaluate(() => [document.getElementById('morphEase').value, document.querySelector('.add-strip [data-mode="animEase"] [data-v="inout"]').classList.contains('on')]);
+    const ea = await ap.evaluate(() => [window.__anim.get('ease'), document.querySelector('.add-strip [data-mode="animEase"] [data-v="inout"]').classList.contains('on')]);
     await pick('fx', 'animFx', '[data-v="shimmer"]');
-    const fx = await ap.evaluate(() => [document.getElementById('morphFx').value, document.querySelector('.add-strip [data-mode="animFx"] [data-v="shimmer"]').classList.contains('on')]);
+    const fx = await ap.evaluate(() => [window.__anim.get('fx'), document.querySelector('.add-strip [data-mode="animFx"] [data-v="shimmer"]').classList.contains('on')]);
     if (mo.join() !== 'bounce,true' || ea.join() !== 'inout,true' || fx.join() !== 'shimmer,true') throw new Error('presets: ' + JSON.stringify({ mo, ea, fx }));
     // play and pause from the bar
     await ap.click('#abPlay');
@@ -985,7 +984,7 @@ T.current = 'the animation\'s bar and strip';
     await ap.click('.add-strip [data-mode="animPath"] [data-pm="back"]');
     const dial = async (name, v) => { await ap.evaluate(([n, v]) => { const r = document.querySelector(`#abDials input[aria-label="${n}"]`); r.value = v; r.dispatchEvent(new Event('input')); }, [name, v]); };
     await dial('trail length', 80);
-    const pa = await ap.evaluate(() => [document.getElementById('morphTrail').value, document.getElementById('morphPathMode').value, document.getElementById('morphTrailLen').value,
+    const pa = await ap.evaluate(() => [window.__anim.get('trail'), window.__anim.get('pathMode'), window.__anim.get('trailLen'),
       document.querySelector('.add-strip [data-mode="animPath"] [data-tr="echoes"]').classList.contains('on')].join());
     await ap.click('.add-strip [data-mode="animPath"] [data-act="draw"]'); // armed: the morph plays, and a line drawn is its path
     await ap.waitForTimeout(200);
@@ -998,15 +997,15 @@ T.current = 'the animation\'s bar and strip';
     await pick('physics', 'animPhysics', '[data-g="400"]');
     await ap.click('.add-strip [data-mode="animPhysics"] [data-w="-50"]');
     await ap.waitForTimeout(200);
-    const ph = await ap.evaluate(() => [document.getElementById('morphGravity').value, document.getElementById('morphWind').value,
+    const ph = await ap.evaluate(() => [window.__anim.get('gravity'), window.__anim.get('wind'),
       document.querySelector('.add-strip [data-mode="animPhysics"] [data-w="-50"]').classList.contains('on'), document.querySelectorAll('#abDials input').length].join());
     await pick('timing', 'animTiming', '[data-loop="2"]');
     await ap.click('.add-strip [data-mode="animTiming"] [data-hold="50"]');
-    const ti = await ap.evaluate(() => [document.getElementById('morphLoop').value, document.getElementById('morphHold').value,
+    const ti = await ap.evaluate(() => [window.__anim.get('loop'), window.__anim.get('hold'),
       document.querySelector('.add-strip [data-mode="animTiming"] [data-loop="2"]').classList.contains('on')].join());
     await pick('adv', 'animAdv', '[data-fps="60"]');
     await ap.click('.add-strip [data-mode="animAdv"] [data-act="onion"]');
-    const ad = await ap.evaluate(() => [document.getElementById('morphFps').value, document.getElementById('tMorphOnion').checked, document.getElementById('shapeBar').getBoundingClientRect().height < 1].join());
+    const ad = await ap.evaluate(() => [window.__anim.get('fps'), window.__anim.get('onion'), document.getElementById('shapeBar').getBoundingClientRect().height < 1].join());
     if (pa !== 'echoes,back,80,true' || ph !== '400,-50,true,2' || ti !== '2,50,true' || ad !== '60,true,true' || drawn === false)
       throw new Error('path, physics, timing, advanced: ' + JSON.stringify({ pa, drawn, ph, ti, ad }));
     const more = true;
