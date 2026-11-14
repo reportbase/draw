@@ -236,8 +236,10 @@ compatibly.
   `drawAll` (`__selStripSync`); `__box.button` (null for a disabled tile), `group` and `panelUp` answer for the strip.
   A change of what is selected (asked of the shapes, `spId`, not their indices, so Order's moves do not count) brings the
   selection's strip whatever mode held the strip, unless it came with a shape added (the library stays up for more;
-  14 Nov 2026, "when select an object, show the selection footer"). Offset and Corners, opened from their tiles, stand
-  above them (`placePop`, as Fill's sliders do).
+  14 Nov 2026, "when select an object, show the selection footer"). Round and Corners are one tile (14 Nov 2026, Tom:
+  "merge round corners and remove offset and knife"): `bt-roundoff` rounds a leaves shape off and opens the corners panel
+  on an exact one, standing above the tile (`placePop`, as Fill's sliders do); Corners, Offset and the knife are left out
+  of the strip (`SEL_LEFT_OUT`), their code kept and reached by name (`__box.run(name)` for tests).
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).

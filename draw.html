@@ -16460,10 +16460,10 @@
         // condition to keep in step here.
         {
             name: 'bt-roundoff',
-            title: 'round off the whole contour — the track above picks the band',
+            title: 'round: round off the contour (the track picks the band), or an exact shape\'s corners',
             // not on an exact selection: there the track counts corners, and rounding off is
             // a matter for leaves (the mode switch beside it)
-            show: () => selectedIndices().length > 0 && selectionShapeMode() !== 'exact'
+            show: () => selectedIndices().length > 0 && (selectionShapeMode() !== 'exact' || selectionHasExact(false))
         }, // GROUP, SECOND (22 Oct 2026, Tom: "move the group button next to the rotate button
         // selection to the bottom panel"). It stood beside the rotate grip, the one control on
         // the box's top edge that is not a handle; the panel is where the box's actions live,
@@ -17165,8 +17165,15 @@
                 runSmooth();
                 return;
             }
+            // ROUND AND CORNERS ARE ONE BUTTON (14 Nov 2026, Tom: "merge round corners"). Round rounded a leaves shape off
+            // and Corners an exact shape's corners: the same wish for the two ways a shape is held, never both at once, so
+            // the strip always showed one of them dead. One tile now does whichever the selection is: on an exact shape it
+            // opens the corners panel (round, sharp, smooth, at a radius), on leaves it rounds off as before.
             if (name === 'bt-roundoff') {
-                runRoundOff();
+                if (selectionShapeMode() === 'exact' || (selectionShapeMode() !== 'leaves' && selectionHasExact(false)))
+                    setCornersTool(!$('cornersTool').classList.contains('open'));
+                else
+                    runRoundOff();
                 return;
             }
             // The edges. lr = the left and right edges = the vertical mirror LINE = mode 'v';
@@ -56805,7 +56812,7 @@
                         // panels above the footer, the same way as you do with the fill slider panel"). Their panels were
                         // placed under the top bar, the far side of the window from the tile that opened them; opened from
                         // the strip, each now stands above its tile as Fill's sliders do (placePop, the same placing).
-                        const tool = { 'bt-offset': 'offsetTool', 'bt-corners': 'cornersTool' }[t.dataset.name];
+                        const tool = { 'bt-offset': 'offsetTool', 'bt-corners': 'cornersTool', 'bt-roundoff': 'cornersTool' }[t.dataset.name];
                         const el = tool && $(tool);
                         if (el && el.classList.contains('open'))
                             placePop(el, t);
@@ -56907,9 +56914,13 @@
                 else
                     drawBoxButton({ name, cx: W / 2, cy: W / 2, r: 20 }, false, c);
             }
+            // NOT IN THE STRIP (14 Nov 2026, Tom: "merge round corners and remove offset and knife"): Corners is Round's on an
+            // exact shape now, and Offset and the knife are gone from the strip. Their code stays (runBoxButton, the tools'
+            // panels), so either can come back by leaving this list.
+            const SEL_LEFT_OUT = new Set(['bt-corners', 'bt-offset', 'bt-knife']);
             function selBuild(host) {
                 host.textContent = '';
-                for (const b of BOX_BUTTONS) {
+                for (const b of BOX_BUTTONS.filter(q => !SEL_LEFT_OUT.has(q.name))) {
                     const t = document.createElement('button');
                     t.type = 'button';
                     t.className = 'icon-btn strip-tile sel-btn';
@@ -57176,7 +57187,7 @@
                 try {
                     style = JSON.stringify(lineStyleOf(state.subpaths[idx[0]]) || '');
                 } catch (_) {}
-                const sig = BOX_BUTTONS.filter(selCan).map(b => b.name).join() + '|' + selectionShapeMode() + '|'
+                const sig = BOX_BUTTONS.filter(q => !SEL_LEFT_OUT.has(q.name) && selCan(q)).map(b => b.name).join() + '|' + selectionShapeMode() + '|'
                     + selectionIsGrouped() + '|' + idx.join() + '|' + style + '|' + (state.selected ? state.selected.size : 0);
                 if (sig !== selSig) {
                     selSig = sig;
@@ -63054,6 +63065,7 @@
             grouped: () => selectionIsGrouped(),
             units: () => selectionUnitCount(),
             press: () => runBoxButton('bt-group'),
+            run: name => runBoxButton(name), // a panel button by name, tile or not (Offset and the knife have none now)
             hit: (x, y) => handleAt(x, y),
             // the shapes selected, each its corner count, its area in the page's units, smooth or not
             shapes: () => selectedIndices().map(i => {

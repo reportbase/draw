@@ -551,7 +551,7 @@ T.current = 'the selection\'s options in the strip';
     const st = await sp.evaluate(() => ({ mode: window.__strip.mode, slider: !!document.querySelector('.sel-slider'),
       tiles: [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => (t.disabled ? '-' : '+') + t.dataset.name),
       under: !!window.__box.track() }));
-    if (st.mode !== 'select' || st.slider || st.tiles.length !== 13 || !st.tiles.includes('+bt-mode') || !st.tiles.includes('-bt-union') || !st.under)
+    if (st.mode !== 'select' || st.slider || st.tiles.length !== 10 || !st.tiles.includes('+bt-mode') || !st.tiles.includes('-bt-union') || !st.under)
       throw new Error('a circle selected, the strip says ' + JSON.stringify(st));
     // the track under the box: dragged end to end it writes to the shape, and one undo puts it back
     const tr = await sp.evaluate(() => window.__box.track()), cv = await sp.locator('#cv').boundingBox();
@@ -573,7 +573,7 @@ T.current = 'the selection\'s options in the strip';
     await sp.waitForTimeout(300);
     const m1 = await sp.evaluate(() => [window.__box.mode(), document.querySelector('.sel-btn[data-name="bt-mode"]').getAttribute('aria-pressed'),
       [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => t.dataset.name).join(),
-      document.querySelector('.sel-btn[data-name="bt-corners"]').disabled]);
+      document.querySelector('.sel-btn[data-name="bt-dash"]').disabled]);
     if (m1[0] === m0[0] || m1[1] === m0[1] || m1[1] !== String(m1[0] === 'exact') || m1[2] !== order || m1[3] !== (m1[0] !== 'exact'))
       throw new Error(`the mode toggle: ${JSON.stringify(m0)} → ${JSON.stringify(m1)}`);
     await sp.keyboard.press('Escape');
@@ -716,7 +716,11 @@ T.current = 'the selection takes the strip';
     // Offset and Corners stand above their tiles
     await qp.evaluate(() => { window.__strip.open(null); window.__box.select([0]); });
     await qp.waitForTimeout(400);
-    for (const [tile, tool] of [['bt-offset', 'offsetTool'], ['bt-corners', 'cornersTool']]) {
+    // Round and Corners are one tile, and Offset and the knife left the strip (14 Nov 2026, Tom: "merge round corners and
+    // remove offset and knife"): on an exact square Round opens the corners panel, over its tile
+    const names = await qp.evaluate(() => [...document.querySelectorAll('.add-strip [data-mode="select"] .sel-btn')].map(t => t.dataset.name));
+    if (['bt-corners', 'bt-offset', 'bt-knife'].some(n => names.includes(n)) || !names.includes('bt-roundoff')) throw new Error('the tiles: ' + names.join());
+    for (const [tile, tool] of [['bt-roundoff', 'cornersTool']]) {
       const b = await qp.evaluate(n => window.__box.button(n), tile);
       if (!b) throw new Error(tile + ' is not a tile to press');
       await qp.mouse.click(cv.x + b.cx, cv.y + b.cy);
@@ -731,7 +735,7 @@ T.current = 'the selection takes the strip';
   } catch (e) {
     failures.push(`[selection takes] ${e.message.split('\n')[0]}`);
   }
-  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the selection takes the strip; Group off the bar; Offset and Corners over their tiles`);
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the selection takes the strip; Group off the bar; Round opens Corners over its tile`);
   await qp.close();
 }
 
