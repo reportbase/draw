@@ -675,13 +675,18 @@ T.current = 'few shapes lie as a centred row';
 }
 
 /* A hold builds the selection and never hides the bars (13 Nov 2026, Tom: "Long press should multi select objects, not
-   toggle the toolbar visibility"). On a phone (locked, as it starts): tap one shape, hold another and both are held,
-   hold the first again and it goes out; a hold on empty canvas leaves the bars where they are. */
+   toggle the toolbar visibility"), locked or not, with a finger or a mouse (14 Nov 2026, "Long press Multi select not
+   working, it deselects": unlocked, the press selected the shape it landed on before the hold fired, so the hold had
+   nothing left to add to). Tap one shape, hold a second and a third and all three are held, hold the second again and it
+   goes out; a hold on empty canvas leaves the bars where they are. */
 T.current = 'a hold multi-selects';
-{
-  const hctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
+for (const [label, opts, lock] of [
+  ['phone, locked', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 }, true],
+  ['phone, unlocked', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 }, false],
+  ['mouse, unlocked', { viewport: { width: 1280, height: 800 } }, false]]) {
+  const hctx = await browser.newContext(opts);
   const hp = await hctx.newPage();
-  hp.on('pageerror', e => failures.push(`[hold] ${e.message}`));
+  hp.on('pageerror', e => failures.push(`[hold, ${label}] ${e.message}`));
   await hp.route(/fonts\.g/, r => r.abort());
   const before = failures.length;
   try {
@@ -692,40 +697,44 @@ T.current = 'a hold multi-selects';
     await hp.setInputFiles('#fLoad', { name: 'three.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
     await hp.waitForTimeout(1500);
     const cv = await hp.locator('#cv').boundingBox();
-    // where shapes 0 and 2 stand, read off their boxes with the lock off for a moment (the lock hides the handles)
-    await hp.click('#bLock');
+    // where each shape stands, read off its box with the lock off (the lock hides the handles)
+    const locked = async () => (await hp.evaluate(() => document.getElementById('bLock').getAttribute('aria-pressed'))) === 'true';
+    if (await locked()) await hp.click('#bLock');
     const at = [];
-    for (const i of [0, 2]) {
+    for (const i of [0, 1, 2]) {
       await hp.evaluate(i => window.__box.select([i]), i);
       const b = await hp.evaluate(() => window.__box.handles().box);
       at.push([cv.x + (b.x0 + b.x1) / 2, cv.y + (b.y0 + b.y1) / 2]);
     }
-    await hp.click('#bLock');
     await hp.evaluate(() => window.__box.select([]));
-    const cdp = await hctx.newCDPSession(hp);
-    const touch = async ([x, y], ms) => {
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-      if (ms) await hp.waitForTimeout(ms);
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    if (lock !== await locked()) await hp.click('#bLock');
+    const cdp = opts.hasTouch ? await hctx.newCDPSession(hp) : null;
+    const press = async ([x, y], ms) => {
+      if (cdp) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+        if (ms) await hp.waitForTimeout(ms);
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      } else {
+        await hp.mouse.move(x, y); await hp.mouse.down();
+        if (ms) await hp.waitForTimeout(ms);
+        await hp.mouse.up();
+      }
       await hp.waitForTimeout(400);
     };
-    const held = () => hp.evaluate(() => ({ off: document.body.classList.contains('chrome-off'),
-      w: (h => h ? Math.round(h.box.x1 - h.box.x0) : 0)(window.__box.handles && window.__box.handles()) }));
-    // the box's width says what is held: one circle, or the span from one circle to the other
-    await hp.click('#bLock'); await touch(at[0]); const one = await held(); await hp.click('#bLock');
-    await touch(at[0]);
-    await touch(at[1], 700);
-    await hp.click('#bLock'); const two = await held(); await hp.click('#bLock');
-    await touch(at[0], 700);
-    await hp.click('#bLock'); const back = await held(); await hp.click('#bLock');
-    await touch([cv.x + 20, cv.y + cv.height * 0.25], 700);
-    const empty = await held();
-    if (one.w <= 0 || !(two.w > one.w * 2) || !(back.w > 0 && back.w < two.w) || one.off || two.off || back.off || empty.off)
-      throw new Error('holds: ' + JSON.stringify({ one, two, back, empty }));
+    const sel = () => hp.evaluate(() => window.__box.selected().join());
+    const seen = [];
+    await press(at[0]); seen.push(await sel());
+    await press(at[1], 800); seen.push(await sel());
+    await press(at[2], 800); seen.push(await sel());
+    await press(at[1], 800); seen.push(await sel());
+    await press([cv.x + 20, cv.y + cv.height * 0.25], 800);
+    const off = await hp.evaluate(() => document.body.classList.contains('chrome-off'));
+    if (seen.join(' | ') !== '0 | 0,1 | 0,1,2 | 0,2' || off)
+      throw new Error('holds: ' + seen.join(' | ') + (off ? ', and the bars went' : ''));
   } catch (e) {
-    failures.push(`[hold] ${e.message.split('\n')[0]}`);
+    failures.push(`[hold, ${label}] ${e.message.split('\n')[0]}`);
   }
-  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a hold multi-selects, and never hides the bars`);
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a hold multi-selects, and never hides the bars (${label})`);
   await hctx.close();
 }
 
