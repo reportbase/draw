@@ -765,7 +765,7 @@ T.current = 'the arrow tool';
     const [dl] = await Promise.all([ap.waitForEvent('download', { timeout: 30000 }), ap.evaluate(() => document.getElementById('bExportSvg').click())]);
     const svg = await readFile(await dl.path(), 'utf8');
     const heads = (svg.match(/<path d="M[^"]*Z" fill="[^"]*" stroke="none"/g) || []).length;
-    if (r.n !== n0 + 2 || r.mode !== 'arrows' || r.heads !== 'false,false,true,false' || heads !== 3)
+    if (r.n !== n0 + 2 || r.mode !== 'arrows' || r.heads !== 'false,false,true,false,false' || heads !== 3)
       throw new Error('arrows drawn: ' + JSON.stringify({ ...r, n0, heads }));
   } catch (e) {
     failures.push(`[arrow tool] ${e.message.split('\n')[0]}`);
@@ -792,7 +792,7 @@ T.current = 'the shape and line tools in the strip';
     const s0 = await tp.evaluate(() => { const p = document.getElementById('shapeTool').getBoundingClientRect(), f = document.getElementById('addStrip').getBoundingClientRect();
       return { mode: window.__strip.mode, tiles: [...document.querySelectorAll('.add-strip [data-mode="shape"] .strip-tile')].map(t => t.getAttribute('aria-label')).join(),
         open: document.getElementById('shapeTool').classList.contains('open'), above: Math.round(f.top - p.bottom) }; });
-    if (s0.mode !== 'shape' || s0.tiles !== 'Rectangle,Triangle,Pentagon,Hexagon,Octagon,Star,Eight-point star' || !s0.open || s0.above < 0 || s0.above > 20)
+    if (s0.mode !== 'shape' || s0.tiles !== 'Rectangle,Triangle,Pentagon,Hexagon,Octagon,Star,Eight-point star,Speech bubble,Bracket' || !s0.open || s0.above < 0 || s0.above > 20)
       throw new Error('the shape tool: ' + JSON.stringify(s0));
     await tp.click('.add-strip [data-mode="shape"] [aria-label="Star"]');
     await tp.mouse.move(400, 300); await tp.mouse.down(); await tp.mouse.move(520, 380, { steps: 6 }); await tp.mouse.up();
@@ -825,7 +825,7 @@ T.current = 'the shape and line tools in the strip';
     await tp.click('.add-strip [data-mode="arrows"] [aria-label="Solid"]');
     // the line tool: the stroke beside the ends; dashed and both ends, drawn
     const l0 = await tp.evaluate(() => [...document.querySelectorAll('.add-strip [data-mode="arrows"] .strip-tile')].map(t => t.getAttribute('aria-label')).join());
-    if (l0 !== 'Line,Path,Solid,Dashed,Dotted,No arrows,Arrow at the end,Arrows at both ends,Arrow at the start') throw new Error('the line tool\'s tiles: ' + l0);
+    if (l0 !== 'Line,Path,Solid,Dashed,Dotted,No arrows,Arrow at the end,Arrows at both ends,Arrow at the start,Measure line') throw new Error('the line tool\'s tiles: ' + l0);
     await tp.click('.add-strip [data-mode="arrows"] [aria-label="Dashed"]');
     await tp.mouse.move(300, 550); await tp.mouse.down(); await tp.mouse.move(700, 600, { steps: 6 }); await tp.mouse.up();
     await tp.waitForTimeout(300);
@@ -882,6 +882,47 @@ T.current = 'the text tool';
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the text tool sets words where the drawing is tapped`);
   await xp2.close();
+}
+
+/* A measure line, a speech bubble and a bracket (14 Nov 2026, Tom: "1 2 3 5", the fifth): the shape tool's last two
+   tiles drag out a bubble (seven corners, closed) and a bracket (four, open); the line tool's Measure line is a line
+   with a tick at each end and its length written beside it, in the drawing and in the SVG. */
+T.current = 'measure, bubble, bracket';
+{
+  const mp2 = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  mp2.on('pageerror', e => failures.push(`[measure, bubble, bracket] ${e.message}`));
+  await mp2.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await mp2.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await mp2.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const drag = async (x0, y0, x1, y1) => { await mp2.mouse.move(x0, y0); await mp2.mouse.down(); await mp2.mouse.move(x1, y1, { steps: 8 }); await mp2.mouse.up(); await mp2.waitForTimeout(300); };
+    const last = () => mp2.evaluate(() => { const n = window.__box.count(); window.__box.select([n - 1]); const r = window.__box.rings()[0], s = window.__box.shapes()[n - 1];
+      return { corners: r ? r.x.length : 0, open: !!(s && s.open) }; });
+    await mp2.click('#bDrawShape');
+    await mp2.click('.add-strip [data-mode="shape"] [aria-label="Speech bubble"]');
+    await drag(120, 120, 330, 260);
+    const bub = await last();
+    await mp2.click('.add-strip [data-mode="shape"] [aria-label="Bracket"]');
+    await drag(120, 330, 330, 330);
+    const br = await last();
+    await mp2.evaluate(() => window.__box.select([])); // (a line selected would take the line tool's choice too)
+    await mp2.click('#bArrows');
+    await mp2.click('.add-strip [data-mode="arrows"] [aria-label="Measure line"]');
+    await drag(120, 420, 330, 420);
+    const [dl] = await Promise.all([mp2.waitForEvent('download', { timeout: 30000 }), mp2.evaluate(() => document.getElementById('bExportSvg').click())]);
+    const svg = await readFile(await dl.path(), 'utf8');
+    const label = (svg.match(/<text [^>]*>([^<]+)<\/text>/) || [])[1];
+    // the length written is the line's own: 210 px across, in world units, as the canvas measures them
+    const want = await mp2.evaluate(() => { const n = window.__box.count(); window.__box.select([n - 1]); const r = window.__box.rings()[0]; return Math.hypot(r.x[1] - r.x[0], r.y[1] - r.y[0]); });
+    if (bub.corners !== 7 || br.corners !== 4 || (svg.match(/<text /g) || []).length !== 1 || !label || Math.abs(parseFloat(label) - want) > 0.002)
+      throw new Error(JSON.stringify({ bub, br, label, want }));
+    await mp2.click('.add-strip [data-mode="arrows"] [aria-label="Arrow at the end"]'); // (the next test page starts afresh, but leave it as found)
+  } catch (e) {
+    failures.push(`[measure, bubble, bracket] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a measure line, a speech bubble and a bracket`);
+  await mp2.close();
 }
 
 /* A hold builds the selection and never hides the bars (13 Nov 2026, Tom: "Long press should multi select objects, not

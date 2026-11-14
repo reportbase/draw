@@ -250,8 +250,16 @@ compatibly.
   `dashCfg`, `setLineDash` for what is selected) and then the ends, and `bt-dash` left the selection strip too. The shape
   tool works the same way (THE SHAPE TOOL'S CHOICES ARE THE STRIP'S): `#bDrawShape` turns the strip to `MODES.shape`, a
   tile per shape (rectangle, triangle, pentagon, hexagon, octagon, star, eight-point star), armed while that mode holds
-  the strip; `#shapeTool` keeps only the sides and roundness and stands just above the strip; one shape a press, the
-  drag's end putting the tool and the mode away. Straight lines (`#bDrawLine`, click corner by corner) stays as it was.
+  the strip; `#shapeTool` keeps only the sides and roundness and stands just above the strip.
+  Since "1 2 3 5" the same day: the shape tool stays on like the line tool (THE TOOL STAYS ON; Escape, its button or
+  another tool closes either); Straight lines is the line tool's Path tile (`linePath`: the pen `lineMode` armed from
+  the strip, `#bDrawLine` hidden in `#topButtonsHeld` and still what the checks press for the bare pen), and a path
+  takes the strip's stroke, and its ends when open; Text is a tool too (THE TEXT TOOL: `MODES.text`, size, bold, italic,
+  outline and a tile a font; a tap opens `#textAt` there and Enter sets the words centred on it, `addTextShapes(text,
+  { at })`; a choice restyles a word selected; the popover stays for retyping, by double-click or the
+  `tangent:edit-text` event); a drawing tool's mode is not taken by a change of selection; the shape tool also drags
+  out a speech bubble and a bracket (open); and the line tool's fifth end is a measure line (`arrows: 4`,
+  `exactMeasure`, `drawMeasureLabels`; `#meta arrows:measure` in a `.tvf`, ticks and a `<text>` in the SVG).
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).
