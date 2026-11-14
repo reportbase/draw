@@ -245,7 +245,7 @@ try {
       throw new Error("the tiles' tips: " + JSON.stringify(tips));
   });
   await step('straight line', async () => {
-    await page.click('#bDrawLine');
+    await page.evaluate(() => document.getElementById('bDrawLine').click()); // the pen, off the bar since 14 Nov 2026
     for (const [x, y] of [[200, 200], [400, 260], [520, 180]]) await page.mouse.click(x, y);
     await page.mouse.dblclick(520, 180);
   });
@@ -799,17 +799,39 @@ T.current = 'the shape and line tools in the strip';
     await tp.waitForTimeout(300);
     const star = await tp.evaluate(() => { const n = window.__box.count(); window.__box.select([n - 1]); const r = window.__box.rings()[0]; return r ? { n: r.x.length } : null; });
     const s1 = await tp.evaluate(() => ({ mode: window.__strip.mode, open: document.getElementById('shapeTool').classList.contains('open') }));
-    if (!star || star.n !== 10 || s1.mode === 'shape' || s1.open) throw new Error('a star dragged out: ' + JSON.stringify({ star, ...s1 }));
-    // the line tool: the stroke beside the ends; dashed and both ends, drawn
+    // the tool stays on for the next shape (Tom: "make the Shape tool behave like Line"), and Escape puts it away
+    await tp.evaluate(() => window.__strip.open('shape'));
+    await tp.mouse.move(600, 300); await tp.mouse.down(); await tp.mouse.move(700, 360, { steps: 6 }); await tp.mouse.up();
+    await tp.waitForTimeout(300);
+    const s1b = await tp.evaluate(() => ({ mode: window.__strip.mode, n: window.__box.count() }));
+    await tp.keyboard.press('Escape');
+    await tp.waitForTimeout(200);
+    const s1c = await tp.evaluate(() => ({ mode: window.__strip.mode, open: document.getElementById('shapeTool').classList.contains('open') }));
+    if (!star || star.n !== 10 || s1b.mode !== 'shape' || s1b.n !== n0 + 2 || s1c.mode === 'shape' || s1c.open)
+      throw new Error('stars dragged out: ' + JSON.stringify({ star, s1, s1b, s1c }));
+    // a path, clicked corner by corner from the line tool's Path tile (Tom: "fold Straight lines into Line"): three
+    // corners left open, dashed by the strip, and the pen still armed for the next
     await tp.click('#bArrows');
+    await tp.click('.add-strip [data-mode="arrows"] [aria-label="Path"]');
+    await tp.click('.add-strip [data-mode="arrows"] [aria-label="Dotted"]');
+    await tp.mouse.click(820, 200); await tp.mouse.click(900, 260); await tp.mouse.click(980, 200);
+    await tp.keyboard.down('Shift'); await tp.keyboard.press('Enter'); await tp.keyboard.up('Shift');
+    await tp.waitForTimeout(300);
+    const pth = await tp.evaluate(() => { const n = window.__box.count(); window.__box.select([n - 1]); const r = window.__box.rings()[0];
+      return { corners: r ? r.x.length : 0, n, mode: window.__strip.mode, onBar: !!document.querySelector('.topbar #bDrawLine'),
+        lit: document.querySelector('.add-strip [data-mode="arrows"] [aria-label="Path"]').classList.contains('on') }; });
+    if (pth.corners !== 3 || pth.n !== n0 + 3 || pth.mode !== 'arrows' || pth.onBar || !pth.lit) throw new Error('a path from the line tool: ' + JSON.stringify(pth));
+    await tp.click('.add-strip [data-mode="arrows"] [aria-label="Line"]');
+    await tp.click('.add-strip [data-mode="arrows"] [aria-label="Solid"]');
+    // the line tool: the stroke beside the ends; dashed and both ends, drawn
     const l0 = await tp.evaluate(() => [...document.querySelectorAll('.add-strip [data-mode="arrows"] .strip-tile')].map(t => t.getAttribute('aria-label')).join());
-    if (l0 !== 'Solid,Dashed,Dotted,No arrows,Arrow at the end,Arrows at both ends,Arrow at the start') throw new Error('the line tool\'s tiles: ' + l0);
+    if (l0 !== 'Line,Path,Solid,Dashed,Dotted,No arrows,Arrow at the end,Arrows at both ends,Arrow at the start') throw new Error('the line tool\'s tiles: ' + l0);
     await tp.click('.add-strip [data-mode="arrows"] [aria-label="Dashed"]');
     await tp.mouse.move(300, 550); await tp.mouse.down(); await tp.mouse.move(700, 600, { steps: 6 }); await tp.mouse.up();
     await tp.waitForTimeout(300);
     const [dl] = await Promise.all([tp.waitForEvent('download', { timeout: 30000 }), tp.evaluate(() => document.getElementById('bExportSvg').click())]);
     const svg = await readFile(await dl.path(), 'utf8');
-    if (await tp.evaluate(() => window.__box.count()) !== n0 + 2 || !/stroke-dasharray="/.test(svg)) throw new Error('the dashed line did not come out dashed');
+    if (await tp.evaluate(() => window.__box.count()) !== n0 + 4 || !/stroke-dasharray="/.test(svg)) throw new Error('the dashed line did not come out dashed');
   } catch (e) {
     failures.push(`[tools in the strip] ${e.message.split('\n')[0]}`);
   }

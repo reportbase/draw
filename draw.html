@@ -54523,8 +54523,13 @@
         // already has shapes, a new stroke is ADDED as another subpath; otherwise it
         // starts the first shape.
         function setDrawMode(on, straight) {
-            if (on && arrowTool && window.__strip)
-                window.__strip.open(null); // the arrow tool is the strip's Arrows mode: closing that disarms it
+            // the line tool's strip may be up: its Path is this pen, so the strip stays for a straight pen and only the
+            // drag is disarmed; the pencil closes it
+            const inLine = !!(window.__strip && window.__strip.mode === 'arrows');
+            if (on && straight && inLine)
+                setArrowTool(false);
+            else if (on && (arrowTool || inLine) && window.__strip)
+                window.__strip.open(null);
             if (on && shapeTool)
                 setShapeTool(false); // one drawing tool at a time
             drawMode = on;
@@ -54622,6 +54627,11 @@
         // …and its stroke (14 Nov 2026, Tom: "1 2", the second the line tool: the ends and the stroke in one tool's
         // strip): null solid, 'dash' dashed, 'dot' dotted (lineStyleOf's dash)
         let dashCfg = null;
+        // …and how it is drawn (14 Nov 2026, Tom: "1 2 3 5", the third "fold Straight lines into Line"): false, a drag
+        // from end to end; true, a PATH, clicked corner by corner, which is the line pen (lineMode) armed from the line
+        // tool's strip instead of from a button of its own. The pen's button left the top bar; a path closed on its
+        // start is a polygon, and takes the stroke; left open it takes the ends too.
+        let linePath = false;
         function setArrowTool(on) {
             on = !!on;
             if (on === arrowTool)
@@ -54638,8 +54648,8 @@
         // THE SHAPE TOOL'S CHOICES ARE THE STRIP'S (14 Nov 2026, Tom: "1 2", the first the shape tool as the arrow tool
         // is): its button turns the strip to the shapes it drags out (MODES.shape, a tile each, drawn as the shape), and
         // the tool is armed while that mode holds the strip; its panel, now the sides and the roundness only, stands just
-        // above the strip instead of under the top bar. One shape a press, as before: the drag that makes it puts the
-        // tool away, and the new shape's own options take the strip.
+        // above the strip instead of under the top bar. It stays on, as the line tool does (THE TOOL STAYS ON), so
+        // shapes are dragged out one after another until it is closed.
         function setShapeTool(on) {
             on = !!on;
             if (on === shapeTool)
@@ -54926,7 +54936,9 @@
             const round = o.r.some(v => v > 0) ? Float64Array.from(o.r, v => v * perPx) : null;
             loadExactShape(wpts, state.subpaths.length > 0, false, round);
             scheduleSave();
-            setShapeTool(false);
+            // THE TOOL STAYS ON (14 Nov 2026, Tom: "1 2 3 5", the second "make the Shape tool behave like Line"): it put
+            // itself away after one shape, where the line tool draws one after another; now both stay until they are
+            // closed (their button again, Escape, or another tool).
         }
         (function() {
             const b = $('bDrawShape'),
@@ -55037,8 +55049,20 @@
                     }
                 }
                 loadExactShape(wpts, drawAppend, isOpen, null, smooth, ctrl);
+                // drawn from the line tool's strip, it wears the strip's stroke, and its ends if it is open
+                if (window.__strip && window.__strip.mode === 'arrows') {
+                    const sp = state.subpaths[state.subpaths.length - 1],
+                        ar = isOpen ? arrowCfg : 0;
+                    if (sp && (ar || dashCfg)) {
+                        sp.lineStyle = { dash: dashCfg, arrows: ar };
+                        sp._lazyP2d = null;
+                        scheduleSave();
+                    }
+                }
             }
             setDrawMode(false);
+            if (linePath && window.__strip && window.__strip.mode === 'arrows')
+                setDrawMode(true, true); // the path pen stays armed for the next one, as the drag does
         }
         $('bDraw').addEventListener('click', () => setDrawMode(!(drawMode && !lineMode), false));
         $('bDrawLine').addEventListener('click', () => setDrawMode(!(drawMode && lineMode), true));
@@ -56832,14 +56856,17 @@
         // selected, so the bar's copy was the same press twice. The button is kept, hidden, before the ring is built
         // (a ring lays out what it is given): its click handler is still the one the tile and the keyboard reach, and
         // syncArrangeBtns still keeps it up to date.
+        // …and the line pen's (#bDrawLine) with it, the same day ("fold Straight lines into Line"): it is the line tool's
+        // Path tile now (linePath). Its handler is kept for the pen on its own, which the checks still drive.
         {
-            const b = $('bGroup');
-            if (b) {
-                const hold = document.createElement('div');
-                hold.id = 'topButtonsHeld';
-                hold.hidden = true;
-                document.body.appendChild(hold);
-                hold.appendChild(b);
+            const hold = document.createElement('div');
+            hold.id = 'topButtonsHeld';
+            hold.hidden = true;
+            document.body.appendChild(hold);
+            for (const id of ['bGroup', 'bDrawLine']) {
+                const b = $(id);
+                if (b)
+                    hold.appendChild(b);
             }
         }
         const STRIP_FIRST = ['bAddStrip', 'bStyle', 'bLine', 'bAlign', 'bOrder', 'bBuild'];
@@ -57013,6 +57040,21 @@
                         const head = (x, d) => `<path d="M${x - 7 * d} 21L${x} 28L${x - 7 * d} 35"/>`;
                         const NAMES_ = ['No arrows', 'Arrow at the end', 'Arrows at both ends', 'Arrow at the start'];
                         // the stroke first (solid, dashed, dotted), then the ends: what the line is, then how it ends
+                        // how it is drawn first: a drag end to end, or a path clicked corner by corner (linePath)
+                        for (const [how, name, d] of [['drag', 'Line', 'M12 40L44 16'], ['path', 'Path', 'M10 40L22 18L34 38L46 16']]) {
+                            const b = document.createElement('button');
+                            b.type = 'button';
+                            b.className = 'icon-btn strip-tile';
+                            b.dataset.how = how;
+                            b.setAttribute('aria-label', name);
+                            b.title = how === 'drag' ? 'a line: drag from one end to the other'
+                                : 'a path: click each corner; double-click or Enter ends it, a click on the start closes it';
+                            b.innerHTML = '<svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"'
+                                + ' stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/>'
+                                + d.slice(1).split('L').map(q => '<circle cx="' + q.split(' ')[0] + '" cy="' + q.split(' ')[1] + '" r="2.6" fill="currentColor" stroke="none"/>').join('')
+                                + '</svg>';
+                            host.appendChild(b);
+                        }
                         const DASHES = [[null, 'Solid', ''], ['dash', 'Dashed', ' stroke-dasharray="9 7"'], ['dot', 'Dotted', ' stroke-dasharray="0.1 7"']];
                         for (const [d, name, da] of DASHES) {
                             const b = document.createElement('button');
@@ -57038,6 +57080,14 @@
                         }
                     },
                     tap: b => {
+                        if (b.dataset.how) {
+                            linePath = b.dataset.how === 'path';
+                            if (linePath)
+                                setDrawMode(true, true); // disarms the drag (setDrawMode)
+                            else
+                                setArrowTool(true); // puts the pen away (setArrowTool)
+                            return;
+                        }
                         if (b.dataset.dash) {
                             dashCfg = b.dataset.dash === 'solid' ? null : b.dataset.dash; // the next line drawn
                             setLineDash(dashCfg); // and what is selected now
@@ -57046,7 +57096,8 @@
                         arrowCfg = +b.dataset.arrows; // the next line drawn
                         setLineArrows(arrowCfg); // and a line selected now
                     },
-                    on: b => b.dataset.dash ? (dashCfg || 'solid') === b.dataset.dash : arrowCfg === +b.dataset.arrows },
+                    on: b => b.dataset.how ? (linePath ? 'path' : 'drag') === b.dataset.how
+                        : b.dataset.dash ? (dashCfg || 'solid') === b.dataset.dash : arrowCfg === +b.dataset.arrows },
                 build: { btn: 'bBuild',
                     build: host => {
                         for (const f of (__buildPanel && __buildPanel.families ? __buildPanel.families() : [])) {
@@ -57208,8 +57259,14 @@
                     if (p)
                         p.classList.remove('open');
                 }
+                const was = mode;
                 mode = next;
-                setArrowTool(mode === 'arrows'); // the Arrows mode is the arrow tool armed (THE ARROW TOOL)
+                // the line tool: its drag armed, or its path pen (linePath); leaving it puts the pen away
+                if (was === 'arrows' && mode !== 'arrows' && drawMode && lineMode)
+                    setDrawMode(false);
+                setArrowTool(mode === 'arrows' && !linePath); // the Arrows mode is the arrow tool armed (THE ARROW TOOL)
+                if (mode === 'arrows' && linePath && !(drawMode && lineMode))
+                    setDrawMode(true, true);
                 if (typeof setShapeTool === 'function')
                     setShapeTool(mode === 'shape'); // and the Shape mode the shape tool (THE SHAPE TOOL'S CHOICES ARE THE STRIP'S)
                 document.body.classList.toggle('adding', !!mode);
@@ -57431,6 +57488,11 @@
                         selBuild(MODES.select.host);
                 }
             }
+            // Escape puts a drawing tool away (the line tool, the shape tool), as it does the pen
+            window.addEventListener('keydown', e => {
+                if (e.key === 'Escape' && (mode === 'arrows' || mode === 'shape'))
+                    setMode(null);
+            });
             window.__selStripSync = selSync;
             window.__selStripWant = selWant;
             window.__strip = {
