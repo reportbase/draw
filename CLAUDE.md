@@ -271,14 +271,24 @@ compatibly.
   `draw.html`; `docs/animation.md`): `#animBar` stands above the strip while `body.morphing`, with play, the time slider
   (`#morphT`, moved there at the start) and chips; the strip shows the chip's values (`MODES.animKeys`, `animMotion`,
   `animEase`, `animFx`, `animExport`), each tile setting the select or pressing the button the morph bar had, which stay
-  the code that acts. Since "1 2 3 4 5" the same day the chips are Keys, Motion, Ease, Effect, Path, Physics, Timing,
-  Export, Advanced and Exit (`animPath`, `animPhysics`, `animTiming`, `animAdv` too), a lit chip's sliders are dials in
-  `#abDials` (`ANIM_DIALS`, each writing to the morph bar's slider and firing its event), and a key's tile is its pose
-  (`morphOutlineAt`). The morph bar (`#shapeBar`) is retired from the page: no chip opens it, and it stays in the page's
-  column as no height and a margin (the bar's and the strip's height, so the canvas ends above them), holding the
-  controls the tiles press. Animate (`#bMorphOpen`) with something selected goes straight in (`#bMorphLive`); with
-  nothing selected its popover opens. The checks open the morph bar (`body.anim-more`, from `window.__animMore`, set by
-  `tests/harness.mjs`), since they drive its own buttons: a new control of the animation needs a tile or a dial.
+  the code that acts. Since "1 2 3 4 5" and "1 2 3 4 5 6" the same day the chips are Keys, Motion, Path, Physics, Ease,
+  Timing, Effect, Export, Shape, Advanced and Exit (`animPath`, `animPhysics`, `animTiming`, `animAdv`, `animShape`
+  too); on a phone (`body.phone-bar`) they stand in groups, Keys, Move, Feel, Export, More and Exit (`.ab-group`,
+  `data-group`, `#abBack`). A lit chip's sliders are dials in `#abDials` (`ANIM_DIALS`: an id of a slider to write to
+  and fire, or an object with `get` and `set`, as the Keys chip's `keyDial`, which moves the key stood on in time by
+  `morphSetKeyTime`), and a key's tile is its pose (`morphOutlineAt`). Shape is the selected live shape's own settings
+  (every live shape's when none is selected), each tile setting a control of the morph's own panel (`#morphRunTool`),
+  which opens only when its last tile asks (`_mrAsk`; by itself in the checks, `window.__mrAuto`, set by
+  `tests/harness.mjs`). The morph bar (`#shapeBar`) is retired: nothing opens it, and it stays in the page's column as
+  no height and a margin (the bar's and the strip's height, so the canvas ends above them), holding the controls the
+  tiles press; the checks press them unseen (`dispatchEvent`, `$eval`, never `click` or `selectOption`). Animate
+  (`#bMorphOpen`) with something selected goes straight in (`#bMorphLive`); with nothing selected its popover opens. A
+  new control of the animation needs a tile or a dial.
+- Fill and Outline paint (14 Nov 2026, FILL AND OUTLINE PAINT in `draw.html`; Tom: "1 2 3 4 5 6", the fourth): both
+  buttons are enabled with nothing selected (outside the edit view). A colour tile tapped is held (`paint`, lit when
+  nothing is selected) while that strip is up, and a tap on a shape selects it and presses the same swatch; a held
+  colour makes the strip a tool's, so a change of selection does not take it. With something selected a tile still
+  colours the selection at once.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).

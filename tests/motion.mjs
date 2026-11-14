@@ -421,7 +421,7 @@ T.current = 'path, timeline, weather';
     if (d.gravity !== 2.5 || d.wind !== -1) throw new Error('the weather in the link: ' + JSON.stringify({ gravity: d.gravity, wind: d.wind }));
     // the timeline's steps
     await mp.evaluate(() => window.__box.select([]));
-    await mp.click('#bMorphTimeline'); await mp.waitForTimeout(300);
+    await mp.dispatchEvent('#bMorphTimeline', 'click'); await mp.waitForTimeout(300);
     const cuts = await mp.$$('#tlRows .tl-mcut'), segs = await mp.$$('#tlRows .tl-mseg');
     if (cuts.length !== 1 || segs.length !== 8) throw new Error('the timeline shows ' + segs.length + ' step pieces and ' + cuts.length + ' borders');
     const tr = await mp.locator('#tlRows .tl-track[data-r="2"]').boundingBox(), cb = await mp.locator('#tlRows .tl-mcut').boundingBox();
@@ -627,7 +627,7 @@ await step('explainers: drawn on, a camera, stops', async () => {
   if (!same) throw new Error('the link back gave ' + JSON.stringify(E2) + ', not ' + JSON.stringify(E1));
   // a stop added on the timeline is one undo step
   await ep.evaluate(() => { window.__box.seek(0.5); });
-  await ep.click('#bMorphTimeline');
+  await ep.dispatchEvent('#bMorphTimeline', 'click');
   await ep.click('#tlStop');
   const n1 = (await ep.evaluate(() => window.__box.explain())).stops.length;
   await ep.evaluate(() => document.getElementById('bUndo').click());

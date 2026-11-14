@@ -244,6 +244,44 @@ try {
     await page.keyboard.press('Escape');
   });
 
+  // FILL AND OUTLINE PAINT (14 Nov 2026, Tom: "1 2 3 4 5 6", the fourth: "pick a colour tile, then tap shapes to paint
+  // them, without selecting first"). On a page of its own: two shapes, nothing selected, Fill open all the same; a
+  // colour chosen is held (lit, and nothing changes), a tap on a shape gives it the colour and the strip stays.
+  await step('fill paints the shapes tapped', async () => {
+    const fp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    fp.on('pageerror', e => failures.push(`[fill paints] ${e.message}`));
+    await fp.route(/fonts\.g/, r => r.abort());
+    try {
+      await fp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await fp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+        + '<rect x="170" y="10" width="80" height="80" fill="#48c"/></svg>';
+      await fp.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+      await fp.waitForTimeout(1200);
+      await fp.evaluate(() => window.__box.select([]));
+      await fp.waitForTimeout(200);
+      if (await fp.evaluate(() => document.getElementById('bStyle').disabled)) throw new Error('Fill is off with nothing selected');
+      await fp.click('#bStyle');
+      await fp.waitForTimeout(300);
+      const sw = await fp.evaluate(() => { const t = [...document.querySelectorAll('.add-strip > .controls.on .strip-sw')].filter(t => /^#/.test(t.getAttribute('aria-label')))[9];
+        t.click(); return t.getAttribute('aria-label'); });
+      await fp.waitForTimeout(300);
+      const held = await fp.evaluate(() => [window.__strip.mode, [...document.querySelectorAll('.add-strip > .controls.on .strip-sw.on')].map(t => t.getAttribute('aria-label')).join()].join());
+      const cv = await fp.locator('#cv').boundingBox();
+      await fp.mouse.click(cv.x + cv.width / 2 + 150, cv.y + cv.height / 2);
+      await fp.waitForTimeout(500);
+      const after = await fp.evaluate(() => [window.__strip.mode, document.querySelector('#spFillGrid .sw.on') ? document.querySelector('#spFillGrid .sw.on').title : '']);
+      // the other shape is as it was: selected alone, the panel does not say the colour
+      await fp.evaluate(() => window.__box.select([0]));
+      await fp.waitForTimeout(300);
+      const other = await fp.evaluate(() => document.querySelector('#spFillGrid .sw.on') ? document.querySelector('#spFillGrid .sw.on').title : '');
+      if (held !== 'fill,' + sw || after[0] !== 'fill' || after[1] !== sw || other === sw)
+        throw new Error('painting: ' + JSON.stringify({ sw, held, after, other }));
+    } finally {
+      await fp.close();
+    }
+  });
+
   await step('drag on the canvas', () => drag([[640, 400], [700, 430], [760, 460]]));
   await step('freehand stroke', async () => {
     await page.click('#bDraw');
