@@ -562,7 +562,7 @@ await step('text in a scene, and beats', async () => {
     if (holes < 1) throw new Error('the 8 lost its counters in the SVG export');
     let b = await bp.evaluate(() => window.__box.beats());
     if (b.beats.map(x => x.title).join() !== 'one,two' || b.tvfs.length !== 2) throw new Error('the scene link\'s beats: ' + JSON.stringify(b));
-    await bp.click('#bMorphTimeline');
+    await bp.dispatchEvent('#bMorphTimeline', 'click');
     await bp.waitForTimeout(300);
     await bp.click('#tlBeats');
     await bp.waitForTimeout(300);

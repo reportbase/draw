@@ -84,12 +84,13 @@ export async function begin(part){
   const launch = { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] };
   if (process.env.CHROMIUM_PATH) launch.executablePath = process.env.CHROMIUM_PATH;
   const browser = await chromium.launch(launch);
-  // THE ANIMATION'S BAR (14 Nov 2026): a live morph's old bar is behind the bar's More now. The checks drive that bar's
-  // own buttons, so every page a part opens starts with More up (window.__animMore, read as a morph begins); a check of
-  // the bar itself takes it down again.
+  // THE MORPH'S OWN PANEL (14 Nov 2026): a selected morph's panel opens when its tile in the animation's strip asks
+  // for it now. The checks work that panel, so every page a part opens has it come up by itself as it did
+  // (window.__mrAuto); a check of the animation's bar itself turns that off. The retired morph bar's controls are
+  // pressed where they are, unseen (dispatchEvent, $eval), as the animation's tiles press them.
   {
     const np = browser.newPage.bind(browser), nc = browser.newContext.bind(browser);
-    const more = () => { window.__animMore = true; };
+    const more = () => { window.__mrAuto = true; };
     browser.newPage = async o => { const p = await np(o); await p.addInitScript(more); return p; };
     browser.newContext = async o => { const c = await nc(o); await c.addInitScript(more); return c; };
   }

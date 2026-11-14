@@ -2855,9 +2855,20 @@
                        the canvas end above the animation's bar and the strip (its margin is their height), so the drawing
                        is never under them. It is that margin and nothing else: every control of it has a tile, a dial or a
                        chip now (14 Nov 2026, "1 2 3 4 5": the old bar retired), and it is kept, shut, as the holder of the
-                       controls those press. The checks open it (body.anim-more, from window.__animMore) to press them too. */
-                    body.morphing #shapeBar { display: flex; z-index: 30; margin-bottom: calc(104px + var(--anim-h, 52px)); }
-                    body.morphing:not(.anim-more) #shapeBar { height: 0; min-height: 0; padding: 0; overflow: hidden; }
+                       controls those press. Nothing opens it any more (14 Nov 2026, "1 2 3 4 5 6", the second: the checks
+                       press its controls where they are, unseen, as the tiles do). */
+                    body.morphing #shapeBar { display: flex; height: 0; min-height: 0; padding: 0; overflow: hidden; margin-bottom: calc(104px + var(--anim-h, 52px)); }
+                    /* ON A PHONE THE CHIPS ARE IN GROUPS (the same day, the sixth): eleven chips were a line to pan, most of
+                       it out of sight. Keys, Move, Feel, Export, More and Exit fit across; a group opened shows its own
+                       chips after a way back. A wide screen has the room and shows them all. */
+                    #animBar .ab-group, #animBar .ab-back { display: none; }
+                    body.phone-bar #animBar:not([data-group]) .ab-chip[data-group] { display: none; }
+                    body.phone-bar #animBar:not([data-group]) .ab-group { display: inline-block; }
+                    body.phone-bar #animBar[data-group] .ab-chip { display: none; }
+                    body.phone-bar #animBar[data-group] .ab-back { display: inline-block; }
+                    body.phone-bar #animBar[data-group="move"] .ab-chip[data-group="move"],
+                    body.phone-bar #animBar[data-group="feel"] .ab-chip[data-group="feel"],
+                    body.phone-bar #animBar[data-group="more"] .ab-chip[data-group="more"] { display: inline-block; }
                     /* a tile of the animation's strips is a picture with its word under it */
                     .add-strip > .controls > .anim-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--fg); }
                     .add-strip > .controls > .anim-tile svg { width: 36px; height: 36px; }
@@ -7000,20 +7011,25 @@
     <!-- THE ANIMATION'S BAR (14 Nov 2026, Tom: "1 2 3", after "animation, morphing etc could be improved similarly"). While
          a morph is live this row stands just above the strip at the foot: play, the time slider (moved here from the
          morph bar as the page starts), and the animation's options as chips; the strip below shows the values of the chip
-         chosen (THE ANIMATION'S BAR AND STRIP, in the script). The morph bar's thirty controls are behind More. -->
+         chosen (THE ANIMATION'S BAR AND STRIP, in the script). The morph bar above is shut, the holder of what they press. -->
     <div id="animBar" role="toolbar" aria-label="animation">
         <button type="button" id="abPlay" class="icon-btn" aria-label="Play" title="run the animation, or pause it"></button>
         <span id="abT"></span>
         <span class="ab-chips">
-            <button type="button" class="ab-chip" data-anim="keys" title="the poses the animation passes through: tap one to stand on it, add the pose you are looking at, take one away">Keys</button>
-            <button type="button" class="ab-chip" data-anim="motion" title="a physical motion for the animated shape: bounce, fall, swing, spring, roll, throw, sway, pop, drift">Motion</button>
-            <button type="button" class="ab-chip" data-anim="ease" title="how it moves from one key to the next">Ease</button>
-            <button type="button" class="ab-chip" data-anim="fx" title="an effect on the outline's detail">Effect</button>
-            <button type="button" class="ab-chip" data-anim="path" title="a path for the animated shape to ride: draw one, or ride a line of the drawing; along or there and back; the trail it leaves">Path</button>
-            <button type="button" class="ab-chip" data-anim="physics" title="gravity and wind, for every physical motion in the scene">Physics</button>
-            <button type="button" class="ab-chip" data-anim="timing" title="how long a loop takes, and how long it rests on each key">Timing</button>
+            <button type="button" class="ab-chip ab-back" id="abBack" aria-label="Back to the groups" title="back to the groups">‹</button>
+            <button type="button" class="ab-chip" data-anim="keys" title="the poses the animation passes through: tap one to stand on it, add the pose you are looking at, take one away; the dial moves the key you stand on to another time">Keys</button>
+            <button type="button" class="ab-chip ab-group" data-open="move" title="how it moves: a physical motion, a path, gravity and wind">Move</button>
+            <button type="button" class="ab-chip" data-anim="motion" data-group="move" title="a physical motion for the animated shape: bounce, fall, swing, spring, roll, throw, sway, pop, drift">Motion</button>
+            <button type="button" class="ab-chip" data-anim="path" data-group="move" title="a path for the animated shape to ride: draw one, or ride a line of the drawing; along or there and back; the trail it leaves">Path</button>
+            <button type="button" class="ab-chip" data-anim="physics" data-group="move" title="gravity and wind, for every physical motion in the scene">Physics</button>
+            <button type="button" class="ab-chip ab-group" data-open="feel" title="how it feels: the ease from key to key, the loop's length and its holds, an effect on the outline">Feel</button>
+            <button type="button" class="ab-chip" data-anim="ease" data-group="feel" title="how it moves from one key to the next">Ease</button>
+            <button type="button" class="ab-chip" data-anim="timing" data-group="feel" title="how long a loop takes, and how long it rests on each key">Timing</button>
+            <button type="button" class="ab-chip" data-anim="fx" data-group="feel" title="an effect on the outline's detail">Effect</button>
             <button type="button" class="ab-chip" data-anim="export" title="save or share the animation: video, GIF, animated SVG, scene file, link, embed code">Export</button>
-            <button type="button" class="ab-chip" data-anim="adv" title="the timeline, onion skin, keep this pose, frames a second, detail lag">Advanced</button>
+            <button type="button" class="ab-chip ab-group" data-open="more" title="one shape's own settings, and the timeline, onion skin, keep this pose, frames a second, detail lag">More</button>
+            <button type="button" class="ab-chip" data-anim="shape" data-group="more" title="the selected animated shape's own settings: its speed, its spin, a trail and an effect of its own, copies, its place on the clock">Shape</button>
+            <button type="button" class="ab-chip" data-anim="adv" data-group="more" title="the timeline, onion skin, keep this pose, frames a second, detail lag">Advanced</button>
             <button type="button" class="ab-chip" id="abExit" title="end the animation and put its keys back where they were">Exit</button>
         </span>
         <span id="abDials"></span>
@@ -46846,7 +46862,11 @@
         //   ride     the selected morphs take the one other shape selected (a line or a curve) as a
         //            path of their own, which leaves the drawing; pressed again, off it;
         //   spread   spreads their starts evenly along their paths.
+        // THE PANEL OPENS WHEN ASKED (14 Nov 2026, Tom: "1 2 3 4 5 6", the first: one shape's settings in the footer).
+        // It came up by itself whenever a live morph was selected; the Shape chip's tiles are those settings now, and
+        // the whole panel is its last tile (_mrAsk). The checks, which work the panel, have it as it was (__mrAuto).
         let _mrClosedSig = null,
+            _mrAsk = false,
             _mrSig = '';
         function morphRunToolRuns() {
             if (!morphRuns.length)
@@ -46872,7 +46892,7 @@
                 return;
             const runs = morphRunToolRuns(),
                 sig = runs.map(r => morphRuns.indexOf(r)).join(',');
-            const show = runs.length > 0 && sig !== _mrClosedSig;
+            const show = runs.length > 0 && sig !== _mrClosedSig && (_mrAsk || !!window.__mrAuto);
             if (!runs.length)
                 _mrClosedSig = null;
             if (strip.classList.contains('open') !== show) {
@@ -46884,7 +46904,7 @@
                     strip.style.left = Math.max(8, (innerWidth - strip.offsetWidth) / 2) + 'px';
                 }
             }
-            if (!show)
+            if (!runs.length) // (shut, its controls are still kept true: the Shape chip's dials read them)
                 return;
             const r = runs[0],
                 line = morphRunToolLine(),
@@ -57269,6 +57289,7 @@
             // DRAW, ON A PHONE: the four drawing tools are one button there, and that button is not on a wide screen's bar.
             // Asked once, as the page starts (as the bar's size is): a window narrowed later keeps the bar it began with.
             const PHONE_BAR = !!(window.matchMedia && matchMedia('(pointer: coarse), (max-width: 700px)').matches);
+            document.body.classList.toggle('phone-bar', PHONE_BAR); // (the animation's chips are in groups there)
             for (const id of ['bGroup', 'bDrawLine'].concat(PHONE_BAR ? ['bDraw', 'bDrawShape', 'bArrows', 'bText'] : ['bDrawMenu'])) {
                 const b = $(id);
                 if (b)
@@ -57619,6 +57640,51 @@
                     on: b => b.dataset.act === 'onion' ? $('tMorphOnion').checked
                         : b.dataset.act === 'bMorphTimeline' ? $('bMorphTimeline').classList.contains('active')
                         : b.dataset.fps != null && $('morphFps').value === b.dataset.fps },
+                // ONE SHAPE'S OWN SETTINGS (14 Nov 2026, "1 2 3 4 5 6", the first): what the morph's own panel holds for
+                // the animated shape selected, the common ones as tiles. Each sets the panel's control and fires its
+                // event, so the panel stays the code that acts; the last tile brings the whole panel up, for the rest
+                // (chains, what it follows, what it faces, its keys' own times).
+                animShape: { btn: null,
+                    build: host => {
+                        const run = n => '<path d="M8 40h40"/>' + Array.from({ length: n }, (_, i) => '<path d="M' + (14 + i * 30 / n) + ' 18l' + (24 / n) + ' 8l-' + (24 / n) + ' 8"/>').join('');
+                        animTile(host, { rate: '1' }, 'Once round its keys each loop', '×1', run(1));
+                        animTile(host, { rate: '2' }, 'Twice round its keys each loop', '×2', run(2));
+                        animTile(host, { rate: '3' }, 'Three times round its keys each loop', '×3', run(3));
+                        animTile(host, { spin: '0' }, 'No spin', 'no spin', '<rect x="16" y="16" width="24" height="24" rx="3"/>');
+                        animTile(host, { spin: '-1' }, 'Spin one turn a loop, clockwise', 'spin', '<path d="M44 28a16 16 0 1 1-6-12.5"/><path d="M39 6v10h-10"/>');
+                        animTile(host, { spin: '1' }, 'Spin one turn a loop, the other way', 'spin back', '<path d="M12 28a16 16 0 1 0 6-12.5"/><path d="M17 6v10h10"/>');
+                        animTile(host, { tr: '*' }, "The scene's trail", "scene's trail", '<circle cx="36" cy="28" r="10"/><path d="M8 28h12" stroke-dasharray="2 4"/>');
+                        animTile(host, { tr: 'echoes' }, 'A trail of echoes of its own', 'echoes', '<circle cx="38" cy="28" r="10"/><circle cx="26" cy="28" r="10" opacity="0.55"/><circle cx="14" cy="28" r="10" opacity="0.25"/>');
+                        animTile(host, { tr: 'ribbon' }, 'A ribbon trail of its own', 'ribbon', '<path d="M6 36c8-12 14 6 24-6" stroke-width="5" opacity="0.5"/><circle cx="38" cy="24" r="9"/>');
+                        animTile(host, { act: 'mrStagger' }, 'Stagger: spread the selected shapes round the loop', 'stagger', '<circle cx="12" cy="38" r="5"/><circle cx="28" cy="28" r="5"/><circle cx="44" cy="18" r="5"/>');
+                        animTile(host, { act: 'mrEmit' }, 'Copies: scatter twelve of it across the view, each a little different', 'copies', '<circle cx="14" cy="16" r="4"/><circle cx="36" cy="12" r="5"/><circle cx="26" cy="30" r="6"/><circle cx="44" cy="34" r="4"/><circle cx="12" cy="42" r="5"/><circle cx="34" cy="46" r="3"/>');
+                        animTile(host, { act: 'all' }, 'All of its settings, in a panel', 'all settings', '<path d="M10 16h36M10 28h36M10 40h36"/><circle cx="20" cy="16" r="4" fill="currentColor"/><circle cx="36" cy="28" r="4" fill="currentColor"/><circle cx="26" cy="40" r="4" fill="currentColor"/>');
+                    },
+                    tap: b => {
+                        const d = b.dataset, set = (id, v) => {
+                            const el = $(id);
+                            el.value = v;
+                            el.dispatchEvent(new Event('change'));
+                        };
+                        if (d.rate)
+                            set('mrRate', d.rate);
+                        else if (d.spin)
+                            set('mrSpin', d.spin);
+                        else if (d.tr != null)
+                            set('mrTrail', d.tr);
+                        else if (d.act === 'all') {
+                            _mrAsk = !$('morphRunTool').classList.contains('open');
+                            _mrClosedSig = null;
+                        } else
+                            $(d.act).click();
+                        drawAll();
+                    },
+                    on: b => {
+                        const d = b.dataset, r = morphRunToolRuns()[0];
+                        return !r ? false : d.rate ? (r.rate || 1) === +d.rate : d.spin ? Math.sign(r.spin || 0) === Math.sign(+d.spin)
+                            : d.tr != null ? (r.trail ? r.trail.kind : '*') === d.tr
+                            : d.act === 'all' && $('morphRunTool').classList.contains('open');
+                    } },
                 animExport: { btn: null,
                     build: host => {
                         const film = '<rect x="8" y="14" width="40" height="28" rx="3"/>';
@@ -57976,6 +58042,7 @@
             }
             const rings = {};
             let mode = null;
+            let paint = null, paintAt = null; // a colour held by the Fill or Outline strip (FILL AND OUTLINE PAINT, below)
             const hostOf = m => {
                 const M = MODES[m];
                 if (!M.host) {
@@ -57998,12 +58065,16 @@
                 const src = M.sources ? M.sources() : null;
                 for (const t of host.querySelectorAll('.strip-tile')) {
                     const s = src && src[+t.dataset.i];
-                    t.classList.toggle('on', s ? s.classList.contains('on') : !!(M.on && M.on(t)));
+                    // (a colour held with nothing selected is the lit one: FILL AND OUTLINE PAINT)
+                    t.classList.toggle('on', paint && paint.mode === m && !selectedIndices().length ? +t.dataset.i === paint.i
+                        : s ? s.classList.contains('on') : !!(M.on && M.on(t)));
                     t.disabled = !!(s && s.disabled);
                 }
             }
             function setMode(next) {
                 next = next && MODES[next] ? next : null;
+                if (next !== mode)
+                    paint = null; // a held colour goes with its strip
                 if (mode && MODES[mode].more) {
                     const p = $(MODES[mode].more);
                     if (p)
@@ -58105,10 +58176,40 @@
                     M.tap(t);
                 else {
                     const s = M.sources()[+t.dataset.i];
-                    if (s)
+                    if (s && !(M.swatch && !selectedIndices().length)) // (with nothing selected a colour is only held)
                         s.click();
+                    if (s && M.swatch)
+                        paint = { mode, i: +t.dataset.i }; // FILL AND OUTLINE PAINT, below
                 }
                 requestAnimationFrame(() => mirror(mode));
+            });
+            // FILL AND OUTLINE PAINT (14 Nov 2026, Tom: "1 2 3 4 5 6", the fourth: "pick a colour tile, then tap shapes to
+            // paint them, without selecting first"). A colour chosen in the Fill or Outline strip is held, as the line
+            // tool holds its stroke: while that strip stays up, a tap on a shape gives it the colour. The tap selects the
+            // shape and presses the same swatch the tile pressed, so the appearance panel is still the code that acts,
+            // and the strip stays (selSync takes a held colour for a tool). A drag is still a move, and a tap on empty
+            // canvas still clears the selection. Closing the strip, or turning it to another mode, lets the colour go.
+            cv.addEventListener('pointerdown', e => {
+                paintAt = paint && paint.mode === mode && !state.editMode ? { x: e.clientX, y: e.clientY, t: performance.now() } : null;
+            }, true);
+            cv.addEventListener('pointerup', e => {
+                const d = paintAt;
+                paintAt = null;
+                if (!d || !paint || paint.mode !== mode || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6 || performance.now() - d.t > 600)
+                    return;
+                const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+                setTimeout(() => { // after the editor's own handling of the tap
+                    if (!paint || paint.mode !== mode)
+                        return;
+                    const hit = findShapeAt(x, y, r.width, r.height);
+                    const s = hit >= 0 && MODES[mode].sources()[paint.i];
+                    if (!s)
+                        return;
+                    applyShapeSelection(new Set([hit]));
+                    s.click();
+                    drawAll();
+                    requestAnimationFrame(() => mirror(mode));
+                }, 0);
             });
             // A SHAPE CAN BE DRAGGED OUT OF THE LIBRARY (13 Nov 2026, Tom: "1 2", the second "drag a shape from the strip
             // onto the drawing"). A tap adds a shape at the middle of the view; a press that goes UP out of the strip
@@ -58233,7 +58334,7 @@
                 selSeen = seen;
                 // …and not from a drawing tool (the line, shape and text tools): while one is armed a press on the drawing is
                 // the tool's, so what is selected changes only by the tool's own doing (a word set again in bold)
-                const tool = mode === 'arrows' || mode === 'shape' || mode === 'text';
+                const tool = mode === 'arrows' || mode === 'shape' || mode === 'text' || !!(paint && paint.mode === mode);
                 if (want && (!mode || (picked && mode !== 'select' && !tool)))
                     setMode('select');
                 else if (!want && mode === 'select')
@@ -58263,35 +58364,55 @@
             // the animation's own bar just above it (#animBar): play, the time slider, and its options as chips. The strip
             // shows the values of the chip chosen: Keys (a tile a key, tap to stand on it; add; delete), Motion, Ease and
             // Effect (a picture a choice, the one in use lit), Export (video, GIF, animated SVG, scene file, link, embed).
-            // More brings the old bar up over the drawing for everything else. Nothing of the engine moved: each tile sets
-            // the select or presses the button the bar had, which stay the code that acts (and what the checks drive).
+            // The old bar is shut for good and holds the controls. Nothing of the engine moved: each tile sets the select or
+            // presses the button the bar had, which stay the code that acts (and what the checks drive).
             // Animate on the top bar starts it: with something selected it goes straight in (what "live" in its popover
             // did); with nothing selected the popover opens, as before; while one is live it shows or hides the strip.
             const animBar = $('animBar');
             const ANIM_TABS = { keys: 'animKeys', motion: 'animMotion', ease: 'animEase', fx: 'animFx', path: 'animPath',
-                physics: 'animPhysics', timing: 'animTiming', export: 'animExport', adv: 'animAdv' };
+                physics: 'animPhysics', timing: 'animTiming', export: 'animExport', adv: 'animAdv', shape: 'animShape' };
             // THE LIT CHIP'S DIALS (14 Nov 2026, Tom: "1 2 3 4 5": Path, Physics and Timing as chips, and the old bar
             // retired). What a tile cannot say, a strength or a length, is a dial in a small panel standing on the
             // animation's bar while its chip is lit. Each is a slider of its own that writes to the morph bar's slider and
             // fires its event, so that one stays the code that acts, as the tiles' selects and buttons do.
-            const ANIM_DIALS = { animFx: [['strength', 'morphFxAmt']], animPath: [['trail length', 'morphTrailLen']],
-                animPhysics: [['gravity', 'morphGravity'], ['wind', 'morphWind']], animAdv: [['detail lag', 'morphLagLive']] };
+            // A KEY IS MOVED IN TIME BY ITS DIAL (the same day, "1 2 3 4 5 6", the fifth): the Keys chip's dial is the
+            // time of the key stood on, so a key is retimed without the timeline. It is not one of the bar's sliders
+            // but the engine's morphSetKeyTime, which keeps a key between its neighbours; the dial is off between keys.
+            const keyDial = { min: 0, max: 1000, step: 1,
+                k: () => morphRuns[0] ? morphKeyAt(morphRuns[0], morphLive.t) : -1,
+                off: () => keyDial.k() < 0,
+                get: () => Math.round(1000 * morphLive.t),
+                set: v => {
+                    const k = keyDial.k(), K = morphRuns[0] ? morphRuns[0].keys.length : 0;
+                    if (k < 0)
+                        return;
+                    const at = morphSetKeyTime(morphRuns.filter(r => r.keys.length === K), k, v / 1000);
+                    if (at != null)
+                        morphSetT(at); // still standing on the key, where it is now
+                    drawAll();
+                } };
+            const ANIM_DIALS = { animKeys: [["this key's time", keyDial]], animFx: [['strength', 'morphFxAmt']], animPath: [['trail length', 'morphTrailLen']],
+                animPhysics: [['gravity', 'morphGravity'], ['wind', 'morphWind']], animAdv: [['detail lag', 'morphLagLive']],
+                animShape: [['ahead of the clock', 'mrPhase'], ['start along its path', 'mrAt']] };
             function animDials() {
                 const box = $('abDials'), list = ANIM_DIALS[mode] || [];
                 box.textContent = '';
                 box.classList.toggle('on', list.length > 0);
                 for (const [name, id] of list) {
-                    const src = $(id);
-                    if (!src)
+                    const own = typeof id === 'string' ? null : id, src = own ? null : $(id);
+                    if (!own && !src)
                         continue;
                     const lab = document.createElement('label'), r = document.createElement('input');
                     r.type = 'range';
                     for (const a of ['min', 'max', 'step'])
-                        r.setAttribute(a, src.getAttribute(a));
-                    r.value = src.value;
-                    r.dataset.src = id;
+                        r.setAttribute(a, own ? own[a] : src.getAttribute(a));
+                    r._get = own ? own.get : () => src.value;
+                    r._off = own && own.off;
+                    r.value = r._get();
                     r.setAttribute('aria-label', name);
                     r.addEventListener('input', () => {
+                        if (own)
+                            return own.set(+r.value);
                         src.value = r.value;
                         src.dispatchEvent(new Event('input'));
                     });
@@ -58300,12 +58421,19 @@
                 }
             }
             const animLive = () => document.body.classList.contains('morphing');
+            // the strip turned to a chip's values. One shape's settings are the selected shape's; with none selected,
+            // every live shape's
+            function animTurn(next) {
+                if (next === 'animShape' && !morphRunToolRuns().length)
+                    applyShapeSelection(new Set(morphRuns.map(r => state.subpaths.indexOf(r.sp)).filter(i => i >= 0)));
+                setMode(next);
+            }
             let animSig = '';
             function animSync() {
                 if (!animLive())
                     return;
                 const play = !!morphLive.play;
-                const sig = play + '|' + (morphRuns[0] ? morphRuns[0].keys.length : 0) + '|' + mode + '|' + document.body.classList.contains('anim-more');
+                const sig = play + '|' + (morphRuns[0] ? morphRuns[0].keys.length : 0) + '|' + mode + '|' + (animBar.dataset.group || '');
                 if (sig !== animSig) {
                     animSig = sig;
                     const bp = $('abPlay');
@@ -58315,6 +58443,8 @@
                     bp.classList.toggle('active', play);
                     for (const c of animBar.querySelectorAll('.ab-chip[data-anim]'))
                         c.classList.toggle('on', ANIM_TABS[c.dataset.anim] === mode);
+                    for (const g of animBar.querySelectorAll('.ab-group')) // a group is lit while one of its chips is
+                        g.classList.toggle('on', !!animBar.querySelector('.ab-chip.on[data-group="' + g.dataset.open + '"]'));
                     animDials();
                     // the keys' strip is a tile a key, each its pose as it is now
                     const kh = MODES.animKeys.host;
@@ -58334,9 +58464,15 @@
                 if (mode && mode.slice(0, 4) === 'anim')
                     mirror(mode);
                 // a dial reads what its slider holds, when that was moved some other way (a tile, an undo)
-                for (const r of $('abDials').querySelectorAll('input'))
-                    if (document.activeElement !== r && r.value !== $(r.dataset.src).value)
-                        r.value = $(r.dataset.src).value;
+                if (mode === 'animShape')
+                    morphRunToolSync(); // (its dials read the panel's sliders, which that keeps true)
+                for (const r of $('abDials').querySelectorAll('input')) {
+                    const v = String(r._get());
+                    if (document.activeElement !== r && r.value !== v)
+                        r.value = v;
+                    if (r._off)
+                        r.disabled = r._off();
+                }
             }
             if (animBar) {
                 // the time slider and its reading stand on the animation's bar, always in reach
@@ -58351,10 +58487,22 @@
                 });
                 $('abExit').addEventListener('click', () => $('bMorphExit').click());
                 animBar.addEventListener('click', e => {
+                    const g = e.target.closest('.ab-group, .ab-back');
+                    if (g) { // a phone's groups: one opened shows its chips, turned to the one in use or its first
+                        if (g.dataset.open) {
+                            animBar.dataset.group = g.dataset.open;
+                            const mine = [...animBar.querySelectorAll('.ab-chip[data-group="' + g.dataset.open + '"]')];
+                            if (!mine.some(c => ANIM_TABS[c.dataset.anim] === mode))
+                                animTurn(ANIM_TABS[mine[0].dataset.anim]);
+                        } else
+                            delete animBar.dataset.group;
+                        animSync();
+                        return;
+                    }
                     const c = e.target.closest('.ab-chip[data-anim]');
                     if (!c)
                         return;
-                    setMode(mode === ANIM_TABS[c.dataset.anim] ? null : ANIM_TABS[c.dataset.anim]);
+                    animTurn(mode === ANIM_TABS[c.dataset.anim] ? null : ANIM_TABS[c.dataset.anim]);
                     animSync();
                 });
                 // a morph begun or ended, however it was (the engine's morphBarSync sets the class, and nothing else does)
@@ -58366,11 +58514,11 @@
                     wasLive = live;
                     animSig = '';
                     if (live) {
-                        document.body.classList.toggle('anim-more', !!window.__animMore); // (the checks start with More up)
+                        delete animBar.dataset.group;
                         setMode('animKeys');
                         animSync();
                     } else {
-                        document.body.classList.remove('anim-more');
+                        _mrAsk = false;
                         if (mode && mode.slice(0, 4) === 'anim')
                             setMode(null);
                     }
@@ -58630,13 +58778,15 @@
             // Appearance needs ONE shape, not two — it paints whatever is selected, and it is the
             // one button here that edit mode keeps: in there you are working on a single isolated
             // shape, and "make this one thinner" is a perfectly good thing to want.
+            // …and since 14 Nov 2026 (FILL AND OUTLINE PAINT) the two colours need none at all outside the edit view:
+            // with nothing selected a colour chosen in the strip is held, and a tap on a shape gives it that colour.
             const anySel = nSel > 0;
-            set($('bStyle'), anySel,
+            set($('bStyle'), anySel || !editing,
             anySel ? 'fill — the colour poured inside the shape, and how opaque it is'
-            : 'select a shape to change its fill');
-            set($('bLine'), anySel,
+            : 'fill — pick a colour in the strip, then tap the shapes to paint');
+            set($('bLine'), anySel || !editing,
             anySel ? 'line — outline width, colour and opacity'
-            : 'select a shape to change its outline');
+            : 'outline — pick a colour in the strip, then tap the shapes to paint');
             set($('bArrows'), !editing, 'line — drag on the drawing to draw a line; the strip picks its stroke (solid, dashed, dotted) and its ends (arrows), and gives what is selected them');
             set($('bDesc'), anySel,
             anySel ? 'name and description — what this shape is called and what it is for'

@@ -290,3 +290,29 @@ Exit, on one line that pans on a phone.
 
 The check in `tests/morph.mjs` goes on through the four new chips.
 
+**14 Nov 2026, later again** (Tom: "1 2 3 4 5 6": one shape's settings in the footer, the old bar removed, the edit
+view in the same pattern, Fill and Outline as tools, a key retimed from its tile, a phone pass on the bar).
+
+- ONE SHAPE'S OWN SETTINGS: a Shape chip (`animShape`). Tiles for ×1, ×2, ×3 round its keys a loop (`#mrRate`), no
+  spin, spin, spin back (`#mrSpin` at 0, -1, 1), the scene's trail or echoes or a ribbon of its own (`#mrTrail`),
+  stagger, copies, and "all settings", which brings up the morph's own panel. Its dials are how far ahead of the clock
+  it runs (`#mrPhase`) and where along its path it starts (`#mrAt`). The panel no longer comes up by itself when a live
+  shape is selected (`_mrAsk` in `morphRunToolSync`); `morphRunToolSync` keeps the panel's controls true while it is
+  shut, since the dials read them. The checks have the panel as it was (`window.__mrAuto`).
+- THE OLD BAR IS SHUT FOR GOOD: `body.anim-more` and `window.__animMore` are gone. `#shapeBar` is no height and a
+  margin while a morph is live, and its controls are still what the tiles press. Thirty places in `tests/morph.mjs`,
+  `motion.mjs` and `player.mjs` that clicked its buttons or chose from its selects now `dispatchEvent` a click or set
+  the value and fire `change` (`$eval`), since Playwright will not click what cannot be seen.
+- A KEY IS MOVED IN TIME BY ITS DIAL: `ANIM_DIALS.animKeys` is `keyDial`, an object with `get` and `set` in place of a
+  slider's id. It is off between keys; on a key it calls `morphSetKeyTime` for every live morph with as many keys and
+  stands the clock on the key where it now is. Keys are not reordered: a key's place in the order is its time.
+- ON A PHONE THE CHIPS ARE IN GROUPS (`body.phone-bar`, set where `PHONE_BAR` is asked): Keys, Move (Motion, Path,
+  Physics), Feel (Ease, Timing, Effect), Export, More (Shape, Advanced), Exit. A group chip (`.ab-group`, `data-open`)
+  sets `#animBar`'s `data-group` and turns the strip to the group's chip in use or its first; `#abBack` goes back. A
+  group is lit while one of its chips is.
+- The edit view was not changed. Its bar is sixteen switches (the instruments, the lock, undo) with no values to put
+  in a strip, so the pattern of options above and values below has nothing to hold there.
+
+The check "the animation's bar and strip" in `tests/morph.mjs` covers the dial, the Shape chip and a phone's groups;
+"fill paints the shapes tapped" in `tests/editor.mjs` covers the paint (told in `CLAUDE.md`).
+
