@@ -152,7 +152,7 @@ T.current = 'eases and handles';
   const zlib = await import('node:zlib');
   const scene = o => new URL('draw.html', base).href + '#scene=z' + zlib.deflateRawSync(Buffer.from(JSON.stringify(Object.assign({ v: 1 }, o)))).toString('base64url');
   const before = failures.length;
-  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 960 } }); // 160 taller since 14 Nov 2026: the animation's bar and the strip stand under the canvas, and the handles dragged here were laid out for the canvas it had
   mp.on('pageerror', e => failures.push(`[eases and handles] ${e.message}`));
   await mp.route(/fonts\.g/, r => r.abort());
   try {

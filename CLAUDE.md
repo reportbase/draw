@@ -267,6 +267,14 @@ compatibly.
   curved ones carry `ctrl` handles, and a tile is drawn by `shapeToolOutline(a, b, shift, kind)` itself); and on a phone
   (`PHONE_BAR`, asked once at the start) the pencil, line, shape and text buttons are held off the bar for one Draw
   button (`#bDrawMenu`, `MODES.draw`, second on the bar; lit by `syncDrawMenuLit`), which a wide screen holds off instead.
+- A live morph's controls are the animation's bar and the strip (14 Nov 2026, THE ANIMATION'S BAR AND STRIP in
+  `draw.html`; `docs/animation.md`): `#animBar` stands above the strip while `body.morphing`, with play, the time slider
+  (`#morphT`, moved there at the start) and chips; the strip shows the chip's values (`MODES.animKeys`, `animMotion`,
+  `animEase`, `animFx`, `animExport`), each tile setting the select or pressing the button the morph bar had, which stay
+  the code that acts. The morph bar (`#shapeBar`) is behind the More chip (`body.anim-more`) and keeps its place in the
+  page's column, its margin the bar's and the strip's height, so the canvas ends above them. Animate (`#bMorphOpen`)
+  with something selected goes straight in (`#bMorphLive`); with nothing selected its popover opens. The checks start
+  with More up (`window.__animMore`, set by `tests/harness.mjs`), since they drive the morph bar's own buttons.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).
