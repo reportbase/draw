@@ -222,8 +222,9 @@ compatibly.
   (`STRIP_FIRST`, moved to the front before the ring is built) and it opens turned to Fill, so a phone shows Shapes, Fill and
   Outline at once; a phone test that needs another top-bar button in view has to turn the ring to it.
 - The top bar holds the options and the strip at the foot their values (13 Nov 2026, Tom: "keep the options in the header
-  and the footer is just for the values of that option"): Fill, Outline, Align, Order, Group, Merge and Name stay on the
-  top bar. A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
+  and the footer is just for the values of that option"): Fill, Outline, Align, Order, Merge and Name stay on the
+  top bar. Group left it (14 Nov 2026: "remove the group button in the top toolbar"): it is the selection strip's tile, and
+  `#bGroup` is kept hidden in `#topButtonsHeld`, still the code that acts. A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
 - The selection's options are the strip's (13 Nov 2026, THE SELECTION'S OPTIONS ARE THE STRIP'S in `draw.html`; Tom, the
   same day, after taking it back: "when an object is selected, show its options in the footer"): with something selected
   and its frame up (under the lock too), the strip at the foot turns to mode `select` by itself: every one of
@@ -233,6 +234,10 @@ compatibly.
   Exact, `aria-pressed` while exact). The smoothing track stays under the box (`sliderRowsUnderBox`; Tom: "The slider
   should be returned to the selection box"), without the buttons (`sliderButtonsUnderBox` is false). It follows every
   `drawAll` (`__selStripSync`); `__box.button` (null for a disabled tile), `group` and `panelUp` answer for the strip.
+  A change of what is selected (asked of the shapes, `spId`, not their indices, so Order's moves do not count) brings the
+  selection's strip whatever mode held the strip, unless it came with a shape added (the library stays up for more;
+  14 Nov 2026, "when select an object, show the selection footer"). Offset and Corners, opened from their tiles, stand
+  above them (`placePop`, as Fill's sliders do).
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).

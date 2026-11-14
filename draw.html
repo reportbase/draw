@@ -3197,6 +3197,9 @@
             white-space: nowrap;
         }
         #offsetTool.open, #cornersTool.open { display: flex; }
+        /* within the window, wrapping on a phone: opened over their tiles in the strip at the foot (14 Nov 2026) they ran
+           off a 390px screen's right edge, one line of 480 */
+        #offsetTool, #cornersTool { max-width: calc(100vw - 16px); flex-wrap: wrap; row-gap: 6px; }
         /* THE MORPH'S OWN SETTINGS, styled as the offset strip, and wrapping on a narrow screen */
         #morphRunTool {
             position: fixed;
@@ -56662,6 +56665,21 @@
         // phone's ring has room for three whole chips between the lock and the menu, so the page opens with +, Fill and
         // Outline in view and Align coming in at the edge; a tablet shows all six. On a screen wide enough for the whole bar
         // the ring lies flat and they simply lead it, after the lock.
+        // GROUP LEAVES THE TOP BAR (14 Nov 2026, Tom: "remove the group button in the top toolbar"): it is a tile of the
+        // selection's strip (bt-group, THE SELECTION'S OPTIONS ARE THE STRIP'S), which shows whenever something is
+        // selected, so the bar's copy was the same press twice. The button is kept, hidden, before the ring is built
+        // (a ring lays out what it is given): its click handler is still the one the tile and the keyboard reach, and
+        // syncArrangeBtns still keeps it up to date.
+        {
+            const b = $('bGroup');
+            if (b) {
+                const hold = document.createElement('div');
+                hold.id = 'topButtonsHeld';
+                hold.hidden = true;
+                document.body.appendChild(hold);
+                hold.appendChild(b);
+            }
+        }
         const STRIP_FIRST = ['bAddStrip', 'bStyle', 'bLine', 'bAlign', 'bOrder', 'bBuild'];
         {
             const bar = document.querySelector('.topbar .controls');
@@ -56783,6 +56801,14 @@
                         runBoxButton(t.dataset.name);
                         selSig = ''; // what the button did may change what the row shows
                         drawAll();
+                        // OFFSET AND CORNERS OPEN OVER THEIR TILES (14 Nov 2026, Tom: "show the offset and corner button
+                        // panels above the footer, the same way as you do with the fill slider panel"). Their panels were
+                        // placed under the top bar, the far side of the window from the tile that opened them; opened from
+                        // the strip, each now stands above its tile as Fill's sliders do (placePop, the same placing).
+                        const tool = { 'bt-offset': 'offsetTool', 'bt-corners': 'cornersTool' }[t.dataset.name];
+                        const el = tool && $(tool);
+                        if (el && el.classList.contains('open'))
+                            placePop(el, t);
                     } },
                 build: { btn: 'bBuild',
                     build: host => {
@@ -57117,9 +57143,29 @@
             }
             // the selection's options take the strip when there is a selection to work and nothing else holds it, and
             // give it back when the selection goes; the tiles are built again only when what they show has changed
+            // A NEW SELECTION TAKES THE STRIP (14 Nov 2026, Tom: "when select an object, show the selection footer"). It
+            // took it only when nothing else held it, so with the Shapes library, Fill's colours or Align up, a shape
+            // picked showed nothing of its own. Now a change of what is selected brings the selection's options whatever
+            // the strip was showing. Asked of the shapes THEMSELVES (spId), not their indices: Order moves the selected
+            // shape through the list, and a pick it did not make must not take Order's tiles away mid-reorder. And not
+            // when the change came with a shape added (the library, Build, a paste): the library is for adding several,
+            // and the new shape being selected is the adding, not a pick.
+            const _spIds = new WeakMap();
+            let _spNext = 1, selSeen = null;
+            const spId = sp => {
+                if (!sp || typeof sp !== 'object')
+                    return 0;
+                if (!_spIds.has(sp))
+                    _spIds.set(sp, _spNext++);
+                return _spIds.get(sp);
+            };
             function selSync() {
                 const want = selWant();
-                if (want && !mode)
+                const seen = { key: selectedIndices().map(i => spId(state.subpaths[i])).sort((a, b) => a - b).join(),
+                    n: state.subpaths.length };
+                const picked = !!selSeen && seen.key !== selSeen.key && !(seen.n > selSeen.n);
+                selSeen = seen;
+                if (want && (!mode || (picked && mode !== 'select')))
                     setMode('select');
                 else if (!want && mode === 'select')
                     setMode(null);

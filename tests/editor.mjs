@@ -674,6 +674,67 @@ T.current = 'few shapes lie as a centred row';
   await rp.close();
 }
 
+/* 14 Nov 2026, Tom: "1) when select an object, show the selection footer. 2) remove the group button in the top toolbar.
+   3) show the offset and corner button panels above the footer, the same way as you do with the fill slider panel."
+   A shape picked with the Shapes library or Fill's colours up brings the selection's options; Group is not on the top
+   bar; Offset and Corners open just above their tiles. */
+T.current = 'the selection takes the strip';
+{
+  const qp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  qp.on('pageerror', e => failures.push(`[selection takes] ${e.message}`));
+  await qp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await qp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await qp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><rect x="10" y="10" width="80" height="80" fill="#c84"/>'
+      + '<rect x="110" y="10" width="80" height="80" fill="#48c"/><rect x="210" y="10" width="80" height="80" fill="#4c8"/></svg>';
+    await qp.setInputFiles('#fLoad', { name: 'three.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+    await qp.waitForTimeout(1500);
+    if (await qp.evaluate(() => !!document.querySelector('.topbar #bGroup'))) throw new Error('Group is still on the top bar');
+    const cv = await qp.locator('#cv').boundingBox();
+    const at = [];
+    for (const i of [0, 1, 2]) {
+      await qp.evaluate(i => window.__box.select([i]), i);
+      const b = await qp.evaluate(() => window.__box.handles().box);
+      at.push([cv.x + (b.x0 + b.x1) / 2, cv.y + (b.y0 + b.y1) / 2]);
+    }
+    await qp.evaluate(() => window.__box.select([]));
+    await qp.waitForTimeout(300);
+    const seen = [];
+    for (const [m, i] of [['add', 1], ['fill', 2]]) {
+      await qp.evaluate(m => window.__strip.open(m), m);
+      await qp.mouse.click(...at[i]);
+      await qp.waitForTimeout(400);
+      seen.push(m + '→' + await qp.evaluate(() => window.__strip.mode));
+    }
+    // a shape added from the library keeps the library up, though the new shape is selected
+    await qp.evaluate(() => { window.__strip.open('add'); document.querySelector('#addRing .add-pick[data-shape="circle"]').click(); });
+    await qp.waitForTimeout(400);
+    seen.push('added→' + await qp.evaluate(() => window.__strip.mode));
+    if (seen.join() !== 'add→select,fill→select,added→add') throw new Error('picks: ' + seen.join());
+    // Offset and Corners stand above their tiles
+    await qp.evaluate(() => { window.__strip.open(null); window.__box.select([0]); });
+    await qp.waitForTimeout(400);
+    for (const [tile, tool] of [['bt-offset', 'offsetTool'], ['bt-corners', 'cornersTool']]) {
+      const b = await qp.evaluate(n => window.__box.button(n), tile);
+      if (!b) throw new Error(tile + ' is not a tile to press');
+      await qp.mouse.click(cv.x + b.cx, cv.y + b.cy);
+      await qp.waitForTimeout(300);
+      const r = await qp.evaluate(([n, id]) => { const t = document.querySelector('.sel-btn[data-name="' + n + '"]').getBoundingClientRect(),
+        e = document.getElementById(id), r = e.getBoundingClientRect();
+        return { open: e.classList.contains('open'), gap: Math.round(t.top - r.bottom), mid: Math.round((r.left + r.right) / 2 - (t.left + t.right) / 2) }; }, [tile, tool]);
+      if (!r.open || r.gap < 0 || r.gap > 20 || Math.abs(r.mid) > 4) throw new Error(tool + ' over its tile: ' + JSON.stringify(r));
+      await qp.mouse.click(cv.x + b.cx, cv.y + b.cy);
+      await qp.waitForTimeout(300);
+    }
+  } catch (e) {
+    failures.push(`[selection takes] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the selection takes the strip; Group off the bar; Offset and Corners over their tiles`);
+  await qp.close();
+}
+
 /* A hold builds the selection and never hides the bars (13 Nov 2026, Tom: "Long press should multi select objects, not
    toggle the toolbar visibility"), locked or not, with a finger or a mouse (14 Nov 2026, "Long press Multi select not
    working, it deselects": unlocked, the press selected the shape it landed on before the hold fired, so the hold had
