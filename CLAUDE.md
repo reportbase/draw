@@ -218,9 +218,9 @@ compatibly.
   popover button it mirrors, so those panels stay the code that acts; the colour rings' first tile opens the panel's
   sliders. The drawing's strip only steps aside (`body.adding`, `body.dataset.strip`); the strip hides in the edit view
   and while a morph is live. A library tile dragged up out of the strip and dropped on the
-  drawing is placed there (`addPrimitive(key, at)`; the ring lets go through `__ringHeld`). `__strip.open(mode)` and `__strip.mode` for tests. Those six buttons lead the top ring
-  (`STRIP_FIRST`, moved to the front before the ring is built) and it opens turned to Fill, so a phone shows Shapes, Fill and
-  Outline at once; a phone test that needs another top-bar button in view has to turn the ring to it.
+  drawing is placed there (`addPrimitive(key, at)`; the ring lets go through `__ringHeld`). `__strip.open(mode)` and `__strip.mode` for tests. Those buttons lead the top ring
+  (`STRIP_FIRST`, moved to the front before the ring is built) and it opens turned to its second, so a phone shows Shapes, Draw and
+  Fill at once; a phone test that needs another top-bar button in view has to turn the ring to it.
 - The top bar holds the options and the strip at the foot their values (13 Nov 2026, Tom: "keep the options in the header
   and the footer is just for the values of that option"): Fill, Outline, Align, Order, Merge and Name stay on the
   top bar. Group left it (14 Nov 2026: "remove the group button in the top toolbar"): it is the selection strip's tile, and
@@ -260,6 +260,13 @@ compatibly.
   `tangent:edit-text` event); a drawing tool's mode is not taken by a change of selection; the shape tool also drags
   out a speech bubble and a bracket (open); and the line tool's fifth end is a measure line (`arrows: 4`,
   `exactMeasure`, `drawMeasureLabels`; `#meta arrows:measure` in a `.tvf`, ticks and a `<text>` in the SVG).
+  Since "2 3 5 1" the same day: a line tool choice restyles only what was selected when the tool was opened
+  (`lineRestyle`, WHAT THE LINE TOOL'S CHOICES RESTYLE); a double-click on a word opens the text tool's typing box on
+  it (`editTextInPlace`, WORDS ARE RETYPED WHERE THEY STAND; no lab needed), and the popover opens only when no one word
+  is selected; the shape tool has an ellipse, a rounded rectangle, a block arrow, a cloud and a heart (MORE SHAPES; the
+  curved ones carry `ctrl` handles, and a tile is drawn by `shapeToolOutline(a, b, shift, kind)` itself); and on a phone
+  (`PHONE_BAR`, asked once at the start) the pencil, line, shape and text buttons are held off the bar for one Draw
+  button (`#bDrawMenu`, `MODES.draw`, second on the bar; lit by `syncDrawMenuLit`), which a wide screen holds off instead.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).

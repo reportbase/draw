@@ -149,7 +149,13 @@
             // Double-clicking a text object opens it for editing. That gesture used to try to
             // enter leaf edit mode and be refused, because text is grouped and a group is
             // frozen — so on text it did nothing at all.
-            window.addEventListener('tangent:edit-text', openPop);
+            // …on the word itself since 14 Nov 2026 (WORDS ARE RETYPED WHERE THEY STAND, in draw.html); the popover opens
+            // only when no one word is selected, which is how it is still reached to add by
+            window.addEventListener('tangent:edit-text', () => {
+                if (typeof editTextInPlace === 'function' && editTextInPlace())
+                    return;
+                openPop();
+            });
             add.addEventListener('click', commit);
             input.addEventListener('input', syncUI);
             input.addEventListener('keydown', e => {
