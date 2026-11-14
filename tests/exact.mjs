@@ -124,10 +124,10 @@ T.current = 'exact shapes';
         xp.evaluate(() => document.getElementById('bExportSvg').click())]);
       return (await readFile(await dl.path(), 'utf8')).match(/<path d="M[\d. ]+L[^"]*"/g) || [];
     };
-    await xp.click('#bDrawLine');
+    await xp.evaluate(() => document.getElementById('bDrawLine').click()); // the pen, off the bar since 14 Nov 2026
     for (const [x, y] of [[100, 600], [300, 600], [200, 450]]) await xp.mouse.click(...P(x, y));
     await xp.mouse.click(...P(101, 601)); // the start point again closes it
-    await xp.click('#bDrawLine');
+    await xp.evaluate(() => document.getElementById('bDrawLine').click()); // the pen, off the bar since 14 Nov 2026
     await xp.mouse.click(...P(500, 650));
     await xp.mouse.dblclick(...P(800, 500));
     await xp.waitForTimeout(300);
@@ -205,7 +205,7 @@ T.current = 'exact shapes';
     // Simplify: on an exact selection the panel's track counts corners. A circle of 48 corners,
     // drawn with the line pen, comes down to a handful and back.
     await xp.keyboard.press('Escape');
-    await xp.click('#bDrawLine');
+    await xp.evaluate(() => document.getElementById('bDrawLine').click()); // the pen, off the bar since 14 Nov 2026
     for (let i = 0; i < 48; i++) await xp.mouse.click(...P(900 + 150 * Math.cos(i * Math.PI / 24), 330 + 150 * Math.sin(i * Math.PI / 24)));
     await xp.mouse.click(...P(1050, 330));
     await xp.waitForTimeout(300);
@@ -232,7 +232,7 @@ T.current = 'exact shapes';
     if ((await held()) !== 3) throw new Error('simplifying converted a shape: ' + await held() + ' held');
     // Shift snaps the line pen's edges to 45°: a wobbly rectangle comes out square.
     await xp.keyboard.press('Escape');
-    await xp.click('#bDrawLine');
+    await xp.evaluate(() => document.getElementById('bDrawLine').click()); // the pen, off the bar since 14 Nov 2026
     await xp.mouse.click(...P(120, 120));
     await xp.keyboard.down('Shift');
     await xp.mouse.click(...P(380, 131));
@@ -279,13 +279,14 @@ T.current = 'exact shapes';
     if ((await held()) !== 4) throw new Error('rounding converted a shape: ' + await held() + ' held');
     // The shape tool: a rounded rectangle in one drag, exact, its corners arcs.
     await xp.keyboard.press('Escape');
-    await xp.click('#bDrawShape');
+    await xp.evaluate(() => window.__strip.open('shape')); // the shape tool, which stays on
     if (!(await xp.evaluate(() => document.getElementById('shapeTool').classList.contains('open')))) throw new Error('the shape tool strip did not open');
     await xp.locator('#stRound').fill('0.3');
     await xp.mouse.move(...P(1000, 560));
     await xp.mouse.down();
     await xp.mouse.move(...P(1200, 700), { steps: 6 });
     await xp.mouse.up();
+    await xp.evaluate(() => window.__strip.open(null)); // …so it is put away
     await xp.waitForTimeout(300);
     if ((await held()) !== 5) throw new Error('the shape tool did not make an exact shape: ' + await held() + ' held');
     if ((await svgPaths()).filter(d => / A[\d.]+ [\d.]+ 0 0 [01] /.test(d)).length < 2) throw new Error('the rounded rectangle has no arcs in the svg');
@@ -432,11 +433,12 @@ T.current = 'combining exact shapes';
       await xp.waitForTimeout(150);
     };
     const rect = async (x0, y0, x1, y1) => {
-      await xp.click('#bDrawShape');
+      await xp.evaluate(() => window.__strip.open('shape')); // the shape tool, which stays on
       await xp.mouse.move(...P(x0, y0));
       await xp.mouse.down();
       await xp.mouse.move(...P(x1, y1), { steps: 5 });
       await xp.mouse.up();
+    await xp.evaluate(() => window.__strip.open(null)); // …so it is put away
       await xp.waitForTimeout(200);
     };
     const press = async name => {
@@ -500,8 +502,12 @@ T.current = 'combining exact shapes';
     if ((await xp.evaluate(() => window.__box.count())) !== 2) throw new Error('intersecting shapes apart removed them');
     // line style: a dashed square, an open line with arrowheads at both ends
     await xp.evaluate(() => window.__box.select([0]));
-    await press('bt-dash');
-    await xp.click('#bDrawLine');
+    // the stroke is the line tool's since 14 Nov 2026 (Tom: "1 2"): Dashed in its strip dashes what is selected
+    await xp.click('#bArrows');
+    await xp.click('.add-strip [data-mode="arrows"] [aria-label="Dashed"]');
+    await xp.evaluate(() => window.__strip.open(null));
+    await xp.waitForTimeout(200);
+    await xp.evaluate(() => document.getElementById('bDrawLine').click()); // the pen, off the bar since 14 Nov 2026
     await xp.mouse.click(...P(500, 650));
     await xp.keyboard.down('Shift');
     await xp.mouse.dblclick(...P(800, 500));
@@ -560,12 +566,13 @@ T.current = 'combining exact shapes';
     if (!osh || osh.n !== 4 || osh.round || !(osh.area < sq0.area)) throw new Error('shrunk: ' + JSON.stringify(osh));
     if (!oo || oo.n !== 4 || oo.holes.length !== 1 || oo.holes[0].n !== 4) throw new Error('outlined: ' + JSON.stringify(oo));
     // a circle (a square rounded by half its side) outlined: a ring of a few smooth corners
-    await xp.click('#bDrawShape');
+    await xp.evaluate(() => window.__strip.open('shape')); // the shape tool, which stays on
     await xp.locator('#stRound').fill('0.5');
     await xp.mouse.move(...P(600, 300));
     await xp.mouse.down();
     await xp.mouse.move(...P(800, 500), { steps: 5 });
     await xp.mouse.up();
+    await xp.evaluate(() => window.__strip.open(null)); // …so it is put away
     await xp.evaluate(() => { const r = document.getElementById('stRound'); r.value = 0; r.dispatchEvent(new Event('input')); });
     await xp.waitForTimeout(200);
     const nAll = await xp.evaluate(() => window.__box.count());
@@ -596,15 +603,15 @@ T.current = 'combining exact shapes';
     // hexagon aligned to a square's top all touch the same line, and stay exact
     await fresh();
     await rect(150, 250, 300, 400);
-    await xp.click('#bDrawShape');
-    await xp.click('#shapeTool button[data-kind="polygon"]');
+    await xp.evaluate(() => window.__strip.open('shape')); // the shape tool, which stays on
+    await xp.click('.add-strip [data-mode="shape"] [aria-label="Hexagon"]'); // the shapes are the strip's tiles (14 Nov 2026)
     await xp.evaluate(() => { const r = document.getElementById('stRound'); r.value = 0.2; r.dispatchEvent(new Event('input')); });
     await xp.mouse.move(...P(700, 300));
     await xp.mouse.down();
     await xp.mouse.move(...P(780, 220), { steps: 5 });
     await xp.mouse.up();
-    await xp.click('#bDrawShape');
-    await xp.click('#shapeTool button[data-kind="rect"]');
+    // (the tool stays on since 14 Nov 2026: no second press)
+    await xp.click('.add-strip [data-mode="shape"] [aria-label="Rectangle"]');
     await xp.evaluate(() => { const r = document.getElementById('stRound'); r.value = 0; r.dispatchEvent(new Event('input')); });
     await xp.mouse.move(...P(1, 1));
     await xp.keyboard.press('Escape');
@@ -621,7 +628,7 @@ T.current = 'combining exact shapes';
     if ((await xp.evaluate(() => window.__lazy.held())) !== 2) throw new Error('aligning converted a shape');
     // TEXT TO EXACT SHAPES: a word made exact is a shape a letter, its counters holes
     await fresh();
-    await xp.click('#bText');
+    await xp.evaluate(() => window.dispatchEvent(new Event('tangent:edit-text'))); // the popover (Text is the strip's tool since 14 Nov 2026)
     await xp.fill('#textPopInput', 'Bo');
     await xp.click('#textPopAdd');
     await xp.waitForTimeout(1000);
@@ -638,7 +645,7 @@ T.current = 'combining exact shapes';
     // EXACT TEXT FROM THE FONT: in a family whose file the page can fetch (a web font), the
     // letters come from the font's outlines, and the status line says so
     await fresh();
-    await xp.click('#bText');
+    await xp.evaluate(() => window.dispatchEvent(new Event('tangent:edit-text'))); // the popover (Text is the strip's tool since 14 Nov 2026)
     const fams = await xp.evaluate(() => Array.from(document.getElementById('textPopFont').options, o => o.value));
     const fam = ['Inter', 'DM Mono', 'Roboto', 'DM Serif Display'].find(f => fams.includes(f));
     if (fam) {
@@ -717,12 +724,13 @@ T.current = 'combining exact shapes';
     // halves holding pieces of its arcs as curve edges, of equal area as drawn; a corner put in
     // on a curve edge cuts the curve there and changes nothing drawn; a .tvf keeps the curves
     await fresh();
-    await xp.click('#bDrawShape');
+    await xp.evaluate(() => window.__strip.open('shape')); // the shape tool, which stays on
     await xp.locator('#stRound').fill('0.5');
     await xp.mouse.move(...P(400, 300));
     await xp.mouse.down();
     await xp.mouse.move(...P(600, 500), { steps: 5 });
     await xp.mouse.up();
+    await xp.evaluate(() => window.__strip.open(null)); // …so it is put away
     await xp.evaluate(() => { const r = document.getElementById('stRound'); r.value = 0; r.dispatchEvent(new Event('input')); });
     await xp.waitForTimeout(200);
     await xp.evaluate(() => window.__box.select([0]));
@@ -768,7 +776,7 @@ T.current = 'combining exact shapes';
     // either side; picked, it shows both handles; one dragged swings the other opposite at its
     // own length; with Alt the corner goes sharp
     await fresh();
-    await xp.click('#bDrawLine');
+    await xp.evaluate(() => document.getElementById('bDrawLine').click()); // the pen, off the bar since 14 Nov 2026
     await xp.mouse.click(...P(400, 500));
     await xp.mouse.move(...P(600, 500));
     await xp.mouse.down();
