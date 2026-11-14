@@ -3324,6 +3324,8 @@
         #shapeTool button.on { background: var(--gold); color: #14141a; border-color: var(--gold); }
         #shapeTool .lab { color: var(--fg-muted); margin: 0 2px 0 6px; }
         #shapeTool #stN { display: inline-block; min-width: 1.6em; text-align: center; }
+        /* the strip's tiles choose the shape now (THE SHAPE TOOL'S CHOICES ARE THE STRIP'S); the panel keeps the numbers */
+        #shapeTool button[data-kind] { display: none; }
         #shapeTool input[type=range] { width: 90px; accent-color: var(--gold); }
     </style>
 </head>
@@ -3473,7 +3475,7 @@
                  line and the shape tool. Pressed, a drag on the drawing draws an arrow (THE ARROW TOOL), and the strip
                  shows the heads it will have, none, at the end, at both ends, at the start (MODES.arrows), as Fill's
                  colours are shown. -->
-            <button id="bArrows" class="icon-btn" title="arrows — drag on the drawing to draw an arrow; the strip picks its heads, and gives a selected line them">
+            <button id="bArrows" class="icon-btn" title="line — drag on the drawing to draw a line; the strip picks its stroke (solid, dashed, dotted) and its ends (arrows), and gives what is selected them">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M4 12h15"/>
                     <path d="M15 8l4 4-4 4"/>
@@ -21021,6 +21023,22 @@
             scheduleSave();
             drawAll();
             flashStatus('arrowheads: ' + ['none', 'at the end', 'at both ends', 'at the start'][n]);
+        }
+        // the stroke of every exact shape selected, set to d (null solid, 'dash', 'dot'): the line tool's stroke tiles
+        function setLineDash(d) {
+            const sel = selectedIndices().map(i => state.subpaths[i]).filter(sp => sp && sp._lazy && sp._lazy.exact);
+            if (!sel.length)
+                return;
+            for (const sp of sel) {
+                const L = lineStyleOf(sp);
+                L.dash = d;
+                sp.lineStyle = (L.dash || L.arrows) ? L : null;
+                sp._lazyP2d = null;
+            }
+            pushHistory();
+            scheduleSave();
+            drawAll();
+            flashStatus('line: ' + (d || 'solid'));
         }
         function stepLineStyle(what) {
             const sel = selectedIndices().map(i => state.subpaths[i]).filter(sp => sp && sp._lazy && sp._lazy.exact && (what === 'dash' || sp._lazy.open));
@@ -54601,6 +54619,9 @@
         // It rides the shape tool's drag (shapeDrag, marked .arrow): the press, the snapping and the release are the same.
         let arrowTool = false;
         let arrowCfg = 1; // 0 none, 1 at the end, 2 both ends, 3 at the start (lineStyleOf's arrows)
+        // …and its stroke (14 Nov 2026, Tom: "1 2", the second the line tool: the ends and the stroke in one tool's
+        // strip): null solid, 'dash' dashed, 'dot' dotted (lineStyleOf's dash)
+        let dashCfg = null;
         function setArrowTool(on) {
             on = !!on;
             if (on === arrowTool)
@@ -54614,7 +54635,20 @@
                 shapeDrag = null;
             cv.style.cursor = on ? 'crosshair' : '';
         }
+        // THE SHAPE TOOL'S CHOICES ARE THE STRIP'S (14 Nov 2026, Tom: "1 2", the first the shape tool as the arrow tool
+        // is): its button turns the strip to the shapes it drags out (MODES.shape, a tile each, drawn as the shape), and
+        // the tool is armed while that mode holds the strip; its panel, now the sides and the roundness only, stands just
+        // above the strip instead of under the top bar. One shape a press, as before: the drag that makes it puts the
+        // tool away, and the new shape's own options take the strip.
         function setShapeTool(on) {
+            on = !!on;
+            if (on === shapeTool)
+                return;
+            if (!on && window.__strip && window.__strip.mode === 'shape') {
+                window.__strip.open(null); // closing the mode comes back here, with the tool already off below
+                if (!shapeTool)
+                    return;
+            }
             if (on && arrowTool && window.__strip)
                 window.__strip.open(null);
             if (on && drawMode)
@@ -54630,11 +54664,11 @@
             if (strip) {
                 strip.classList.toggle('open', shapeTool);
                 if (shapeTool) {
-                    const bar = document.querySelector('.topbar');
-                    const br = bar ? bar.getBoundingClientRect() : {
-                        bottom: 52
-                    };
-                    strip.style.top = (br.bottom + 8) + 'px';
+                    // just above the strip at the foot, centred, as Fill's sliders stand over theirs
+                    const foot = $('addStrip');
+                    const fr = foot && foot.getBoundingClientRect();
+                    const top = fr && fr.height ? fr.top - strip.offsetHeight - 8 : innerHeight - strip.offsetHeight - 120;
+                    strip.style.top = Math.max(8, top) + 'px';
                     strip.style.left = Math.max(8, (innerWidth - strip.offsetWidth) / 2) + 'px';
                 }
             }
@@ -54645,6 +54679,8 @@
             const strip = $('shapeTool');
             if (!strip)
                 return;
+            if (window.__strip && window.__strip.mode === 'shape' && window.__strip.mirror)
+                window.__strip.mirror(); // the tile lit follows a change of sides from the panel
             for (const b of strip.querySelectorAll('button[data-kind]'))
                 b.classList.toggle('on', b.dataset.kind === shapeToolCfg.kind);
             const nw = strip.querySelector('.st-n');
@@ -54818,9 +54854,13 @@
                 ctx.lineWidth = 2;
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
+                ctx.setLineDash(dashPattern(dashCfg, 2));
                 ctx.beginPath();
                 ctx.moveTo(a.x, a.y);
                 ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.beginPath();
                 const ux = (b.x - a.x) / L,
                     uy = (b.y - a.y) / L,
                     h = Math.min(14, L / 3);
@@ -54864,8 +54904,8 @@
                 const wpts = [a, b].map(p => pxToWorld(p.x, p.y, rr.width, rr.height));
                 loadExactShape(wpts, state.subpaths.length > 0, true);
                 const k = state.subpaths.length - 1, sp = state.subpaths[k];
-                if (sp && arrowCfg) {
-                    sp.lineStyle = { dash: null, arrows: arrowCfg };
+                if (sp && (arrowCfg || dashCfg)) {
+                    sp.lineStyle = { dash: dashCfg, arrows: arrowCfg };
                     sp._lazyP2d = null;
                 }
                 pushHistory();
@@ -56932,11 +56972,58 @@
                         if (el && el.classList.contains('open'))
                             placePop(el, t);
                     } },
+                shape: { btn: 'bDrawShape',
+                    build: host => {
+                        // each shape the tool drags out, drawn as it comes out (a regular polygon or star from its centre)
+                        const SHAPES = [['rect', 0, 'Rectangle'], ['polygon', 3, 'Triangle'], ['polygon', 5, 'Pentagon'],
+                            ['polygon', 6, 'Hexagon'], ['polygon', 8, 'Octagon'], ['star', 5, 'Star'], ['star', 8, 'Eight-point star']];
+                        for (const [kind, n, name] of SHAPES) {
+                            const b = document.createElement('button');
+                            b.type = 'button';
+                            b.className = 'icon-btn strip-tile';
+                            b.dataset.kind = kind;
+                            b.dataset.n = String(n);
+                            b.setAttribute('aria-label', name);
+                            let d;
+                            if (kind === 'rect')
+                                d = 'M12 16h32v24h-32z';
+                            else {
+                                const pts = [], k = kind === 'star' ? 2 * n : n;
+                                for (let i = 0; i < k; i++) {
+                                    const r = kind === 'star' && i % 2 ? 8 : 18, t = -Math.PI / 2 + i * 2 * Math.PI / k;
+                                    pts.push((28 + r * Math.cos(t)).toFixed(1) + ' ' + (29 + r * Math.sin(t)).toFixed(1));
+                                }
+                                d = 'M' + pts.join('L') + 'Z';
+                            }
+                            b.innerHTML = '<svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"'
+                                + ' aria-hidden="true"><path d="' + d + '"/></svg>';
+                            host.appendChild(b);
+                        }
+                    },
+                    tap: b => {
+                        shapeToolCfg.kind = b.dataset.kind;
+                        if (+b.dataset.n)
+                            shapeToolCfg.n = +b.dataset.n;
+                        syncShapeToolStrip();
+                    },
+                    on: b => shapeToolCfg.kind === b.dataset.kind && (b.dataset.kind === 'rect' || shapeToolCfg.n === +b.dataset.n) },
                 arrows: { btn: 'bArrows',
                     build: host => {
                         // a line with its heads as each choice puts them, drawn as the editor draws them
                         const head = (x, d) => `<path d="M${x - 7 * d} 21L${x} 28L${x - 7 * d} 35"/>`;
                         const NAMES_ = ['No arrows', 'Arrow at the end', 'Arrows at both ends', 'Arrow at the start'];
+                        // the stroke first (solid, dashed, dotted), then the ends: what the line is, then how it ends
+                        const DASHES = [[null, 'Solid', ''], ['dash', 'Dashed', ' stroke-dasharray="9 7"'], ['dot', 'Dotted', ' stroke-dasharray="0.1 7"']];
+                        for (const [d, name, da] of DASHES) {
+                            const b = document.createElement('button');
+                            b.type = 'button';
+                            b.className = 'icon-btn strip-tile';
+                            b.dataset.dash = d || 'solid';
+                            b.setAttribute('aria-label', name);
+                            b.innerHTML = '<svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"'
+                                + ' aria-hidden="true"><path d="M10 28h36"' + da + '/></svg>';
+                            host.appendChild(b);
+                        }
                         for (let n = 0; n < 4; n++) {
                             const b = document.createElement('button');
                             b.type = 'button';
@@ -56945,15 +57032,21 @@
                             b.setAttribute('aria-label', NAMES_[n]);
                             b.innerHTML = '<svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"'
                                 + ' stroke-linejoin="round" aria-hidden="true"><path d="M10 28h36"/>'
-                                + (n === 1 || n === 2 ? head(46, 1) : '') + (n === 3 || n === 2 ? head(10, -1) : '') + '</svg>';
+                                + (n === 1 || n === 2 ? head(46, 1) : '') + (n === 3 || n === 2 ? head(10, -1) : '')
+                                + (n === 0 ? '<path d="M10 22v12M46 22v12"/>' : '') + '</svg>'; // plain ends: a bar at each, so it is not "solid"
                             host.appendChild(b);
                         }
                     },
                     tap: b => {
-                        arrowCfg = +b.dataset.arrows; // the next arrow drawn
+                        if (b.dataset.dash) {
+                            dashCfg = b.dataset.dash === 'solid' ? null : b.dataset.dash; // the next line drawn
+                            setLineDash(dashCfg); // and what is selected now
+                            return;
+                        }
+                        arrowCfg = +b.dataset.arrows; // the next line drawn
                         setLineArrows(arrowCfg); // and a line selected now
                     },
-                    on: b => arrowCfg === +b.dataset.arrows },
+                    on: b => b.dataset.dash ? (dashCfg || 'solid') === b.dataset.dash : arrowCfg === +b.dataset.arrows },
                 build: { btn: 'bBuild',
                     build: host => {
                         for (const f of (__buildPanel && __buildPanel.families ? __buildPanel.families() : [])) {
@@ -57054,7 +57147,7 @@
             // NOT IN THE STRIP (14 Nov 2026, Tom: "merge round corners and remove offset and knife"): Corners is Round's on an
             // exact shape now, and Offset and the knife are gone from the strip. Their code stays (runBoxButton, the tools'
             // panels), so either can come back by leaving this list.
-            const SEL_LEFT_OUT = new Set(['bt-corners', 'bt-offset', 'bt-knife', 'bt-arrow']); // Arrows: the top bar's, 14 Nov 2026
+            const SEL_LEFT_OUT = new Set(['bt-corners', 'bt-offset', 'bt-knife', 'bt-arrow', 'bt-dash']); // Arrows and Dash: the line tool's, 14 Nov 2026
             function selBuild(host) {
                 host.textContent = '';
                 for (const b of BOX_BUTTONS.filter(q => !SEL_LEFT_OUT.has(q.name))) {
@@ -57117,6 +57210,8 @@
                 }
                 mode = next;
                 setArrowTool(mode === 'arrows'); // the Arrows mode is the arrow tool armed (THE ARROW TOOL)
+                if (typeof setShapeTool === 'function')
+                    setShapeTool(mode === 'shape'); // and the Shape mode the shape tool (THE SHAPE TOOL'S CHOICES ARE THE STRIP'S)
                 document.body.classList.toggle('adding', !!mode);
                 if (mode)
                     document.body.dataset.strip = mode;
@@ -57340,6 +57435,7 @@
             window.__selStripWant = selWant;
             window.__strip = {
                 open: setMode,
+                mirror: () => mode && mirror(mode),
                 get mode() {
                     return mode;
                 },
@@ -57380,7 +57476,7 @@
                 bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
                 bPlayShape: 'Play the shape', bBuild: 'Build', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
-                bAi: 'AI', bArrows: 'Arrows', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
+                bAi: 'AI', bArrows: 'Line', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
                 bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bGrid: 'Grid',
                 bStyle: 'Fill', bLine: 'Outline', bDesc: 'Name and note', bFit: 'Fit to view', gearBtn: 'Settings',
                 // the edit view's bar
@@ -57574,7 +57670,7 @@
             set($('bLine'), anySel,
             anySel ? 'line — outline width, colour and opacity'
             : 'select a shape to change its outline');
-            set($('bArrows'), !editing, 'arrows — drag on the drawing to draw an arrow; the strip picks its heads, and gives a selected line them');
+            set($('bArrows'), !editing, 'line — drag on the drawing to draw a line; the strip picks its stroke (solid, dashed, dotted) and its ends (arrows), and gives what is selected them');
             set($('bDesc'), anySel,
             anySel ? 'name and description — what this shape is called and what it is for'
             : 'select a shape to name it');

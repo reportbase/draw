@@ -500,7 +500,11 @@ T.current = 'combining exact shapes';
     if ((await xp.evaluate(() => window.__box.count())) !== 2) throw new Error('intersecting shapes apart removed them');
     // line style: a dashed square, an open line with arrowheads at both ends
     await xp.evaluate(() => window.__box.select([0]));
-    await press('bt-dash');
+    // the stroke is the line tool's since 14 Nov 2026 (Tom: "1 2"): Dashed in its strip dashes what is selected
+    await xp.click('#bArrows');
+    await xp.click('.add-strip [data-mode="arrows"] [aria-label="Dashed"]');
+    await xp.evaluate(() => window.__strip.open(null));
+    await xp.waitForTimeout(200);
     await xp.click('#bDrawLine');
     await xp.mouse.click(...P(500, 650));
     await xp.keyboard.down('Shift');
@@ -597,14 +601,14 @@ T.current = 'combining exact shapes';
     await fresh();
     await rect(150, 250, 300, 400);
     await xp.click('#bDrawShape');
-    await xp.click('#shapeTool button[data-kind="polygon"]');
+    await xp.click('.add-strip [data-mode="shape"] [aria-label="Hexagon"]'); // the shapes are the strip's tiles (14 Nov 2026)
     await xp.evaluate(() => { const r = document.getElementById('stRound'); r.value = 0.2; r.dispatchEvent(new Event('input')); });
     await xp.mouse.move(...P(700, 300));
     await xp.mouse.down();
     await xp.mouse.move(...P(780, 220), { steps: 5 });
     await xp.mouse.up();
     await xp.click('#bDrawShape');
-    await xp.click('#shapeTool button[data-kind="rect"]');
+    await xp.click('.add-strip [data-mode="shape"] [aria-label="Rectangle"]');
     await xp.evaluate(() => { const r = document.getElementById('stRound'); r.value = 0; r.dispatchEvent(new Event('input')); });
     await xp.mouse.move(...P(1, 1));
     await xp.keyboard.press('Escape');

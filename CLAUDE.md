@@ -246,6 +246,12 @@ compatibly.
   2 both, 3 at the start) and arms `arrowTool` while that mode holds the strip (`setMode` calls `setArrowTool`). A drag
   on the drawing makes an exact open line with those heads, riding the shape tool's drag (`shapeDrag.arrow`); a tile also
   gives a selected line its heads (`setLineArrows`). `bt-arrow` is left out of the selection strip.
+  It is the Line tool now (14 Nov 2026, Tom: "1 2"; named Line): its strip holds the stroke first (Solid, Dashed, Dotted;
+  `dashCfg`, `setLineDash` for what is selected) and then the ends, and `bt-dash` left the selection strip too. The shape
+  tool works the same way (THE SHAPE TOOL'S CHOICES ARE THE STRIP'S): `#bDrawShape` turns the strip to `MODES.shape`, a
+  tile per shape (rectangle, triangle, pentagon, hexagon, octagon, star, eight-point star), armed while that mode holds
+  the strip; `#shapeTool` keeps only the sides and roundness and stands just above the strip; one shape a press, the
+  drag's end putting the tool and the mode away. Straight lines (`#bDrawLine`, click corner by corner) stays as it was.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).

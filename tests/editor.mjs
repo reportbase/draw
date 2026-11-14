@@ -551,7 +551,7 @@ T.current = 'the selection\'s options in the strip';
     const st = await sp.evaluate(() => ({ mode: window.__strip.mode, slider: !!document.querySelector('.sel-slider'),
       tiles: [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => (t.disabled ? '-' : '+') + t.dataset.name),
       under: !!window.__box.track() }));
-    if (st.mode !== 'select' || st.slider || st.tiles.length !== 9 || !st.tiles.includes('+bt-mode') || !st.tiles.includes('-bt-union') || !st.under)
+    if (st.mode !== 'select' || st.slider || st.tiles.length !== 8 || !st.tiles.includes('+bt-mode') || !st.tiles.includes('-bt-union') || !st.under)
       throw new Error('a circle selected, the strip says ' + JSON.stringify(st));
     // the track under the box: dragged end to end it writes to the shape, and one undo puts it back
     const tr = await sp.evaluate(() => window.__box.track()), cv = await sp.locator('#cv').boundingBox();
@@ -573,8 +573,8 @@ T.current = 'the selection\'s options in the strip';
     await sp.waitForTimeout(300);
     const m1 = await sp.evaluate(() => [window.__box.mode(), document.querySelector('.sel-btn[data-name="bt-mode"]').getAttribute('aria-pressed'),
       [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => t.dataset.name).join(),
-      document.querySelector('.sel-btn[data-name="bt-dash"]').disabled]);
-    if (m1[0] === m0[0] || m1[1] === m0[1] || m1[1] !== String(m1[0] === 'exact') || m1[2] !== order || m1[3] !== (m1[0] !== 'exact'))
+      false]); // (no tile left in the strip turns on or off with the mode alone for one circle, since Dash left it)
+    if (m1[0] === m0[0] || m1[1] === m0[1] || m1[1] !== String(m1[0] === 'exact') || m1[2] !== order || m1[3] !== false)
       throw new Error(`the mode toggle: ${JSON.stringify(m0)} → ${JSON.stringify(m1)}`);
     await sp.keyboard.press('Escape');
     await sp.mouse.click(1200, 120);
@@ -760,7 +760,7 @@ T.current = 'the arrow tool';
     await ap.click('.add-strip [data-mode="arrows"] [data-arrows="2"]');
     await drag(300, 500, 700, 560);
     const r = await ap.evaluate(() => ({ n: window.__box.count(), mode: window.__strip.mode,
-      heads: [...document.querySelectorAll('.add-strip [data-mode="arrows"] .strip-tile')].map(t => t.classList.contains('on')).join() }));
+      heads: [...document.querySelectorAll('.add-strip [data-mode="arrows"] [data-arrows]')].map(t => t.classList.contains('on')).join() }));
     // the two arrows export as lines with heads: one at the end of the first, two on the second
     const [dl] = await Promise.all([ap.waitForEvent('download', { timeout: 30000 }), ap.evaluate(() => document.getElementById('bExportSvg').click())]);
     const svg = await readFile(await dl.path(), 'utf8');
@@ -772,6 +772,49 @@ T.current = 'the arrow tool';
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the arrow tool draws its line and heads`);
   await ap.close();
+}
+
+/* The shape tool's choices are the strip's, and the line tool's stroke beside its ends (14 Nov 2026, Tom: "1 2"): the
+   shape tool's button turns the strip to its shapes with the sides and roundness panel just above it; a star picked and
+   dragged out is a star, and the tool puts itself away. The line tool's strip holds the stroke and the ends; a dashed
+   line drawn comes out dashed. */
+T.current = 'the shape and line tools in the strip';
+{
+  const tp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  tp.on('pageerror', e => failures.push(`[tools in the strip] ${e.message}`));
+  await tp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await tp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await tp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const n0 = await tp.evaluate(() => window.__box.count());
+    await tp.click('#bDrawShape');
+    const s0 = await tp.evaluate(() => { const p = document.getElementById('shapeTool').getBoundingClientRect(), f = document.getElementById('addStrip').getBoundingClientRect();
+      return { mode: window.__strip.mode, tiles: [...document.querySelectorAll('.add-strip [data-mode="shape"] .strip-tile')].map(t => t.getAttribute('aria-label')).join(),
+        open: document.getElementById('shapeTool').classList.contains('open'), above: Math.round(f.top - p.bottom) }; });
+    if (s0.mode !== 'shape' || s0.tiles !== 'Rectangle,Triangle,Pentagon,Hexagon,Octagon,Star,Eight-point star' || !s0.open || s0.above < 0 || s0.above > 20)
+      throw new Error('the shape tool: ' + JSON.stringify(s0));
+    await tp.click('.add-strip [data-mode="shape"] [aria-label="Star"]');
+    await tp.mouse.move(400, 300); await tp.mouse.down(); await tp.mouse.move(520, 380, { steps: 6 }); await tp.mouse.up();
+    await tp.waitForTimeout(300);
+    const star = await tp.evaluate(() => { const n = window.__box.count(); window.__box.select([n - 1]); const r = window.__box.rings()[0]; return r ? { n: r.x.length } : null; });
+    const s1 = await tp.evaluate(() => ({ mode: window.__strip.mode, open: document.getElementById('shapeTool').classList.contains('open') }));
+    if (!star || star.n !== 10 || s1.mode === 'shape' || s1.open) throw new Error('a star dragged out: ' + JSON.stringify({ star, ...s1 }));
+    // the line tool: the stroke beside the ends; dashed and both ends, drawn
+    await tp.click('#bArrows');
+    const l0 = await tp.evaluate(() => [...document.querySelectorAll('.add-strip [data-mode="arrows"] .strip-tile')].map(t => t.getAttribute('aria-label')).join());
+    if (l0 !== 'Solid,Dashed,Dotted,No arrows,Arrow at the end,Arrows at both ends,Arrow at the start') throw new Error('the line tool\'s tiles: ' + l0);
+    await tp.click('.add-strip [data-mode="arrows"] [aria-label="Dashed"]');
+    await tp.mouse.move(300, 550); await tp.mouse.down(); await tp.mouse.move(700, 600, { steps: 6 }); await tp.mouse.up();
+    await tp.waitForTimeout(300);
+    const [dl] = await Promise.all([tp.waitForEvent('download', { timeout: 30000 }), tp.evaluate(() => document.getElementById('bExportSvg').click())]);
+    const svg = await readFile(await dl.path(), 'utf8');
+    if (await tp.evaluate(() => window.__box.count()) !== n0 + 2 || !/stroke-dasharray="/.test(svg)) throw new Error('the dashed line did not come out dashed');
+  } catch (e) {
+    failures.push(`[tools in the strip] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the shape and line tools in the strip`);
+  await tp.close();
 }
 
 /* A hold builds the selection and never hides the bars (13 Nov 2026, Tom: "Long press should multi select objects, not
