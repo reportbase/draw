@@ -214,7 +214,7 @@ compatibly.
 - The strip at the foot says one of several things (13 Nov 2026, THE STRIP ADDS SHAPES TOO and THE STRIP SAYS ONE OF
   SEVERAL THINGS in `draw.html`, `MODES`): the Shapes button on the top bar (`#bAddStrip`, the old button's glyph and
   name, its popover gone) turns it to the library of shapes, and Fill, Outline, Align, Order and Build to theirs, each on a ring of its
-  own (`makeRing`), the button lit as the grid's is when on (`.active`, and `aria-pressed`) while it shows. A tile of Fill, Outline, Align or Order clicks the
+  own (`makeRing`; Arrows too, since 14 Nov 2026), the button lit as the grid's is when on (`.active`, and `aria-pressed`) while it shows. A tile of Fill, Outline, Align or Order clicks the
   popover button it mirrors, so those panels stay the code that acts; the colour rings' first tile opens the panel's
   sliders. The drawing's strip only steps aside (`body.adding`, `body.dataset.strip`); the strip hides in the edit view
   and while a morph is live. A library tile dragged up out of the strip and dropped on the
@@ -240,6 +240,9 @@ compatibly.
   "merge round corners and remove offset and knife"): `bt-roundoff` rounds a leaves shape off and opens the corners panel
   on an exact one, standing above the tile (`placePop`, as Fill's sliders do); Corners, Offset and the knife are left out
   of the strip (`SEL_LEFT_OUT`), their code kept and reached by name (`__box.run(name)` for tests).
+  Arrows moved to the top bar (14 Nov 2026, Tom: "move the arrows to the main tool bar and show the arrows on bottom"):
+  `#bArrows`, enabled for an exact open line, turns the strip to `MODES.arrows`, the four choices as tiles
+  (`setLineArrows(n)`: 0 none, 1 at the end, 2 both, 3 at the start); `bt-arrow` is left out of the selection strip.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).

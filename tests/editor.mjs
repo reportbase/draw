@@ -551,7 +551,7 @@ T.current = 'the selection\'s options in the strip';
     const st = await sp.evaluate(() => ({ mode: window.__strip.mode, slider: !!document.querySelector('.sel-slider'),
       tiles: [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => (t.disabled ? '-' : '+') + t.dataset.name),
       under: !!window.__box.track() }));
-    if (st.mode !== 'select' || st.slider || st.tiles.length !== 10 || !st.tiles.includes('+bt-mode') || !st.tiles.includes('-bt-union') || !st.under)
+    if (st.mode !== 'select' || st.slider || st.tiles.length !== 9 || !st.tiles.includes('+bt-mode') || !st.tiles.includes('-bt-union') || !st.under)
       throw new Error('a circle selected, the strip says ' + JSON.stringify(st));
     // the track under the box: dragged end to end it writes to the shape, and one undo puts it back
     const tr = await sp.evaluate(() => window.__box.track()), cv = await sp.locator('#cv').boundingBox();

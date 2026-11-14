@@ -508,8 +508,13 @@ T.current = 'combining exact shapes';
     await xp.keyboard.up('Shift');
     await xp.waitForTimeout(300);
     await xp.evaluate(() => window.__box.select([2]));
-    await press('bt-arrow');
-    await press('bt-arrow');
+    // arrows are the top bar's since 14 Nov 2026 (Tom: "move the arrows to the main tool bar and show the arrows on
+    // bottom"): the button turns the strip to the four choices, and "at both ends" is pressed there
+    await xp.click('#bArrows');
+    await xp.click('.add-strip [data-mode="arrows"] [data-arrows="2"]');
+    await xp.waitForTimeout(300);
+    if (!(await xp.evaluate(() => document.querySelector('.add-strip [data-mode="arrows"] [data-arrows="2"]').classList.contains('on'))))
+      throw new Error('the strip does not show "at both ends" as the line\'s arrows');
     const [dl] = await Promise.all([xp.waitForEvent('download', { timeout: 30000 }), xp.evaluate(() => document.getElementById('bExportSvg').click())]);
     const svg = await readFile(await dl.path(), 'utf8');
     if (!/stroke-dasharray="/.test(svg)) throw new Error('the dashed square exported without a dash array');
