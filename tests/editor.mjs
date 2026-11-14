@@ -739,6 +739,41 @@ T.current = 'the selection takes the strip';
   await qp.close();
 }
 
+/* The arrow tool draws its line (14 Nov 2026, Tom: "the arrow tool should draw the line and the arrows, dont require a line
+   be drawn and selected"): Arrows on the top bar is always there, turns the strip to the four choices, and a drag on the
+   drawing makes an exact open line with the heads lit there, both ends once "both" is picked. */
+T.current = 'the arrow tool';
+{
+  const ap = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  ap.on('pageerror', e => failures.push(`[arrow tool] ${e.message}`));
+  await ap.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await ap.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await ap.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+    const n0 = await ap.evaluate(() => window.__box.count());
+    if (await ap.evaluate(() => document.getElementById('bArrows').disabled)) throw new Error('Arrows is disabled with nothing selected');
+    await ap.click('#bArrows');
+    if (await ap.evaluate(() => window.__strip.mode) !== 'arrows') throw new Error('Arrows did not turn the strip to its choices');
+    const drag = async (x0, y0, x1, y1) => { await ap.mouse.move(x0, y0); await ap.mouse.down(); await ap.mouse.move(x1, y1, { steps: 8 }); await ap.mouse.up(); await ap.waitForTimeout(300); };
+    await drag(300, 200, 700, 260);
+    await ap.click('.add-strip [data-mode="arrows"] [data-arrows="2"]');
+    await drag(300, 500, 700, 560);
+    const r = await ap.evaluate(() => ({ n: window.__box.count(), mode: window.__strip.mode,
+      heads: [...document.querySelectorAll('.add-strip [data-mode="arrows"] .strip-tile')].map(t => t.classList.contains('on')).join() }));
+    // the two arrows export as lines with heads: one at the end of the first, two on the second
+    const [dl] = await Promise.all([ap.waitForEvent('download', { timeout: 30000 }), ap.evaluate(() => document.getElementById('bExportSvg').click())]);
+    const svg = await readFile(await dl.path(), 'utf8');
+    const heads = (svg.match(/<path d="M[^"]*Z" fill="[^"]*" stroke="none"/g) || []).length;
+    if (r.n !== n0 + 2 || r.mode !== 'arrows' || r.heads !== 'false,false,true,false' || heads !== 3)
+      throw new Error('arrows drawn: ' + JSON.stringify({ ...r, n0, heads }));
+  } catch (e) {
+    failures.push(`[arrow tool] ${e.message.split('\n')[0]}`);
+  }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the arrow tool draws its line and heads`);
+  await ap.close();
+}
+
 /* A hold builds the selection and never hides the bars (13 Nov 2026, Tom: "Long press should multi select objects, not
    toggle the toolbar visibility"), locked or not, with a finger or a mouse (14 Nov 2026, "Long press Multi select not
    working, it deselects": unlocked, the press selected the shape it landed on before the hold fired, so the hold had

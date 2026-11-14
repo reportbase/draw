@@ -240,9 +240,12 @@ compatibly.
   "merge round corners and remove offset and knife"): `bt-roundoff` rounds a leaves shape off and opens the corners panel
   on an exact one, standing above the tile (`placePop`, as Fill's sliders do); Corners, Offset and the knife are left out
   of the strip (`SEL_LEFT_OUT`), their code kept and reached by name (`__box.run(name)` for tests).
-  Arrows moved to the top bar (14 Nov 2026, Tom: "move the arrows to the main tool bar and show the arrows on bottom"):
-  `#bArrows`, enabled for an exact open line, turns the strip to `MODES.arrows`, the four choices as tiles
-  (`setLineArrows(n)`: 0 none, 1 at the end, 2 both, 3 at the start); `bt-arrow` is left out of the selection strip.
+  Arrows is a drawing tool on the top bar, beside the shape tool (14 Nov 2026, Tom: "move the arrows to the main tool bar
+  and show the arrows on bottom", then "the arrow tool should draw the line and the arrows"; THE ARROW TOOL): `#bArrows`,
+  always enabled, turns the strip to `MODES.arrows` (the four choices as tiles, lit by `arrowCfg`: 0 none, 1 at the end,
+  2 both, 3 at the start) and arms `arrowTool` while that mode holds the strip (`setMode` calls `setArrowTool`). A drag
+  on the drawing makes an exact open line with those heads, riding the shape tool's drag (`shapeDrag.arrow`); a tile also
+  gives a selected line its heads (`setLineArrows`). `bt-arrow` is left out of the selection strip.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).
