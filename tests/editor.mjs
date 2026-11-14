@@ -87,7 +87,7 @@ try {
       const inView = await mp.evaluate(() => { const l = document.getElementById('bLock').getBoundingClientRect().right, g = document.getElementById('gearBtn').getBoundingClientRect().left;
         return [...document.querySelectorAll('.topbar .controls > .icon-btn')].filter(b => b.style.display !== 'none').map(b => [b.id, b.getBoundingClientRect()])
           .filter(([, r]) => r.left >= l - 2 && r.right <= g + 2).sort((a, b) => a[1].left - b[1].left).map(a => a[0]); });
-      if (inView.slice(0, 3).join() !== 'bAddStrip,bStyle,bLine') throw new Error('a phone opens with ' + inView.join(' ') + ' in view');
+      if (inView.slice(0, 3).join() !== 'bAddStrip,bDrawMenu,bStyle') throw new Error('a phone opens with ' + inView.join(' ') + ' in view');
       const at = await mp.evaluate(() => { const r = document.getElementById('bAddStrip').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: at[0], y: at[1] }] });
       await mp.waitForTimeout(150);
@@ -95,6 +95,20 @@ try {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       if (!held || held.name !== 'Shapes') throw new Error('a finger held on the shapes button was shown ' + JSON.stringify(held));
       await mp.evaluate(() => window.__strip.open(null)); // the lift was a tap, which opened the library
+      // DRAW, ON A PHONE (14 Nov 2026, Tom: "2 3 5 1", the first "one Draw button on phones"): the four drawing tools are
+      // off the bar and under Draw, whose strip lists them; Line taken up, Draw is lit, and pressed again shows the list
+      const dm = await mp.evaluate(() => ({ off: ['bDraw', 'bDrawShape', 'bArrows', 'bText'].filter(id => document.querySelector('.topbar #' + id)).join(),
+        on: !!document.querySelector('.topbar #bDrawMenu') }));
+      if (dm.off || !dm.on) throw new Error('the phone\'s bar: ' + JSON.stringify(dm));
+      await mp.evaluate(() => document.getElementById('bDrawMenu').click());
+      const d0 = await mp.evaluate(() => ({ mode: window.__strip.mode, tiles: [...document.querySelectorAll('.add-strip [data-mode="draw"] .strip-tile')].map(t => t.getAttribute('aria-label')).join() }));
+      await mp.evaluate(() => document.querySelector('.add-strip [data-mode="draw"] [aria-label="Line"]').click());
+      const d1 = await mp.evaluate(() => ({ mode: window.__strip.mode, lit: document.getElementById('bDrawMenu').classList.contains('active') }));
+      await mp.evaluate(() => document.getElementById('bDrawMenu').click());
+      const d2 = await mp.evaluate(() => window.__strip.mode);
+      await mp.evaluate(() => window.__strip.open(null));
+      if (d0.mode !== 'draw' || d0.tiles !== 'Pencil,Line,Shape,Text' || d1.mode !== 'arrows' || !d1.lit || d2 !== 'draw')
+        throw new Error('Draw on a phone: ' + JSON.stringify({ d0, d1, d2 }));
       // and a tile, pressed, says its title: what it is, or how to give it a name (a circle put in from the strip)
       await mp.evaluate(() => { document.getElementById('bAddStrip').click(); document.querySelector('#addRing .add-pick[data-shape="circle"]').click(); document.getElementById('bAddStrip').click(); });
       await mp.waitForFunction(() => document.querySelector('#shapeScroller .shape-tile[title]'), null, { timeout: 10000 });
@@ -792,7 +806,7 @@ T.current = 'the shape and line tools in the strip';
     const s0 = await tp.evaluate(() => { const p = document.getElementById('shapeTool').getBoundingClientRect(), f = document.getElementById('addStrip').getBoundingClientRect();
       return { mode: window.__strip.mode, tiles: [...document.querySelectorAll('.add-strip [data-mode="shape"] .strip-tile')].map(t => t.getAttribute('aria-label')).join(),
         open: document.getElementById('shapeTool').classList.contains('open'), above: Math.round(f.top - p.bottom) }; });
-    if (s0.mode !== 'shape' || s0.tiles !== 'Rectangle,Triangle,Pentagon,Hexagon,Octagon,Star,Eight-point star,Speech bubble,Bracket' || !s0.open || s0.above < 0 || s0.above > 20)
+    if (s0.mode !== 'shape' || s0.tiles !== 'Rectangle,Triangle,Pentagon,Hexagon,Octagon,Star,Eight-point star,Ellipse,Rounded rectangle,Block arrow,Cloud,Heart,Speech bubble,Bracket' || !s0.open || s0.above < 0 || s0.above > 20)
       throw new Error('the shape tool: ' + JSON.stringify(s0));
     await tp.click('.add-strip [data-mode="shape"] [aria-label="Star"]');
     await tp.mouse.move(400, 300); await tp.mouse.down(); await tp.mouse.move(520, 380, { steps: 6 }); await tp.mouse.up();
@@ -877,6 +891,20 @@ T.current = 'the text tool';
     await xp2.keyboard.press('Escape');
     await xp2.waitForTimeout(200);
     if (await xp2.evaluate(() => window.__strip.mode) === 'text') throw new Error('Escape did not put the text tool away');
+    // WORDS ARE RETYPED WHERE THEY STAND (Tom: "2 3 5 1", the third): a double-click on the word opens the typing box on
+    // it, holding its letters, the popover shut; retyped longer, it is wider and still stands there
+    await xp2.mouse.click(cv.x + 900, cv.y + 500);
+    await xp2.waitForTimeout(300);
+    await xp2.mouse.dblclick(cv.x + 300, cv.y + 200);
+    await xp2.waitForTimeout(400);
+    const e0 = await xp2.evaluate(() => ({ mode: window.__strip.mode, val: (document.querySelector('#textAt input') || {}).value,
+      pop: document.getElementById('textPop').classList.contains('open') }));
+    await xp2.keyboard.type('Hello there');
+    await xp2.keyboard.press('Enter');
+    await xp2.waitForTimeout(600);
+    const e1 = await xp2.evaluate(() => { const b = window.__box.handles().box; return { w: b.x1 - b.x0, cx: (b.x0 + b.x1) / 2, cy: (b.y0 + b.y1) / 2, box: !!document.getElementById('textAt') }; });
+    if (e0.mode !== 'text' || e0.val !== 'Hi' || e0.pop || e1.box || !(e1.w > t1.w * 2) || Math.abs(e1.cx - 300) > 40 || Math.abs(e1.cy - 200) > 20)
+      throw new Error('a word retyped where it stands: ' + JSON.stringify({ e0, e1, was: t1.w }));
   } catch (e) {
     failures.push(`[text tool] ${e.message.split('\n')[0]}`);
   }
@@ -906,7 +934,16 @@ T.current = 'measure, bubble, bracket';
     await mp2.click('.add-strip [data-mode="shape"] [aria-label="Bracket"]');
     await drag(120, 330, 330, 330);
     const br = await last();
-    await mp2.evaluate(() => window.__box.select([])); // (a line selected would take the line tool's choice too)
+    // MORE SHAPES (Tom: "2 3 5 1", the fifth): a heart is two corners joined by curves, an ellipse four
+    await mp2.click('.add-strip [data-mode="shape"] [aria-label="Heart"]');
+    await drag(420, 120, 580, 240);
+    const heart = await last();
+    await mp2.click('.add-strip [data-mode="shape"] [aria-label="Ellipse"]');
+    await drag(420, 300, 580, 380);
+    const ell = await mp2.evaluate(() => { const n = window.__box.count(); window.__box.select([n - 1]); const r = window.__box.rings()[0];
+      return { corners: r.x.length, curves: (r.ctrl || []).filter(Boolean).length }; });
+    if (heart.corners !== 2 || ell.corners !== 4 || ell.curves !== 4) throw new Error('heart and ellipse: ' + JSON.stringify({ heart, ell }));
+    await mp2.evaluate(() => window.__box.select([]));
     await mp2.click('#bArrows');
     await mp2.click('.add-strip [data-mode="arrows"] [aria-label="Measure line"]');
     await drag(120, 420, 330, 420);
@@ -917,7 +954,19 @@ T.current = 'measure, bubble, bracket';
     const want = await mp2.evaluate(() => { const n = window.__box.count(); window.__box.select([n - 1]); const r = window.__box.rings()[0]; return Math.hypot(r.x[1] - r.x[0], r.y[1] - r.y[0]); });
     if (bub.corners !== 7 || br.corners !== 4 || (svg.match(/<text /g) || []).length !== 1 || !label || Math.abs(parseFloat(label) - want) > 0.002)
       throw new Error(JSON.stringify({ bub, br, label, want }));
-    await mp2.click('.add-strip [data-mode="arrows"] [aria-label="Arrow at the end"]'); // (the next test page starts afresh, but leave it as found)
+    // WHAT THE LINE TOOL'S CHOICES RESTYLE (Tom: "2 3 5 1", the second): the measure line, selected since the tool was
+    // opened, keeps its ticks when another end is picked for the next line; closed, selected, and the tool opened on it,
+    // it takes the choice
+    const exported = async () => { const [d] = await Promise.all([mp2.waitForEvent('download', { timeout: 30000 }), mp2.evaluate(() => document.getElementById('bExportSvg').click())]);
+      const x = await readFile(await d.path(), 'utf8'); return { texts: (x.match(/<text /g) || []).length, heads: (x.match(/<path d="M[^"]*Z" fill="[^"]*" stroke="none"/g) || []).length }; };
+    await mp2.click('.add-strip [data-mode="arrows"] [aria-label="Arrow at the end"]');
+    const kept = await exported();
+    await mp2.keyboard.press('Escape');
+    await mp2.evaluate(() => { const n = window.__box.count(); window.__box.select([n - 1]); });
+    await mp2.click('#bArrows');
+    await mp2.click('.add-strip [data-mode="arrows"] [aria-label="Arrows at both ends"]');
+    const took = await exported();
+    if (kept.texts !== 1 || kept.heads !== 0 || took.texts !== 0 || took.heads !== 2) throw new Error('what the line tool restyles: ' + JSON.stringify({ kept, took }));
   } catch (e) {
     failures.push(`[measure, bubble, bracket] ${e.message.split('\n')[0]}`);
   }

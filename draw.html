@@ -2783,6 +2783,7 @@
                     .add-strip > .controls[data-mode="order"] svg { width: 34px; height: 34px; }
                     .add-strip > .controls[data-mode="arrows"] svg { width: 46px; height: 46px; }
                     .add-strip > .controls[data-mode="shape"] svg { width: 46px; height: 46px; }
+                    .add-strip > .controls[data-mode="draw"] svg { width: 34px; height: 34px; }
                     /* the text tool's tiles are letters: the size as an A, the style as B I O, a font as Ag in its face */
                     .add-strip > .controls > .strip-text { font: 24px system-ui, sans-serif; color: var(--fg); line-height: 1; }
                     /* the typing box the text tool opens where the drawing was tapped */
@@ -3447,6 +3448,16 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <circle cx="8.5" cy="8.5" r="5"/>
                     <rect x="11" y="11" width="9.5" height="9.5" rx="1.2"/>
+                </svg>
+            </button>
+            <!-- DRAW, ON A PHONE (14 Nov 2026, Tom: "2 3 5 1", the first "one Draw button on phones"): a phone's bar shows
+                 about three buttons at a time, and the drawing tools stood a long swipe along it. There the pencil, the
+                 line, the shape and the text tools leave the bar for this one button, which turns the strip to the four of
+                 them (MODES.draw); on a wide screen it is this that leaves (PHONE_BAR). -->
+            <button id="bDrawMenu" class="icon-btn" title="draw — the pencil, lines, shapes and text: the strip at the foot shows the four, and a tap on one takes it up">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 20l1.2-4.6L15.6 5a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z"/>
+                    <path d="M13.8 6.8l3.4 3.4"/>
                 </svg>
             </button>
             <!-- THE BUILDER'S OWN SLOT, beside the globe for the same reason the globe has one:
@@ -20582,7 +20593,9 @@
                     return;
                 if (shapeToolCfg.kind === 'bracket') {
                     measureLabel(b.x, b.y + 22, fmtLen(Math.hypot(o.pts[2].x - o.pts[1].x, o.pts[2].y - o.pts[1].y) * wpp));
-                } else if (shapeToolCfg.kind === 'rect' || shapeToolCfg.kind === 'bubble') {
+                } else if (shapeToolCfg.kind === 'arrow') {
+                    measureLabel(b.x, b.y + 22, fmtLen(Math.hypot(o.pts[3].x - a.x, o.pts[3].y - a.y) * wpp));
+                } else if (shapeToolCfg.kind !== 'polygon' && shapeToolCfg.kind !== 'star') {
                     const xs = o.pts.map(p => p.x),
                         ys = o.pts.map(p => p.y);
                     const W = (Math.max(...xs) - Math.min(...xs)) * wpp,
@@ -54658,6 +54671,8 @@
             const bl = $('bDrawLine');
             if (bl)
                 bl.classList.toggle('active', on && lineMode);
+            if (typeof syncDrawMenuLit === 'function')
+                syncDrawMenuLit();
             cv.style.cursor = on ? 'crosshair' : '';
             if (typeof updateStatus === 'function')
                 updateStatus();
@@ -54761,6 +54776,16 @@
             textAt = null;
             const val = t.input.value;
             t.el.remove();
+            if (t.edit) {
+                // a word being retyped (WORDS ARE RETYPED WHERE THEY STAND): set again from what the box holds now
+                if (commit && val && val.trim()) {
+                    applyShapeSelection(new Set(t.edit));
+                    const r = replaceTextRun(val, textStyle());
+                    flashStatus(r.ok ? 'text updated' : r.reason);
+                    scheduleSave();
+                }
+                return;
+            }
             if (commit && val && val.trim()) {
                 const r = cv.getBoundingClientRect();
                 addTextShapes(val, { at: pxToWorld(t.px, t.py, r.width, r.height) });
@@ -54775,7 +54800,29 @@
             textAt.input.style.fontWeight = st.bold ? '700' : '400';
             textAt.input.style.fontStyle = st.italic ? 'italic' : 'normal';
         }
-        function openTextAt(px, py) {
+        // WORDS ARE RETYPED WHERE THEY STAND (14 Nov 2026, Tom: "2 3 5 1", the third "edit text in place"). A double-click
+        // on a word opened the old popover under the Text button, away from the word. Now it opens the text tool on the
+        // word: the strip turns to the tool's choices, showing the word's own face, weight and slant, and the typing box
+        // stands on the word holding its letters. Enter sets it again; a choice in the strip restyles it as it does any
+        // word selected. Returns false when no one word is selected, and the popover (still there to add by) opens.
+        function editTextInPlace() {
+            const cur = selectedTextRun();
+            if (!cur || !window.__strip)
+                return false;
+            const m = cur.meta, st = textStyle();
+            st.family = m.family || st.family;
+            st.bold = !!m.bold;
+            st.italic = !!m.italic;
+            st.outline = !!m.outline;
+            window.__strip.open('text');
+            const bx = boxOfIndices(cur.members), r = cv.getBoundingClientRect();
+            const p = bx ? worldToPx((bx.minx + bx.maxx) / 2, (bx.miny + bx.maxy) / 2, r.width, r.height) : { x: r.width / 2, y: r.height / 2 };
+            openTextAt(p.x, p.y, { members: cur.members.slice(), text: m.text || '' });
+            if (window.__strip.mirror)
+                window.__strip.mirror();
+            return true;
+        }
+        function openTextAt(px, py, edit) {
             closeTextAt(true); // a tap elsewhere sets what was being typed, and starts the next
             const r = cv.getBoundingClientRect();
             const el = document.createElement('div');
@@ -54784,7 +54831,11 @@
                 + '<button type="button" class="pop-act" aria-label="set the text" title="set the text (Enter)">✓</button>';
             document.body.appendChild(el);
             const input = el.querySelector('input');
-            textAt = { px, py, el, input };
+            textAt = { px, py, el, input, edit: edit ? edit.members : null };
+            if (edit) {
+                input.value = edit.text;
+                input.placeholder = 'retype, then Enter';
+            }
             styleTextAt();
             const w = el.offsetWidth, h = el.offsetHeight;
             el.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + px - w / 2)) + 'px';
@@ -54801,6 +54852,8 @@
             });
             el.querySelector('button').addEventListener('click', () => closeTextAt(true));
             input.focus();
+            if (edit)
+                input.select();
         }
         function setTextTool(on) {
             on = !!on;
@@ -54881,9 +54934,70 @@
             $('stN').textContent = shapeToolCfg.n;
         }
         // The outline a drag from a to b makes, in canvas pixels, with each corner's radius.
-        function shapeToolOutline(a, b, shift) {
+        // (`as`: the kind to draw instead of the tool's own, for the strip's tiles, which are drawn by this.)
+        function shapeToolOutline(a, b, shift, as) {
             const pts = [];
-            const kind = shapeToolCfg.kind;
+            const kind = as || shapeToolCfg.kind;
+            // MORE SHAPES (14 Nov 2026, Tom: "2 3 5 1", the fifth: "ellipse, rounded rectangle, a plain arrow shape, a
+            // cloud, a heart"). The ellipse, the cloud and the heart are curves, which an exact shape holds as an edge's
+            // two handles (CURVE HANDLES, `ctrl`): each is laid out in a unit square and dragged corner to corner as a
+            // rectangle is. The rounded rectangle is the rectangle with its corners a fifth of its shorter side. The
+            // block arrow is dragged from its tail to its tip, as a line is.
+            if (kind === 'ellipse' || kind === 'cloud' || kind === 'heart' || kind === 'roundrect') {
+                let w = b.x - a.x, h = b.y - a.y;
+                if (shift) {
+                    const m = Math.max(Math.abs(w), Math.abs(h));
+                    w = Math.sign(w || 1) * m;
+                    h = Math.sign(h || 1) * m;
+                }
+                const x0 = Math.min(a.x, a.x + w), y0 = Math.min(a.y, a.y + h);
+                w = Math.abs(w);
+                h = Math.abs(h);
+                const P = (u, v) => ({ x: x0 + u * w, y: y0 + v * h });
+                if (kind === 'roundrect') {
+                    const rr = 0.2 * Math.min(w, h);
+                    return { pts: [P(0, 0), P(1, 0), P(1, 1), P(0, 1)], r: [rr, rr, rr, rr] };
+                }
+                let U, C, S; // the corners, each edge's two handles, and which corners are smooth, in the unit square
+                if (kind === 'ellipse') {
+                    const k = 0.5 * 0.5523; // a quarter circle's handle, on a radius of a half
+                    U = [[1, 0.5], [0.5, 1], [0, 0.5], [0.5, 0]];
+                    C = [[1, 0.5 + k, 0.5 + k, 1], [0.5 - k, 1, 0, 0.5 + k], [0, 0.5 - k, 0.5 - k, 0], [0.5 + k, 0, 1, 0.5 - k]];
+                    S = [1, 1, 1, 1];
+                } else if (kind === 'heart') {
+                    U = [[0.5, 1], [0.5, 0.26]];
+                    C = [[-0.22, 0.56, 0.14, -0.16], [0.86, -0.16, 1.22, 0.56]];
+                    S = [0, 0];
+                } else {
+                    // a cloud: lobes round a flat foot, each edge a bulge away from the middle
+                    U = [[0.22, 0.86], [0.1, 0.52], [0.3, 0.3], [0.55, 0.16], [0.8, 0.34], [0.9, 0.6], [0.78, 0.86]];
+                    C = U.map((p, i) => {
+                        const q = U[(i + 1) % U.length];
+                        const foot = i === U.length - 1;
+                        let nx = q[1] - p[1], ny = -(q[0] - p[0]); // across the edge…
+                        if (nx * ((p[0] + q[0]) / 2 - 0.5) + ny * ((p[1] + q[1]) / 2 - 0.55) < 0) {
+                            nx = -nx; // …away from the middle
+                            ny = -ny;
+                        }
+                        const f = foot ? 0.08 : 0.62;
+                        return [p[0] + nx * f, p[1] + ny * f, q[0] + nx * f, q[1] + ny * f];
+                    });
+                    S = U.map(() => 0);
+                }
+                return {
+                    pts: U.map(p => P(p[0], p[1])), r: U.map(() => 0), smooth: S,
+                    ctrl: C.map(c => { const p1 = P(c[0], c[1]), p2 = P(c[2], c[3]); return [p1.x, p1.y, p2.x, p2.y]; })
+                };
+            }
+            if (kind === 'arrow') {
+                const e = shift ? snap45(a, b) : b;
+                const L = Math.hypot(e.x - a.x, e.y - a.y) || 1;
+                const ux = (e.x - a.x) / L, uy = (e.y - a.y) / L;
+                const hw = Math.min(L * 0.3, 60), sw = hw * 0.45, hl = Math.min(L * 0.45, hw * 1.5);
+                const at = (along, across) => ({ x: a.x + ux * along - uy * across, y: a.y + uy * along + ux * across });
+                pts.push(at(0, sw), at(L - hl, sw), at(L - hl, hw), at(L, 0), at(L - hl, -hw), at(L - hl, -sw), at(0, -sw));
+                return { pts, r: pts.map(() => 0) };
+            }
             // A SPEECH BUBBLE AND A BRACKET (14 Nov 2026, Tom: "1 2 3 5", the fifth: "a speech bubble with a pointer, and a
             // bracket"). The bubble is dragged corner to corner as a rectangle is: a rounded box over the upper four
             // fifths, its pointer coming down from the lower edge toward the left. The bracket is dragged from one end to
@@ -54967,7 +55081,9 @@
                 b = Infinity,
                 c = -Infinity,
                 d = -Infinity;
-            for (const p of o.pts) {
+            // (a curved shape's handles count: a heart's two corners stand one over the other, and its width is its curves')
+            const all = o.pts.concat((o.ctrl || []).flatMap(q => q ? [{ x: q[0], y: q[1] }, { x: q[2], y: q[3] }] : []));
+            for (const p of all) {
                 a = Math.min(a, p.x);
                 c = Math.max(c, p.x);
                 b = Math.min(b, p.y);
@@ -55103,7 +55219,7 @@
             ctx.lineWidth = 2;
             ctx.lineJoin = 'miter';
             ctx.beginPath();
-            traceExact(ctx, o.pts.map(p => p.x), o.pts.map(p => p.y), o.r, !!o.open);
+            traceExact(ctx, o.pts.map(p => p.x), o.pts.map(p => p.y), o.r, !!o.open, o.smooth || null, o.ctrl || null);
             ctx.stroke();
             ctx.restore();
         }
@@ -55142,7 +55258,12 @@
             const perPx = Math.hypot(w1.x - w0.x, w1.y - w0.y);
             const wpts = o.pts.map(p => pxToWorld(p.x, p.y, rr.width, rr.height));
             const round = o.r.some(v => v > 0) ? Float64Array.from(o.r, v => v * perPx) : null;
-            loadExactShape(wpts, state.subpaths.length > 0, !!o.open, round);
+            // a curved shape's handles (MORE SHAPES), into the world as its corners are
+            const ctrl = o.ctrl ? o.ctrl.map(c => {
+                const p1 = pxToWorld(c[0], c[1], rr.width, rr.height), p2 = pxToWorld(c[2], c[3], rr.width, rr.height);
+                return [p1.x, p1.y, p2.x, p2.y];
+            }) : null;
+            loadExactShape(wpts, state.subpaths.length > 0, !!o.open, round, o.smooth || null, ctrl);
             scheduleSave();
             // THE TOOL STAYS ON (14 Nov 2026, Tom: "1 2 3 5", the second "make the Shape tool behave like Line"): it put
             // itself away after one shape, where the line tool draws one after another; now both stay until they are
@@ -55301,6 +55422,16 @@
             // there is nowhere for the gesture to go, so the double-click means nothing at
             // all on the canvas and the shape stays exactly as it was. (The line-pen close
             // above is drawing, not inspection, so it keeps the gesture either way.)
+            // …except on a WORD (WORDS ARE RETYPED WHERE THEY STAND): retyping it is no way into the edit view, so it
+            // needs no lab. The first click of the two selected it; the second, on it, opens the typing box on it.
+            {
+                const rr = cv.getBoundingClientRect();
+                if (selectedTextRun() && pointInsideSelectedShapes(e.clientX - rr.left, e.clientY - rr.top, rr.width, rr.height)
+                    && editTextInPlace()) {
+                    e.preventDefault();
+                    return;
+                }
+            }
             if (!LAB)
                 return;
             // The panel is a control surface lying over the canvas, and in edit mode it lies
@@ -57071,13 +57202,26 @@
             hold.id = 'topButtonsHeld';
             hold.hidden = true;
             document.body.appendChild(hold);
-            for (const id of ['bGroup', 'bDrawLine']) {
+            // DRAW, ON A PHONE: the four drawing tools are one button there, and that button is not on a wide screen's bar.
+            // Asked once, as the page starts (as the bar's size is): a window narrowed later keeps the bar it began with.
+            const PHONE_BAR = !!(window.matchMedia && matchMedia('(pointer: coarse), (max-width: 700px)').matches);
+            for (const id of ['bGroup', 'bDrawLine'].concat(PHONE_BAR ? ['bDraw', 'bDrawShape', 'bArrows', 'bText'] : ['bDrawMenu'])) {
                 const b = $(id);
                 if (b)
                     hold.appendChild(b);
             }
         }
-        const STRIP_FIRST = ['bAddStrip', 'bStyle', 'bLine', 'bAlign', 'bOrder', 'bBuild'];
+        // lit while one of its four tools is up, or their list (DRAW, ON A PHONE)
+        function syncDrawMenuLit() {
+            const b = $('bDrawMenu');
+            if (!b)
+                return;
+            const m = window.__strip ? window.__strip.mode : null;
+            const on = m === 'draw' || m === 'arrows' || m === 'shape' || m === 'text' || (drawMode && !lineMode);
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', String(on));
+        }
+        const STRIP_FIRST = ['bAddStrip', 'bDrawMenu', 'bStyle', 'bLine', 'bAlign', 'bOrder', 'bBuild'];
         {
             const bar = document.querySelector('.topbar .controls');
             const lead = STRIP_FIRST.map(id => $(id)).filter(b => b && b.parentNode === bar);
@@ -57207,6 +57351,26 @@
                         if (el && el.classList.contains('open'))
                             placePop(el, t);
                     } },
+                draw: { btn: 'bDrawMenu',
+                    build: host => {
+                        // the four tools, each wearing its own button's glyph
+                        for (const [id, name] of [['bDraw', 'Pencil'], ['bArrows', 'Line'], ['bDrawShape', 'Shape'], ['bText', 'Text']]) {
+                            const src = $(id), svg = src && src.querySelector('svg');
+                            const b = document.createElement('button');
+                            b.type = 'button';
+                            b.className = 'icon-btn strip-tile';
+                            b.dataset.tool = id;
+                            b.setAttribute('aria-label', name);
+                            b.innerHTML = svg ? svg.outerHTML : name;
+                            host.appendChild(b);
+                        }
+                    },
+                    tap: b => {
+                        const to = { bArrows: 'arrows', bDrawShape: 'shape', bText: 'text' }[b.dataset.tool];
+                        setMode(to || null);
+                        if (!to)
+                            setDrawMode(true, false); // the pencil has no strip of its own
+                    } },
                 text: { btn: 'bText',
                     build: host => {
                         const tile = (data, label, html) => {
@@ -57273,7 +57437,8 @@
                         // each shape the tool drags out, drawn as it comes out (a regular polygon or star from its centre)
                         const SHAPES = [['rect', 0, 'Rectangle'], ['polygon', 3, 'Triangle'], ['polygon', 5, 'Pentagon'],
                             ['polygon', 6, 'Hexagon'], ['polygon', 8, 'Octagon'], ['star', 5, 'Star'], ['star', 8, 'Eight-point star'],
-                            ['bubble', 0, 'Speech bubble'], ['bracket', 0, 'Bracket']];
+                            ['ellipse', 0, 'Ellipse'], ['roundrect', 0, 'Rounded rectangle'], ['arrow', 0, 'Block arrow'],
+                            ['cloud', 0, 'Cloud'], ['heart', 0, 'Heart'], ['bubble', 0, 'Speech bubble'], ['bracket', 0, 'Bracket']];
                         for (const [kind, n, name] of SHAPES) {
                             const b = document.createElement('button');
                             b.type = 'button';
@@ -57288,7 +57453,20 @@
                                 d = 'M12 13h32v22h-16l-9 9v-9h-7z';
                             else if (kind === 'bracket')
                                 d = 'M14 24v-8h28v8';
-                            else {
+                            else if (kind === 'roundrect')
+                                d = 'M19 16h18a7 7 0 0 1 7 7v10a7 7 0 0 1-7 7h-18a7 7 0 0 1-7-7v-10a7 7 0 0 1 7-7z';
+                            else if (kind === 'ellipse' || kind === 'cloud' || kind === 'heart' || kind === 'arrow') {
+                                // drawn by the tool's own outline, so the tile is the shape it drags out
+                                const o = kind === 'arrow' ? shapeToolOutline({ x: 10, y: 28 }, { x: 46, y: 28 }, false, kind)
+                                    : shapeToolOutline({ x: 10, y: kind === 'ellipse' ? 16 : 12 }, { x: 46, y: kind === 'ellipse' ? 40 : 44 }, false, kind);
+                                const f = v => v.toFixed(1);
+                                d = 'M' + f(o.pts[0].x) + ' ' + f(o.pts[0].y);
+                                for (let i = 0; i < o.pts.length; i++) {
+                                    const q = o.pts[(i + 1) % o.pts.length], c = o.ctrl && o.ctrl[i];
+                                    d += c ? 'C' + c.map(f).join(' ') + ' ' + f(q.x) + ' ' + f(q.y) : 'L' + f(q.x) + ' ' + f(q.y);
+                                }
+                                d += 'Z';
+                            } else {
                                 const pts = [], k = kind === 'star' ? 2 * n : n;
                                 for (let i = 0; i < k; i++) {
                                     const r = kind === 'star' && i % 2 ? 8 : 18, t = -Math.PI / 2 + i * 2 * Math.PI / k;
@@ -57367,11 +57545,13 @@
                         }
                         if (b.dataset.dash) {
                             dashCfg = b.dataset.dash === 'solid' ? null : b.dataset.dash; // the next line drawn
-                            setLineDash(dashCfg); // and what is selected now
+                            if (lineRestyles())
+                                setLineDash(dashCfg); // and what was selected when the tool was opened
                             return;
                         }
                         arrowCfg = +b.dataset.arrows; // the next line drawn
-                        setLineArrows(arrowCfg); // and a line selected now
+                        if (lineRestyles())
+                            setLineArrows(arrowCfg); // and a line selected when the tool was opened
                     },
                     on: b => b.dataset.how ? (linePath ? 'path' : 'drag') === b.dataset.how
                         : b.dataset.dash ? (dashCfg || 'solid') === b.dataset.dash : arrowCfg === +b.dataset.arrows },
@@ -57537,6 +57717,8 @@
                         p.classList.remove('open');
                 }
                 const was = mode;
+                if (next === 'arrows' && was !== 'arrows')
+                    lineRestyle = selKey(); // WHAT THE LINE TOOL'S CHOICES RESTYLE
                 mode = next;
                 // the line tool: its drag armed, or its path pen (linePath); leaving it puts the pen away
                 if (was === 'arrows' && mode !== 'arrows' && drawMode && lineMode)
@@ -57564,6 +57746,9 @@
                     if (M.host)
                         M.host.classList.toggle('on', k === mode);
                 }
+                if (mode === 'draw' && drawMode)
+                    setDrawMode(false); // back to the list from the pencil
+                syncDrawMenuLit();
                 if (!mode)
                     return;
                 const M = MODES[mode], host = hostOf(mode);
@@ -57738,10 +57923,18 @@
                     _spIds.set(sp, _spNext++);
                 return _spIds.get(sp);
             };
+            const selKey = () => selectedIndices().map(i => spId(state.subpaths[i])).sort((a, b) => a - b).join();
+            // WHAT THE LINE TOOL'S CHOICES RESTYLE (14 Nov 2026, Tom: "2 3 5 1", the second "tidy what a footer choice
+            // restyles"). A stroke or an end picked in the line tool's strip also restyled whatever line was selected,
+            // which is how a line already drawn is given arrows; but it took whatever happened to be selected, so a
+            // bracket picked a moment ago became a measure line when Measure was chosen for the next one. Now it restyles
+            // only what was selected WHEN THE TOOL WAS OPENED (lineRestyle, the selection's key then): selecting a line
+            // and pressing Line is asking for that line; anything selected since is not.
+            let lineRestyle = '';
+            const lineRestyles = () => !!lineRestyle && lineRestyle === selKey();
             function selSync() {
                 const want = selWant();
-                const seen = { key: selectedIndices().map(i => spId(state.subpaths[i])).sort((a, b) => a - b).join(),
-                    n: state.subpaths.length };
+                const seen = { key: selKey(), n: state.subpaths.length };
                 const picked = !!selSeen && seen.key !== selSeen.key && !(seen.n > selSeen.n);
                 selSeen = seen;
                 // …and not from a drawing tool (the line, shape and text tools): while one is armed a press on the drawing is
@@ -57819,7 +58012,7 @@
                 bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
                 bPlayShape: 'Play the shape', bBuild: 'Build', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
-                bAi: 'AI', bArrows: 'Line', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
+                bAi: 'AI', bArrows: 'Line', bDrawMenu: 'Draw', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
                 bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bGrid: 'Grid',
                 bStyle: 'Fill', bLine: 'Outline', bDesc: 'Name and note', bFit: 'Fit to view', gearBtn: 'Settings',
                 // the edit view's bar
