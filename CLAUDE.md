@@ -271,10 +271,14 @@ compatibly.
   `draw.html`; `docs/animation.md`): `#animBar` stands above the strip while `body.morphing`, with play, the time slider
   (`#morphT`, moved there at the start) and chips; the strip shows the chip's values (`MODES.animKeys`, `animMotion`,
   `animEase`, `animFx`, `animExport`), each tile setting the select or pressing the button the morph bar had, which stay
-  the code that acts. The morph bar (`#shapeBar`) is behind the More chip (`body.anim-more`) and keeps its place in the
-  page's column, its margin the bar's and the strip's height, so the canvas ends above them. Animate (`#bMorphOpen`)
-  with something selected goes straight in (`#bMorphLive`); with nothing selected its popover opens. The checks start
-  with More up (`window.__animMore`, set by `tests/harness.mjs`), since they drive the morph bar's own buttons.
+  the code that acts. Since "1 2 3 4 5" the same day the chips are Keys, Motion, Ease, Effect, Path, Physics, Timing,
+  Export, Advanced and Exit (`animPath`, `animPhysics`, `animTiming`, `animAdv` too), a lit chip's sliders are dials in
+  `#abDials` (`ANIM_DIALS`, each writing to the morph bar's slider and firing its event), and a key's tile is its pose
+  (`morphOutlineAt`). The morph bar (`#shapeBar`) is retired from the page: no chip opens it, and it stays in the page's
+  column as no height and a margin (the bar's and the strip's height, so the canvas ends above them), holding the
+  controls the tiles press. Animate (`#bMorphOpen`) with something selected goes straight in (`#bMorphLive`); with
+  nothing selected its popover opens. The checks open the morph bar (`body.anim-more`, from `window.__animMore`, set by
+  `tests/harness.mjs`), since they drive its own buttons: a new control of the animation needs a tile or a dial.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).

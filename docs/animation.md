@@ -268,3 +268,25 @@ there. Now, while a morph is live:
 Tests: "the animation's bar and strip" in `tests/morph.mjs`. The other morph, motion and player checks drive the morph
 bar's own buttons, so `tests/harness.mjs` starts every page with More up (`window.__animMore`). One motion page is 160
 taller, the canvas being that much shorter than it was under the old bar at that window size.
+
+**14 Nov 2026, later** (Tom: "1 2 3 4 5": Path and trail as a tool, a Physics chip, a Timing chip, the More bar emptied,
+key tiles that show the pose). The chips are now Keys, Motion, Ease, Effect, Path, Physics, Timing, Export, Advanced and
+Exit, on one line that pans on a phone.
+
+- `animPath`: Draw (arms `morphPathRecArm`, the morph's own "draw path": it plays while a line is drawn on the canvas,
+  which becomes its path; with no morph selected every live shape is selected first), Ride line (`#bMorphPath`, for a
+  line selected in the drawing), Along and There & back (`#morphPathMode`), Turn (`#tMorphTurn`), and the trail: none,
+  echoes, ribbon (`#morphTrail`). Its dial is the trail's length.
+- `animPhysics`: gravity floaty, medium, heavy (`#morphGravity` at 100, 200, 400) and wind left, none, right
+  (`#morphWind` at -50, 0, 50). Its dials are the two sliders themselves.
+- `animTiming`: a loop of 1, 2, 4 or 8 seconds (`#morphLoop`) and no, short or long hold (`#morphHold` at 0, 20, 50).
+- `animAdv`: the timeline, onion skin, keep this pose, 24, 30 or 60 frames a second. Its dial is the detail lag.
+- Effect's dial is its strength (`#morphFxAmt`).
+- THE LIT CHIP'S DIALS (`ANIM_DIALS`, `animDials`): a small panel standing on the animation's bar, each dial a slider of
+  its own that writes to the morph bar's and fires its `input`.
+- A KEY'S TILE IS ITS POSE: the engine's `morphOutlineAt(run, t)` at the key's time, fitted to the tile.
+- The More chip is gone, and with it the page's way to the morph bar. The bar is still the holder of every control the
+  tiles press, and the checks still open it (`window.__animMore`).
+
+The check in `tests/morph.mjs` goes on through the four new chips.
+
