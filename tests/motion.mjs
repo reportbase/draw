@@ -466,7 +466,7 @@ T.current = 'animate streamed';
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="60" cy="140" r="20" fill="#f5c542"/><rect x="120" y="120" width="30" height="30" fill="#4287f5"/><polygon points="20,190 180,190 100,170" fill="#3a3"/></svg>';
     await sp.goto(scene({ name: 'streamed', svg, morphs: [] }), { waitUntil: 'load' });
     await sp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 });
-    await sp.click('#bAi'); await sp.waitForTimeout(200);
+    await sp.evaluate(() => document.getElementById('bAi').click()); await sp.waitForTimeout(200);
     await sp.fill('#aiPrompt', 'the sun rises');
     await sp.click('#aiAnimate');
     await sp.waitForFunction(() => { const s = window.__animSketch(); return s && s.morphs.length === 1; }, null, { timeout: 15000 });

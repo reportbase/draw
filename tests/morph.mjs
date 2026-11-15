@@ -857,7 +857,7 @@ T.current = 'animate with ai';
     const S = () => ap.evaluate(() => window.__animSketch());
     const s0 = await S();
     if (s0.n !== 3 || !/id="s0"[^>]*fill="#f5c542"/.test(s0.svg) || !/viewBox="0 0 1000 1000"/.test(s0.svg)) throw new Error('the drawing as sent: ' + s0.svg.slice(0, 160));
-    await ap.click('#bAi'); await ap.waitForTimeout(150);
+    await ap.evaluate(() => document.getElementById('bAi').click()); await ap.waitForTimeout(150);
     if (!(await ap.$eval('#aiAnimChange', b => b.disabled))) throw new Error('change it is offered with nothing moving');
     await ap.keyboard.press('Escape');
     const r = await ap.evaluate(() => window.__animApply({

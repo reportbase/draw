@@ -4796,6 +4796,16 @@
                 </label>
             </div>
 
+            <!-- GENERATE WITH AI and READING, moved here from the top bar (15 Nov 2026). Each presses the button that
+                 was on the bar, which is still in the page, held off it. -->
+            <div class="group">
+                <div class="menu-title">tools</div>
+                <div class="group row" style="gap:6px;">
+                    <button id="bMenuAi" style="flex:1;" title="generate shapes with AI — describe a picture and Claude draws it as vector art (sign in once; no API key needed)">generate with AI</button>
+                    <button id="bMenuRead" style="flex:1;" title="reading — reference signal, leaf dots, and the observer's rule">reading</button>
+                </div>
+            </div>
+
             <div class="group">
                 <div class="menu-title">motion</div>
                 <div class="menu-note sub">Fly the camera from shape to shape, each one fitted to the screen, on a spring rather than a cut. Repeats until stopped; any pan, zoom or Escape stops it.</div>
@@ -55625,7 +55635,9 @@
         // Position a popover just above its anchor, kept inside the viewport.
         function placePop(pop, anchor) {
             pop.classList.add('open'); // measure while displayed
-            const a = anchor.getBoundingClientRect();
+            let a = anchor.getBoundingClientRect();
+            if (!a.width && !a.height && $('gearBtn')) // its button is held off the bar: under the menu's button
+                a = $('gearBtn').getBoundingClientRect();
             const p = pop.getBoundingClientRect();
             let left = a.left + a.width / 2 - p.width / 2;
             left = Math.max(8, Math.min(window.innerWidth - p.width - 8, left));
@@ -57182,7 +57194,14 @@
             // Asked once, as the page starts (as the bar's size is): a window narrowed later keeps the bar it began with.
             const PHONE_BAR = !!(window.matchMedia && matchMedia('(pointer: coarse), (max-width: 700px)').matches);
             document.body.classList.toggle('phone-bar', PHONE_BAR); // (the animation's chips are in groups there)
-            for (const id of ['bGroup', 'bDrawLine'].concat(PHONE_BAR ? ['bDraw', 'bDrawShape', 'bArrows', 'bText'] : ['bDrawMenu'])) {
+            // PLOT A FORMULA AND PLAY THE SHAPE ARE OFF THE BAR (15 Nov 2026, Tom: "Remove plot a formula and play the
+            // shape"). Held here with Group, not deleted: a plotted shape in a drawing or a scene still opens and
+            // redraws, a double-click on one still opens its formula, and the checks still press both.
+            // GENERATE WITH AI AND READING ARE THE MENU'S (the same day, Tom: "Move generate with ai to the menu. Move
+            // reading to the menu."). Their buttons are held here too and the menu's two entries press them
+            // (#bMenuAi, #bMenuRead), so each panel is opened by the code that always opened it; a panel whose
+            // button is not on the screen stands under the menu's button instead (placePop).
+            for (const id of ['bGroup', 'bDrawLine', 'bPlot', 'bPlayShape', 'bAi', 'bRead'].concat(PHONE_BAR ? ['bDraw', 'bDrawShape', 'bArrows', 'bText'] : ['bDrawMenu'])) {
                 const b = $(id);
                 if (b)
                     hold.appendChild(b);
@@ -63761,6 +63780,22 @@
         // THE TOUR'S MENU ITEM. The menu closes behind it — the tour is a thing to watch, not
         // a thing to watch through a panel — and the label reports which way it will go.
         {
+            // the menu's entries for the two panels that left the top bar: the menu shut, then the button pressed (a
+            // moment later, so that this click, on its way up to the document, is not taken for a click outside the
+            // panel it has just opened)
+            for (const [mine, theirs] of [['bMenuAi', 'bAi'], ['bMenuRead', 'bRead']]) {
+                const m = $(mine), b = $(theirs);
+                if (m && b)
+                    m.addEventListener('click', () => {
+                        closeMenu();
+                        setTimeout(() => {
+                            if (b.disabled)
+                                flashStatus(b.title);
+                            else
+                                b.click();
+                        }, 0);
+                    });
+            }
             const tb = $('bTour');
             if (tb) {
                 const sync = () => {

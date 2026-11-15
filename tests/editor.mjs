@@ -380,6 +380,34 @@ try {
     }
   });
 
+  // OFF THE TOP BAR (15 Nov 2026, Tom: "Remove plot a formula and play the shape", "Move generate with ai to the menu.
+  // Move reading to the menu."): none of the four is on the bar, and the menu's two entries open their panels on
+  // the screen, under the menu's button.
+  await step('plot and play are off the bar; AI and reading open from the menu', async () => {
+    const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    mp.on('pageerror', e => failures.push(`[menu's tools] ${e.message}`));
+    await mp.route(/fonts\.g/, r => r.abort());
+    try {
+      await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+      const on = await mp.evaluate(() => ['bPlot', 'bPlayShape', 'bAi', 'bRead'].filter(i => !document.getElementById(i) || document.getElementById(i).closest('.topbar')));
+      if (on.length) throw new Error('still on the top bar, or gone from the page: ' + on.join());
+      for (const [item, pop] of [['bMenuAi', 'aiPop'], ['bMenuRead', 'readPop']]) {
+        await mp.click('#gearBtn');
+        await mp.waitForTimeout(300);
+        await mp.click('#' + item);
+        await mp.waitForTimeout(400);
+        const r = await mp.evaluate(id => { const p = document.getElementById(id), b = p.getBoundingClientRect();
+          return { open: p.classList.contains('open'), seen: b.width > 50 && b.left >= 0 && b.right <= innerWidth && b.top >= 0 && b.bottom <= innerHeight }; }, pop);
+        if (!r.open || !r.seen) throw new Error(`${item} opened ${pop}: ` + JSON.stringify(r));
+        await mp.keyboard.press('Escape');
+        await mp.waitForTimeout(200);
+      }
+    } finally {
+      await mp.close();
+    }
+  });
+
   await step('drag on the canvas', () => drag([[640, 400], [700, 430], [760, 460]]));
   await step('freehand stroke', async () => {
     await page.click('#bDraw');
