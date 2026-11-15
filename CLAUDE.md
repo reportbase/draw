@@ -365,6 +365,11 @@ compatibly.
   and a drawing with nothing in it turns the strip to the library of shapes (`selSync`, on every redraw), outside the edit
   view and a live morph. While a morph is live the browser is hidden only with the animation's bar (`body.morphing.anim-bar`):
   the strip closed there shows the browser, not a bare foot.
+  What left the foot bare on every refresh was a crash, not the strip (the same day, Tom: "crashes on this line.
+  sp.refX.set(X)"): `morphWriteRun` wrote into a live shape's reference that a saved session can hand back missing or
+  of another length, on the restored morph's first frame, before the page had finished starting. It makes the
+  reference the leaves' length when it is not. No watcher keeps the foot ("you should not have to put it in a loop"):
+  the strip is on from the start, and a page that starts whole has it.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).

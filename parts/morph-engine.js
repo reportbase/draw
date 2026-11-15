@@ -798,8 +798,20 @@
             // The reference follows the leaves. A morph is not a resample of some earlier curve —
             // each pose IS the shape, so a pose dropped by `keep` has to be its own origin or every
             // downstream reading would be taken against a curve that is not there.
-            sp.refX.set(X);
-            sp.refY.set(Y);
+            // A SHAPE WITHOUT A REFERENCE OF THE LEAVES' LENGTH (15 Nov 2026, Tom: "crashes on this line. sp.refX.set(X);").
+            // The reference is the leaves' own copy here, and this wrote into it as if it were always there and
+            // always as long: a shape restored from a saved session can have none (one that opened lazy, whose
+            // reference is null until it is asked for) or one of another length (the dense one a drawn stroke
+            // keeps). Either threw, and it threw on the first frame of a restored live morph, before the page had
+            // finished starting: no strip at the foot, on every refresh, until the saved session went. The
+            // reference is made the leaves' length when it is not.
+            if (!sp.refX || !sp.refY || sp.refX.length !== X.length || sp.refY.length !== Y.length) {
+                sp.refX = Float64Array.from(X);
+                sp.refY = Float64Array.from(Y);
+            } else {
+                sp.refX.set(X);
+                sp.refY.set(Y);
+            }
             sp._contourCache = null;
             sp.dirty = false;
         }

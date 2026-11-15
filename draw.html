@@ -47977,7 +47977,9 @@
         function animCtlOf() {
             if (!window.__animCtl) {
                 const T = window.__animCtl = {};
-                window.__anim = { get: n => T[n].get(), set: (n, v) => T[n].set(v), press: (n, e) => T[n].press(e || {}), names: () => Object.keys(T) };
+                window.__anim = { get: n => T[n].get(), set: (n, v) => T[n].set(v), press: (n, e) => T[n].press(e || {}), names: () => Object.keys(T),
+                    // (for the checks: the live shapes as a saved session can hand them back, with no reference or a short one)
+                    spoilRefs: () => morphRuns.map((r, i) => { const sp = morphTargetOf(r); if (sp && !r.exact) { sp.refX = i % 2 ? new Float64Array(3) : null; sp.refY = new Float64Array(3); } return !!sp && !r.exact; }) };
             }
             return window.__animCtl;
         }
