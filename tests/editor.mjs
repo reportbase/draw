@@ -285,15 +285,25 @@ try {
       // dropper takes a colour off a shape that wears it, and that colour is the one held
       const wears = i => fp.evaluate(async i => { window.__box.select([i]); await new Promise(r => setTimeout(r, 250));
         const s = document.querySelector('#spFillGrid .sw.on'); return s ? s.title : ''; }, i);
+      const pre = [await wears(0), await wears(1)]; // (the panel lights the nearest swatch to a colour not on the palette)
       await fp.evaluate(() => window.__box.select([]));
       await fp.waitForTimeout(200);
-      const sw2 = await fp.evaluate(() => { const t = [...document.querySelectorAll('.add-strip > .controls.on .strip-sw')].filter(t => /^#/.test(t.getAttribute('aria-label')))[14];
+      const sw2 = await fp.evaluate(() => { const t = [...document.querySelectorAll('.add-strip > .controls.on .strip-sw')].filter(t => /^#/.test(t.getAttribute('aria-label')))[26];
         t.click(); return t.getAttribute('aria-label'); });
       const mid = { x: cv.x + cv.width / 2, y: cv.y + cv.height / 2 };
       await fp.mouse.move(mid.x + 150, mid.y); await fp.mouse.down();
       await fp.mouse.move(mid.x - 150, mid.y, { steps: 12 }); await fp.mouse.up();
       await fp.waitForTimeout(400);
       const both = [await wears(0), await wears(1)];
+      // ONE STROKE, ONE UNDO: a single undo takes the colour off both again, and a redo puts it back
+      await fp.keyboard.press('ControlOrMeta+z');
+      await fp.waitForTimeout(400);
+      const undone = [await wears(0), await wears(1)];
+      await fp.keyboard.press('ControlOrMeta+Shift+z');
+      await fp.waitForTimeout(400);
+      const redone = [await wears(0), await wears(1)];
+      if (pre.includes(sw2) || undone.join() !== pre.join() || redone.join() !== sw2 + ',' + sw2)
+        throw new Error('one stroke, one undo: ' + JSON.stringify({ sw, sw2, pre, both, undone, redone }));
       await fp.evaluate(() => window.__box.select([]));
       // the circle given the first colour by a tap, the dropper pressed, the circle pressed: the first colour is held
       await fp.evaluate(l => document.querySelector(`.add-strip > .controls.on .strip-sw[aria-label="${l}"]`).click(), sw);
@@ -393,7 +403,8 @@ try {
     try {
       await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
       await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
-      const on = await mp.evaluate(() => ['bPlot', 'bPlayShape', 'bAi', 'bRead'].filter(i => !document.getElementById(i) || document.getElementById(i).closest('.topbar')));
+      const on = await mp.evaluate(() => ['bPlot', 'bAi', 'bRead'].filter(i => !document.getElementById(i) || document.getElementById(i).closest('.topbar'))
+        .concat(document.getElementById('bPlayShape') || document.getElementById('playPop') ? ['Play is still in the page'] : [])); // (Play was deleted outright, 15 Nov 2026)
       if (on.length) throw new Error('still on the top bar, or gone from the page: ' + on.join());
       for (const [item, pop] of [['bMenuAi', 'aiPop'], ['bMenuRead', 'readPop']]) {
         await mp.click('#gearBtn');
@@ -475,14 +486,15 @@ try {
       await gp.click('.add-strip [data-mode="arrange"] [data-ext="expand"]');
       await gp.waitForTimeout(300);
       const a1 = await st();
-      await gp.click('.add-strip [data-mode="arrange"] .strip-more');
+      // no panel behind it any more: the captions are tiles
+      await gp.click('.add-strip [data-mode="arrange"] [data-cap="name"]');
       await gp.waitForTimeout(300);
-      const a2 = await st();
+      const a2 = await st() + ',' + await gp.evaluate(() => [document.getElementById('inArrangeTags').value, document.querySelectorAll('.add-strip > .controls.on .strip-more').length].join());
       await gp.click('.add-strip [data-mode="arrange"] [data-ext="fit"]');
       await gp.click('.add-strip [data-mode="arrange"] [data-act="go"]');
       await gp.waitForTimeout(600);
       const said = await gp.evaluate(() => document.getElementById('status').textContent);
-      if (a0 !== 'arrange,false,fit,fill cells+fit screen' || a1 !== 'arrange,false,expand,fill cells+expand' || a2 !== 'arrange,true,expand,fill cells+expand' || !/arranged 2 shapes/.test(said))
+      if (a0 !== 'arrange,false,fit,fill cells+fit screen+names · leaves' || a1 !== 'arrange,false,expand,fill cells+expand+names · leaves' || a2 !== 'arrange,false,expand,fill cells+expand+names,name,0' || !/arranged 2 shapes/.test(said))
         throw new Error('arrange in the strip: ' + JSON.stringify({ a0, a1, a2, said: said.slice(0, 80) }));
     } finally {
       await gp.close();
@@ -519,16 +531,21 @@ try {
       await lp.click('#bTools');
       await lp.waitForTimeout(300);
       const t2 = await st();
-      await lp.click('#bTools');
-      await lp.click('.add-strip [data-mode="tools"] .strip-more');
+      // the array is tiles too, no panel: with the drawing selected, a ring of six makes five more shapes
+      await lp.keyboard.press('ControlOrMeta+a');
       await lp.waitForTimeout(300);
-      const t3 = await st();
+      await lp.click('#bTools');
+      await lp.waitForTimeout(300);
+      const n0 = await lp.evaluate(() => window.__box.shapes().length);
+      await lp.click('.add-strip [data-mode="tools"] [data-arr="radial"][data-n="6"]');
+      await lp.waitForTimeout(500);
+      const t3 = await st() + ';' + (await lp.evaluate(() => document.querySelectorAll('#shapeScroller [data-thumb]').length) >= n0 * 6) + ';' + await lp.evaluate(() => document.querySelectorAll('.add-strip > .controls.on .strip-more').length);
       await lp.click('.add-strip [data-mode="tools"] [data-mir="off"]');
       await lp.click('#bTools');
       await lp.waitForTimeout(300);
       const t4 = await st();
-      if (t0 !== 'tools;false;true;*mirror off|left · right|top · bottom|four-fold|make copies' || t1 !== 'tools;false;true;mirror off|*left · right|top · bottom|four-fold|make copies'
-          || t2 !== 'null;false;true;' || !/^tools;true;true;/.test(t3) || t4 !== 'null;false;false;')
+      if (t0 !== 'tools;false;true;*mirror off|left · right|top · bottom|four-fold|row ×3|row ×6|column ×3|column ×6|ring ×6|ring ×12' || t1 !== 'tools;false;true;mirror off|*left · right|top · bottom|four-fold|row ×3|row ×6|column ×3|column ×6|ring ×6|ring ×12'
+          || t2 !== 'null;false;true;' || !/^tools;false;true;.*;true;0$/.test(t3) || t4 !== 'null;false;false;')
         throw new Error('the mirror lock in the strip: ' + JSON.stringify({ t0, t1, t2, t3, t4 }));
     } finally {
       await lp.close();
@@ -574,6 +591,105 @@ try {
         throw new Error('backgrounds in the strip: ' + JSON.stringify({ g0, g1, g2, g3, g4, i0, i1, i2, i4 }));
     } finally {
       await gp.close();
+    }
+  });
+
+  // THE TOUR (15 Nov 2026, Tom: "tour the shapes option should close footer. space should turn the tour on/off. escape
+  // exits the tour. show the toolbars when the tour is over"): with Fill's strip up, space starts the tour, the strip is
+  // closed and the bars are away; space again pauses it and again lets it run; Escape ends it and the bars are back;
+  // and the menu's own entry closes the strip too.
+  await step('space starts the tour and pauses it; it closes the strip and the bars come back', async () => {
+    const tp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    tp.on('pageerror', e => failures.push(`[tour] ${e.message}`));
+    await tp.route(/fonts\.g/, r => r.abort());
+    try {
+      await tp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await tp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+        + '<rect x="170" y="30" width="80" height="60" fill="#48c"/></svg>';
+      await tp.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+      await tp.waitForTimeout(1200);
+      const st = () => tp.evaluate(() => [String(window.__strip.mode), document.body.classList.contains('chrome-off'), document.getElementById('bTour').textContent.trim(),
+        getComputedStyle(document.querySelector('.topbar')).display !== 'none'].join());
+      const on = 'null,true,stop the tour,false', off = 'null,false,tour the shapes,true';
+      await tp.click('#bStyle');
+      await tp.waitForTimeout(300);
+      const t0 = await st();
+      await tp.keyboard.press(' ');
+      await tp.waitForTimeout(500);
+      const t1 = await st();
+      // space again holds the tour where it is ("space should pause the tour, not end it"), and again lets it go on
+      const said = () => tp.evaluate(() => document.getElementById('status').textContent);
+      await tp.keyboard.press(' ');
+      await tp.waitForTimeout(300);
+      const t2 = await st() + (/tour paused/.test(await said()) ? '' : ' (not paused)');
+      await tp.keyboard.press(' ');
+      await tp.waitForTimeout(300);
+      const t3 = await st() + (/tour running/.test(await said()) ? '' : ' (not running)');
+      await tp.keyboard.press('Escape');
+      await tp.waitForTimeout(500);
+      const t4 = await st();
+      await tp.click('#bStyle');
+      await tp.click('#gearBtn');
+      await tp.waitForTimeout(300);
+      await tp.click('#bTour');
+      await tp.waitForTimeout(500);
+      const t5 = await st();
+      await tp.keyboard.press('Escape');
+      await tp.waitForTimeout(400);
+      const t6 = await st();
+      if (t0 !== 'fill,false,tour the shapes,true' || t1 !== on || t2 !== on || t3 !== on || t4 !== off || t5 !== on || t6 !== off)
+        throw new Error('the tour: ' + JSON.stringify({ t0, t1, t2, t3, t4, t5, t6 }));
+      // a touch ends it too ("touching the screen should end the tour and show the toolbars"), and selects nothing
+      await tp.evaluate(() => window.__box.select([]));
+      await tp.keyboard.press(' ');
+      await tp.waitForTimeout(500);
+      const t7 = await st();
+      const cvb = await tp.locator('#cv').boundingBox();
+      await tp.mouse.click(cvb.x + cvb.width / 2, cvb.y + cvb.height / 2);
+      await tp.waitForTimeout(500);
+      const t8 = await st() + ',' + await tp.evaluate(() => window.__box.shapes().length);
+      if (t7 !== on || t8 !== off + ',0') throw new Error('a touch ends the tour: ' + JSON.stringify({ t7, t8 }));
+    } finally {
+      await tp.close();
+    }
+  });
+
+  // THE NAME AND THE NOTE ARE TYPED IN THE STRIP (15 Nov 2026, Tom: "1"): Name turns the strip to two fields and
+  // opens no panel; what is typed names the selected shape (its tile says so); another shape selected shows its own.
+  await step('the name and the note are typed in the strip', async () => {
+    const np = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    np.on('pageerror', e => failures.push(`[name in the strip] ${e.message}`));
+    await np.route(/fonts\.g/, r => r.abort());
+    try {
+      await np.addInitScript(() => { window.__selAuto = false; });
+      await np.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await np.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+        + '<rect x="170" y="30" width="80" height="60" fill="#48c"/></svg>';
+      await np.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+      await np.waitForTimeout(1200);
+      await np.evaluate(() => window.__box.select([1]));
+      await np.waitForTimeout(300);
+      await np.click('#bDesc');
+      await np.waitForTimeout(400);
+      const d0 = await np.evaluate(() => [String(window.__strip.mode), document.getElementById('descPop').classList.contains('open'),
+        !!document.getElementById('spName').closest('.add-strip'), !!document.getElementById('spName').offsetParent].join());
+      await np.fill('#spName', 'window');
+      await np.fill('#spNote', 'the blue one');
+      await np.keyboard.press('Tab');
+      await np.waitForTimeout(1200);
+      const tiles = await np.evaluate(() => [...document.querySelectorAll('#shapeScroller [data-thumb]')].map(t => t.textContent.trim()).join('|'));
+      await np.evaluate(() => window.__box.select([0]));
+      await np.waitForTimeout(400);
+      const d1 = await np.evaluate(() => [String(window.__strip.mode), document.getElementById('spName').value, document.getElementById('spNote').value].join('|'));
+      await np.evaluate(() => window.__box.select([1]));
+      await np.waitForTimeout(400);
+      const d2 = await np.evaluate(() => [document.getElementById('spName').value, document.getElementById('spNote').value].join('|'));
+      if (d0 !== 'desc,false,true,true' || !/window/.test(tiles) || d1 !== 'desc||' || d2 !== 'window|the blue one')
+        throw new Error('the name in the strip: ' + JSON.stringify({ d0, tiles, d1, d2 }));
+    } finally {
+      await np.close();
     }
   });
 
