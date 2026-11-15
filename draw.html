@@ -44361,9 +44361,11 @@
                 tourRAF = null;
             }
             const was = !!tourState;
-            const restore = !!(tourState && tourState.hidChrome);
             tourState = null;
-            if (restore && typeof setChromeOff === 'function')
+            // THE BARS ARE BACK WHEN THE TOUR IS OVER (15 Nov 2026, Tom: "show the toolbars when the tour is over").
+            // It put back only what it had hidden itself, so a tour begun with the bars already away ended with
+            // none; however it ends now (space, Escape, a touch of the camera), the bars are shown.
+            if (was && typeof setChromeOff === 'function')
                 setChromeOff(false, true);
             if (typeof window.__syncTourBtn === 'function')
                 window.__syncTourBtn();
@@ -44450,6 +44452,11 @@
                 return;
             }
             stopPanMomentum();
+            // THE TOUR CLOSES THE STRIP (15 Nov 2026, Tom: "tour the shapes option should close footer"): whatever
+            // the strip at the foot was turned to (Fill, the selection's tiles, a tool) is put away first, so the
+            // tour begins from the drawing alone and the bars come back to it plain.
+            if (window.__strip && window.__strip.mode)
+                window.__strip.open(null);
             // Hide the bars for the duration — the tour is something to watch, and the toolbar and
             // strip are not part of the picture. Recorded so the stop puts back exactly what it
             // found: bars already hidden by a long-press stay hidden afterwards.
@@ -44469,7 +44476,7 @@
             if (typeof window.__syncTourBtn === 'function')
                 window.__syncTourBtn();
             flashStatus('touring ' + list.length + ' shape' + (list.length === 1 ? '' : 's') +
-            ' \u2014 space pauses, \u2190 \u2192 step, Escape stops');
+            ' \u2014 space or Escape ends it, \u2190 \u2192 step');
             tourRAF = requestAnimationFrame(tourStep);
         }
         function tourToggle() {
@@ -44478,6 +44485,28 @@
             else
                 tourStart();
         }
+        // A TOUCH ENDS THE TOUR (15 Nov 2026, Tom: "touching the screen should end the tour and show the toolbars"). A
+        // drag of the camera already ended it; a tap did not, and on a phone, with the bars away, there was no key to
+        // press. Any press on the page while it runs ends it now and brings the bars back, and that press does
+        // nothing else: it is taken on its way down (the window's capture), with the click that would follow it, so
+        // ending a tour never selects or moves what happened to be under the finger.
+        window.addEventListener('pointerdown', e => {
+            if (!tourState)
+                return;
+            e.stopPropagation();
+            e.preventDefault();
+            tourStop('tour stopped');
+            const kill = ev => {
+                ev.stopPropagation();
+                ev.preventDefault();
+            };
+            for (const t of ['mousedown', 'touchstart', 'click'])
+                window.addEventListener(t, kill, { capture: true, once: true, passive: false });
+            setTimeout(() => {
+                for (const t of ['mousedown', 'touchstart', 'click'])
+                    window.removeEventListener(t, kill, { capture: true });
+            }, 400);
+        }, true);
 
         function stopPanMomentum() {
             if (panMomRAF) {
@@ -52649,13 +52678,19 @@
             // either way (and un-pause, since asking for the next shape is asking to move). They
             // are claimed only while a tour is running, so every other meaning of these keys is
             // untouched the rest of the time.
-            if (tourState && !e.metaKey && !e.ctrlKey && !e.altKey &&
-            (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+            // SPACE TURNS THE TOUR ON AND OFF (15 Nov 2026, Tom: "space should turn the tour on/off. escape exits the
+            // tour"). It held a running tour on its shape; it starts one now, from anywhere in the scene view that is
+            // not a box being typed in, and pressed again ends it, as Escape does. (In the edit view space is still
+            // the reading's auto walk, above.)
+            if (e.key === ' ' && !state.editMode && !mod && !e.altKey && !e.repeat && !_isEditableTarget(e.target)) {
                 e.preventDefault();
-                if (e.key === ' ') {
-                    tourState.paused = !tourState.paused;
-                    flashStatus(tourState.paused ? 'tour paused \u2014 space to go on' : 'tour running');
-                } else {
+                tourToggle();
+                return;
+            }
+            if (tourState && !e.metaKey && !e.ctrlKey && !e.altKey &&
+            (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                e.preventDefault();
+                {
                     tourState.paused = false;
                     tourGo(tourState, e.key === 'ArrowRight' ? 1 : -1);
                     flashStatus(e.key === 'ArrowRight' ? 'next shape' : 'previous shape');

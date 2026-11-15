@@ -577,6 +577,65 @@ try {
     }
   });
 
+  // THE TOUR (15 Nov 2026, Tom: "tour the shapes option should close footer. space should turn the tour on/off. escape
+  // exits the tour. show the toolbars when the tour is over"): with Fill's strip up, space starts the tour, the strip is
+  // closed and the bars are away; space again ends it and the bars are back; space, then Escape, the same; and the
+  // menu's own entry closes the strip too.
+  await step('space turns the tour on and off; it closes the strip and the bars come back', async () => {
+    const tp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    tp.on('pageerror', e => failures.push(`[tour] ${e.message}`));
+    await tp.route(/fonts\.g/, r => r.abort());
+    try {
+      await tp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await tp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+        + '<rect x="170" y="30" width="80" height="60" fill="#48c"/></svg>';
+      await tp.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+      await tp.waitForTimeout(1200);
+      const st = () => tp.evaluate(() => [String(window.__strip.mode), document.body.classList.contains('chrome-off'), document.getElementById('bTour').textContent.trim(),
+        getComputedStyle(document.querySelector('.topbar')).display !== 'none'].join());
+      const on = 'null,true,stop the tour,false', off = 'null,false,tour the shapes,true';
+      await tp.click('#bStyle');
+      await tp.waitForTimeout(300);
+      const t0 = await st();
+      await tp.keyboard.press(' ');
+      await tp.waitForTimeout(500);
+      const t1 = await st();
+      await tp.keyboard.press(' ');
+      await tp.waitForTimeout(500);
+      const t2 = await st();
+      await tp.keyboard.press(' ');
+      await tp.waitForTimeout(500);
+      const t3 = await st();
+      await tp.keyboard.press('Escape');
+      await tp.waitForTimeout(500);
+      const t4 = await st();
+      await tp.click('#bStyle');
+      await tp.click('#gearBtn');
+      await tp.waitForTimeout(300);
+      await tp.click('#bTour');
+      await tp.waitForTimeout(500);
+      const t5 = await st();
+      await tp.keyboard.press('Escape');
+      await tp.waitForTimeout(400);
+      const t6 = await st();
+      if (t0 !== 'fill,false,tour the shapes,true' || t1 !== on || t2 !== off || t3 !== on || t4 !== off || t5 !== on || t6 !== off)
+        throw new Error('the tour: ' + JSON.stringify({ t0, t1, t2, t3, t4, t5, t6 }));
+      // a touch ends it too ("touching the screen should end the tour and show the toolbars"), and selects nothing
+      await tp.evaluate(() => window.__box.select([]));
+      await tp.keyboard.press(' ');
+      await tp.waitForTimeout(500);
+      const t7 = await st();
+      const cvb = await tp.locator('#cv').boundingBox();
+      await tp.mouse.click(cvb.x + cvb.width / 2, cvb.y + cvb.height / 2);
+      await tp.waitForTimeout(500);
+      const t8 = await st() + ',' + await tp.evaluate(() => window.__box.shapes().length);
+      if (t7 !== on || t8 !== off + ',0') throw new Error('a touch ends the tour: ' + JSON.stringify({ t7, t8 }));
+    } finally {
+      await tp.close();
+    }
+  });
+
   await step('drag on the canvas', () => drag([[640, 400], [700, 430], [760, 460]]));
   await step('freehand stroke', async () => {
     await page.click('#bDraw');

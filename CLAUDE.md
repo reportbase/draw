@@ -248,6 +248,13 @@ compatibly.
   six tiles, each a whole `state.grid` set at once through `window.__setGrid`: none, fine grid, grid, coarse grid,
   lines, dots. Dots is a third `state.grid.mode` (`drawGrid`, and the scene's restore keeps it). `#gridPop` is not
   opened from the page any more; the button stays lit while a background is on.
+- The tour (15 Nov 2026, Tom: "tour the shapes option should close footer. space should turn the tour on/off. escape
+  exits the tour. show the toolbars when the tour is over"): `tourStart` closes the strip's mode first (`__strip.open(null)`);
+  space in the scene view, outside a box being typed in, is `tourToggle` (it used to pause a running tour; in the edit
+  view it is still the auto walk); Escape ends it; and `tourStop` always shows the bars (`setChromeOff(false)`), however
+  the tour ended and whether or not it was the tour that hid them. The arrows still step a running tour. Any press
+  on the page ends it too ("touching the screen should end the tour and show the toolbars"), taken in the window's
+  capture with the click that follows, so it selects nothing.
 - The selection's strip is asked for (15 Nov 2026, THE SELECTION'S STRIP IS ASKED FOR; Tom: "Selecting an object should
   not show the footer. Instead, Add a button to the toolbar to show the current selection footer bar"): selecting no
   longer turns the strip to mode `select`. The top bar's Selection button (`#bSelStrip`, `MODES.select.btn`, off while
