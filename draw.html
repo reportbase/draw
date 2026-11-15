@@ -18716,6 +18716,29 @@
                 r
             };
         }
+        // THE EXACT / LEAVES SWITCH STANDS BESIDE THE ROTATE GRIP (15 Nov 2026, Tom: "Move the leaves/exact button to a
+        // small toggle next to the rotate button on the top of the selection box"). It was a tile of the selection's
+        // strip, among the buttons that do something to the shape; it says what the shape IS, so it stands on the
+        // box, a small pill with a knob: to the right and gold while the selection is exact, to the left while it is
+        // leaves, in the middle when mixed. It is there whenever the frame is and the selection holds a shape that can
+        // be switched (under the lock too: a press is not a drag), and a press on it is BOX_BUTTONS' 'bt-mode', as
+        // the tile's was.
+        function modeTogglePos() {
+            if (state.editMode || !selectionFrameVisible())
+                return null;
+            const b = BOX_BUTTONS.find(q => q.name === 'bt-mode');
+            if (!b || !b.show())
+                return null;
+            const H = handlePoints();
+            if (!H)
+                return null;
+            const hh = HANDLE_PX() + 2, hw = hh * 1.9, rot = H.pts.rot;
+            return { name: 'bt-mode', cx: rot[0] + HANDLE_PX() + 8 + hw, cy: rot[1], hw, hh, r: hw };
+        }
+        function modeToggleAt(px, py) {
+            const b = modeTogglePos();
+            return !!b && Math.abs(px - b.cx) <= b.hw + 4 && Math.abs(py - b.cy) <= b.hh + 5;
+        }
         function groupButtonAt(px, py) {
             const b = groupButtonPos();
             if (!b)
@@ -18962,6 +18985,8 @@
                 return 'bt-props';
             if (groupButtonAt(px, py))
                 return 'bt-group';
+            if (modeToggleAt(px, py))
+                return 'bt-mode';
             // The mirror chips are box furniture like the two above, so they answer here rather
             // than after the grips: a chip is a small, visible target that claims only its own
             // disc, and it sits inside the box where nothing else is asking. (The strip version
@@ -23376,6 +23401,32 @@
                         ctx.arc(gb.cx, gb.cy, gb.r * 0.78, 0, TAU);
                         ctx.stroke();
                     }
+                }
+            }
+            // the exact / leaves switch, beside the grip (THE EXACT / LEAVES SWITCH STANDS BESIDE THE ROTATE GRIP). Not
+            // dimmed under the lock: it still answers there
+            {
+                const mt = modeTogglePos();
+                if (mt) {
+                    const keep = ctx.globalAlpha;
+                    ctx.globalAlpha = 1;
+                    const m = selectionShapeMode(), on = m === 'exact', mixed = m !== 'exact' && m !== 'leaves';
+                    ctx.beginPath();
+                    if (ctx.roundRect)
+                        ctx.roundRect(mt.cx - mt.hw, mt.cy - mt.hh, mt.hw * 2, mt.hh * 2, mt.hh);
+                    else
+                        ctx.rect(mt.cx - mt.hw, mt.cy - mt.hh, mt.hw * 2, mt.hh * 2);
+                    ctx.fillStyle = on ? '#d4a052' : (_handleHover === 'bt-mode' ? '#1d1d26' : '#14141a');
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(212,160,82,0.9)';
+                    ctx.lineWidth = 1.4;
+                    ctx.setLineDash([]);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(mixed ? mt.cx : on ? mt.cx + mt.hw - mt.hh : mt.cx - mt.hw + mt.hh, mt.cy, Math.max(2, mt.hh - 2.5), 0, TAU);
+                    ctx.fillStyle = on ? '#14141a' : 'rgba(212,160,82,0.9)';
+                    ctx.fill();
+                    ctx.globalAlpha = keep;
                 }
             }
             // the eight squares
@@ -57932,7 +57983,7 @@
             // NOT IN THE STRIP (14 Nov 2026, Tom: "merge round corners and remove offset and knife"): Corners is Round's on an
             // exact shape now, and Offset and the knife are gone from the strip. Their code stays (runBoxButton, the tools'
             // panels), so either can come back by leaving this list.
-            const SEL_LEFT_OUT = new Set(['bt-corners', 'bt-offset', 'bt-knife', 'bt-arrow', 'bt-dash']); // Arrows and Dash: the line tool's, 14 Nov 2026
+            const SEL_LEFT_OUT = new Set(['bt-corners', 'bt-offset', 'bt-knife', 'bt-arrow', 'bt-dash', 'bt-mode']); // Arrows and Dash: the line tool's, 14 Nov 2026
             function selBuild(host) {
                 host.textContent = '';
                 for (const b of BOX_BUTTONS.filter(q => !SEL_LEFT_OUT.has(q.name))) {
@@ -64377,6 +64428,8 @@
             // a panel button, in canvas pixels: under the box once, a tile in the strip at the foot now (the panel moved
             // there, 13 Nov 2026), so a check that clicks what this returns presses the tile
             button: name => {
+                if (name === 'bt-mode') // the switch beside the rotate grip, in canvas pixels
+                    return modeTogglePos();
                 const rows = sliderRows();
                 const b = rows && rows.buttons && rows.buttons.find(q => q.name === name);
                 if (b)
