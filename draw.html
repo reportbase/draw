@@ -1561,11 +1561,7 @@
            chip IS the resting style, and the solid gold fill still arrives when the lock is
            on. Unlocked it reads exactly as the menu button does; locked it lights. */
 
-        #bLock {
-            align-self: center;
-            flex: 0 0 auto;
-            order: -1;
-        }
+        /* (the lock is on the top bar's ring since 15 Nov 2026, THE LOCK IS ON THE BAR in the script: no place of its own) */
 
         body.editing #bLockEdit {
             /* Mirror of #bCancelEdit, on the other end of the same absolutely-positioned bar. */
@@ -3106,7 +3102,8 @@
                          56px layout row out of the top of the canvas and leaving an opaque band of page
                          background where the artwork should have been. The bar reads as transparent on a
                          desktop and as a solid strip on a phone, from one word. */
-                      .topbar { padding-right: 60px; padding-left: 60px; }
+                      /* (the left 60 was the lock's corner; the lock is on the ring since 15 Nov 2026, and the ring has the room) */
+                      .topbar { padding-right: 60px; padding-left: 0; }
                       /* …but in edit mode neither corner button is there to be pinned — the whole controls
                          row is hidden — so the 60px reserved for them was just holding Cancel off the edge. */
                       .topbar.editing { padding-right: 18px; padding-left: 18px; }
@@ -3119,9 +3116,8 @@
                       /* The lock gets the mirror treatment on the left, and for the same reason: the ring
                          has no fixed slots, and "spin the bar to find the lock" is not a thing anyone
                          would guess either. */
-                      #bLock { position: absolute; left: 8px; top: 10px; transform: none; z-index: 2; }
-                      /* …and the ring keeps clear of both, since neither is in flow here. */
-                      .controls { padding-right: 52px; padding-left: 52px; }
+                      /* (it is on the ring itself since 15 Nov 2026, so only the menu's button is kept clear of) */
+                      .controls { padding-right: 52px; }
                       .shape-bar .res-btn { padding: 8px 12px; font-size: 13px; }
                       .shape-bar .res-step { padding: 10px 13px; }
                       .shape-bar .res-step { padding: 8px 12px; }
@@ -56024,7 +56020,9 @@
                 // button that stays switched on after the popover closes, and a mode with no
                 // outward sign is a mode you will be surprised by twenty minutes later.
                 if (btn)
-                    btn.classList.toggle('active', m !== 'off');
+                    btn.classList.toggle('active', m !== 'off' || document.body.dataset.strip === 'tools');
+                if (document.body.dataset.strip === 'tools' && window.__strip && window.__strip.mirror)
+                    window.__strip.mirror('tools'); // its tiles in the strip say the same
             }
             const MIRROR_SAID = {
                 off: 'mirror off',
@@ -57290,10 +57288,18 @@
             const lead = STRIP_FIRST.map(id => $(id)).filter(b => b && b.parentNode === bar);
             if (bar && lead.length)
                 bar.prepend(...lead);
+            // THE LOCK IS ON THE BAR (15 Nov 2026, Tom: "the lock button on top should be moved on to the toolbar, not
+            // fixed at the upper left"). It was the third corner button, pinned outside the ring at the top left; it
+            // leads the ring now, a button among the others (still wearing its gold, so it is found), and turns with
+            // them. The ring opens turned to its third, and has the corner the lock stood in, so a phone shows the
+            // lock, Shapes, Draw and Fill whole.
+            const lock = $('bLock');
+            if (bar && lock)
+                bar.prepend(lock);
         }
         const _topRing = makeRing(document.querySelector('.topbar .controls'));
         if (_topRing)
-            _topRing.focus(1);
+            _topRing.focus(2); // (the lock leads now, so the third is the middle of lock, Shapes, Draw, Fill)
         // The footer's ring is laid out in a strip that is DISPLAY:NONE until the mode opens, so
         // its clientWidth is 0 at load and every chip lands on top of the middle. enterEditMode
         // re-lays it once the strip has a width — see syncEditBtn.
@@ -57462,6 +57468,40 @@
                         }
                     },
                     on: b => b.dataset.act === 'fit' ? $('tArrangeFit').checked : b.dataset.ext != null && $('selArrangeExtent').value === b.dataset.ext },
+                // THE MIRROR LOCK IS THE STRIP'S (15 Nov 2026, Tom: "the mirror lock should use the bottom footer, not a drop
+                // down panel"). The top bar's advanced-editing button opened a panel of two things, the mirror lock and
+                // the array. It turns the strip to these now: the lock's four choices, each pressing the panel's own
+                // button and lit as it is, and Make copies; the array's dials (how many, how far, which way) are behind
+                // the first tile, which stands the panel above the strip as Fill's sliders stand.
+                tools: { btn: 'bTools', more: 'toolsPop', lit: () => typeof mirrorMode === 'function' && mirrorMode() !== 'off',
+                    build: host => {
+                        const m = document.createElement('button');
+                        m.type = 'button';
+                        m.className = 'icon-btn strip-more';
+                        m.setAttribute('aria-label', 'Array settings');
+                        m.innerHTML = SLIDERS;
+                        host.appendChild(m);
+                        const half = '<path d="M20 14l-10 14l10 14z"/>', axisV = '<path d="M28 6v44" stroke-dasharray="3 4"/>', axisH = '<path d="M6 28h44" stroke-dasharray="3 4"/>';
+                        animTile(host, { mir: 'off' }, 'Mirror lock off', 'mirror off', '<path d="M18 16l-10 12l10 12z"/><path d="M28 8v40" stroke-dasharray="3 4" opacity="0.4"/><path d="M12 44L44 12"/>');
+                        animTile(host, { mir: 'v' }, 'Mirror left and right', 'left · right', axisV + half + '<path d="M36 14l10 14l-10 14z"/>');
+                        animTile(host, { mir: 'h' }, 'Mirror top and bottom', 'top · bottom', axisH + '<path d="M14 20l14-10l14 10z"/><path d="M14 36l14 10l14-10z"/>');
+                        animTile(host, { mir: 'both' }, 'Mirror across both, four-fold', 'four-fold', axisV + axisH + '<circle cx="17" cy="17" r="5"/><circle cx="39" cy="17" r="5"/><circle cx="17" cy="39" r="5"/><circle cx="39" cy="39" r="5"/>');
+                        animTile(host, { act: 'copies' }, 'Make copies of the selection, in a line or round a ring', 'make copies', '<rect x="6" y="20" width="14" height="14" rx="2"/><rect x="22" y="20" width="14" height="14" rx="2" opacity="0.65"/><rect x="38" y="20" width="14" height="14" rx="2" opacity="0.35"/>');
+                    },
+                    tap: b => {
+                        if (b.dataset.mir) {
+                            const s = document.querySelector('#toolsPop .mir-btn[data-mirror="' + b.dataset.mir + '"]');
+                            if (s)
+                                s.click();
+                        } else {
+                            const go = $('arrGo');
+                            if (go.disabled)
+                                flashStatus(go.title || 'select a shape to copy');
+                            else
+                                go.click();
+                        }
+                    },
+                    on: b => !!b.dataset.mir && typeof mirrorMode === 'function' && mirrorMode() === b.dataset.mir },
                 // THE ANIMATION'S STRIPS: the values of the chip chosen on the animation's bar (below)
                 animKeys: { btn: null,
                     build: host => {
@@ -58160,7 +58200,7 @@
                     // follow the same color scheme as the grid toggle button")
                     if (b) {
                         b.setAttribute('aria-pressed', String(k === mode));
-                        b.classList.toggle('active', k === mode);
+                        b.classList.toggle('active', k === mode || !!(M.lit && M.lit())); // (lit: a mode left on, the mirror lock)
                     }
                     if (M.host)
                         M.host.classList.toggle('on', k === mode);
