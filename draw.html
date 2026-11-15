@@ -3705,12 +3705,15 @@
                      the row is a narrow A, which is what stops it being confused with the layers
                      stack next to it, and dividers are the tool for stepping a distance off and
                      repeating it — which is two thirds of what is behind the button. -->
-            <button id="bTools" class="icon-btn" title="advanced editing — mirror lock, array, merge to one silhouette">
+            <!-- THE MIRROR LOCK'S OWN BUTTON (15 Nov 2026, Tom: "the mirror lock should keep the button on the main toolbar and
+                     use the footer for settings"). It was "Tools", a pair of compasses, and said nothing of the mirror;
+                     it wears the mirror now, two halves either side of an axis, and is named Mirror. Its settings are
+                     the strip's (MODES.tools). -->
+            <button id="bTools" class="icon-btn" title="mirror lock — sculpting one side of a shape moves its reflection; the strip at the foot picks the axis (and makes arrays of copies)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="12" cy="4" r="1.8"/>
-                    <path d="M11.1 5.7L6 20.5"/>
-                    <path d="M12.9 5.7L18 20.5"/>
-                    <path d="M8.6 13.2h6.8"/>
+                    <path d="M12 3v18" stroke-dasharray="2.4 2.6"/>
+                    <path d="M9 7L3.5 17H9z"/>
+                    <path d="M15 7l5.5 10H15z"/>
                 </svg>
             </button>
             <!-- Reading: what the observer draws, and which rule it reads with. An eye, because
@@ -4044,16 +4047,17 @@
     </div>
 
     <div class="pop" id="toolsPop" role="dialog" aria-label="advanced editing">
-        <div class="pop-title">mirror lock</div>
-        <div class="pop-row" id="mirrorRow" style="margin-top:0;">
+        <!-- (the mirror lock's row is the strip's tiles now, 15 Nov 2026; kept here, unseen, as the buttons they press) -->
+        <div class="pop-title" hidden>mirror lock</div>
+        <div class="pop-row" id="mirrorRow" style="margin-top:0;display:none;">
             <button class="pop-act mir-btn" data-mirror="off" title="no mirroring — a leaf drag moves only the leaves you dragged">off</button>
             <button class="pop-act mir-btn" data-mirror="v" title="mirror left↔right about the shape's own vertical centre line">↔</button>
             <button class="pop-act mir-btn" data-mirror="h" title="mirror top↕bottom about the shape's own horizontal centre line">↕</button>
             <button class="pop-act mir-btn" data-mirror="both" title="mirror across both axes at once — four-fold">✛</button>
         </div>
-        <div class="menu-note" style="margin-top:7px;max-width:214px;font-size:10px;">While it is on, sculpting a leaf moves its reflection the mirrored way. The axis is the shape's own centre and is drawn on the canvas. Partners are matched by position at the moment the drag starts, so a shape that is already symmetric stays symmetric.</div>
+        <div class="menu-note" hidden style="margin-top:7px;max-width:214px;font-size:10px;">While it is on, sculpting a leaf moves its reflection the mirrored way. The axis is the shape's own centre and is drawn on the canvas. Partners are matched by position at the moment the drag starts, so a shape that is already symmetric stays symmetric.</div>
 
-        <div class="pop-title" style="margin-top:12px;">array</div>
+        <div class="pop-title">array</div>
         <div class="pop-row" style="margin-top:0;">
             <label class="row-label" style="flex:0 0 58px;font-size:10px;color:var(--fg-muted);">pattern</label>
             <select id="arrMode" class="bar-select" style="flex:1 1 0;min-width:0;">
@@ -57469,24 +57473,27 @@
                     },
                     on: b => b.dataset.act === 'fit' ? $('tArrangeFit').checked : b.dataset.ext != null && $('selArrangeExtent').value === b.dataset.ext },
                 // THE MIRROR LOCK IS THE STRIP'S (15 Nov 2026, Tom: "the mirror lock should use the bottom footer, not a drop
-                // down panel"). The top bar's advanced-editing button opened a panel of two things, the mirror lock and
-                // the array. It turns the strip to these now: the lock's four choices, each pressing the panel's own
-                // button and lit as it is, and Make copies; the array's dials (how many, how far, which way) are behind
-                // the first tile, which stands the panel above the strip as Fill's sliders stand.
+                // down panel", then "the mirror lock should keep the button on the main toolbar and use the footer for
+                // settings"). The top bar's button opened a panel of two things, the mirror lock and the array. It is
+                // the Mirror button now and turns the strip to these: the lock's four choices first, each pressing
+                // the panel's own button (kept in the page, unseen) and lit as it is; then Make copies and, last, the
+                // array's dials (how many, how far, which way), a tile that stands the panel above the strip. The
+                // panel is the array alone: the mirror's row is not shown in it.
                 tools: { btn: 'bTools', more: 'toolsPop', lit: () => typeof mirrorMode === 'function' && mirrorMode() !== 'off',
                     build: host => {
-                        const m = document.createElement('button');
-                        m.type = 'button';
-                        m.className = 'icon-btn strip-more';
-                        m.setAttribute('aria-label', 'Array settings');
-                        m.innerHTML = SLIDERS;
-                        host.appendChild(m);
                         const half = '<path d="M20 14l-10 14l10 14z"/>', axisV = '<path d="M28 6v44" stroke-dasharray="3 4"/>', axisH = '<path d="M6 28h44" stroke-dasharray="3 4"/>';
                         animTile(host, { mir: 'off' }, 'Mirror lock off', 'mirror off', '<path d="M18 16l-10 12l10 12z"/><path d="M28 8v40" stroke-dasharray="3 4" opacity="0.4"/><path d="M12 44L44 12"/>');
                         animTile(host, { mir: 'v' }, 'Mirror left and right', 'left · right', axisV + half + '<path d="M36 14l10 14l-10 14z"/>');
                         animTile(host, { mir: 'h' }, 'Mirror top and bottom', 'top · bottom', axisH + '<path d="M14 20l14-10l14 10z"/><path d="M14 36l14 10l14-10z"/>');
                         animTile(host, { mir: 'both' }, 'Mirror across both, four-fold', 'four-fold', axisV + axisH + '<circle cx="17" cy="17" r="5"/><circle cx="39" cy="17" r="5"/><circle cx="17" cy="39" r="5"/><circle cx="39" cy="39" r="5"/>');
                         animTile(host, { act: 'copies' }, 'Make copies of the selection, in a line or round a ring', 'make copies', '<rect x="6" y="20" width="14" height="14" rx="2"/><rect x="22" y="20" width="14" height="14" rx="2" opacity="0.65"/><rect x="38" y="20" width="14" height="14" rx="2" opacity="0.35"/>');
+                        // the array's dials (how many, how far, which way), last: the mirror's choices lead
+                        const m = document.createElement('button');
+                        m.type = 'button';
+                        m.className = 'icon-btn strip-more';
+                        m.setAttribute('aria-label', 'Array settings');
+                        m.innerHTML = SLIDERS;
+                        host.appendChild(m);
                     },
                     tap: b => {
                         if (b.dataset.mir) {
@@ -58779,7 +58786,7 @@
                 bPlayShape: 'Play the shape', bBuild: 'Build', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
                 bAi: 'AI', bArrows: 'Line', bDrawMenu: 'Draw', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bSelStrip: 'Selection', bArrangeOpen: 'Arrange',
-                bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bGrid: 'Grid',
+                bMorphOpen: 'Morph', bTools: 'Mirror', bRead: 'Reading', bGrid: 'Grid',
                 bStyle: 'Fill', bLine: 'Outline', bDesc: 'Name and note', bFit: 'Fit to view', gearBtn: 'Settings',
                 // the edit view's bar
                 bLockEdit: 'Lock', bCancelEdit: 'Close', bUndoEdit: 'Undo', bRedoEdit: 'Redo',

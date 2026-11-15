@@ -239,8 +239,10 @@ compatibly.
   and opens turned to its third (`_topRing.focus(2)`), so a phone shows the lock, Shapes, Draw and Fill whole.
 - The mirror lock is the strip's (the same day, THE MIRROR LOCK IS THE STRIP'S; "the mirror lock should use the bottom
   footer, not a drop down panel"): `#bTools` turns the strip to `MODES.tools` (mirror off, left · right, top · bottom,
-  four-fold, make copies), each pressing the panel's own button; the array's dials are behind the first tile, which
-  stands `#toolsPop` above the strip. The button stays lit while the mirror is on (`MODES.tools.lit`).
+  four-fold, make copies), each pressing the panel's own button; the array's dials are behind the last tile, which
+  stands `#toolsPop` above the strip. The button stays lit while the mirror is on (`MODES.tools.lit`). It is the
+  Mirror button ("the mirror lock should keep the button on the main toolbar and use the footer for settings"): a
+  mirror glyph, named Mirror in `NAMES`, and the panel is the array alone, the mirror's row kept in it unseen.
 - The selection's strip is asked for (15 Nov 2026, THE SELECTION'S STRIP IS ASKED FOR; Tom: "Selecting an object should
   not show the footer. Instead, Add a button to the toolbar to show the current selection footer bar"): selecting no
   longer turns the strip to mode `select`. The top bar's Selection button (`#bSelStrip`, `MODES.select.btn`, off while
