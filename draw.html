@@ -58858,63 +58858,7 @@
                 if (e.key === 'Escape' && (mode === 'arrows' || mode === 'shape' || mode === 'text' || mode === 'animPick'))
                     setMode(null);
             });
-            // THE FOOT IS NEVER BARE (15 Nov 2026, Tom, after the browser was put back for one shape and for a morph with
-            // its strip closed and the foot was still empty on his screen: "still no footer. There should never be a
-            // situation without a footer"). Each of those was a case found by thinking of it; his was one that was not
-            // thought of, and could not be made to happen here. So the rule is no longer kept case by case: after every
-            // redraw, and every second and a half besides (a state can be reached with no redraw), the page looks at
-            // its own foot. If nothing shows there (no tile of the browser, no tile or field of the strip's mode, not
-            // the edit view's bar, not the animation's) it puts something there: the mode that had the strip and
-            // showed nothing is closed and the browser rebuilt, and if that shows nothing either, the library of
-            // shapes. Only the tour, which hides the bars by design, is let be. __footGuard says how often it had to
-            // act and what it found, for the checks and for finding the case.
-            const footGuard = (() => {
-                const vis = e => {
-                    if (!e)
-                        return false;
-                    const cs = getComputedStyle(e);
-                    if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0)
-                        return false;
-                    const r = e.getBoundingClientRect();
-                    return r.width > 8 && r.height > 8 && r.bottom > innerHeight * 0.5 && r.top < innerHeight;
-                };
-                const any = (host, sel) => vis(host) && [...host.querySelectorAll(sel)].some(vis);
-                const shown = () => any($('shapeScroller'), '.shape-tile')
-                    || !!(mode && MODES[mode] && MODES[mode].host && any(MODES[mode].host, '*'))
-                    || any($('editBar'), '*') || vis($('animBar'));
-                const log = { acted: 0, last: null };
-                window.__footGuard = log;
-                let at = 0;
-                return () => {
-                    const now = performance.now();
-                    if (now - at < 400 || document.readyState !== 'complete' || document.hidden)
-                        return;
-                    at = now;
-                    if (document.body.classList.contains('chrome-off') || shown())
-                        return;
-                    log.acted++;
-                    log.last = { mode, cls: document.body.className, shapes: state.subpaths.length };
-                    try {
-                        document.body.classList.remove('no-browser');
-                        state.showBrowser = true;
-                        if (mode)
-                            setMode(null);
-                        document.body.classList.remove('adding'); // (a class left behind with no mode to own it)
-                        delete document.body.dataset.strip;
-                        rebuildScroller();
-                        if (!shown() && !document.body.classList.contains('editing'))
-                            setMode('add');
-                    } catch (_) {}
-                };
-            })();
-            setInterval(footGuard, 1500);
-            window.__selStripSync = () => {
-                try {
-                    selSync();
-                } finally {
-                    footGuard();
-                }
-            };
+            window.__selStripSync = selSync;
             window.__selStripWantNow = selWant;
             window.__selStripWant = () => !!window.__selAuto && selWant(); // (the drawing's strip steps aside only when the selection's comes by itself)
             window.__strip = {

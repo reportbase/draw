@@ -365,11 +365,11 @@ compatibly.
   and a drawing with nothing in it turns the strip to the library of shapes (`selSync`, on every redraw), outside the edit
   view and a live morph. While a morph is live the browser is hidden only with the animation's bar (`body.morphing.anim-bar`):
   the strip closed there shows the browser, not a bare foot.
-  And the rule is kept by looking, not case by case (the same day: "still no footer. There should never be a situation
-  without a footer"; THE FOOT IS NEVER BARE, `footGuard`): after every redraw and every 1.5 s the page checks that
-  something shows at its foot (a browser tile, the strip's mode, the edit view's bar or the animation's) and, if not,
-  closes the mode, rebuilds the browser and failing that opens the library. Only the tour (`chrome-off`) is let be.
-  `window.__footGuard` (`acted`, `last`) says when it had to act: a count above 0 in a check is a bare foot found.
+  What left the foot bare on every refresh was a crash, not the strip (the same day, Tom: "crashes on this line.
+  sp.refX.set(X)"): `morphWriteRun` wrote into a live shape's reference that a saved session can hand back missing or
+  of another length, on the restored morph's first frame, before the page had finished starting. It makes the
+  reference the leaves' length when it is not. No watcher keeps the foot ("you should not have to put it in a loop"):
+  the strip is on from the start, and a page that starts whole has it.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).
