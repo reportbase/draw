@@ -363,7 +363,8 @@ compatibly.
 - There is always a footer (15 Nov 2026, Tom: "what happend to the shape browser. there should always be a footer";
   THERE IS ALWAYS A FOOTER in `rebuildScroller`): a drawing of one shape shows its one tile, centred (it showed no strip),
   and a drawing with nothing in it turns the strip to the library of shapes (`selSync`, on every redraw), outside the edit
-  view and a live morph.
+  view and a live morph. While a morph is live the browser is hidden only with the animation's bar (`body.morphing.anim-bar`):
+  the strip closed there shows the browser, not a bare foot.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).
