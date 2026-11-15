@@ -489,6 +489,52 @@ try {
     }
   });
 
+  // THE LOCK IS ON THE BAR, AND THE MIRROR LOCK IS THE STRIP'S (15 Nov 2026, Tom: "the lock button on top should be
+  // moved on to the toolbar, not fixed at the upper left", "the mirror lock should use the bottom footer, not a drop
+  // down panel"). The lock is a button of the top bar's ring, the first, and still locks; the advanced-editing button
+  // turns the strip to the mirror's four choices and Make copies and opens no panel; a choice is lit and lights the
+  // button, which stays lit with the strip closed while the mirror is on; the first tile stands the panel above.
+  await step("the lock is on the top bar's ring; the mirror lock uses the strip", async () => {
+    const lp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    lp.on('pageerror', e => failures.push(`[lock and mirror] ${e.message}`));
+    await lp.route(/fonts\.g/, r => r.abort());
+    try {
+      await lp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await lp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+      const lk = await lp.evaluate(() => { const b = document.getElementById('bLock'), bar = document.querySelector('.topbar .controls');
+        return [b.parentNode === bar, bar.querySelector('.icon-btn') === b, getComputedStyle(b).position, b.getAttribute('aria-pressed')].join(); });
+      await lp.click('#bLock');
+      await lp.waitForTimeout(300);
+      const lk1 = await lp.evaluate(() => document.getElementById('bLock').getAttribute('aria-pressed'));
+      await lp.click('#bLock');
+      if (!/^true,true,absolute,/.test(lk) || lk1 === lk.split(',')[3]) throw new Error('the lock on the bar: ' + lk + ' then ' + lk1);
+      const st = () => lp.evaluate(() => [String(window.__strip.mode), document.getElementById('toolsPop').classList.contains('open'), document.getElementById('bTools').classList.contains('active'),
+        [...document.querySelectorAll('.add-strip > .controls.on .anim-tile')].map(t => (t.classList.contains('on') ? '*' : '') + t.querySelector('.cap').textContent).join('|')].join(';'));
+      await lp.click('#bTools');
+      await lp.waitForTimeout(400);
+      const t0 = await st();
+      await lp.click('.add-strip [data-mode="tools"] [data-mir="v"]');
+      await lp.waitForTimeout(300);
+      const t1 = await st();
+      await lp.click('#bTools');
+      await lp.waitForTimeout(300);
+      const t2 = await st();
+      await lp.click('#bTools');
+      await lp.click('.add-strip [data-mode="tools"] .strip-more');
+      await lp.waitForTimeout(300);
+      const t3 = await st();
+      await lp.click('.add-strip [data-mode="tools"] [data-mir="off"]');
+      await lp.click('#bTools');
+      await lp.waitForTimeout(300);
+      const t4 = await st();
+      if (t0 !== 'tools;false;true;*mirror off|left · right|top · bottom|four-fold|make copies' || t1 !== 'tools;false;true;mirror off|*left · right|top · bottom|four-fold|make copies'
+          || t2 !== 'null;false;true;' || !/^tools;true;true;/.test(t3) || t4 !== 'null;false;false;')
+        throw new Error('the mirror lock in the strip: ' + JSON.stringify({ t0, t1, t2, t3, t4 }));
+    } finally {
+      await lp.close();
+    }
+  });
+
   await step('drag on the canvas', () => drag([[640, 400], [700, 430], [760, 460]]));
   await step('freehand stroke', async () => {
     await page.click('#bDraw');
