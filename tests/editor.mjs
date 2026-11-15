@@ -1554,6 +1554,13 @@ T.current = 'there is always a footer';
         lib: [...document.querySelectorAll('#addRing .add-pick')].filter(t => t.getBoundingClientRect().width > 0).length }; });
     let s = await st();
     if (s.tiles !== 1 || Math.abs(s.mid - 640) > 2 || s.mode) throw new Error('one shape should be one tile at the middle: ' + JSON.stringify(s));
+    // THE FOOT IS NEVER BARE: whatever hides the foot, the page puts something back there (two ways made by hand)
+    if (await fp.evaluate(() => window.__footGuard.acted) !== 0) throw new Error('the guard acted on a page that opened with its foot showing');
+    for (const cls of ['no-browser', 'adding']) {
+      await fp.evaluate(c => document.body.classList.add(c), cls); await fp.waitForTimeout(2200);
+      s = await st();
+      if (s.tiles !== 1 || s.mode) throw new Error('the foot left bare by body.' + cls + ' was not put back: ' + JSON.stringify(s));
+    }
     await fp.keyboard.press('Control+a'); await fp.keyboard.press('Delete'); await fp.waitForTimeout(500);
     s = await st();
     if (s.mode !== 'add' || !(s.lib >= 5)) throw new Error('an empty drawing should show the library: ' + JSON.stringify(s));
@@ -1563,6 +1570,14 @@ T.current = 'there is always a footer';
     await fp.evaluate(() => window.__strip.open(null)); await fp.waitForTimeout(400);
     s = await st();
     if (s.mode || s.tiles !== 1 || !(await fp.evaluate(() => document.body.classList.contains('morphing')))) throw new Error('a live morph with the strip closed should show the browser: ' + JSON.stringify(s));
+    // the cause of the bare foot (Tom: "crashes on this line. sp.refX.set(X)"): a live shape restored with no reference,
+    // or one of another length, threw on the morph's next frame. Any page error fails this part; the time is moved to draw one.
+    const spoiled = await fp.evaluate(() => window.__anim.spoilRefs());
+    if (!spoiled.some(Boolean)) throw new Error('no live leaves shape to try a missing reference on: ' + JSON.stringify(spoiled));
+    await fp.click('#bMorphOpen'); await fp.waitForFunction(() => /^anim/.test(window.__strip.mode || ''), null, { timeout: 10000 });
+    await fp.evaluate(() => { const r = document.getElementById('morphT'); r.value = String((+r.max || 1) * 0.37); r.dispatchEvent(new Event('input', { bubbles: true })); });
+    await fp.waitForTimeout(400);
+    if (failures.length !== before) throw new Error('a live shape without its reference threw: ' + failures[failures.length - 1]);
   } catch (e) { failures.push(`[there is always a footer] ${e.message.split('\n')[0]}`); }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} there is always a footer`);
   await fp.close();
