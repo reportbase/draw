@@ -403,7 +403,8 @@ try {
     try {
       await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
       await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
-      const on = await mp.evaluate(() => ['bPlot', 'bPlayShape', 'bAi', 'bRead'].filter(i => !document.getElementById(i) || document.getElementById(i).closest('.topbar')));
+      const on = await mp.evaluate(() => ['bPlot', 'bAi', 'bRead'].filter(i => !document.getElementById(i) || document.getElementById(i).closest('.topbar'))
+        .concat(document.getElementById('bPlayShape') || document.getElementById('playPop') ? ['Play is still in the page'] : [])); // (Play was deleted outright, 15 Nov 2026)
       if (on.length) throw new Error('still on the top bar, or gone from the page: ' + on.join());
       for (const [item, pop] of [['bMenuAi', 'aiPop'], ['bMenuRead', 'readPop']]) {
         await mp.click('#gearBtn');
@@ -485,14 +486,15 @@ try {
       await gp.click('.add-strip [data-mode="arrange"] [data-ext="expand"]');
       await gp.waitForTimeout(300);
       const a1 = await st();
-      await gp.click('.add-strip [data-mode="arrange"] .strip-more');
+      // no panel behind it any more: the captions are tiles
+      await gp.click('.add-strip [data-mode="arrange"] [data-cap="name"]');
       await gp.waitForTimeout(300);
-      const a2 = await st();
+      const a2 = await st() + ',' + await gp.evaluate(() => [document.getElementById('inArrangeTags').value, document.querySelectorAll('.add-strip > .controls.on .strip-more').length].join());
       await gp.click('.add-strip [data-mode="arrange"] [data-ext="fit"]');
       await gp.click('.add-strip [data-mode="arrange"] [data-act="go"]');
       await gp.waitForTimeout(600);
       const said = await gp.evaluate(() => document.getElementById('status').textContent);
-      if (a0 !== 'arrange,false,fit,fill cells+fit screen' || a1 !== 'arrange,false,expand,fill cells+expand' || a2 !== 'arrange,true,expand,fill cells+expand' || !/arranged 2 shapes/.test(said))
+      if (a0 !== 'arrange,false,fit,fill cells+fit screen+names · leaves' || a1 !== 'arrange,false,expand,fill cells+expand+names · leaves' || a2 !== 'arrange,false,expand,fill cells+expand+names,name,0' || !/arranged 2 shapes/.test(said))
         throw new Error('arrange in the strip: ' + JSON.stringify({ a0, a1, a2, said: said.slice(0, 80) }));
     } finally {
       await gp.close();
@@ -529,16 +531,21 @@ try {
       await lp.click('#bTools');
       await lp.waitForTimeout(300);
       const t2 = await st();
-      await lp.click('#bTools');
-      await lp.click('.add-strip [data-mode="tools"] .strip-more');
+      // the array is tiles too, no panel: with the drawing selected, a ring of six makes five more shapes
+      await lp.keyboard.press('ControlOrMeta+a');
       await lp.waitForTimeout(300);
-      const t3 = await st();
+      await lp.click('#bTools');
+      await lp.waitForTimeout(300);
+      const n0 = await lp.evaluate(() => window.__box.shapes().length);
+      await lp.click('.add-strip [data-mode="tools"] [data-arr="radial"][data-n="6"]');
+      await lp.waitForTimeout(500);
+      const t3 = await st() + ';' + (await lp.evaluate(() => document.querySelectorAll('#shapeScroller [data-thumb]').length) >= n0 * 6) + ';' + await lp.evaluate(() => document.querySelectorAll('.add-strip > .controls.on .strip-more').length);
       await lp.click('.add-strip [data-mode="tools"] [data-mir="off"]');
       await lp.click('#bTools');
       await lp.waitForTimeout(300);
       const t4 = await st();
-      if (t0 !== 'tools;false;true;*mirror off|left · right|top · bottom|four-fold|make copies' || t1 !== 'tools;false;true;mirror off|*left · right|top · bottom|four-fold|make copies'
-          || t2 !== 'null;false;true;' || !/^tools;true;true;/.test(t3) || t4 !== 'null;false;false;')
+      if (t0 !== 'tools;false;true;*mirror off|left · right|top · bottom|four-fold|row ×3|row ×6|column ×3|column ×6|ring ×6|ring ×12' || t1 !== 'tools;false;true;mirror off|*left · right|top · bottom|four-fold|row ×3|row ×6|column ×3|column ×6|ring ×6|ring ×12'
+          || t2 !== 'null;false;true;' || !/^tools;false;true;.*;true;0$/.test(t3) || t4 !== 'null;false;false;')
         throw new Error('the mirror lock in the strip: ' + JSON.stringify({ t0, t1, t2, t3, t4 }));
     } finally {
       await lp.close();
@@ -645,6 +652,44 @@ try {
       if (t7 !== on || t8 !== off + ',0') throw new Error('a touch ends the tour: ' + JSON.stringify({ t7, t8 }));
     } finally {
       await tp.close();
+    }
+  });
+
+  // THE NAME AND THE NOTE ARE TYPED IN THE STRIP (15 Nov 2026, Tom: "1"): Name turns the strip to two fields and
+  // opens no panel; what is typed names the selected shape (its tile says so); another shape selected shows its own.
+  await step('the name and the note are typed in the strip', async () => {
+    const np = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    np.on('pageerror', e => failures.push(`[name in the strip] ${e.message}`));
+    await np.route(/fonts\.g/, r => r.abort());
+    try {
+      await np.addInitScript(() => { window.__selAuto = false; });
+      await np.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await np.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+        + '<rect x="170" y="30" width="80" height="60" fill="#48c"/></svg>';
+      await np.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+      await np.waitForTimeout(1200);
+      await np.evaluate(() => window.__box.select([1]));
+      await np.waitForTimeout(300);
+      await np.click('#bDesc');
+      await np.waitForTimeout(400);
+      const d0 = await np.evaluate(() => [String(window.__strip.mode), document.getElementById('descPop').classList.contains('open'),
+        !!document.getElementById('spName').closest('.add-strip'), !!document.getElementById('spName').offsetParent].join());
+      await np.fill('#spName', 'window');
+      await np.fill('#spNote', 'the blue one');
+      await np.keyboard.press('Tab');
+      await np.waitForTimeout(1200);
+      const tiles = await np.evaluate(() => [...document.querySelectorAll('#shapeScroller [data-thumb]')].map(t => t.textContent.trim()).join('|'));
+      await np.evaluate(() => window.__box.select([0]));
+      await np.waitForTimeout(400);
+      const d1 = await np.evaluate(() => [String(window.__strip.mode), document.getElementById('spName').value, document.getElementById('spNote').value].join('|'));
+      await np.evaluate(() => window.__box.select([1]));
+      await np.waitForTimeout(400);
+      const d2 = await np.evaluate(() => [document.getElementById('spName').value, document.getElementById('spNote').value].join('|'));
+      if (d0 !== 'desc,false,true,true' || !/window/.test(tiles) || d1 !== 'desc||' || d2 !== 'window|the blue one')
+        throw new Error('the name in the strip: ' + JSON.stringify({ d0, tiles, d1, d2 }));
+    } finally {
+      await np.close();
     }
   });
 

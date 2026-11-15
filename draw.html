@@ -2769,6 +2769,18 @@
                     /* the ring's box starts after the + (12px in, 52 wide, and air), as the top bar's starts after its
                        corner buttons: a ring clips at its own box, so a tile spinning past the + slides under the box's
                        edge rather than showing behind the button */
+                    /* the name and the note, typed in the strip: a centred row of fields, nothing to drag (THE NAME AND THE
+                       NOTE ARE TYPED IN THE STRIP) */
+                    .add-strip > .controls.strip-form.on { display: flex; align-items: center; justify-content: center; gap: 6px 16px; flex-wrap: wrap; padding: 0 12px; cursor: auto; touch-action: auto; }
+                    .add-strip > .strip-form label { display: flex; align-items: center; gap: 8px; font: 12px system-ui, sans-serif; color: var(--fg-muted); }
+                    .add-strip > .strip-form input, .add-strip > .strip-form textarea {
+                      background: rgba(255,255,255,0.05); color: var(--fg); border: 1px solid var(--line2); border-radius: 8px; padding: 8px 10px;
+                      font: 14px system-ui, sans-serif; outline: none;
+                    }
+                    .add-strip > .strip-form input { width: min(220px, 40vw); }
+                    .add-strip > .strip-form textarea { width: min(360px, 60vw); height: 38px; resize: none; }
+                    .add-strip > .strip-form input:focus, .add-strip > .strip-form textarea:focus { border-color: var(--gold); }
+                    .add-strip > .strip-form #spMetaNote { flex: 1 0 100%; text-align: center; margin: 0; border: 0; padding: 0; min-height: 0; }
                     /* one ring for each thing the strip can say (THE STRIP SAYS ONE OF SEVERAL THINGS), the one showing .on */
                     .add-strip > .controls { display: none; height: 100%; padding: 0; }
                     .add-strip > .controls.on { display: block; }
@@ -3477,16 +3489,7 @@
                     <rect x="9" y="2.6" width="6" height="4" rx="1.3"/>
                 </svg>
             </button>
-            <!-- PLAY THE SELECTED SHAPE. One walk round the outline in three seconds, the pitch
-                     following the radius about the centre — a circle is a steady 440, an ellipse
-                     wobbles twice, a star five times, a pushed leaf is a bend where you pushed it.
-                     A shape that arrived as a wav (dropped on the canvas) plays its samples instead.
-                     Click again to stop. -->
-            <button id="bPlayShape" class="icon-btn" title="play the selected shape — one walk round its outline, the pitch following the radius: a circle is a steady tone, every bump a bend. Opens the walk's dials.">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M7 5.5v13l11-6.5z"/>
-                </svg>
-            </button>
+            <!-- (Play the shape's button stood here until 15 Nov 2026) -->
             <!-- THE SHAPE BROWSER'S SWITCH IS GONE FROM THE BAR. The strip is how you get
                      around a scene — it is the scene's table of contents — and a button for it was
                      one more permanent thing on screen. Its switch is the canvas LONG-PRESS now
@@ -4121,57 +4124,6 @@
     <!-- LINE: the outline, all of it. Width sat above the two colour ramps and belonged with
          neither; here it is the first thing in the drawer that is about the stroke, which is
          what it has always been. -->
-    <!-- PLAY THE SHAPE — the panel behind the ▶ on the toolbar. One walk round the outline,
-         the pitch following the radius; these are the walk's dials. Loop keeps it going and
-         makes it LIVE: while looping, the sound is re-rendered as the shape changes, so a
-         push is heard as it happens, without the walk losing its place. -->
-    <div class="pop" id="playPop" role="dialog" aria-label="play the shape" style="min-width:250px;">
-        <div class="pop-title">play the shape</div>
-        <div class="pop-row" style="margin-top:0;">
-            <button id="bPlayGo" class="pop-act" style="flex:1 1 0;" title="one walk round the selected shape's outline (click again to stop)">▶ play</button>
-            <button id="bPlayLoop" class="pop-act" style="flex:1 1 0;" title="keep walking until stopped — and re-render as the shape changes, so sculpting is heard live">loop</button>
-            <button id="bPlayStereo" class="pop-act" style="flex:1 1 0;" title="pan with the walk: the sound sits left or right where the reader is on the shape">stereo</button>
-            <button id="bPlayDrone" class="pop-act" style="flex:1 1 0;" title="a quiet tone held at the mean radius under the walk — the held value the arrivals are heard against. A circle is unison; every departure is a tension that resolves when the outline comes back to round">drone</button>
-        </div>
-        <div class="pop-title" style="margin-top:10px;">scale</div>
-        <div class="pop-row" style="margin-top:0;">
-            <select id="playScale" style="flex:1 1 0;min-width:0;" title="snap the pitch to a scale so the walk plays notes rather than smearing between them; a short glide into each note keeps the curve audible. off = the raw glide">
-                <option value="off">off · raw glide</option>
-                <option value="penta" selected>pentatonic</option>
-                <option value="major">major</option>
-                <option value="minor">minor</option>
-            </select>
-        </div>
-        <div class="pop-title" style="margin-top:10px;">notes per turn</div>
-        <div class="pop-slider">
-            <input type="range" id="playNotes" min="0" max="64" step="1" value="16" title="how many notes one walk plays — each starts soft and decays; the outline's steepness at each note sets how hard it hits. 0 = one continuous tone">
-            <span class="pop-val" id="playNotesVal">16</span>
-        </div>
-        <div class="pop-title" style="margin-top:10px;">room</div>
-        <div class="pop-slider">
-            <input type="range" id="playRoom" min="0" max="1" step="0.05" value="0.3" title="reverb — how much of the sound comes back off the walls">
-            <span class="pop-val" id="playRoomVal">30%</span>
-        </div>
-        <div class="pop-title" style="margin-top:10px;">seconds per turn</div>
-        <div class="pop-slider">
-            <input type="range" id="playSecs" min="0.5" max="12" step="0.5" value="3" title="how long one walk round the outline takes">
-            <span class="pop-val" id="playSecsVal">3.0 s</span>
-        </div>
-        <div class="pop-title" style="margin-top:10px;">range</div>
-        <div class="pop-slider">
-            <input type="range" id="playOct" min="0.5" max="4" step="0.25" value="2" title="octaves per unit of departure: at 2, a radius 50% out or in is an octave up or down">
-            <span class="pop-val" id="playOctVal">2.00 oct</span>
-        </div>
-        <div class="pop-title" style="margin-top:10px;">tone</div>
-        <div class="pop-row" style="margin-top:0;">
-            <select id="playTone" style="flex:1 1 0;min-width:0;" title="what carries the pitch. sine: plain. warm: a few harmonics, easier to follow quietly. the shape itself: the radius as the waveform — the shape is both the melody and the instrument; a circle then has no instrument and is silent">
-                <option value="sine">sine</option>
-                <option value="warm" selected>warm</option>
-                <option value="shape">the shape itself</option>
-            </select>
-        </div>
-    </div>
-
     <div class="pop" id="linePop" role="dialog" aria-label="line">
         <div class="pop-title">line width</div>
         <div class="pop-slider">
@@ -39358,8 +39310,6 @@
             // on it, and both of those belong under a control rather than over it. Being last
             // is the whole fix; there is no z-index on a canvas but the order of the calls.
             if (CHROME)
-                drawPlayhead(w, h);
-            if (CHROME)
                 drawSmoothSlider(w, h);
         }
 
@@ -55770,7 +55720,7 @@
             pop.style.left = left + 'px';
             pop.style.top = top + 'px';
         }
-        const POP_IDS = ['playPop', 'textPop', 'plotPop', 'alignPop', 'orderPop', 'arrangePop', 'morphPop', 'toolsPop', 'stylePop', 'linePop', 'gridPop', 'descPop', 'readPop', 'buildPop', 'aiPop', 'exactHelpPop'];
+        const POP_IDS = ['textPop', 'plotPop', 'alignPop', 'orderPop', 'arrangePop', 'morphPop', 'toolsPop', 'stylePop', 'linePop', 'gridPop', 'descPop', 'readPop', 'buildPop', 'aiPop', 'exactHelpPop'];
         function closeAllPops() {
             for (const id of POP_IDS) {
                 const el = $(id);
@@ -55805,7 +55755,7 @@
         // the grid is ON, and a panel closing must not switch that off. Driven by the panels' own class, watched, so it
         // cannot disagree with the screen whichever of the many ways a panel opens or closes.
         (function() {
-            const OPENER = { playPop: 'bPlayShape', textPop: 'bText', plotPop: 'bPlot', arrangePop: 'bArrangeOpen',
+            const OPENER = { textPop: 'bText', plotPop: 'bPlot', arrangePop: 'bArrangeOpen',
                 morphPop: 'bMorphOpen', toolsPop: 'bTools', gridPop: 'bGrid', buildPop: 'bBuild', aiPop: 'bAi', descPop: 'bDesc' };
             const sync = () => {
                 for (const [pid, bid] of Object.entries(OPENER)) {
@@ -55835,7 +55785,7 @@
             // cases and the canvas hit-test this used to need is gone. A press on an opener must
             // fall through untouched: dismissing here would close the popover a moment before the
             // button's own click reopens it, and the toggle would look like nothing happened.
-            if (e.target.closest && e.target.closest('#bText, #bPlot, #bBuild, #bAi, #bAlign, #bOrder, #bArrangeOpen, #bMorphOpen, #bTools, #bStyle, #bLine, #bGrid, #bDesc, #bRead, #bReadEdit, #bPlayShape'))
+            if (e.target.closest && e.target.closest('#bText, #bPlot, #bBuild, #bAi, #bAlign, #bOrder, #bArrangeOpen, #bMorphOpen, #bTools, #bStyle, #bLine, #bGrid, #bDesc, #bRead, #bReadEdit'))
                 return;
             closeAllPops();
         }, true);
@@ -57332,14 +57282,14 @@
             // Asked once, as the page starts (as the bar's size is): a window narrowed later keeps the bar it began with.
             const PHONE_BAR = !!(window.matchMedia && matchMedia('(pointer: coarse), (max-width: 700px)').matches);
             document.body.classList.toggle('phone-bar', PHONE_BAR); // (the animation's chips are in groups there)
-            // PLOT A FORMULA AND PLAY THE SHAPE ARE OFF THE BAR (15 Nov 2026, Tom: "Remove plot a formula and play the
-            // shape"). Held here with Group, not deleted: a plotted shape in a drawing or a scene still opens and
-            // redraws, a double-click on one still opens its formula, and the checks still press both.
+            // PLOT A FORMULA IS OFF THE BAR (15 Nov 2026, Tom: "Remove plot a formula and play the shape"). Held here
+            // with Group, not deleted: a plotted shape in a drawing or a scene still opens and redraws, and a
+            // double-click on one still opens its formula. (Play the shape went altogether the same day.)
             // GENERATE WITH AI AND READING ARE THE MENU'S (the same day, Tom: "Move generate with ai to the menu. Move
             // reading to the menu."). Their buttons are held here too and the menu's two entries press them
             // (#bMenuAi, #bMenuRead), so each panel is opened by the code that always opened it; a panel whose
             // button is not on the screen stands under the menu's button instead (placePop).
-            for (const id of ['bGroup', 'bDrawLine', 'bPlot', 'bPlayShape', 'bAi', 'bRead'].concat(PHONE_BAR ? ['bDraw', 'bDrawShape', 'bArrows', 'bText'] : ['bDrawMenu'])) {
+            for (const id of ['bGroup', 'bDrawLine', 'bPlot', 'bAi', 'bRead'].concat(PHONE_BAR ? ['bDraw', 'bDrawShape', 'bArrows', 'bText'] : ['bDrawMenu'])) {
                 const b = $(id);
                 if (b)
                     hold.appendChild(b);
@@ -57507,20 +57457,22 @@
                 // screen or left to run past it. Each sets the panel's control and fires its event, so the panel is
                 // still the code that acts. What a tile cannot hold, the cell's size and the captions, typed in, is
                 // behind the first tile, which stands the panel above the strip as Fill's sliders stand.
-                arrange: { btn: 'bArrangeOpen', more: 'arrangePop',
+                // NO PANEL BEHIND IT (the same day, Tom: "2", of "remove the panels behind the sliders tile"): the cell's
+                // size and the captions were typed into the panel behind the first tile. The cell is the automatic one
+                // (the largest shape's, which is what 0 meant), and the captions are three tiles: none, each shape's
+                // name, its name and its leaves. The panel is not opened from the page any more.
+                arrange: { btn: 'bArrangeOpen',
                     build: host => {
-                        const m = document.createElement('button');
-                        m.type = 'button';
-                        m.className = 'icon-btn strip-more';
-                        m.setAttribute('aria-label', 'Cell size and captions');
-                        m.innerHTML = SLIDERS;
-                        host.appendChild(m);
                         const cell = (x, y, s) => '<rect x="' + x + '" y="' + y + '" width="' + s + '" height="' + s + '" rx="2"/>';
                         const grid = cell(8, 8, 17) + cell(31, 8, 17) + cell(8, 31, 17) + cell(31, 31, 17);
                         animTile(host, { act: 'go' }, 'Arrange every shape on one grid', 'arrange', grid + '<circle cx="16.5" cy="16.5" r="4" fill="currentColor"/><circle cx="39.5" cy="16.5" r="4" fill="currentColor"/><circle cx="16.5" cy="39.5" r="4" fill="currentColor"/><circle cx="39.5" cy="39.5" r="4" fill="currentColor"/>');
                         animTile(host, { act: 'fit' }, 'Scale each shape to fill its cell', 'fill cells', '<rect x="10" y="10" width="36" height="36" rx="3"/><circle cx="28" cy="28" r="15"/>');
                         animTile(host, { ext: 'fit' }, 'Fit the whole grid to the screen', 'fit screen', '<rect x="6" y="10" width="44" height="36" rx="3"/>' + cell(16, 18, 9) + cell(31, 18, 9) + cell(16, 30, 9) + cell(31, 30, 9));
                         animTile(host, { ext: 'expand' }, 'Let the grid run beyond the screen', 'expand', '<rect x="14" y="14" width="28" height="28" rx="3"/><path d="M6 28h6M44 28h6M28 6v6M28 44v6M8 24l-4 4l4 4M48 24l4 4l-4 4"/>');
+                        const tag = lines => '<rect x="14" y="8" width="28" height="24" rx="3"/>' + lines;
+                        animTile(host, { cap: '' }, 'No captions under the cells', 'no captions', tag(''));
+                        animTile(host, { cap: 'name' }, "Each shape's name under its cell", 'names', tag('<path d="M16 40h24"/>'));
+                        animTile(host, { cap: 'name, leaves' }, "Each shape's name and its leaf count under its cell", 'names · leaves', tag('<path d="M16 39h24M20 47h16"/>'));
                     },
                     tap: b => {
                         const d = b.dataset;
@@ -57534,35 +57486,45 @@
                             const t = $('tArrangeFit');
                             t.checked = !t.checked;
                             t.dispatchEvent(new Event('change'));
+                        } else if (d.cap != null) {
+                            const t = $('inArrangeTags');
+                            t.value = d.cap;
+                            t.dispatchEvent(new Event('change'));
                         } else {
                             const s = $('selArrangeExtent');
                             s.value = d.ext;
                             s.dispatchEvent(new Event('change'));
                         }
                     },
-                    on: b => b.dataset.act === 'fit' ? $('tArrangeFit').checked : b.dataset.ext != null && $('selArrangeExtent').value === b.dataset.ext },
+                    on: b => b.dataset.act === 'fit' ? $('tArrangeFit').checked
+                        : b.dataset.cap != null ? $('inArrangeTags').value.replace(/\s+/g, '') === b.dataset.cap.replace(/\s+/g, '')
+                        : b.dataset.ext != null && $('selArrangeExtent').value === b.dataset.ext },
                 // THE MIRROR LOCK IS THE STRIP'S (15 Nov 2026, Tom: "the mirror lock should use the bottom footer, not a drop
                 // down panel", then "the mirror lock should keep the button on the main toolbar and use the footer for
                 // settings"). The top bar's button opened a panel of two things, the mirror lock and the array. It is
                 // the Mirror button now and turns the strip to these: the lock's four choices first, each pressing
-                // the panel's own button (kept in the page, unseen) and lit as it is; then Make copies and, last, the
-                // array's dials (how many, how far, which way), a tile that stands the panel above the strip. The
-                // panel is the array alone: the mirror's row is not shown in it.
-                tools: { btn: 'bTools', more: 'toolsPop', lit: () => typeof mirrorMode === 'function' && mirrorMode() !== 'off',
+                // the panel's own button (kept in the page, unseen) and lit as it is; then the array, six tiles. The
+                // panel is not opened from the page any more.
+                tools: { btn: 'bTools', lit: () => typeof mirrorMode === 'function' && mirrorMode() !== 'off',
                     build: host => {
                         const half = '<path d="M20 14l-10 14l10 14z"/>', axisV = '<path d="M28 6v44" stroke-dasharray="3 4"/>', axisH = '<path d="M6 28h44" stroke-dasharray="3 4"/>';
                         animTile(host, { mir: 'off' }, 'Mirror lock off', 'mirror off', '<path d="M18 16l-10 12l10 12z"/><path d="M28 8v40" stroke-dasharray="3 4" opacity="0.4"/><path d="M12 44L44 12"/>');
                         animTile(host, { mir: 'v' }, 'Mirror left and right', 'left · right', axisV + half + '<path d="M36 14l10 14l-10 14z"/>');
                         animTile(host, { mir: 'h' }, 'Mirror top and bottom', 'top · bottom', axisH + '<path d="M14 20l14-10l14 10z"/><path d="M14 36l14 10l14-10z"/>');
                         animTile(host, { mir: 'both' }, 'Mirror across both, four-fold', 'four-fold', axisV + axisH + '<circle cx="17" cy="17" r="5"/><circle cx="39" cy="17" r="5"/><circle cx="17" cy="39" r="5"/><circle cx="39" cy="39" r="5"/>');
-                        animTile(host, { act: 'copies' }, 'Make copies of the selection, in a line or round a ring', 'make copies', '<rect x="6" y="20" width="14" height="14" rx="2"/><rect x="22" y="20" width="14" height="14" rx="2" opacity="0.65"/><rect x="38" y="20" width="14" height="14" rx="2" opacity="0.35"/>');
-                        // the array's dials (how many, how far, which way), last: the mirror's choices lead
-                        const m = document.createElement('button');
-                        m.type = 'button';
-                        m.className = 'icon-btn strip-more';
-                        m.setAttribute('aria-label', 'Array settings');
-                        m.innerHTML = SLIDERS;
-                        host.appendChild(m);
+                        // THE ARRAY IS SIX TILES (the same day, "2"): its panel of a select and four sliders was behind the
+                        // last tile. Each of these is a whole array made at once from what is selected: a row or a
+                        // column of three or six, a ring of six or twelve.
+                        const sq = (x, y, o) => '<rect x="' + x + '" y="' + y + '" width="10" height="10" rx="2"' + (o ? ' opacity="' + o + '"' : '') + '/>';
+                        const row = n => Array.from({ length: n }, (_, i) => sq(6 + i * (44 - 10) / (n - 1) - 0, 23, i ? 0.55 : 0)).join('');
+                        const col = n => Array.from({ length: n }, (_, i) => sq(23, 6 + i * (44 - 10) / (n - 1), i ? 0.55 : 0)).join('');
+                        const ring = n => Array.from({ length: n }, (_, i) => { const a = i / n * Math.PI * 2 - Math.PI / 2; return '<circle cx="' + (28 + 17 * Math.cos(a)).toFixed(1) + '" cy="' + (28 + 17 * Math.sin(a)).toFixed(1) + '" r="' + (n > 8 ? 3 : 4.5) + '"' + (i ? ' opacity="0.55"' : '') + '/>'; }).join('');
+                        animTile(host, { arr: 'linear', n: '3', dir: '0' }, 'A row of three copies', 'row ×3', row(3));
+                        animTile(host, { arr: 'linear', n: '6', dir: '0' }, 'A row of six copies', 'row ×6', row(6));
+                        animTile(host, { arr: 'linear', n: '3', dir: '270' }, 'A column of three copies', 'column ×3', col(3));
+                        animTile(host, { arr: 'linear', n: '6', dir: '270' }, 'A column of six copies', 'column ×6', col(6));
+                        animTile(host, { arr: 'radial', n: '6' }, 'A ring of six copies', 'ring ×6', ring(6));
+                        animTile(host, { arr: 'radial', n: '12' }, 'A ring of twelve copies', 'ring ×12', ring(12));
                     },
                     tap: b => {
                         if (b.dataset.mir) {
@@ -57570,9 +57532,18 @@
                             if (s)
                                 s.click();
                         } else {
+                            const d = b.dataset, set = (id, v) => {
+                                const el = $(id);
+                                el.value = v;
+                                el.dispatchEvent(new Event('input'));
+                            };
+                            set('arrMode', d.arr);
+                            set('arrCount', d.n);
+                            if (d.dir != null)
+                                set('arrDir', d.dir);
                             const go = $('arrGo');
                             if (go.disabled)
-                                flashStatus(go.title || 'select a shape to copy');
+                                flashStatus('select a shape to make copies of');
                             else
                                 go.click();
                         }
@@ -57608,6 +57579,26 @@
                             return !g.on;
                         const m = g.mode === 'lines' ? 'lines' : g.mode === 'dots' ? 'dots' : 'cross';
                         return !!g.on && m === d.g && Math.abs((d.g === 'lines' ? g.h : g.w) - +d.w) < 1e-6;
+                    } },
+                // THE NAME AND THE NOTE ARE TYPED IN THE STRIP (15 Nov 2026, Tom: "1", of "finish moving panels to the
+                // footer"). Name opened a panel of two boxes under its button. The boxes themselves are moved into
+                // the strip the first time it is asked for (the same elements, so the appearance panel's code still
+                // fills them, takes what is typed and commits it): the name, the note, and the line that says what
+                // they are about to name. It is a row of fields, not a ring of tiles (form), so nothing turns.
+                desc: { btn: 'bDesc', form: true,
+                    build: host => {
+                        host.classList.add('strip-form');
+                        for (const [id, word] of [['spName', 'name'], ['spNote', 'note']]) {
+                            const el = $(id);
+                            if (!el)
+                                continue;
+                            const lab = document.createElement('label');
+                            lab.append(word, el);
+                            host.appendChild(lab);
+                        }
+                        const said = $('spMetaNote');
+                        if (said)
+                            host.appendChild(said);
                     } },
                 // THE ANIMATION'S STRIPS: the values of the chip chosen on the animation's bar (below)
                 animKeys: { btn: null,
@@ -58325,11 +58316,11 @@
                         mirrorTiles(host, M.sources, M);
                 }
                 host.classList.add('on');
-                if (mode === 'fill' || mode === 'line')
+                if (mode === 'fill' || mode === 'line' || mode === 'desc')
                     syncStylePop(); // the panel's swatches say which colour the selection wears; the strip reads them
                 mirror(mode);
                 if (!rings[mode])
-                    rings[mode] = makeRing(host);
+                    rings[mode] = M.form ? { refresh() {}, layout() {} } : makeRing(host); // (a row of fields is no ring)
                 rings[mode].refresh();
                 requestAnimationFrame(() => rings[mode] && rings[mode].refresh());
             }
@@ -58620,7 +58611,9 @@
                 selSeen = seen;
                 // …and not from a drawing tool (the line, shape and text tools): while one is armed a press on the drawing is
                 // the tool's, so what is selected changes only by the tool's own doing (a word set again in bold)
-                const tool = mode === 'arrows' || mode === 'shape' || mode === 'text' || !!(paint && paint.mode === mode) || PICKS.has(mode);
+                const tool = mode === 'arrows' || mode === 'shape' || mode === 'text' || !!(paint && paint.mode === mode) || PICKS.has(mode) || mode === 'desc';
+                if (mode === 'desc' && picked)
+                    syncStylePop(); // the name and the note are the newly selected shape's
                 // THE SELECTION'S STRIP IS ASKED FOR (15 Nov 2026, Tom: "Selecting an object should not show the footer.
                 // Instead, Add a button to the toolbar to show the current selection footer bar"). Selecting a shape
                 // used to turn the strip to its options by itself, and took the drawing's own strip away each time; it
@@ -58896,7 +58889,7 @@
                 // shapes button should just be shapes, one word like the others"); it said what a press would do
                 bAddStrip: 'Shapes',
                 bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
-                bPlayShape: 'Play the shape', bBuild: 'Build', bDraw: 'Pencil',
+                bBuild: 'Build', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
                 bAi: 'AI', bArrows: 'Line', bDrawMenu: 'Draw', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bSelStrip: 'Selection', bArrangeOpen: 'Arrange',
                 bMorphOpen: 'Morph', bTools: 'Mirror', bRead: 'Reading', bGrid: 'Grid',
@@ -61707,712 +61700,15 @@
                 state.cauchyView = state.cauchyView === 0 ? 2 : state.cauchyView === 2 ? 4 : state.cauchyView === 4 ? 5 : 0; // shape → the reading → the semicircle → the fisheye (the semicircle with the lens's map) → shape; the list state is retired
                 sync();
                 syncBreath();
-                if (_wavPlaying && _playhead && !(_playhead.sps.length === 1 && _playhead.sps[0].wav))
-                    restartAtPhase();
                 drawAll();
                 flashStatus(state.cauchyView === 5 ? 'the fisheye — the lens on the front half, kept on the selected leaf, its horizon at 180°; the back half is the reading\'s own' : state.cauchyView === 4 ? 'the semicircle — the reading, each direction at its own address, all the way round' : state.cauchyView ? 'the reading — the reader\'s circle, each direction pointing to the magnitude it meets' : 'the shapes');
             });
             sync();
         })();
-        // Radius per leaf about the shape's centre. For a wav-born shape the centre is the
-        // import centre plus whatever translation the centroid has picked up since.
-        function leafRadii(sp) {
-            const N = sp.leafX.length;
-            let mx = 0,
-                my = 0;
-            for (let k = 0; k < N; k++) {
-                mx += sp.leafX[k];
-                my += sp.leafY[k];
-            }
-            mx /= N;
-            my /= N;
-            // a walked shape is read about the census centre — the point that is the mean of what it
-            // sees — not the leaf mean, which moves with the clock and not with the shape
-            const cen = sp.wav ? null : censusOfShape(sp);
-            let cx = cen ? cen.cx : mx,
-                cy = cen ? cen.cy : my;
-            if (sp.wav) {
-                // centroid of the unsculpted import, so translation and not content decides the shift
-                let rx = 0,
-                    ry = 0;
-                for (let k = 0; k < N; k++) {
-                    rx += sp.refX[k];
-                    ry += sp.refY[k];
-                }
-                cx = sp.wav.cx0 + (mx - rx / N);
-                cy = sp.wav.cy0 + (my - ry / N);
-            }
-            const r = new Float64Array(N);
-            for (let k = 0; k < N; k++)
-                r[k] = Math.hypot(sp.leafX[k] - cx, sp.leafY[k] - cy);
-            return r;
-        }
-
-        // Render the subject as samples. Returns { samples: Float32Array, sr }.
-        function subpathToAudio(sp, opts) {
-            const forPlay = !!(opts && opts.forPlay),
-                voiceOnly = !!(opts && opts.voiceOnly),
-                forceWalk = !!(opts && opts.walk);
-            const N = sp.leafX.length;
-            const r = leafRadii(sp);
-            if (sp.wav && !forceWalk) {
-                const v = new Float64Array(N);
-                for (let k = 0; k < N; k++)
-                    v[k] = (r[k] - WAV_R0) / WAV_A * sp.wav.norm;
-                if (sp.wav.mode === 'period' && forPlay) {
-                    // A period is a wavetable: 2048 samples is 46 ms, too short to hear an edit in.
-                    // For the ear it is looped to two seconds; save .wav still writes the N samples exactly.
-                    const total = Math.round(sp.wav.sr * 2),
-                        out = new Float32Array(total);
-                    for (let i = 0; i < total; i++)
-                        out[i] = v[i % N];
-                    return {
-                        samples: out,
-                        sr: sp.wav.sr
-                    };
-                }
-                if (sp.wav.mode === 'whole') {
-                    const Mp = TVF_CORE.ceilPow2(sp.wav.M + Math.round(0.05 * sp.wav.sr));
-                    const full = TVF_CORE.reconstructFFT(v, Mp);
-                    const out = new Float32Array(sp.wav.M);
-                    for (let i = 0; i < sp.wav.M; i++)
-                        out[i] = full[i];
-                    return {
-                        samples: out,
-                        sr: sp.wav.sr
-                    };
-                }
-                return {
-                    samples: Float32Array.from(v),
-                    sr: sp.wav.sr
-                };
-            }
-            // Any other shape is WALKED, not rung. (The earlier rendering used the radius as a
-            // waveform — one turn per cycle — which put the fundamental at 43 Hz and every
-            // difference between shapes into the low harmonics of a drone; inaudible on a laptop.)
-            // The reader goes once round the outline in `secs` seconds and the PITCH follows the
-            // radius: 440 Hz at the mean radius, `octaves` per unit of relative departure, the
-            // contour between leaves the bridge's own. A circle is a steady tone; an ellipse
-            // wobbles twice a turn; a five-point star five times. The tone that carries the pitch
-            // is a sine, a few harmonics, or the shape's own radius as a wavetable. With stereo
-            // the sound pans with the reader's x on the shape. Uniform scale cancels (the
-            // departure is relative) and rotation only changes where the walk starts.
-            const o = playOpts;
-            const sr = 44100,
-                secs = o.secs,
-                F0 = 440,
-                Mc = 2048;
-            const cen = censusOfShape(sp);
-            const mean = cen.R,
-                cxs = cen.cx,
-                cys = cen.cy; // the census radius is the held value
-            const dep = new Float64Array(N),
-                xs = new Float64Array(N);
-            let xmax = 1e-9;
-            for (let k = 0; k < N; k++) {
-                if (mean > 0 && state.cauchyView !== 1)
-                    dep[k] = (r[k] - mean) / mean;
-                xs[k] = sp.leafX[k] - cxs;
-                xmax = Math.max(xmax, Math.abs(xs[k]));
-            }
-            const rec = v => TVF_CORE.isPow2(N) ? TVF_CORE.reconstructFFT(v, Mc) : tvf.reconstruct(v, Mc);
-            const contour = rec(dep),
-                xcont = o.stereo ? rec(xs) : null;
-            let table = null;
-            if (o.tone === 'shape') {
-                table = contour;
-                let pk = 0;
-                for (const v of table)
-                    pk = Math.max(pk, Math.abs(v));
-                if (pk > 0) {
-                    table = Float64Array.from(table, v => v / pk);
-                }
-            }
-            const total = Math.round(sr * secs);
-            const L = new Float32Array(total),
-                R = o.stereo ? new Float32Array(total) : null;
-            const at = (arr, u) => {
-                const j = Math.floor(u),
-                    f = u - j;
-                return arr[j % Mc] * (1 - f) + arr[(j + 1) % Mc] * f;
-            };
-            // THE LATTICE. With a scale on, the pitch is snapped to the nearest scale degree
-            // (semitones from 440, any octave) and then glided into over ~40 ms, so the ear hears
-            // notes and still hears the curve between them. The scale is a rung ladder for pitch.
-            const SCALES = {
-                penta: [0, 2, 4, 7, 9],
-                major: [0, 2, 4, 5, 7, 9, 11],
-                minor: [0, 2, 3, 5, 7, 8, 10]
-            };
-            const degrees = SCALES[o.scale] || null;
-            const snap = semis => {
-                if (!degrees)
-                    return semis;
-                const oct = Math.floor(semis / 12),
-                    inOct = semis - 12 * oct;
-                let best = degrees[0],
-                    bd = 99;
-                for (const d of degrees) {
-                    const dd = Math.abs(d - inOct);
-                    if (dd < bd) {
-                        bd = dd;
-                        best = d;
-                    }
-                }
-                if (Math.abs(inOct - 12) < bd)
-                    best = 12;
-                return oct * 12 + best;
-            };
-            const hzAt = u => F0 * Math.pow(2, Math.max(-3, Math.min(3, at(contour, u) * o.octaves)));
-            // NOTES. `notes` per turn, each with a soft attack and a decay; the pitch of a note is
-            // held from its onset when a scale is on (a melody), or keeps following the curve when
-            // it is off (a phrased glide). The accent is the outline's steepness at the onset —
-            // how fast the radius is changing — so a star's points hit harder than its flanks.
-            const notes = o.notes | 0;
-            const glideK = Math.exp(-1 / (sr * 0.04));
-            let semi = 12 * Math.log2(hzAt(0) / F0),
-                target = snap(semi);
-            let phase = 0,
-                env = 1,
-                vel = 1,
-                noteIdx = -1,
-                heldHz = hzAt(0);
-            let maxSlope = 1e-9;
-            if (notes > 0)
-                for (let n = 0; n < notes; n++) {
-                    const u0 = n / notes * Mc;
-                    maxSlope = Math.max(maxSlope, Math.abs(at(contour, u0 + 1) - at(contour, u0 - 1 + Mc)));
-                }
-            const attack = Math.round(sr * 0.008),
-                noteLen = notes > 0 ? total / notes : total;
-            const decayK = Math.exp(-1 / (noteLen * 0.45));
-            for (let i = 0; i < total; i++) {
-                const u = i / total * Mc;
-                if (notes > 0) {
-                    const n = Math.floor(i / total * notes);
-                    if (n !== noteIdx) {
-                        noteIdx = n;
-                        env = 0;
-                        const u0 = n / notes * Mc;
-                        const slope = Math.abs(at(contour, u0 + 1) - at(contour, u0 - 1 + Mc)) / maxSlope;
-                        vel = 0.5 + 0.5 * slope;
-                        heldHz = hzAt(u0);
-                    }
-                    const k = i - Math.floor(noteIdx * noteLen);
-                    env = k < attack ? k / attack : Math.max(0.12, env * decayK);
-                }
-                const rawHz = (notes > 0 && degrees) ? heldHz : hzAt(u);
-                target = snap(12 * Math.log2(rawHz / F0));
-                semi = target + (semi - target) * glideK;
-                const hz = F0 * Math.pow(2, semi / 12);
-                phase += TAU * hz / sr;
-                if (phase > TAU)
-                    phase -= TAU;
-                let v;
-                if (o.tone === 'warm')
-                    v = (Math.sin(phase) + 0.5 * Math.sin(2 * phase) + 0.25 * Math.sin(3 * phase)) / 1.75;
-                else if (o.tone === 'shape')
-                    v = at(table, phase / TAU * Mc);
-                else
-                    v = Math.sin(phase);
-                v *= 0.45 * (notes > 0 ? env * vel : 1);
-                if (R) {
-                    const pan = Math.max(-1, Math.min(1, at(xcont, u) / xmax));
-                    const th = (pan + 1) * Math.PI / 4;
-                    L[i] = v * Math.cos(th);
-                    R[i] = v * Math.sin(th);
-                }
-                else
-                    L[i] = v;
-            }
-            if (voiceOnly)
-                return {
-                    samples: L,
-                    right: R,
-                    sr
-                };
-            finishMix(L, R, sr);
-            return {
-                samples: L,
-                right: R,
-                sr
-            };
-        }
-        // What every rendering gets once, after the voices are summed: the drone, the fades,
-        // the room. THE REFERENCE is a quiet tone held at the mean radius, with its octave
-        // below — the held value the walk is heard against; unison for a circle, tension for
-        // anything else. THE ROOM is a small Schroeder reverb mixed in by `room`.
-        function finishMix(L, R, sr) {
-            const o = playOpts,
-                total = L.length,
-                F0 = 440;
-            if (o.drone) {
-                let p1 = 0,
-                    p2 = 0;
-                for (let i = 0; i < total; i++) {
-                    p1 += TAU * F0 / sr;
-                    p2 += TAU * (F0 / 2) / sr;
-                    const d = 0.10 * Math.sin(p1) + 0.07 * Math.sin(p2);
-                    L[i] += R ? d * 0.7071 : d;
-                    if (R)
-                        R[i] += d * 0.7071;
-                }
-            }
-            const fade = Math.round(sr * 0.01);
-            for (let i = 0; i < fade; i++) {
-                const w = i / fade;
-                L[i] *= w;
-                L[total - 1 - i] *= w;
-                if (R) {
-                    R[i] *= w;
-                    R[total - 1 - i] *= w;
-                }
-            }
-            if (o.room > 0) {
-                reverbInPlace(L, sr, o.room, 0);
-                if (R)
-                    reverbInPlace(R, sr, o.room, 23);
-            }
-        }
-        // Several shapes at once: each a voice on the same walk, summed with a 1/√n gain so a
-        // chord of five does not clip, then the drone and the room once over the sum. A wav-born
-        // shape in company is walked like the others — its samples play only when it is alone.
-        function renderShapes(sps) {
-            if (sps.length === 1)
-                return subpathToAudio(sps[0], {
-                    forPlay: true
-                });
-            const voices = sps.map(sp => subpathToAudio(sp, {
-                forPlay: true,
-                voiceOnly: true,
-                walk: true
-            }));
-            const n = voices[0].samples.length,
-                sr = voices[0].sr,
-                stereo = !!voices[0].right;
-            const L = new Float32Array(n),
-                R = stereo ? new Float32Array(n) : null;
-            const g = 1 / Math.sqrt(voices.length);
-            for (const v of voices) {
-                for (let i = 0; i < n; i++) {
-                    L[i] += v.samples[i] * g;
-                    if (R)
-                        R[i] += v.right[i] * g;
-                }
-            }
-            finishMix(L, R, sr);
-            return {
-                samples: L,
-                right: R,
-                sr
-            };
-        }
-        // Schroeder reverb, offline: comb filters with damping into two allpasses. `skew`
-        // offsets the delay lengths so a stereo pair decorrelates.
-        // CIRCULAR: the reverb is run over the buffer twice round and the second pass kept, so
-        // the tail of the last note wraps into the start of the first. A loop then has no seam,
-        // and a single pass ends without the room being cut off mid-decay — the buffer is a
-        // turn, and a turn has no last sample.
-        function reverbInPlace(x, sr, mix, skew) {
-            const n = x.length,
-                scale = sr / 44100;
-            const combs = [1116, 1188, 1277, 1356].map(d => Math.round((d + skew) * scale));
-            const alls = [556, 441].map(d => Math.round((d + skew) * scale));
-            const x2 = new Float32Array(2 * n);
-            x2.set(x, 0);
-            x2.set(x, n);
-            const wet2 = new Float32Array(2 * n);
-            for (const d of combs) {
-                const buf = new Float32Array(d);
-                let idx = 0,
-                    lp = 0;
-                for (let i = 0; i < 2 * n; i++) {
-                    const out = buf[idx];
-                    lp = out * 0.6 + lp * 0.4;
-                    buf[idx] = x2[i] + lp * 0.88;
-                    wet2[i] += out;
-                    if (++idx === d)
-                        idx = 0;
-                }
-            }
-            for (const d of alls) {
-                const buf = new Float32Array(d);
-                let idx = 0;
-                for (let i = 0; i < 2 * n; i++) {
-                    const b = buf[idx],
-                        v = wet2[i] + b * 0.5;
-                    buf[idx] = v;
-                    wet2[i] = b - v * 0.5;
-                    if (++idx === d)
-                        idx = 0;
-                }
-            }
-            const wet = wet2.subarray(n);
-            const g = mix * 0.12;
-            for (let i = 0; i < n; i++)
-                x[i] = x[i] * (1 - 0.3 * mix) + wet[i] * g;
-        }
-
-        function encodeWav16(samples, sr) {
-            const n = samples.length,
-                bytes = 44 + 2 * n;
-            const b = new ArrayBuffer(bytes),
-                dv = new DataView(b);
-            const str = (o, t) => {
-                for (let i = 0; i < t.length; i++)
-                    dv.setUint8(o + i, t.charCodeAt(i));
-            };
-            str(0, 'RIFF');
-            dv.setUint32(4, bytes - 8, true);
-            str(8, 'WAVE');
-            str(12, 'fmt ');
-            dv.setUint32(16, 16, true);
-            dv.setUint16(20, 1, true);
-            dv.setUint16(22, 1, true);
-            dv.setUint32(24, sr, true);
-            dv.setUint32(28, sr * 2, true);
-            dv.setUint16(32, 2, true);
-            dv.setUint16(34, 16, true);
-            str(36, 'data');
-            dv.setUint32(40, 2 * n, true);
-            for (let i = 0; i < n; i++) {
-                let v = samples[i];
-                if (v > 1)
-                    v = 1;
-                else if (v < -1)
-                    v = -1;
-                dv.setInt16(44 + 2 * i, Math.round(v * 32767), true);
-            }
-            return new Blob([b], {
-                type: 'audio/wav'
-            });
-        }
-
-        let _wavPlaying = null;
-        // THE WALK'S DIALS. Read by subpathToAudio; set from the play panel.
-        const playOpts = {
-            secs: 3,
-            octaves: 2,
-            tone: 'warm',
-            loop: false,
-            stereo: false,
-            drone: true,
-            scale: 'penta',
-            notes: 16,
-            room: 0.3
-        };
-        // WHERE THE READER IS. While a shape plays, a dot rides its outline at the point being
-        // read — the walk's angle as a fraction of the turn — with a thin ray from the centre,
-        // which is the radius that is the pitch. The clock is the AudioContext's own, so the dot
-        // is where the ear is and not where a frame counter thinks it should be. One turn takes
-        // `turn` seconds: the panel's seconds-per-turn for a walked shape, the period's length
-        // for a looped wav period, the file's length for a folded file.
-        let _playhead = null; // { sp, t0, turn, sig }
-        let _playheadRAF = null;
-        function leafSignature(sp) {
-            let h = 0;
-            const X = sp.leafX,
-                Y = sp.leafY;
-            for (let k = 0; k < X.length; k++)
-                h += X[k] * (k + 1) + Y[k] * (k + 0.5);
-            return h;
-        }
-        function playheadTick() {
-            _playheadRAF = null;
-            if (!_playhead)
-                return;
-            // THE SUBJECT IS THE SELECTION, LIVE. Select another shape while the walk is running
-            // and the walk moves to it, keeping its place in the turn — the player plays what IS
-            // selected, not what was selected when it started. This also covers the shapes going
-            // away: a new scene, a load, a delete, an undo re-picks the subject the same way, and
-            // an empty scene stops the sound.
-            const want = wavSubjects();
-            if (!want.length) {
-                stopShape();
-                return;
-            }
-            if (!sameSubjects(want, _playhead.sps)) {
-                _playhead.sps = want;
-                _playhead.sig = signatureOf(want);
-                restartAtPhase();
-            }
-            // LIVE: looping, and the shape moved under the reader — render it again and swap the
-            // source in at the same point of the turn, so the walk keeps its place and the ear
-            // hears the edit the moment the leaf lands.
-            if (playOpts.loop && _wavPlaying && !(_playhead.sps.length === 1 && _playhead.sps[0].wav)) {
-                const sig = signatureOf(_playhead.sps);
-                if (sig !== _playhead.sig) {
-                    _playhead.sig = sig;
-                    restartAtPhase();
-                }
-            }
-            drawAll();
-            _playheadRAF = requestAnimationFrame(playheadTick);
-        }
-        function drawPlayhead(w, h) {
-            if (!_playhead || !_wavCtx)
-                return;
-            const {sps, t0, turn} = _playhead;
-            const u = ((_wavCtx.currentTime - t0) / turn) % 1;
-            if (u < 0)
-                return;
-            const phi = u * TAU;
-            ctx.save();
-            for (const sp of sps) {
-                if (!sp.leafX || state.subpaths.indexOf(sp) < 0)
-                    continue;
-                let px = tvf.evalAt(sp.leafX, phi),
-                    py = tvf.evalAt(sp.leafY, phi);
-                const cen = censusOfShape(sp),
-                    cx = cen.cx,
-                    cy = cen.cy;
-                let ax = null,
-                    ay = null;
-                if (state.cauchyView) {
-                    // the same ray, met on the circle: the address (its own direction; through the lens on the fisheye's front half)
-                    const R = cen.R;
-                    const d = Math.hypot(px - cx, py - cy) || 1;
-                    if ((state.cauchyView === 4 || state.cauchyView === 5) && cen.fx != null) {
-                        const front = Math.atan2(cen.fy - cy, cen.fx - cx);
-                        let d0 = Math.atan2(py - cy, px - cx) - front;
-                        d0 = ((d0 + Math.PI) % TAU + TAU) % TAU - Math.PI;
-                        const a2 = front + ((state.cauchyView === 5 && Math.abs(d0) <= Math.PI / 2) ? Math.atan(fisheyeK() * Math.tan(d0)) : d0);
-                        ax = cx + R * Math.cos(a2);
-                        ay = cy + R * Math.sin(a2);
-                    }
-                    else {
-                        ax = cx + (px - cx) / d * R;
-                        ay = cy + (py - cy) / d * R;
-                    }
-                    if (state.cauchyView === 1) {
-                        px = ax;
-                        py = ay;
-                        ax = null;
-                    }
-                }
-                const c = worldToPx(cx, cy, w, h),
-                    p = worldToPx(px, py, w, h);
-                ctx.strokeStyle = 'rgba(243,234,217,0.35)';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(c.x, c.y);
-                ctx.lineTo(p.x, p.y);
-                ctx.stroke();
-                if (ax != null) {
-                    const q = worldToPx(ax, ay, w, h);
-                    ctx.fillStyle = '#f3ead9';
-                    ctx.beginPath();
-                    ctx.arc(q.x, q.y, 3, 0, TAU);
-                    ctx.fill();
-                }
-                ctx.fillStyle = '#f3ead9';
-                ctx.strokeStyle = '#08080a';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 5, 0, TAU);
-                ctx.fill();
-                ctx.stroke();
-            }
-            ctx.restore();
-        }
-        function stopPlayhead() {
-            _playhead = null;
-            if (_playheadRAF) {
-                cancelAnimationFrame(_playheadRAF);
-                _playheadRAF = null;
-            }
-            drawAll();
-        }
-        function makeSource(sps) {
-            const actx = wavCtx();
-            const {samples, right, sr} = renderShapes(sps);
-            const buf = actx.createBuffer(right ? 2 : 1, samples.length, sr);
-            buf.getChannelData(0).set(samples);
-            if (right)
-                buf.getChannelData(1).set(right);
-            const src = actx.createBufferSource();
-            src.buffer = buf;
-            src.loop = !!playOpts.loop;
-            src.connect(actx.destination);
-            return {
-                src,
-                seconds: samples.length / sr
-            };
-        }
-        function stopShape() {
-            if (_wavPlaying) {
-                try {
-                    _wavPlaying.stop();
-                } catch (_) {}
-                _wavPlaying = null;
-            }
-            $('bPlayShape').classList.remove('active');
-            $('bPlayGo').textContent = '▶ play';
-            $('bPlayGo').classList.remove('active');
-            stopPlayhead();
-        }
-        function turnOf(sps) {
-            const sp = sps[0];
-            return (sps.length === 1 && sp.wav) ? (sp.wav.mode === 'whole' ? sp.wav.M / sp.wav.sr : sp.leafX.length / sp.wav.sr) : playOpts.secs;
-        }
-        function signatureOf(sps) {
-            let h = 0;
-            for (const sp of sps)
-                h += leafSignature(sp);
-            return h;
-        }
-        // The same shapes, in the same order — identity, not content: an edit is a signature
-        // change, a different selection is a different set.
-        function sameSubjects(a, b) {
-            if (!b || a.length !== b.length)
-                return false;
-            for (let i = 0; i < a.length; i++)
-                if (a[i] !== b[i])
-                    return false;
-            return true;
-        }
-        function playStatus(sps, seconds) {
-            const what = sps.length === 1 ? wavSubjectName(sps[0]) : sps.length + ' shapes' + (selectedIndices().length ? '' : ' (whole scene)');
-            wavStatus('playing ' + what + ' · ' + (playOpts.loop ? 'looping · ' : '') + seconds.toFixed(2) + ' s' + ((sps.length === 1 && sps[0].wav) ? '' : ' · one turn of the outline, pitch follows the radius'));
-        }
-        function playShape() {
-            const sps = wavSubjects();
-            if (!sps.length) {
-                wavStatus('<span style="color:var(--red)">nothing to play — the scene is empty</span>');
-                return;
-            }
-            const actx = wavCtx();
-            if (actx.state === 'suspended')
-                actx.resume();
-            if (_wavPlaying) {
-                stopShape();
-                return;
-            }
-            const {src, seconds} = makeSource(sps);
-            src.start();
-            _wavPlaying = src;
-            $('bPlayShape').classList.add('active');
-            $('bPlayGo').textContent = '■ stop';
-            $('bPlayGo').classList.add('active');
-            _playhead = {
-                sps,
-                t0: actx.currentTime,
-                turn: turnOf(sps),
-                sig: signatureOf(sps)
-            };
-            if (!_playheadRAF)
-                _playheadRAF = requestAnimationFrame(playheadTick);
-            src.onended = () => {
-                if (_wavPlaying === src)
-                    stopShape();
-            };
-            playStatus(sps, seconds);
-        }
-        // Re-render the playing shape and continue from the same point of the turn.
-        function restartAtPhase() {
-            if (!_wavPlaying || !_playhead)
-                return;
-            const actx = _wavCtx,
-                ph = _playhead;
-            const old = _wavPlaying;
-            old.onended = null;
-            const {src, seconds} = makeSource(ph.sps);
-            // Keep the reader's PLACE on the shape, not its time: the fraction of the turn it had
-            // reached is carried into the new rendering, whatever the new speed.
-            const u = (Math.max(0, actx.currentTime - ph.t0) / ph.turn) % 1;
-            const newTurn = turnOf(ph.sps);
-            const offset = Math.min(seconds - 1e-3, u * newTurn);
-            src.start(0, offset);
-            try {
-                old.stop();
-            } catch (_) {}
-            _wavPlaying = src;
-            ph.turn = newTurn;
-            ph.t0 = actx.currentTime - u * newTurn;
-            src.onended = () => {
-                if (_wavPlaying === src)
-                    stopShape();
-            };
-            playStatus(ph.sps, seconds);
-        }
-        $('bPlayShape').addEventListener('click', () => {
-            const pop = $('playPop');
-            if (pop.classList.contains('open')) {
-                closeAllPops();
-                return;
-            }
-            closeAllPops();
-            placePop(pop, $('bPlayShape'));
-        });
-        (function wirePlayPop() {
-            $('bPlayGo').addEventListener('click', playShape);
-            const sync = () => {
-                $('bPlayLoop').classList.toggle('active', playOpts.loop);
-                $('bPlayStereo').classList.toggle('active', playOpts.stereo);
-                $('bPlayDrone').classList.toggle('active', playOpts.drone);
-                $('playSecsVal').textContent = playOpts.secs.toFixed(1) + ' s';
-                $('playOctVal').textContent = playOpts.octaves.toFixed(2) + ' oct';
-                $('playNotesVal').textContent = playOpts.notes > 0 ? String(playOpts.notes) : 'glide';
-                $('playRoomVal').textContent = Math.round(playOpts.room * 100) + '%';
-            };
-            // A dial turned while playing takes effect at once, from the same point of the turn.
-            const isWavAlone = () => _playhead && _playhead.sps.length === 1 && !!_playhead.sps[0].wav;
-            const live = () => {
-                if (_wavPlaying && _playhead && !isWavAlone())
-                    restartAtPhase();
-                else if (_wavPlaying && _playhead) {
-                    _wavPlaying.loop = playOpts.loop;
-                }
-            };
-            $('bPlayLoop').addEventListener('click', () => {
-                playOpts.loop = !playOpts.loop;
-                sync();
-                if (_wavPlaying) {
-                    _wavPlaying.loop = playOpts.loop;
-                    if (!isWavAlone())
-                        restartAtPhase();
-                }
-            });
-            $('bPlayStereo').addEventListener('click', () => {
-                playOpts.stereo = !playOpts.stereo;
-                sync();
-                live();
-            });
-            $('playSecs').addEventListener('input', e => {
-                playOpts.secs = parseFloat(e.target.value);
-                sync();
-                live();
-            });
-            $('playOct').addEventListener('input', e => {
-                playOpts.octaves = parseFloat(e.target.value);
-                sync();
-                live();
-            });
-            $('playTone').addEventListener('change', e => {
-                playOpts.tone = e.target.value;
-                live();
-            });
-            $('bPlayDrone').addEventListener('click', () => {
-                playOpts.drone = !playOpts.drone;
-                sync();
-                live();
-            });
-            $('playScale').addEventListener('change', e => {
-                playOpts.scale = e.target.value;
-                live();
-            });
-            $('playNotes').addEventListener('input', e => {
-                playOpts.notes = parseInt(e.target.value, 10);
-                sync();
-                live();
-            });
-            $('playRoom').addEventListener('input', e => {
-                playOpts.room = parseFloat(e.target.value);
-                sync();
-                live();
-            });
-            sync();
-        })();
+        // (PLAY THE SHAPE stood here until 15 Nov 2026: the walk round an outline as a tone, its dials, the dot that
+        // rode the outline, and a wav-born shape's own samples played back. Tom: "6", of "delete the hidden code for
+        // Plot and Play". A shape that came from a wav still carries its samples (sp.wav) through saves; nothing
+        // plays them now.)
 
         // Drag and drop SVG files
         const main = $('main');

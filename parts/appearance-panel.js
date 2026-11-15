@@ -23,7 +23,7 @@
             const anyOpen = () => PANES.some(id => {
                 const e = $(id);
                 return e && e.classList.contains('open');
-            }) || /^(fill|line)$/.test(document.body.dataset.strip || '');
+            }) || /^(fill|line|desc)$/.test(document.body.dataset.strip || '');
             const fillGrid = $('spFillGrid'),
                 lineGrid = $('spLineGrid');
             const wIn = $('spWidth'),

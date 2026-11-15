@@ -224,25 +224,29 @@ compatibly.
 - The top bar holds the options and the strip at the foot their values (13 Nov 2026, Tom: "keep the options in the header
   and the footer is just for the values of that option"): Fill, Outline, Align, Order, Merge and Name stay on the
   top bar. Group left it (14 Nov 2026: "remove the group button in the top toolbar"): it is the selection strip's tile, and
-  `#bGroup` is kept hidden in `#topButtonsHeld`, still the code that acts. Plot a formula (`#bPlot`) and Play the shape
-  (`#bPlayShape`) left it too (15 Nov 2026, Tom: "Remove plot a formula and play the shape"), held the same way: plotted
-  shapes still open and a double-click on one still opens its formula. Generate with AI (`#bAi`) and Reading (`#bRead`) are the
+  `#bGroup` is kept hidden in `#topButtonsHeld`, still the code that acts. Plot a formula (`#bPlot`) left it too
+  (15 Nov 2026, Tom: "Remove plot a formula and play the shape"), held the same way: plotted shapes still open and a
+  double-click on one still opens its formula; its code stays because scenes, explainers and the checks' `__plot` use
+  it. Play the shape is deleted outright (the same day, "6"): the button, `#playPop` and the audio code (the tone
+  walk, the playhead, a wav-born shape's playback); `sp.wav` is still carried through saves. Generate with AI (`#bAi`) and Reading (`#bRead`) are the
   menu's (the same day: "Move generate with ai to the menu. Move reading to the menu."): held off the bar likewise, pressed
   by the menu's `#bMenuAi` and `#bMenuRead`, their panels standing under the menu's button (`placePop`). A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
 - Arrange to grid is the strip's (15 Nov 2026, ARRANGE TO GRID IS THE STRIP'S; Tom: "can you move arrange to grid panel
   to the footer?"): `#bArrangeOpen` turns the strip to `MODES.arrange` (Arrange, fill cells, fit screen, expand), each
   tile setting the panel's control (`#bArrange`, `#tArrangeFit`, `#selArrangeExtent`); the cell's size and the captions,
-  typed in, are behind the first tile, which stands `#arrangePop` above the strip (`more`).
+  typed in, were behind the first tile; since "2" the same day there is no panel: the cell is the automatic one and
+  the captions are three tiles (none, names, names · leaves; `#inArrangeTags`).
 - The lock is on the top bar's ring (15 Nov 2026, THE LOCK IS ON THE BAR; Tom: "the lock button on top should be moved
   on to the toolbar, not fixed at the upper left"): `#bLock` is moved to the front of `.topbar .controls` before the
   ring is made, so it turns with the others (only the menu's button is pinned now); the ring has the corner it stood in
   and opens turned to its third (`_topRing.focus(2)`), so a phone shows the lock, Shapes, Draw and Fill whole.
 - The mirror lock is the strip's (the same day, THE MIRROR LOCK IS THE STRIP'S; "the mirror lock should use the bottom
   footer, not a drop down panel"): `#bTools` turns the strip to `MODES.tools` (mirror off, left · right, top · bottom,
-  four-fold, make copies), each pressing the panel's own button; the array's dials are behind the last tile, which
-  stands `#toolsPop` above the strip. The button stays lit while the mirror is on (`MODES.tools.lit`). It is the
+  four-fold), each pressing the panel's own button, and then the array as six tiles, each a whole array made at once
+  (row ×3, row ×6, column ×3, column ×6, ring ×6, ring ×12; they set `#arrMode`, `#arrCount`, `#arrDir` and press
+  `#arrGo`); `#toolsPop` is not opened from the page. The button stays lit while the mirror is on (`MODES.tools.lit`). It is the
   Mirror button ("the mirror lock should keep the button on the main toolbar and use the footer for settings"): a
-  mirror glyph, named Mirror in `NAMES`, and the panel is the array alone, the mirror's row kept in it unseen.
+  mirror glyph, named Mirror in `NAMES`.
 - The backgrounds are the strip's (15 Nov 2026, THE BACKGROUNDS ARE THE STRIP'S; Tom: "do the same for background
   grid. just have buttons for different backgrounds, no sliders needed"): `#bGrid` turns the strip to `MODES.grid`,
   six tiles, each a whole `state.grid` set at once through `window.__setGrid`: none, fine grid, grid, coarse grid,
@@ -255,6 +259,12 @@ compatibly.
   the tour ended and whether or not it was the tour that hid them. The arrows still step a running tour. Any press
   on the page ends it too ("touching the screen should end the tour and show the toolbars"), taken in the window's
   capture with the click that follows, so it selects nothing.
+- The name and the note are typed in the strip (15 Nov 2026, THE NAME AND THE NOTE ARE TYPED IN THE STRIP; "1"):
+  `#bDesc` turns the strip to `MODES.desc`, a row of fields (`form: true`, no ring): `#spName`, `#spNote` and
+  `#spMetaNote` themselves, moved out of `#descPop` the first time, so `parts/appearance-panel.js` still fills and
+  commits them (`anyOpen` counts the `desc` strip). Build was already the strip's, and Text's retyping popover stays.
+- One paint stroke is one undo (the same day, ONE STROKE, ONE UNDO; "5"): a stroke sets each shape's colour with
+  `setSelectionFillColor` / `setSelectionStrokeColor` and takes one `pushHistory` when it ends.
 - The selection's strip is asked for (15 Nov 2026, THE SELECTION'S STRIP IS ASKED FOR; Tom: "Selecting an object should
   not show the footer. Instead, Add a button to the toolbar to show the current selection footer bar"): selecting no
   longer turns the strip to mode `select`. The top bar's Selection button (`#bSelStrip`, `MODES.select.btn`, off while
