@@ -354,3 +354,7 @@ phone's groups (Keys, Move, Feel, …) went, since the ring does their work, and
 (its strip closing would take the bar away). The ring is not turned to the lit chip by the code: `focus(i)` did not
 centre it there, and a chip just pressed is in view anyway.
 
+**15 Nov 2026, play goes with the slider** (Tom: "the time slide and connected button need to be on their own row").
+Play and the time's reading had been put on the chips' row to leave the slider alone; they are the slider's, so `#abT`
+is play, the slider (up to 640px) and the reading, centred together, and `#abRow` is the chips' ring and nothing else.
+
