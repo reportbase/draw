@@ -38298,6 +38298,21 @@
             };
             ctx.strokeStyle = 'rgba(255,255,255,0.08)';
             ctx.lineWidth = lw;
+            if (g.mode === 'dots') { // a dot where the cross hatch's lines would meet (15 Nov 2026, THE BACKGROUNDS ARE THE STRIP'S)
+                const sw = fit(g.w, x1 - x0), sh = fit(g.h, y1 - y0), r = Math.max(1.3, lw);
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.beginPath();
+                for (let x = Math.ceil(x0 / sw) * sw; x <= x1; x += sw) {
+                    const px = worldToPx(x, 0, w, h).x;
+                    for (let y = Math.ceil(y0 / sh) * sh; y <= y1; y += sh) {
+                        const py = worldToPx(0, y, w, h).y;
+                        ctx.moveTo(px + r, py);
+                        ctx.arc(px, py, r, 0, TAU);
+                    }
+                }
+                ctx.fill();
+                return;
+            }
             ctx.beginPath();
             if (g.mode !== 'lines') {
                 const sw = fit(g.w, x1 - x0);
@@ -56177,14 +56192,18 @@
                 glwV = $('gridLwVal'),
                 gwRow = $('gridWRow');
             const syncBtn = () => {
-                btn.classList.toggle('active', !!(state.grid && state.grid.on));
-                btn.setAttribute('aria-pressed', state.grid && state.grid.on ? 'true' : 'false');
+                // (lit while the grid is on, and while its strip of backgrounds is up)
+                const lit = !!(state.grid && state.grid.on) || document.body.dataset.strip === 'grid';
+                btn.classList.toggle('active', lit);
+                btn.setAttribute('aria-pressed', lit ? 'true' : 'false');
             };
             // UI from state — on open and on restore, so a loaded scene's dials read true.
+            let _gridMode = 'cross';
             const syncUI = () => {
                 const g = state.grid || {};
                 on.checked = !!g.on;
-                mode.value = g.mode === 'lines' ? 'lines' : 'cross';
+                _gridMode = g.mode === 'lines' ? 'lines' : g.mode === 'dots' ? 'dots' : 'cross';
+                mode.value = _gridMode === 'dots' ? 'cross' : _gridMode; // (the panel's select has no dots; the strip's tile is its way in)
                 gw.value = String(g.w);
                 gh.value = String(g.h);
                 glw.value = String(g.lw);
@@ -56202,7 +56221,7 @@
             const apply = () => {
                 state.grid = {
                     on: !!on.checked,
-                    mode: mode.value === 'lines' ? 'lines' : 'cross',
+                    mode: mode.value === 'lines' ? 'lines' : _gridMode === 'dots' ? 'dots' : 'cross',
                     w: Math.max(0.05, +gw.value || 0.25),
                     h: Math.max(0.05, +gh.value || 0.25),
                     lw: Math.max(0.25, +glw.value || 1),
@@ -56225,6 +56244,15 @@
                 syncUI();
             });
             window.__syncGridBtn = () => syncUI();
+            // a whole background at once, from the strip's tiles (THE BACKGROUNDS ARE THE STRIP'S): the same one write
+            // path's end, the panel's dials brought into step
+            window.__setGrid = g => {
+                const was = state.grid || {};
+                state.grid = { on: !!g.on, mode: g.mode || was.mode || 'cross', w: g.w || was.w || 0.25, h: g.h || g.w || was.h || 0.25, lw: was.lw || 1 };
+                syncUI();
+                drawAll();
+                scheduleSave();
+            };
             syncBtn();
         })();
 
@@ -57509,6 +57537,37 @@
                         }
                     },
                     on: b => !!b.dataset.mir && typeof mirrorMode === 'function' && mirrorMode() === b.dataset.mir },
+                // THE BACKGROUNDS ARE THE STRIP'S (15 Nov 2026, Tom: "do the same for background grid. just have buttons for
+                // different backgrounds, no sliders needed"). The grid's button opened a panel of a switch, a select and
+                // three sliders; it turns the strip to a tile a background now, each a whole setting pressed at once:
+                // none, a fine, a middling and a coarse cross hatch, ruled lines, and dots (new with this: a dot where
+                // the hatch's lines would meet). No sliders: the panel is not opened from here at all. The button is
+                // lit while a background is on, as it was.
+                grid: { btn: 'bGrid', lit: () => !!(state.grid && state.grid.on),
+                    build: host => {
+                        const frame = '<rect x="8" y="8" width="40" height="40" rx="3"/>';
+                        const hatch = n => { let s = ''; for (let i = 1; i < n; i++) { const p = (8 + i * 40 / n).toFixed(1); s += 'M' + p + ' 8V48M8 ' + p + 'H48'; } return frame + '<path d="' + s + '" stroke-width="1.4"/>'; };
+                        const rule = n => { let s = ''; for (let i = 1; i < n; i++) s += 'M8 ' + (8 + i * 40 / n).toFixed(1) + 'H48'; return frame + '<path d="' + s + '" stroke-width="1.4"/>'; };
+                        const dots = n => { let s = ''; for (let i = 1; i < n; i++) for (let j = 1; j < n; j++) s += '<circle cx="' + (8 + i * 40 / n).toFixed(1) + '" cy="' + (8 + j * 40 / n).toFixed(1) + '" r="1.7" fill="currentColor" stroke="none"/>'; return frame + s; };
+                        animTile(host, { g: 'off' }, 'No background grid', 'none', frame);
+                        animTile(host, { g: 'cross', w: '0.1' }, 'A fine grid', 'fine grid', hatch(8));
+                        animTile(host, { g: 'cross', w: '0.25' }, 'A grid', 'grid', hatch(5));
+                        animTile(host, { g: 'cross', w: '0.5' }, 'A coarse grid', 'coarse grid', hatch(3));
+                        animTile(host, { g: 'lines', w: '0.25' }, 'Ruled lines', 'lines', rule(6));
+                        animTile(host, { g: 'dots', w: '0.25' }, 'Dots', 'dots', dots(5));
+                    },
+                    tap: b => {
+                        const d = b.dataset;
+                        if (typeof window.__setGrid === 'function')
+                            window.__setGrid(d.g === 'off' ? { on: false } : { on: true, mode: d.g, w: +d.w, h: +d.w });
+                    },
+                    on: b => {
+                        const g = state.grid || {}, d = b.dataset;
+                        if (d.g === 'off')
+                            return !g.on;
+                        const m = g.mode === 'lines' ? 'lines' : g.mode === 'dots' ? 'dots' : 'cross';
+                        return !!g.on && m === d.g && Math.abs((d.g === 'lines' ? g.h : g.w) - +d.w) < 1e-6;
+                    } },
                 // THE ANIMATION'S STRIPS: the values of the chip chosen on the animation's bar (below)
                 animKeys: { btn: null,
                     build: host => {
@@ -63724,7 +63783,7 @@
             if (d.grid && typeof d.grid === 'object') {
                 state.grid = {
                     on: !!d.grid.on,
-                    mode: d.grid.mode === 'lines' ? 'lines' : 'cross',
+                    mode: d.grid.mode === 'lines' ? 'lines' : d.grid.mode === 'dots' ? 'dots' : 'cross',
                     w: Math.max(0.05, +d.grid.w || 0.25),
                     h: Math.max(0.05, +d.grid.h || 0.25),
                     lw: Math.max(0.25, +d.grid.lw || 1),

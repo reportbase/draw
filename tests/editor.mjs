@@ -535,6 +535,48 @@ try {
     }
   });
 
+  // THE BACKGROUNDS ARE THE STRIP'S (15 Nov 2026, Tom: "do the same for background grid. just have buttons for
+  // different backgrounds, no sliders needed"): the grid's button turns the strip to six backgrounds and opens no
+  // panel; a tile is the whole setting and is lit; the button stays lit with the strip closed while one is on.
+  await step('the background grid uses the strip', async () => {
+    const gp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    gp.on('pageerror', e => failures.push(`[backgrounds] ${e.message}`));
+    await gp.route(/fonts\.g/, r => r.abort());
+    try {
+      await gp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await gp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+      const st = () => gp.evaluate(() => [String(window.__strip.mode), document.getElementById('gridPop').classList.contains('open'), document.getElementById('bGrid').classList.contains('active'),
+        [...document.querySelectorAll('.add-strip > .controls.on .anim-tile')].map(t => (t.classList.contains('on') ? '*' : '') + t.querySelector('.cap').textContent).join('|'),
+        document.querySelectorAll('.add-strip > .controls.on .strip-more, .add-strip > .controls.on input').length].join(';'));
+      // what the canvas shows where the background is: brighter pixels with a grid than without
+      const ink = () => gp.evaluate(() => { const c = document.getElementById('cv'), d = c.getContext('2d').getImageData(0, 0, c.width, Math.round(c.height * 0.12)).data;
+        let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 60) n++; return n; });
+      await gp.click('#bGrid');
+      await gp.waitForTimeout(400);
+      const g0 = await st(), i0 = await ink();
+      await gp.click('.add-strip [data-mode="grid"] [data-g="dots"]');
+      await gp.waitForTimeout(400);
+      const g1 = await st(), i1 = await ink();
+      await gp.click('.add-strip [data-mode="grid"] [data-g="cross"][data-w="0.25"]');
+      await gp.waitForTimeout(400);
+      const g2 = await st(), i2 = await ink();
+      await gp.click('#bGrid');
+      await gp.waitForTimeout(300);
+      const g3 = await st();
+      await gp.click('#bGrid');
+      await gp.click('.add-strip [data-mode="grid"] [data-g="off"]');
+      await gp.click('#bGrid');
+      await gp.waitForTimeout(300);
+      const g4 = await st(), i4 = await ink();
+      if (g0 !== 'grid;false;true;*none|fine grid|grid|coarse grid|lines|dots;0' || g1 !== 'grid;false;true;none|fine grid|grid|coarse grid|lines|*dots;0'
+          || g2 !== 'grid;false;true;none|fine grid|*grid|coarse grid|lines|dots;0' || g3 !== 'null;false;true;;0' || g4 !== 'null;false;false;;0'
+          || !(i1 > i0) || !(i2 > i1) || i4 !== i0)
+        throw new Error('backgrounds in the strip: ' + JSON.stringify({ g0, g1, g2, g3, g4, i0, i1, i2, i4 }));
+    } finally {
+      await gp.close();
+    }
+  });
+
   await step('drag on the canvas', () => drag([[640, 400], [700, 430], [760, 460]]));
   await step('freehand stroke', async () => {
     await page.click('#bDraw');
