@@ -407,21 +407,21 @@ T.current = 'path, timeline, weather';
     let T = await track(0);
     const across = T[8][0] - T[0][0], up = Math.max(...T.map(p => p[1])) - T[0][1];
     if (Math.abs(across / up - 4) > 0.05 || Math.abs(T[4][1] - T[0][1] - up) > 0.01 * up) throw new Error('the throw\'s path: ' + JSON.stringify({ across, up, ratio: across / up }));
-    const slide = async (id, v) => { await mp.evaluate(([id, v]) => { const e = document.getElementById(id); e.value = String(v); e.dispatchEvent(new Event('input')); }, [id, v]); await mp.waitForTimeout(200); };
-    await slide('morphGravity', 400);
+    const slide = async (id, v) => { await mp.evaluate(([id, v]) => window.__anim.set(id, v), [id, v]); await mp.waitForTimeout(200); };
+    await slide('gravity', 400);
     T = await track(0);
     if (Math.abs(T[4][0] - T[0][0] - across) > 0.01 * across || Math.abs(T[4][1] - T[0][1]) > 0.01 * up || Math.abs(T[6][0] - T[4][0]) > 1e-9)
       throw new Error('with gravity 4 the throw does not land half way and wait: ' + JSON.stringify(T.map(p => [+(p[0] - T[0][0]).toFixed(4), +(p[1] - T[0][1]).toFixed(4)])));
-    await slide('morphGravity', 100);
-    const lean = async w => { await slide('morphWind', w); const q = await track(1); return q[0][0]; };
+    await slide('gravity', 100);
+    const lean = async w => { await slide('wind', w); const q = await track(1); return q[0][0]; };
     const x0 = await lean(0), xr = await lean(100), xl = await lean(-100);
     if (!(xr > x0 + 1e-6) || !(xl < x0 - 1e-6) || Math.abs((xr - x0) + (xl - x0)) > 1e-6 * Math.abs(xr - x0) + 1e-9) throw new Error('the wind: ' + JSON.stringify({ x0, xr, xl }));
-    await slide('morphGravity', 250);
+    await slide('gravity', 250);
     const d = await mp.evaluate(async () => (await window.__sceneShare()).d);
     if (d.gravity !== 2.5 || d.wind !== -1) throw new Error('the weather in the link: ' + JSON.stringify({ gravity: d.gravity, wind: d.wind }));
     // the timeline's steps
     await mp.evaluate(() => window.__box.select([]));
-    await mp.dispatchEvent('#bMorphTimeline', 'click'); await mp.waitForTimeout(300);
+    await mp.evaluate(() => window.__anim.press('timeline')); await mp.waitForTimeout(300);
     const cuts = await mp.$$('#tlRows .tl-mcut'), segs = await mp.$$('#tlRows .tl-mseg');
     if (cuts.length !== 1 || segs.length !== 8) throw new Error('the timeline shows ' + segs.length + ' step pieces and ' + cuts.length + ' borders');
     const tr = await mp.locator('#tlRows .tl-track[data-r="2"]').boundingBox(), cb = await mp.locator('#tlRows .tl-mcut').boundingBox();
@@ -533,7 +533,7 @@ T.current = 'scene link out';
     const A = await look(a);
     const s = await a.evaluate(async () => { const s = await window.__sceneShare(); return { link: s.link, embed: s.embed }; });
     if (!/\?embed=1#scene=z/.test(s.embed) || !/^<iframe /.test(s.embed) || !/#scene=z/.test(s.link) || /embed=1/.test(s.link)) throw new Error('the link and embed: ' + s.link.slice(0, 80) + ' / ' + s.embed.slice(0, 120));
-    if (!(await a.$('#bMorphLink')) || !(await a.$('#bMorphEmbed'))) throw new Error('no link or embed button in the morph bar');
+    if (!(await a.evaluate(() => ['link', 'embed'].every(n => window.__anim.names().includes(n))))) throw new Error("no link or embed among the animation's controls");
     const b = await open(s.link);
     const B = await look(b);
     if (JSON.stringify(A) !== JSON.stringify(B) || A.morphs.length !== 3 || A.morphs[1].parent !== 0 || !A.morphs[1].path || !A.morphs[2].clip)
@@ -627,7 +627,7 @@ await step('explainers: drawn on, a camera, stops', async () => {
   if (!same) throw new Error('the link back gave ' + JSON.stringify(E2) + ', not ' + JSON.stringify(E1));
   // a stop added on the timeline is one undo step
   await ep.evaluate(() => { window.__box.seek(0.5); });
-  await ep.dispatchEvent('#bMorphTimeline', 'click');
+  await ep.evaluate(() => window.__anim.press('timeline'));
   await ep.click('#tlStop');
   const n1 = (await ep.evaluate(() => window.__box.explain())).stops.length;
   await ep.evaluate(() => document.getElementById('bUndo').click());

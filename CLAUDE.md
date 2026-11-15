@@ -279,11 +279,13 @@ compatibly.
   `morphSetKeyTime`), and a key's tile is its pose (`morphOutlineAt`). Shape is the selected live shape's own settings
   (every live shape's when none is selected), each tile setting a control of the morph's own panel (`#morphRunTool`),
   which opens only when its last tile asks (`_mrAsk`; by itself in the checks, `window.__mrAuto`, set by
-  `tests/harness.mjs`). The morph bar (`#shapeBar`) is retired: nothing opens it, and it stays in the page's column as
-  no height and a margin (the bar's and the strip's height, so the canvas ends above them), holding the controls the
-  tiles press; the checks press them unseen (`dispatchEvent`, `$eval`, never `click` or `selectOption`). Animate
-  (`#bMorphOpen`) with something selected goes straight in (`#bMorphLive`); with nothing selected its popover opens. A
-  new control of the animation needs a tile or a dial.
+  `tests/harness.mjs`). The morph bar is gone (14 Nov 2026, Tom: "5"; THE ANIMATION'S CONTROLS ARE A TABLE, NOT A BAR):
+  what each of its controls did is an entry of `animCtl` (`animCtlOf()`, so the parts can add theirs: `timeline`,
+  `link`, `embed`), `{ press }` for a button and `{ get, set }` for a value, with `min`, `max`, `step` where it was a
+  slider (such an entry is a dial as it stands). The tiles call it, and the checks through `window.__anim`
+  (`press(name)`, `set(name, v)`, `get(name)`, `names()`). `#shapeBar` stays, empty, as the margin that ends the canvas
+  above the bar and the strip. Animate (`#bMorphOpen`) with something selected goes straight in (`#bMorphLive`). A new
+  control of the animation is an entry there and a tile or a dial.
 - Fill and Outline paint (14 Nov 2026, FILL AND OUTLINE PAINT in `draw.html`; Tom: "1 2 3 4 5 6", the fourth): both
   buttons are enabled with nothing selected (outside the edit view). A colour tile tapped is held (`paint`, lit when
   nothing is selected) while that strip is up, and a tap on a shape selects it and presses the same swatch; a held

@@ -688,49 +688,14 @@
         function morphBarSync() {
             const on = morphRunning();
             morphTimelineSync(); // THE TIMELINE
-            const bar = $('morphBar');
-            if (bar)
-                bar.style.display = on ? 'flex' : 'none';
-            // The bar itself is hidden by default — see #shapeBar. This is the one thing that
-            // brings it back, and it takes it away again on exit.
+            // (the class is what brings the animation's bar and its strip up, and takes them away on exit)
             document.body.classList.toggle('morphing', on);
-            const b = $('bMorphPlay');
-            if (b) {
-                b.textContent = morphLive.play ? 'pause' : 'run';
-                b.classList.toggle('active', morphLive.play);
-            }
             const v = $('morphTVal');
             if (v)
                 v.textContent = morphLive.t.toFixed(3);
             const r = $('morphT');
             if (r && +r.value !== Math.round(morphLive.t * 1000))
                 r.value = String(Math.round(morphLive.t * 1000));
-            const k = $('morphKeys');
-            if (k) {
-                if (!on)
-                    k.textContent = '';
-                else {
-                    let keys = 0,
-                        N = 0;
-                    for (const run of morphRuns) {
-                        keys += run.keys.length;
-                        N = Math.max(N, run.keys[0].x.length);
-                    }
-                    k.textContent = (morphRuns.length > 1 ? morphRuns.length + ' morphs · ' : '')
-                    + keys + ' keys · ' + (morphRuns.every(r => r.exact) ? N + ' corners' : 'N=' + N) + (morphLive.inPlace ? ' · in place' : ' · solo');
-                }
-            }
-            // Only while a morph is live. The run's lag outlives the run as a stale field, and
-            // state.morphLag is the SETTING. Syncing the bar from the stale one would quietly drag
-            // the panel's value back to whatever the last morph happened to use.
-            if (on) {
-                const lg = $('morphLagLive');
-                if (lg && +lg.value !== Math.round(morphLive.lag * 100))
-                    lg.value = String(Math.round(morphLive.lag * 100));
-                const lv = $('morphLagVal');
-                if (lv)
-                    lv.textContent = morphLive.lag > 0 ? morphLive.lag.toFixed(2) : 'off';
-            }
         }
         // A run's live shape, or null if it is no longer in the scene. Everything that writes
         // goes through here so there is exactly one place that can be wrong about which shape is

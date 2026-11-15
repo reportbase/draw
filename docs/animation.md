@@ -316,3 +316,22 @@ view in the same pattern, Fill and Outline as tools, a key retimed from its tile
 The check "the animation's bar and strip" in `tests/morph.mjs` covers the dial, the Shape chip and a phone's groups;
 "fill paints the shapes tapped" in `tests/editor.mjs` covers the paint (told in `CLAUDE.md`).
 
+**14 Nov 2026, the morph bar's markup deleted** (Tom: "5", of "delete the old morph bar's markup": the tiles and the
+checks call the engine instead of pressing hidden controls). `#morphBar` and its thirty controls are out of the page;
+the time slider, its reading and its tick list are written in `#animBar` where the script used to move them.
+
+- THE ANIMATION'S CONTROLS ARE A TABLE, NOT A BAR (`draw.html`, where the bar's listeners stood): `animCtl`, got through
+  `animCtlOf()` (a function declaration, so the parts that run earlier in the start can add to the same table). Buttons
+  are `{ press(e) }`: `play`, `keep` (shift freezes), `prevKey`, `nextKey`, `addKey`, `delKey`, `path`, `video`, `gif`,
+  `svg`, `tvfs`, `exit`, and from the parts `timeline` (`parts/timeline.js`), `link` and `embed`
+  (`parts/scene-link.js`). Values are `{ get, set }`: `onion`, `turn` (booleans), `fx`, `ease` (with `options`, the
+  tiles' list), `pathMode`, `trail`, `fps`, `loop` (seconds), and the sliders with `min`, `max`, `step` in the old
+  slider's units: `fxAmt`, `hold`, `gravity` (100 to 400), `wind`, `trailLen`, `lag` (with `done`, the undo step taken
+  when a dial is let go).
+- The values were always the engine's. `morphTimelineSync` used to copy them into the controls each frame; that is
+  gone, and `get` reads `state`, `morphLive` or the first run where the copy was made from.
+- `morphBarSync` (the engine) now only sets `body.morphing` and the slider and its reading. The player's build stubs
+  it, so `player/tvf-player.js` did not change.
+- The checks: `window.__anim.press('addKey')`, `.set('ease', 'inout')`, `.get('loop')` where they dispatched clicks on
+  hidden buttons and read hidden selects. `tests/labs.mjs` knows `parts/timeline.js` by its new first line.
+

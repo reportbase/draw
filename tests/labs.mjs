@@ -180,7 +180,7 @@ await step('parts/ are handed over and run in place', async () => {
     if (html.split(`partRun('${name}');`).length !== 2) throw new Error(`draw.html does not run parts/${name}.js exactly once`);
   }
   for (const first of ["const pop = $('aiPop'),", "const buildPop = $('buildPop'),\n                buildBtn = $('bBuild');", "const BUCKET_API = ", 'function applySceneMorphs(',
-                       "const btn = $('bMorphTimeline');", "const num = (id, fn) => $(id).addEventListener('change', e => {", "const btn = $('bBucketEdit');", "const panel = $('checksumPanel');", "const pop = $('textPop'),"])
+                       "animCtlOf().timeline = { press:", "const num = (id, fn) => $(id).addEventListener('change', e => {", "const btn = $('bBucketEdit');", "const panel = $('checksumPanel');", "const pop = $('textPop'),"])
     if (html.includes(first)) throw new Error('draw.html carries a block of parts/ again: ' + first);
   // the morph engine hands its names back: the names its lines declare at their top, the return list at its foot and
   // the page's var { … } = partRun('morph-engine') must be the same names, or the page cannot see one of them

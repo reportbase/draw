@@ -12,13 +12,11 @@
             const P = $('morphTimeline');
             if (!P)
                 return;
-            const btn = $('bMorphTimeline');
-            if (btn)
-                btn.addEventListener('click', () => {
+            animCtlOf().timeline = { press: () => { // (the animation's Advanced strip has its tile)
                     state.morphTimelineOpen = !state.morphTimelineOpen;
                     _tlSig = '';
                     drawAll();
-                });
+                } };
             // A SEQUENCE: each in turn, sharing the loop in equal windows; or all looping again
             const pick = () => {
                 const sel = morphRunToolRuns();
