@@ -343,3 +343,14 @@ margin is the strip's 104px without it, so the canvas takes the bar's room back 
 goes too (`_mrAsk` cleared). Animate on the top bar, lit while a morph is live, turns the strip back to Keys and the bar
 returns. The check in `tests/morph.mjs` ("the animation's bar and strip") covers it.
 
+**15 Nov 2026, the slider's own row and the chips' ring** (Tom: "the morph time slider should be on the top row, all by
+it self, and centered, full width except its maximum width is 640 pixels. the keys, motion, path buttons should be
+fitted with the same fish eye wrap around, with the button width being the maximum button width"). `#animBar` is two
+rows. `#abT` holds the slider alone, centred, `width: 100%` to a `max-width` of 640px. `#abRow` holds play, the time's
+reading (`#morphTVal`) and `#abChips`, a `.controls` ring made by `makeRing` the first time the bar is up (`animRing`):
+the chips are measured once at their natural widths and all given the widest (`--ab-w`), so the ring's pitch is one
+number. Eleven fit a wide screen as a centred row; on a phone they are the fisheye ring, dragged or thrown round. The
+phone's groups (Keys, Move, Feel, …) went, since the ring does their work, and a lit chip pressed again now stays lit
+(its strip closing would take the bar away). The ring is not turned to the lit chip by the code: `focus(i)` did not
+centre it there, and a chip just pressed is in view anyway.
+

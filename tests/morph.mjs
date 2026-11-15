@@ -1030,7 +1030,17 @@ T.current = 'the animation\'s bar and strip';
     await ap.waitForTimeout(500);
     const end = await ap.evaluate(() => ({ live: document.body.classList.contains('morphing'), mode: window.__strip.mode, bar: getComputedStyle(document.getElementById('animBar')).display }));
     if (!more || end.live || (end.mode && end.mode.startsWith('anim')) || end.bar !== 'none') throw new Error('More and Exit: ' + JSON.stringify({ more, end }));
-    // ON A PHONE THE CHIPS ARE IN GROUPS (the sixth): six across, and a group opened shows its own after a way back
+    // THE TIME SLIDER HAS THE TOP ROW TO ITSELF, AND THE CHIPS ARE A RING (15 Nov 2026): on a wide screen the slider is
+    // alone on its row, centred and 640px wide, every chip is as wide as the widest and all eleven show in a row; on
+    // a phone the slider is the bar's width, and the chips are a ring that wraps: not all show, and a drag turns it
+    const lay = pg => pg.evaluate(() => { const s = document.getElementById('morphT').getBoundingClientRect(), row = document.getElementById('abT').getBoundingClientRect();
+      const chips = [...document.querySelectorAll('#abChips .ab-chip')], seen = chips.filter(b => b.style.display !== 'none');
+      return { w: Math.round(s.width), mid: Math.round(s.left + s.width / 2), alone: document.getElementById('abT').children.length === 2 && row.bottom <= document.getElementById('abRow').getBoundingClientRect().top + 1,
+        widths: [...new Set(chips.map(b => b.offsetWidth).filter(Boolean))].length, widest: Math.max(...chips.map(b => b.scrollWidth)) <= chips[0].offsetWidth, seen: seen.map(b => b.textContent).join() }; });
+    const wide = await (async () => { await ap.evaluate(() => { window.__box.select([0, 1]); document.getElementById('bMorphLive').click(); }); await ap.waitForTimeout(700);
+      const r = await lay(ap); await ap.click('#abExit'); await ap.waitForTimeout(400); return r; })();
+    if (wide.w !== 640 || wide.mid !== 640 || !wide.alone || wide.widths !== 1 || !wide.widest || wide.seen !== 'Keys,Motion,Path,Physics,Ease,Timing,Effect,Export,Shape,Advanced,Exit')
+      throw new Error('the bar on a wide screen: ' + JSON.stringify(wide));
     const pc = await browser.newContext({ viewport: { width: 390, height: 780 }, hasTouch: true });
     const pp = await pc.newPage();
     pp.on('pageerror', e => failures.push(`[animation bar, phone] ${e.message}`));
@@ -1040,19 +1050,16 @@ T.current = 'the animation\'s bar and strip';
     await pp.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
     await pp.waitForTimeout(1200);
     await pp.evaluate(() => { window.__box.select([0, 1]); document.getElementById('bMorphLive').click(); });
-    await pp.waitForTimeout(600);
-    const vis = () => pp.evaluate(() => [...document.querySelectorAll('#animBar .ab-chip')].filter(c => c.offsetParent).map(c => c.textContent + (c.classList.contains('on') ? '*' : '')).join());
-    const g0 = await vis();
-    const fits = await pp.evaluate(() => { const r = document.querySelector('#animBar .ab-chips'); return r.scrollWidth <= r.clientWidth + 1; });
-    await pp.click('#animBar .ab-group[data-open="move"]');
-    await pp.waitForTimeout(300);
-    const g1 = await vis() + '|' + await pp.evaluate(() => window.__strip.mode);
-    await pp.click('#abBack');
-    await pp.waitForTimeout(200);
-    const g2 = await vis();
+    await pp.waitForTimeout(700);
+    const ph0 = await lay(pp);
+    const rb = await pp.locator('#abChips').boundingBox();
+    await pp.mouse.move(rb.x + rb.width - 20, rb.y + rb.height / 2); await pp.mouse.down();
+    await pp.mouse.move(rb.x + 20, rb.y + rb.height / 2, { steps: 8 }); await pp.mouse.up();
+    await pp.waitForTimeout(900);
+    const ph1 = await lay(pp);
     await pc.close();
-    if (g0 !== 'Keys*,Move,Feel,Export,More,Exit' || !fits || g1 !== '‹,Motion*,Path,Physics|animMotion' || g2 !== 'Keys,Move*,Feel,Export,More,Exit')
-      throw new Error("a phone's groups: " + JSON.stringify({ g0, fits, g1, g2 }));
+    if (!(ph0.w >= 340 && ph0.w <= 390) || Math.abs(ph0.mid - 195) > 2 || !ph0.alone || ph0.widths !== 1 || ph0.seen.split(',').length >= 11 || !/^Keys/.test(ph0.seen) || ph1.seen === ph0.seen)
+      throw new Error("the bar on a phone: " + JSON.stringify({ ph0, ph1 }));
   } catch (e) {
     failures.push(`[animation bar] ${e.message.split('\n')[0]}`);
   }

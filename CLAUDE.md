@@ -306,6 +306,11 @@ compatibly.
   ANIMATION'S BAR GOES WITH ITS STRIP): `#animBar` shows only while `body.anim-bar`, which `setMode` sets for the
   `anim…` modes, so the strip closed or turned to another mode takes the bar, the morph's own panel (`_mrAsk`) and the
   bar's share of the canvas's margin with it; Animate brings them back.
+  The time slider has the bar's top row to itself, centred, the bar's width up to 640px, and the chips are a ring
+  (15 Nov 2026, THE TIME SLIDER HAS THE TOP ROW TO ITSELF, AND THE CHIPS ARE A RING): `#abChips` is a `makeRing` like
+  the top bar's (`animRing`), every chip the widest one's width (`--ab-w`), a centred row when they fit and the fisheye
+  ring that wraps when they do not. The phone's groups (`.ab-group`, `#abBack`) are gone, and a lit chip pressed again
+  stays lit. Play and the time's reading stand left of the ring on the second row (`#abRow`).
 - Fill and Outline paint (14 Nov 2026, FILL AND OUTLINE PAINT in `draw.html`; Tom: "1 2 3 4 5 6", the fourth): both
   buttons are enabled with nothing selected (outside the edit view). A colour tile tapped is held (`paint`, lit when
   nothing is selected) while that strip is up, and a tap on a shape selects it and presses the same swatch; a held
