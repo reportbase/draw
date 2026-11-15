@@ -229,6 +229,10 @@ compatibly.
   shapes still open and a double-click on one still opens its formula. Generate with AI (`#bAi`) and Reading (`#bRead`) are the
   menu's (the same day: "Move generate with ai to the menu. Move reading to the menu."): held off the bar likewise, pressed
   by the menu's `#bMenuAi` and `#bMenuRead`, their panels standing under the menu's button (`placePop`). A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
+- Arrange to grid is the strip's (15 Nov 2026, ARRANGE TO GRID IS THE STRIP'S; Tom: "can you move arrange to grid panel
+  to the footer?"): `#bArrangeOpen` turns the strip to `MODES.arrange` (Arrange, fill cells, fit screen, expand), each
+  tile setting the panel's control (`#bArrange`, `#tArrangeFit`, `#selArrangeExtent`); the cell's size and the captions,
+  typed in, are behind the first tile, which stands `#arrangePop` above the strip (`more`).
 - The selection's strip is asked for (15 Nov 2026, THE SELECTION'S STRIP IS ASKED FOR; Tom: "Selecting an object should
   not show the footer. Instead, Add a button to the toolbar to show the current selection footer bar"): selecting no
   longer turns the strip to mode `select`. The top bar's Selection button (`#bSelStrip`, `MODES.select.btn`, off while
@@ -298,6 +302,15 @@ compatibly.
   (`press(name)`, `set(name, v)`, `get(name)`, `names()`). `#shapeBar` stays, empty, as the margin that ends the canvas
   above the bar and the strip. Animate (`#bMorphOpen`) with something selected goes straight in (`#bMorphLive`). A new
   control of the animation is an entry there and a tile or a dial.
+  The bar goes with its strip (15 Nov 2026, Tom: "Morph bar does not close when footer closes or changes"; THE
+  ANIMATION'S BAR GOES WITH ITS STRIP): `#animBar` shows only while `body.anim-bar`, which `setMode` sets for the
+  `anim…` modes, so the strip closed or turned to another mode takes the bar, the morph's own panel (`_mrAsk`) and the
+  bar's share of the canvas's margin with it; Animate brings them back.
+  The time slider has the bar's top row to itself, centred, the bar's width up to 640px, and the chips are a ring
+  (15 Nov 2026, THE TIME SLIDER HAS THE TOP ROW TO ITSELF, AND THE CHIPS ARE A RING): `#abChips` is a `makeRing` like
+  the top bar's (`animRing`), every chip the widest one's width (`--ab-w`), a centred row when they fit and the fisheye
+  ring that wraps when they do not. The phone's groups (`.ab-group`, `#abBack`) are gone, and a lit chip pressed again
+  stays lit. Play and the time's reading stand left of the ring on the second row (`#abRow`).
 - Fill and Outline paint (14 Nov 2026, FILL AND OUTLINE PAINT in `draw.html`; Tom: "1 2 3 4 5 6", the fourth): both
   buttons are enabled with nothing selected (outside the edit view). A colour tile tapped is held (`paint`, lit when
   nothing is selected) while that strip is up, and a tap on a shape selects it and presses the same swatch; a held

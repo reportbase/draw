@@ -2833,16 +2833,27 @@
                       align-items: center; gap: 8px 10px; flex-wrap: wrap; padding: 6px 12px;
                       background: var(--bar-bg); border-top: 1px solid var(--bar-line);
                     }
-                    body.morphing #animBar { display: flex; }
+                    /* …while the strip shows one of its chips' values (body.anim-bar, set with the strip's mode). The strip
+                       closed, or turned to something else (Fill, the selection), takes the bar with it (15 Nov 2026, Tom:
+                       "Morph bar does not close when footer closes or changes"); Animate on the top bar brings both back. */
+                    body.morphing.anim-bar #animBar { display: flex; }
                     #animBar #abPlay { width: 40px; height: 40px; flex: 0 0 auto; }
                     #animBar #abPlay svg { width: 20px; height: 20px; }
-                    #animBar #abT { display: flex; align-items: center; gap: 8px; flex: 1 1 180px; min-width: 150px; }
-                    #animBar #abT input[type=range] { flex: 1 1 auto; width: auto !important; min-width: 90px; accent-color: var(--gold); }
-                    #animBar #abT .val { color: var(--gold); font: 12px 'DM Mono', monospace; min-width: 42px; }
-                    /* one line of chips, panned when a phone has not the width for the ten */
-                    #animBar .ab-chips { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
-                    #animBar .ab-chips::-webkit-scrollbar { display: none; }
-                    #animBar .ab-chip { flex: 0 0 auto; white-space: nowrap; }
+                    /* THE TIME SLIDER HAS THE TOP ROW TO ITSELF, AND THE CHIPS ARE A RING (15 Nov 2026, Tom: "the morph time
+                       slider should be on the top row, all by it self, and centered, full width except its maximum width
+                       is 640 pixels. the keys, motion, path buttons should be fitted with the same fish eye wrap around,
+                       with the button width being the maximum button width"). Two rows: the slider, centred, as wide as
+                       the bar up to 640px; under it play, the time's reading and the chips. The chips are a ring of the
+                       same kind as the top bar's and the strip's (makeRing, on #abChips): every chip as wide as the
+                       widest (--ab-w, measured once they can be), a centred row when they fit and the fisheye ring that
+                       wraps round when they do not, which is what a phone has. The groups a phone had are gone with it. */
+                    #animBar { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 4px; }
+                    #animBar #abT { display: flex; justify-content: center; }
+                    #animBar #abT input[type=range] { width: 100%; max-width: 640px; min-width: 0; margin: 0; accent-color: var(--gold); }
+                    #animBar #abRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+                    #animBar #abRow .val { color: var(--gold); font: 12px 'DM Mono', monospace; min-width: 42px; flex: 0 0 auto; }
+                    #animBar .ab-chips { flex: 1 1 auto; min-width: 0; height: 40px; }
+                    #animBar .ab-chips > .ab-chip { width: var(--ab-w, auto); height: 32px; margin: -16px 0 0 calc(var(--ab-w, 64px) / -2); white-space: nowrap; text-align: center; }
                     /* the lit chip's dials (an effect's strength, a trail's length, gravity and wind, the lag): a small
                        panel standing on the bar, over the foot of the drawing, as the shape tool's stands on the strip */
                     #animBar #abDials {
@@ -2854,7 +2865,7 @@
                     #animBar #abDials label { display: flex; align-items: center; gap: 6px; }
                     #animBar #abDials input[type=range] { width: 120px; accent-color: var(--gold); }
                     #animBar .ab-chip {
-                      font: 12px system-ui, sans-serif; padding: 7px 11px; border-radius: 16px; cursor: pointer;
+                      font: 12px system-ui, sans-serif; padding: 0 11px; border-radius: 16px; cursor: pointer;
                       color: var(--fg); background: var(--chip-bg); border: 1px solid var(--chip-line);
                     }
                     #animBar .ab-chip.on { background: var(--gold); color: #14141a; border-color: var(--gold); }
@@ -2862,18 +2873,8 @@
                        end above the animation's bar and the strip (its margin is their height), so the drawing is never
                        under them. It is that margin and nothing else; the morph bar it held is gone (14 Nov 2026, THE
                        ANIMATION'S CONTROLS ARE A TABLE, NOT A BAR). */
-                    body.morphing #shapeBar { display: flex; height: 0; min-height: 0; padding: 0; overflow: hidden; margin-bottom: calc(104px + var(--anim-h, 52px)); }
-                    /* ON A PHONE THE CHIPS ARE IN GROUPS (the same day, the sixth): eleven chips were a line to pan, most of
-                       it out of sight. Keys, Move, Feel, Export, More and Exit fit across; a group opened shows its own
-                       chips after a way back. A wide screen has the room and shows them all. */
-                    #animBar .ab-group, #animBar .ab-back { display: none; }
-                    body.phone-bar #animBar:not([data-group]) .ab-chip[data-group] { display: none; }
-                    body.phone-bar #animBar:not([data-group]) .ab-group { display: inline-block; }
-                    body.phone-bar #animBar[data-group] .ab-chip { display: none; }
-                    body.phone-bar #animBar[data-group] .ab-back { display: inline-block; }
-                    body.phone-bar #animBar[data-group="move"] .ab-chip[data-group="move"],
-                    body.phone-bar #animBar[data-group="feel"] .ab-chip[data-group="feel"],
-                    body.phone-bar #animBar[data-group="more"] .ab-chip[data-group="more"] { display: inline-block; }
+                    body.morphing #shapeBar { display: flex; height: 0; min-height: 0; padding: 0; overflow: hidden; margin-bottom: 104px; }
+                    body.morphing.anim-bar #shapeBar { margin-bottom: calc(104px + var(--anim-h, 52px)); }
                     /* a tile of the animation's strips is a picture with its word under it */
                     .add-strip > .controls > .anim-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--fg); }
                     .add-strip > .controls > .anim-tile svg { width: 36px; height: 36px; }
@@ -6978,29 +6979,29 @@
          morph bar as the page starts), and the animation's options as chips; the strip below shows the values of the chip
          chosen (THE ANIMATION'S BAR AND STRIP, in the script). The morph bar above is shut, the holder of what they press. -->
     <div id="animBar" role="toolbar" aria-label="animation">
-        <button type="button" id="abPlay" class="icon-btn" aria-label="Play" title="run the animation, or pause it"></button>
-        <span id="abT">
-            <input type="range" id="morphT" list="morphTickList" min="0" max="1000" step="1" value="0" style="width:min(340px,38vw);" title="where the blend sits between the keys. With two keys this is a straight lerp; with three or more the keys sit on a TIME CIRCLE and the weights are the same cardinal kernel that reconstructs a contour — so the loop closes and passing t=1 comes back to the first key without a seam.">
-            <span class="val" id="morphTVal">0.000</span>
+        <!-- the time slider, a row to itself (15 Nov 2026) -->
+        <div id="abT">
+            <input type="range" id="morphT" list="morphTickList" min="0" max="1000" step="1" value="0" title="where the blend sits between the keys. With two keys this is a straight lerp; with three or more the keys sit on a TIME CIRCLE and the weights are the same cardinal kernel that reconstructs a contour — so the loop closes and passing t=1 comes back to the first key without a seam.">
             <datalist id="morphTickList"></datalist>
-        </span>
-        <span class="ab-chips">
-            <button type="button" class="ab-chip ab-back" id="abBack" aria-label="Back to the groups" title="back to the groups">‹</button>
-            <button type="button" class="ab-chip" data-anim="keys" title="the poses the animation passes through: tap one to stand on it, add the pose you are looking at, take one away; the dial moves the key you stand on to another time">Keys</button>
-            <button type="button" class="ab-chip ab-group" data-open="move" title="how it moves: a physical motion, a path, gravity and wind">Move</button>
-            <button type="button" class="ab-chip" data-anim="motion" data-group="move" title="a physical motion for the animated shape: bounce, fall, swing, spring, roll, throw, sway, pop, drift">Motion</button>
-            <button type="button" class="ab-chip" data-anim="path" data-group="move" title="a path for the animated shape to ride: draw one, or ride a line of the drawing; along or there and back; the trail it leaves">Path</button>
-            <button type="button" class="ab-chip" data-anim="physics" data-group="move" title="gravity and wind, for every physical motion in the scene">Physics</button>
-            <button type="button" class="ab-chip ab-group" data-open="feel" title="how it feels: the ease from key to key, the loop's length and its holds, an effect on the outline">Feel</button>
-            <button type="button" class="ab-chip" data-anim="ease" data-group="feel" title="how it moves from one key to the next">Ease</button>
-            <button type="button" class="ab-chip" data-anim="timing" data-group="feel" title="how long a loop takes, and how long it rests on each key">Timing</button>
-            <button type="button" class="ab-chip" data-anim="fx" data-group="feel" title="an effect on the outline's detail">Effect</button>
-            <button type="button" class="ab-chip" data-anim="export" title="save or share the animation: video, GIF, animated SVG, scene file, link, embed code">Export</button>
-            <button type="button" class="ab-chip ab-group" data-open="more" title="one shape's own settings, and the timeline, onion skin, keep this pose, frames a second, detail lag">More</button>
-            <button type="button" class="ab-chip" data-anim="shape" data-group="more" title="the selected animated shape's own settings: its speed, its spin, a trail and an effect of its own, copies, its place on the clock">Shape</button>
-            <button type="button" class="ab-chip" data-anim="adv" data-group="more" title="the timeline, onion skin, keep this pose, frames a second, detail lag">Advanced</button>
-            <button type="button" class="ab-chip" id="abExit" title="end the animation and put its keys back where they were">Exit</button>
-        </span>
+        </div>
+        <!-- play, the time's reading, and the chips on a ring of their own -->
+        <div id="abRow">
+            <button type="button" id="abPlay" class="icon-btn" aria-label="Play" title="run the animation, or pause it"></button>
+            <span class="val" id="morphTVal">0.000</span>
+            <div class="controls ab-chips" id="abChips">
+                <button type="button" class="icon-btn ab-chip" data-anim="keys" title="the poses the animation passes through: tap one to stand on it, add the pose you are looking at, take one away; the dial moves the key you stand on to another time">Keys</button>
+                <button type="button" class="icon-btn ab-chip" data-anim="motion" title="a physical motion for the animated shape: bounce, fall, swing, spring, roll, throw, sway, pop, drift">Motion</button>
+                <button type="button" class="icon-btn ab-chip" data-anim="path" title="a path for the animated shape to ride: draw one, or ride a line of the drawing; along or there and back; the trail it leaves">Path</button>
+                <button type="button" class="icon-btn ab-chip" data-anim="physics" title="gravity and wind, for every physical motion in the scene">Physics</button>
+                <button type="button" class="icon-btn ab-chip" data-anim="ease" title="how it moves from one key to the next">Ease</button>
+                <button type="button" class="icon-btn ab-chip" data-anim="timing" title="how long a loop takes, and how long it rests on each key">Timing</button>
+                <button type="button" class="icon-btn ab-chip" data-anim="fx" title="an effect on the outline's detail">Effect</button>
+                <button type="button" class="icon-btn ab-chip" data-anim="export" title="save or share the animation: video, GIF, animated SVG, scene file, link, embed code">Export</button>
+                <button type="button" class="icon-btn ab-chip" data-anim="shape" title="the selected animated shape's own settings: its speed, its spin, a trail and an effect of its own, copies, its place on the clock">Shape</button>
+                <button type="button" class="icon-btn ab-chip" data-anim="adv" title="the timeline, onion skin, keep this pose, frames a second, detail lag">Advanced</button>
+                <button type="button" class="icon-btn ab-chip" id="abExit" title="end the animation and put its keys back where they were">Exit</button>
+            </div>
+        </div>
         <span id="abDials"></span>
     </div>
 
@@ -57418,6 +57419,46 @@
                         if (el && el.classList.contains('open'))
                             placePop(el, t);
                     } },
+                // ARRANGE TO GRID IS THE STRIP'S (15 Nov 2026, Tom: "can you move arrange to grid panel to the footer?").
+                // The top bar's Arrange opened a panel; it turns the strip to these now: Arrange (the panel's own
+                // button, pressed), whether each shape is fitted to its cell, and whether the grid is fitted to the
+                // screen or left to run past it. Each sets the panel's control and fires its event, so the panel is
+                // still the code that acts. What a tile cannot hold, the cell's size and the captions, typed in, is
+                // behind the first tile, which stands the panel above the strip as Fill's sliders stand.
+                arrange: { btn: 'bArrangeOpen', more: 'arrangePop',
+                    build: host => {
+                        const m = document.createElement('button');
+                        m.type = 'button';
+                        m.className = 'icon-btn strip-more';
+                        m.setAttribute('aria-label', 'Cell size and captions');
+                        m.innerHTML = SLIDERS;
+                        host.appendChild(m);
+                        const cell = (x, y, s) => '<rect x="' + x + '" y="' + y + '" width="' + s + '" height="' + s + '" rx="2"/>';
+                        const grid = cell(8, 8, 17) + cell(31, 8, 17) + cell(8, 31, 17) + cell(31, 31, 17);
+                        animTile(host, { act: 'go' }, 'Arrange every shape on one grid', 'arrange', grid + '<circle cx="16.5" cy="16.5" r="4" fill="currentColor"/><circle cx="39.5" cy="16.5" r="4" fill="currentColor"/><circle cx="16.5" cy="39.5" r="4" fill="currentColor"/><circle cx="39.5" cy="39.5" r="4" fill="currentColor"/>');
+                        animTile(host, { act: 'fit' }, 'Scale each shape to fill its cell', 'fill cells', '<rect x="10" y="10" width="36" height="36" rx="3"/><circle cx="28" cy="28" r="15"/>');
+                        animTile(host, { ext: 'fit' }, 'Fit the whole grid to the screen', 'fit screen', '<rect x="6" y="10" width="44" height="36" rx="3"/>' + cell(16, 18, 9) + cell(31, 18, 9) + cell(16, 30, 9) + cell(31, 30, 9));
+                        animTile(host, { ext: 'expand' }, 'Let the grid run beyond the screen', 'expand', '<rect x="14" y="14" width="28" height="28" rx="3"/><path d="M6 28h6M44 28h6M28 6v6M28 44v6M8 24l-4 4l4 4M48 24l4 4l-4 4"/>');
+                    },
+                    tap: b => {
+                        const d = b.dataset;
+                        if (d.act === 'go') {
+                            const go = $('bArrange');
+                            if (go.disabled)
+                                flashStatus(go.title || 'nothing to arrange yet');
+                            else
+                                go.click();
+                        } else if (d.act === 'fit') {
+                            const t = $('tArrangeFit');
+                            t.checked = !t.checked;
+                            t.dispatchEvent(new Event('change'));
+                        } else {
+                            const s = $('selArrangeExtent');
+                            s.value = d.ext;
+                            s.dispatchEvent(new Event('change'));
+                        }
+                    },
+                    on: b => b.dataset.act === 'fit' ? $('tArrangeFit').checked : b.dataset.ext != null && $('selArrangeExtent').value === b.dataset.ext },
                 // THE ANIMATION'S STRIPS: the values of the chip chosen on the animation's bar (below)
                 animKeys: { btn: null,
                     build: host => {
@@ -58090,6 +58131,21 @@
                 if (typeof setShapeTool === 'function')
                     setShapeTool(mode === 'shape'); // and the Shape mode the shape tool (THE SHAPE TOOL'S CHOICES ARE THE STRIP'S)
                 document.body.classList.toggle('adding', !!mode);
+                {
+                    // THE ANIMATION'S BAR GOES WITH ITS STRIP (15 Nov 2026, Tom: "Morph bar does not close when footer
+                    // closes or changes"). The bar stood above the strip for as long as a morph was live, whatever the
+                    // strip was showing, so with the strip closed or turned to Fill it was a row of chips over nothing
+                    // of theirs. It is up only while the strip shows one of its chips' values now, and the morph's own
+                    // panel, opened from the Shape chip, goes with it; the canvas takes the room back.
+                    const bar = !!mode && mode.slice(0, 4) === 'anim' && mode !== 'animPick';
+                    if (document.body.classList.contains('anim-bar') !== bar) {
+                        document.body.classList.toggle('anim-bar', bar);
+                        if (!bar)
+                            _mrAsk = false;
+                        if (document.body.classList.contains('morphing') && typeof resizeCanvas === 'function')
+                            requestAnimationFrame(() => { resizeCanvas(); drawAll(); });
+                    }
+                }
                 if (mode)
                     document.body.dataset.strip = mode;
                 else
@@ -58498,6 +58554,25 @@
                 }
             }
             const animLive = () => document.body.classList.contains('morphing');
+            // THE CHIPS' RING (THE TIME SLIDER HAS THE TOP ROW TO ITSELF, AND THE CHIPS ARE A RING, in the styles). Made
+            // the first time the bar is up, when a chip can be measured: every chip takes the widest one's width, and
+            // the ring is laid out again.
+            let abRing = null, abW = 0;
+            function animRing() {
+                const host = $('abChips');
+                if (!host || !host.offsetWidth)
+                    return;
+                const chips = [...host.querySelectorAll('.ab-chip')];
+                if (!abW) {
+                    host.style.setProperty('--ab-w', 'auto');
+                    abW = Math.ceil(Math.max(...chips.map(b => b.offsetWidth)));
+                    host.style.setProperty('--ab-w', abW + 'px');
+                }
+                if (!abRing)
+                    abRing = makeRing(host);
+                abRing.refresh(); // (it stays turned as it was left: a chip just pressed is in view)
+            }
+            window.__animRing = () => ({ w: abW, ring: !!abRing });
             let animAsk = false; // Animate pressed for its popover (the Options tile)
             // the strip turned to a chip's values. One shape's settings are the selected shape's; with none selected,
             // every live shape's
@@ -58511,7 +58586,7 @@
                 if (!animLive())
                     return;
                 const play = !!morphLive.play;
-                const sig = play + '|' + (morphRuns[0] ? morphRuns[0].keys.length : 0) + '|' + mode + '|' + (animBar.dataset.group || '');
+                const sig = play + '|' + (morphRuns[0] ? morphRuns[0].keys.length : 0) + '|' + mode;
                 if (sig !== animSig) {
                     animSig = sig;
                     const bp = $('abPlay');
@@ -58521,8 +58596,7 @@
                     bp.classList.toggle('active', play);
                     for (const c of animBar.querySelectorAll('.ab-chip[data-anim]'))
                         c.classList.toggle('on', ANIM_TABS[c.dataset.anim] === mode);
-                    for (const g of animBar.querySelectorAll('.ab-group')) // a group is lit while one of its chips is
-                        g.classList.toggle('on', !!animBar.querySelector('.ab-chip.on[data-group="' + g.dataset.open + '"]'));
+                    animRing();
                     animDials();
                     // the keys' strip is a tile a key, each its pose as it is now
                     const kh = MODES.animKeys.host;
@@ -58559,22 +58633,12 @@
                 });
                 $('abExit').addEventListener('click', () => animCtlOf().exit.press({}));
                 animBar.addEventListener('click', e => {
-                    const g = e.target.closest('.ab-group, .ab-back');
-                    if (g) { // a phone's groups: one opened shows its chips, turned to the one in use or its first
-                        if (g.dataset.open) {
-                            animBar.dataset.group = g.dataset.open;
-                            const mine = [...animBar.querySelectorAll('.ab-chip[data-group="' + g.dataset.open + '"]')];
-                            if (!mine.some(c => ANIM_TABS[c.dataset.anim] === mode))
-                                animTurn(ANIM_TABS[mine[0].dataset.anim]);
-                        } else
-                            delete animBar.dataset.group;
-                        animSync();
-                        return;
-                    }
                     const c = e.target.closest('.ab-chip[data-anim]');
                     if (!c)
                         return;
-                    animTurn(mode === ANIM_TABS[c.dataset.anim] ? null : ANIM_TABS[c.dataset.anim]);
+                    // (the lit chip pressed again stays: its strip closing would take this bar with it)
+                    if (mode !== ANIM_TABS[c.dataset.anim])
+                        animTurn(ANIM_TABS[c.dataset.anim]);
                     animSync();
                 });
                 // a morph begun or ended, however it was (the engine's morphBarSync sets the class, and nothing else does)
@@ -58586,7 +58650,6 @@
                     wasLive = live;
                     animSig = '';
                     if (live) {
-                        delete animBar.dataset.group;
                         setMode('animKeys');
                         animSync();
                     } else {
