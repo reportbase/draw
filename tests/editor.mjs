@@ -285,15 +285,25 @@ try {
       // dropper takes a colour off a shape that wears it, and that colour is the one held
       const wears = i => fp.evaluate(async i => { window.__box.select([i]); await new Promise(r => setTimeout(r, 250));
         const s = document.querySelector('#spFillGrid .sw.on'); return s ? s.title : ''; }, i);
+      const pre = [await wears(0), await wears(1)]; // (the panel lights the nearest swatch to a colour not on the palette)
       await fp.evaluate(() => window.__box.select([]));
       await fp.waitForTimeout(200);
-      const sw2 = await fp.evaluate(() => { const t = [...document.querySelectorAll('.add-strip > .controls.on .strip-sw')].filter(t => /^#/.test(t.getAttribute('aria-label')))[14];
+      const sw2 = await fp.evaluate(() => { const t = [...document.querySelectorAll('.add-strip > .controls.on .strip-sw')].filter(t => /^#/.test(t.getAttribute('aria-label')))[26];
         t.click(); return t.getAttribute('aria-label'); });
       const mid = { x: cv.x + cv.width / 2, y: cv.y + cv.height / 2 };
       await fp.mouse.move(mid.x + 150, mid.y); await fp.mouse.down();
       await fp.mouse.move(mid.x - 150, mid.y, { steps: 12 }); await fp.mouse.up();
       await fp.waitForTimeout(400);
       const both = [await wears(0), await wears(1)];
+      // ONE STROKE, ONE UNDO: a single undo takes the colour off both again, and a redo puts it back
+      await fp.keyboard.press('ControlOrMeta+z');
+      await fp.waitForTimeout(400);
+      const undone = [await wears(0), await wears(1)];
+      await fp.keyboard.press('ControlOrMeta+Shift+z');
+      await fp.waitForTimeout(400);
+      const redone = [await wears(0), await wears(1)];
+      if (pre.includes(sw2) || undone.join() !== pre.join() || redone.join() !== sw2 + ',' + sw2)
+        throw new Error('one stroke, one undo: ' + JSON.stringify({ sw, sw2, pre, both, undone, redone }));
       await fp.evaluate(() => window.__box.select([]));
       // the circle given the first colour by a tap, the dropper pressed, the circle pressed: the first colour is held
       await fp.evaluate(l => document.querySelector(`.add-strip > .controls.on .strip-sw[aria-label="${l}"]`).click(), sw);

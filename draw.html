@@ -58420,8 +58420,15 @@
                     if (i >= 0)
                         paint = { mode, i };
                     flashStatus(i >= 0 ? 'colour picked up · tap or stroke across the shapes to paint' : 'that colour is not one of the palette\'s');
-                } else if (src[paint.i])
-                    src[paint.i].click();
+                } else if (src[paint.i]) {
+                    // ONE STROKE, ONE UNDO (15 Nov 2026, Tom: "5", of "one undo per paint stroke"). Each shape was
+                    // painted by pressing the panel's swatch, which is a committed change of its own, so a stroke
+                    // across five shapes took five undos to take back. The colour is set on the shape directly here
+                    // (the same setter the swatch calls) and the one history entry is taken when the stroke ends.
+                    const stops = mode === 'fill' ? FILL_STOPS : LINE_STOPS;
+                    (mode === 'fill' ? setSelectionFillColor : setSelectionStrokeColor)(stops[paint.i]);
+                    stroke.dirty = true;
+                }
                 drawAll();
                 requestAnimationFrame(() => mirror(mode));
             };
@@ -58466,6 +58473,12 @@
                     if (!stroke || e.pointerId !== stroke.id)
                         return;
                     e.stopPropagation();
+                    if (stroke.dirty) { // the stroke's one entry in the history
+                        pushHistory();
+                        syncStylePop();
+                        scheduleSave();
+                        requestAnimationFrame(() => mirror(mode));
+                    }
                     stroke = null;
                 }, true);
             // the mouse and touch events of the same press, which the canvas also listens to
