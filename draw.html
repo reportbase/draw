@@ -2843,15 +2843,18 @@
                        slider should be on the top row, all by it self, and centered, full width except its maximum width
                        is 640 pixels. the keys, motion, path buttons should be fitted with the same fish eye wrap around,
                        with the button width being the maximum button width"). Two rows: the slider, centred, as wide as
-                       the bar up to 640px; under it play, the time's reading and the chips. The chips are a ring of the
+                       the bar allows up to 640px, with play and the time's reading; under it the chips. The chips are a ring of the
                        same kind as the top bar's and the strip's (makeRing, on #abChips): every chip as wide as the
                        widest (--ab-w, measured once they can be), a centred row when they fit and the fisheye ring that
                        wraps round when they do not, which is what a phone has. The groups a phone had are gone with it. */
                     #animBar { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 4px; }
-                    #animBar #abT { display: flex; justify-content: center; }
-                    #animBar #abT input[type=range] { width: 100%; max-width: 640px; min-width: 0; margin: 0; accent-color: var(--gold); }
-                    #animBar #abRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
-                    #animBar #abRow .val { color: var(--gold); font: 12px 'DM Mono', monospace; min-width: 42px; flex: 0 0 auto; }
+                    /* (the same day, Tom: "the time slide and connected button need to be on their own row": play and the
+                       time's reading are the slider's, so they stand on its row, either side of it, the three centred
+                       together; the chips' row is the chips alone) */
+                    #animBar #abT { display: flex; justify-content: center; align-items: center; gap: 8px; }
+                    #animBar #abT input[type=range] { flex: 1 1 auto; width: auto; max-width: 640px; min-width: 0; margin: 0; accent-color: var(--gold); }
+                    #animBar #abT .val { color: var(--gold); font: 12px 'DM Mono', monospace; min-width: 42px; flex: 0 0 auto; }
+                    #animBar #abRow { display: flex; align-items: center; min-width: 0; }
                     #animBar .ab-chips { flex: 1 1 auto; min-width: 0; height: 40px; }
                     #animBar .ab-chips > .ab-chip { width: var(--ab-w, auto); height: 32px; margin: -16px 0 0 calc(var(--ab-w, 64px) / -2); white-space: nowrap; text-align: center; }
                     /* the lit chip's dials (an effect's strength, a trail's length, gravity and wind, the lag): a small
@@ -6979,15 +6982,15 @@
          morph bar as the page starts), and the animation's options as chips; the strip below shows the values of the chip
          chosen (THE ANIMATION'S BAR AND STRIP, in the script). The morph bar above is shut, the holder of what they press. -->
     <div id="animBar" role="toolbar" aria-label="animation">
-        <!-- the time slider, a row to itself (15 Nov 2026) -->
+        <!-- the time slider and what goes with it, play and the time's reading, on a row of their own (15 Nov 2026) -->
         <div id="abT">
+            <button type="button" id="abPlay" class="icon-btn" aria-label="Play" title="run the animation, or pause it"></button>
             <input type="range" id="morphT" list="morphTickList" min="0" max="1000" step="1" value="0" title="where the blend sits between the keys. With two keys this is a straight lerp; with three or more the keys sit on a TIME CIRCLE and the weights are the same cardinal kernel that reconstructs a contour — so the loop closes and passing t=1 comes back to the first key without a seam.">
+            <span class="val" id="morphTVal">0.000</span>
             <datalist id="morphTickList"></datalist>
         </div>
-        <!-- play, the time's reading, and the chips on a ring of their own -->
+        <!-- the chips, on a ring of their own -->
         <div id="abRow">
-            <button type="button" id="abPlay" class="icon-btn" aria-label="Play" title="run the animation, or pause it"></button>
-            <span class="val" id="morphTVal">0.000</span>
             <div class="controls ab-chips" id="abChips">
                 <button type="button" class="icon-btn ab-chip" data-anim="keys" title="the poses the animation passes through: tap one to stand on it, add the pose you are looking at, take one away; the dial moves the key you stand on to another time">Keys</button>
                 <button type="button" class="icon-btn ab-chip" data-anim="motion" title="a physical motion for the animated shape: bounce, fall, swing, spring, roll, throw, sway, pop, drift">Motion</button>
