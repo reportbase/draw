@@ -1557,6 +1557,12 @@ T.current = 'there is always a footer';
     await fp.keyboard.press('Control+a'); await fp.keyboard.press('Delete'); await fp.waitForTimeout(500);
     s = await st();
     if (s.mode !== 'add' || !(s.lib >= 5)) throw new Error('an empty drawing should show the library: ' + JSON.stringify(s));
+    // a live morph with its strip closed (the animation's bar goes with it): the browser has the foot, not nothing
+    await fp.keyboard.press('Control+z'); await fp.waitForTimeout(400); await fp.evaluate(() => window.__strip.open(null));
+    await fp.keyboard.press('Control+a'); await fp.click('#bMorphOpen'); await fp.waitForFunction(() => document.body.classList.contains('morphing') && /^anim/.test(window.__strip.mode || ''), null, { timeout: 10000 });
+    await fp.evaluate(() => window.__strip.open(null)); await fp.waitForTimeout(400);
+    s = await st();
+    if (s.mode || s.tiles !== 1 || !(await fp.evaluate(() => document.body.classList.contains('morphing')))) throw new Error('a live morph with the strip closed should show the browser: ' + JSON.stringify(s));
   } catch (e) { failures.push(`[there is always a footer] ${e.message.split('\n')[0]}`); }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} there is always a footer`);
   await fp.close();

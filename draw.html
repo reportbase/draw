@@ -2494,7 +2494,10 @@
                        of the window, and during a morph the browser has nothing to browse: the scene is one
                        shape by construction. Hiding it is also the honest state — a one-tile carousel is a
                        control that looks operable and is not. It comes straight back on exit. */
-                    body.morphing #shapeScroller { display: none; }
+                    /* THERE IS ALWAYS A FOOTER (15 Nov 2026): only while the animation's own bar and strip are up.
+                       With the strip closed during a live morph (the bar goes with it) the foot was bare; the
+                       browser has it then, as it has it everywhere else. */
+                    body.morphing.anim-bar #shapeScroller { display: none; }
                     /* The edit-mode header — the number line and the reading dial. Same out-of-flow
                        treatment as the edit bar, for the same reason: taking a layout row would resize the
                        canvas and move the artwork. pointer-events:none so panning through it still works. */
