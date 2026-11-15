@@ -226,7 +226,9 @@ compatibly.
   top bar. Group left it (14 Nov 2026: "remove the group button in the top toolbar"): it is the selection strip's tile, and
   `#bGroup` is kept hidden in `#topButtonsHeld`, still the code that acts. Plot a formula (`#bPlot`) and Play the shape
   (`#bPlayShape`) left it too (15 Nov 2026, Tom: "Remove plot a formula and play the shape"), held the same way: plotted
-  shapes still open and a double-click on one still opens its formula. A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
+  shapes still open and a double-click on one still opens its formula. Generate with AI (`#bAi`) and Reading (`#bRead`) are the
+  menu's (the same day: "Move generate with ai to the menu. Move reading to the menu."): held off the bar likewise, pressed
+  by the menu's `#bMenuAi` and `#bMenuRead`, their panels standing under the menu's button (`placePop`). A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
 - The selection's options are the strip's (13 Nov 2026, THE SELECTION'S OPTIONS ARE THE STRIP'S in `draw.html`; Tom, the
   same day, after taking it back: "when an object is selected, show its options in the footer"): with something selected
   and its frame up (under the lock too), the strip at the foot turns to mode `select` by itself: every one of
