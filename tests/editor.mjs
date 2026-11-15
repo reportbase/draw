@@ -579,9 +579,9 @@ try {
 
   // THE TOUR (15 Nov 2026, Tom: "tour the shapes option should close footer. space should turn the tour on/off. escape
   // exits the tour. show the toolbars when the tour is over"): with Fill's strip up, space starts the tour, the strip is
-  // closed and the bars are away; space again ends it and the bars are back; space, then Escape, the same; and the
-  // menu's own entry closes the strip too.
-  await step('space turns the tour on and off; it closes the strip and the bars come back', async () => {
+  // closed and the bars are away; space again pauses it and again lets it run; Escape ends it and the bars are back;
+  // and the menu's own entry closes the strip too.
+  await step('space starts the tour and pauses it; it closes the strip and the bars come back', async () => {
     const tp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     tp.on('pageerror', e => failures.push(`[tour] ${e.message}`));
     await tp.route(/fonts\.g/, r => r.abort());
@@ -601,12 +601,14 @@ try {
       await tp.keyboard.press(' ');
       await tp.waitForTimeout(500);
       const t1 = await st();
+      // space again holds the tour where it is ("space should pause the tour, not end it"), and again lets it go on
+      const said = () => tp.evaluate(() => document.getElementById('status').textContent);
       await tp.keyboard.press(' ');
-      await tp.waitForTimeout(500);
-      const t2 = await st();
+      await tp.waitForTimeout(300);
+      const t2 = await st() + (/tour paused/.test(await said()) ? '' : ' (not paused)');
       await tp.keyboard.press(' ');
-      await tp.waitForTimeout(500);
-      const t3 = await st();
+      await tp.waitForTimeout(300);
+      const t3 = await st() + (/tour running/.test(await said()) ? '' : ' (not running)');
       await tp.keyboard.press('Escape');
       await tp.waitForTimeout(500);
       const t4 = await st();
@@ -619,7 +621,7 @@ try {
       await tp.keyboard.press('Escape');
       await tp.waitForTimeout(400);
       const t6 = await st();
-      if (t0 !== 'fill,false,tour the shapes,true' || t1 !== on || t2 !== off || t3 !== on || t4 !== off || t5 !== on || t6 !== off)
+      if (t0 !== 'fill,false,tour the shapes,true' || t1 !== on || t2 !== on || t3 !== on || t4 !== off || t5 !== on || t6 !== off)
         throw new Error('the tour: ' + JSON.stringify({ t0, t1, t2, t3, t4, t5, t6 }));
       // a touch ends it too ("touching the screen should end the tour and show the toolbars"), and selects nothing
       await tp.evaluate(() => window.__box.select([]));

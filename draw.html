@@ -44364,7 +44364,7 @@
             tourState = null;
             // THE BARS ARE BACK WHEN THE TOUR IS OVER (15 Nov 2026, Tom: "show the toolbars when the tour is over").
             // It put back only what it had hidden itself, so a tour begun with the bars already away ended with
-            // none; however it ends now (space, Escape, a touch of the camera), the bars are shown.
+            // none; however it ends now (Escape, a touch), the bars are shown.
             if (was && typeof setChromeOff === 'function')
                 setChromeOff(false, true);
             if (typeof window.__syncTourBtn === 'function')
@@ -44476,7 +44476,7 @@
             if (typeof window.__syncTourBtn === 'function')
                 window.__syncTourBtn();
             flashStatus('touring ' + list.length + ' shape' + (list.length === 1 ? '' : 's') +
-            ' \u2014 space or Escape ends it, \u2190 \u2192 step');
+            ' \u2014 space pauses, \u2190 \u2192 step, Escape or a touch ends it');
             tourRAF = requestAnimationFrame(tourStep);
         }
         function tourToggle() {
@@ -52678,13 +52678,19 @@
             // either way (and un-pause, since asking for the next shape is asking to move). They
             // are claimed only while a tour is running, so every other meaning of these keys is
             // untouched the rest of the time.
-            // SPACE TURNS THE TOUR ON AND OFF (15 Nov 2026, Tom: "space should turn the tour on/off. escape exits the
-            // tour"). It held a running tour on its shape; it starts one now, from anywhere in the scene view that is
-            // not a box being typed in, and pressed again ends it, as Escape does. (In the edit view space is still
-            // the reading's auto walk, above.)
+            // SPACE STARTS THE TOUR, AND HOLDS IT (15 Nov 2026, Tom: "space should turn the tour on/off. escape exits
+            // the tour", then, having tried it, "space should pause the tour, not end it"). From anywhere in the scene
+            // view that is not a box being typed in, space starts a tour when none is running; while one runs it holds
+            // the tour on its shape and lets it go on again, as it always did. Ending it is Escape's, or a touch.
+            // (In the edit view space is still the reading's auto walk, above.)
             if (e.key === ' ' && !state.editMode && !mod && !e.altKey && !e.repeat && !_isEditableTarget(e.target)) {
                 e.preventDefault();
-                tourToggle();
+                if (!tourState)
+                    tourStart();
+                else {
+                    tourState.paused = !tourState.paused;
+                    flashStatus(tourState.paused ? 'tour paused \u2014 space to go on, Escape or a touch ends it' : 'tour running');
+                }
                 return;
             }
             if (tourState && !e.metaKey && !e.ctrlKey && !e.altKey &&

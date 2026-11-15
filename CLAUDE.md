@@ -250,8 +250,8 @@ compatibly.
   opened from the page any more; the button stays lit while a background is on.
 - The tour (15 Nov 2026, Tom: "tour the shapes option should close footer. space should turn the tour on/off. escape
   exits the tour. show the toolbars when the tour is over"): `tourStart` closes the strip's mode first (`__strip.open(null)`);
-  space in the scene view, outside a box being typed in, is `tourToggle` (it used to pause a running tour; in the edit
-  view it is still the auto walk); Escape ends it; and `tourStop` always shows the bars (`setChromeOff(false)`), however
+  space in the scene view, outside a box being typed in, starts a tour when none runs and pauses or resumes a running
+  one ("space should pause the tour, not end it"; in the edit view it is still the auto walk); Escape ends it; and `tourStop` always shows the bars (`setChromeOff(false)`), however
   the tour ended and whether or not it was the tour that hid them. The arrows still step a running tour. Any press
   on the page ends it too ("touching the screen should end the tour and show the toolbars"), taken in the window's
   capture with the click that follows, so it selects nothing.
