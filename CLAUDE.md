@@ -229,6 +229,12 @@ compatibly.
   shapes still open and a double-click on one still opens its formula. Generate with AI (`#bAi`) and Reading (`#bRead`) are the
   menu's (the same day: "Move generate with ai to the menu. Move reading to the menu."): held off the bar likewise, pressed
   by the menu's `#bMenuAi` and `#bMenuRead`, their panels standing under the menu's button (`placePop`). A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
+- The selection's strip is asked for (15 Nov 2026, THE SELECTION'S STRIP IS ASKED FOR; Tom: "Selecting an object should
+  not show the footer. Instead, Add a button to the toolbar to show the current selection footer bar"): selecting no
+  longer turns the strip to mode `select`. The top bar's Selection button (`#bSelStrip`, `MODES.select.btn`, off while
+  nothing is selected) does, lit while it shows; once up it follows the selection and goes when the selection does. The
+  checks keep the old coming-by-itself (`window.__selAuto`, set by `tests/harness.mjs`; `__selStripWant` is false
+  without it), so what the next item says of the strip turning "by itself" is true in the checks only.
 - The selection's options are the strip's (13 Nov 2026, THE SELECTION'S OPTIONS ARE THE STRIP'S in `draw.html`; Tom, the
   same day, after taking it back: "when an object is selected, show its options in the footer"): with something selected
   and its frame up (under the lock too), the strip at the foot turns to mode `select` by itself: every one of

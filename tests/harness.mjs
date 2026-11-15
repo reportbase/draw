@@ -90,7 +90,8 @@ export async function begin(part){
   // pressed where they are, unseen (dispatchEvent, $eval), as the animation's tiles press them.
   {
     const np = browser.newPage.bind(browser), nc = browser.newContext.bind(browser);
-    const more = () => { window.__mrAuto = true; };
+    // (and the selection's strip comes by itself when a shape is selected, as it did until 15 Nov 2026: __selAuto)
+    const more = () => { window.__mrAuto = true; window.__selAuto = true; };
     browser.newPage = async o => { const p = await np(o); await p.addInitScript(more); return p; };
     browser.newContext = async o => { const c = await nc(o); await c.addInitScript(more); return c; };
   }
