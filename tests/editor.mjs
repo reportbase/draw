@@ -1537,4 +1537,29 @@ T.current = 'panel: group button and menu switch';
   await gp.close();
 }
 
+/* THERE IS ALWAYS A FOOTER (15 Nov 2026, Tom: "what happend to the shape browser. there should always be a footer").
+   The page opens on one shape, and one tile was "nothing to scroll through", so it opened with no strip. One shape is
+   one tile, centred; an empty drawing turns the strip to the library of shapes. */
+T.current = 'there is always a footer';
+{
+  const fp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  fp.on('pageerror', e => failures.push(`[footer] ${e.message}`));
+  await fp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await fp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await fp.waitForFunction(() => window.__strip && document.querySelector('#shapeScroller .shape-tile'), null, { timeout: 15000 });
+    const st = () => fp.evaluate(() => { const ts = [...document.querySelectorAll('#shapeScroller .shape-tile')].filter(t => t.style.display !== 'none' && t.getBoundingClientRect().width > 0);
+      return { tiles: ts.length, mid: ts[0] ? Math.round(ts[0].getBoundingClientRect().x + ts[0].getBoundingClientRect().width / 2) : null, mode: window.__strip.mode,
+        lib: [...document.querySelectorAll('#addRing .add-pick')].filter(t => t.getBoundingClientRect().width > 0).length }; });
+    let s = await st();
+    if (s.tiles !== 1 || Math.abs(s.mid - 640) > 2 || s.mode) throw new Error('one shape should be one tile at the middle: ' + JSON.stringify(s));
+    await fp.keyboard.press('Control+a'); await fp.keyboard.press('Delete'); await fp.waitForTimeout(500);
+    s = await st();
+    if (s.mode !== 'add' || !(s.lib >= 5)) throw new Error('an empty drawing should show the library: ' + JSON.stringify(s));
+  } catch (e) { failures.push(`[there is always a footer] ${e.message.split('\n')[0]}`); }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} there is always a footer`);
+  await fp.close();
+}
+
 await T.finish();

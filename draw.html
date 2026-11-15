@@ -30347,8 +30347,13 @@
                 t.dataset.thumb = '';
                 t._ent = null;
             }
-            if (browseEntries().length <= 1) {
-                // nothing to scroll through
+            // THERE IS ALWAYS A FOOTER (15 Nov 2026, Tom: "what happend to the shape browser. there should always be a
+            // footer"). A drawing of one shape showed no strip at all, since one tile is "nothing to scroll through":
+            // true, but the strip is also where the page's foot is, and a page that opens on one shape opened with
+            // none. One shape is one tile, centred. A drawing with nothing in it has no tile to show, so the strip
+            // turns to the library of shapes, which is what an empty drawing wants next (selSync, on every redraw:
+            // whatever had the strip when the last shape went, the library has it once that lets go).
+            if (browseEntries().length < 1) {
                 for (const t of _tilePool)
                     t.style.display = 'none';
                 return;
@@ -30664,7 +30669,7 @@
             // entry (ent.lead) only where a tile is stamped.
             const ents = browseEntries();
             const n = ents.length;
-            if (n <= 1)
+            if (n < 1)
                 return;
             const W = strip.clientWidth || 600;
             const halfWidth = W / 2;
@@ -58625,6 +58630,9 @@
                     setMode('select');
                 else if (!want && mode === 'select')
                     setMode(null);
+                // THERE IS ALWAYS A FOOTER: nothing in the drawing and nothing on the strip, so the library of shapes
+                if (!mode && !state.subpaths.length && !document.body.classList.contains('editing') && !document.body.classList.contains('morphing'))
+                    setMode('add');
                 if (mode !== 'select')
                     return;
                 const idx = selectedIndices();
