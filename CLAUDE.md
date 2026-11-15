@@ -243,6 +243,11 @@ compatibly.
   stands `#toolsPop` above the strip. The button stays lit while the mirror is on (`MODES.tools.lit`). It is the
   Mirror button ("the mirror lock should keep the button on the main toolbar and use the footer for settings"): a
   mirror glyph, named Mirror in `NAMES`, and the panel is the array alone, the mirror's row kept in it unseen.
+- The backgrounds are the strip's (15 Nov 2026, THE BACKGROUNDS ARE THE STRIP'S; Tom: "do the same for background
+  grid. just have buttons for different backgrounds, no sliders needed"): `#bGrid` turns the strip to `MODES.grid`,
+  six tiles, each a whole `state.grid` set at once through `window.__setGrid`: none, fine grid, grid, coarse grid,
+  lines, dots. Dots is a third `state.grid.mode` (`drawGrid`, and the scene's restore keeps it). `#gridPop` is not
+  opened from the page any more; the button stays lit while a background is on.
 - The selection's strip is asked for (15 Nov 2026, THE SELECTION'S STRIP IS ASKED FOR; Tom: "Selecting an object should
   not show the footer. Instead, Add a button to the toolbar to show the current selection footer bar"): selecting no
   longer turns the strip to mode `select`. The top bar's Selection button (`#bSelStrip`, `MODES.select.btn`, off while
