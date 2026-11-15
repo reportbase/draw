@@ -125,8 +125,10 @@ try {
       await mp.evaluate(() => window.__box.select([0]));
       await mp.waitForFunction(() => window.__strip.mode === 'select', null, { timeout: 10000 }).catch(() => {});
       const sel = await mp.evaluate(() => ({ locked: document.getElementById('bLock').getAttribute('aria-pressed'), mode: window.__strip.mode,
-        on: [...document.querySelectorAll('.add-strip [data-mode="select"] .sel-btn')].filter(t => !t.disabled).map(t => t.getAttribute('aria-label')) }));
-      if (sel.locked !== 'true' || sel.mode !== 'select' || !sel.on.includes('Exact') || sel.on.includes('Knife'))
+        on: [...document.querySelectorAll('.add-strip [data-mode="select"] .sel-btn')].filter(t => !t.disabled).map(t => t.getAttribute('aria-label')),
+        // the exact / leaves switch is on the box, beside the rotate grip, and answers under the lock (15 Nov 2026)
+        sw: (b => !!b && window.__box.hit(b.cx, b.cy) === 'bt-mode')(window.__box.button('bt-mode')) }));
+      if (sel.locked !== 'true' || sel.mode !== 'select' || !sel.sw || sel.on.includes('Exact') || sel.on.includes('Knife'))
         throw new Error('a shape selected on a locked phone: ' + JSON.stringify(sel));
     } finally { await ctx.close(); }
   });
@@ -374,7 +376,7 @@ try {
       await pp.waitForTimeout(500);
       const row = await pp.evaluate(() => { const t = [...document.querySelectorAll('.add-strip > .controls.on .sel-btn')].map(b => b.getBoundingClientRect());
         return [window.__strip.mode, t.length, t.every(r => r.width > 0 && r.left >= 0 && r.right <= innerWidth), t.every((r, i) => !i || r.left >= t[i - 1].right)].join(); });
-      if (row !== 'select,8,true,true') throw new Error("a phone's selection tiles: " + row);
+      if (row !== 'select,7,true,true') throw new Error("a phone's selection tiles: " + row);
     } finally {
       await pc.close();
     }
@@ -729,7 +731,7 @@ T.current = 'the selection\'s options in the strip';
     const st = await sp.evaluate(() => ({ mode: window.__strip.mode, slider: !!document.querySelector('.sel-slider'),
       tiles: [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => (t.disabled ? '-' : '+') + t.dataset.name),
       under: !!window.__box.track() }));
-    if (st.mode !== 'select' || st.slider || st.tiles.length !== 8 || !st.tiles.includes('+bt-mode') || !st.tiles.includes('-bt-union') || !st.under)
+    if (st.mode !== 'select' || st.slider || st.tiles.length !== 7 || st.tiles.some(t => /bt-mode/.test(t)) || !st.tiles.includes('-bt-union') || !st.under)
       throw new Error('a circle selected, the strip says ' + JSON.stringify(st));
     // the track under the box: dragged end to end it writes to the shape, and one undo puts it back
     const tr = await sp.evaluate(() => window.__box.track()), cv = await sp.locator('#cv').boundingBox();
@@ -742,17 +744,18 @@ T.current = 'the selection\'s options in the strip';
     await sp.keyboard.press('ControlOrMeta+z');
     await sp.waitForTimeout(300);
     if (Math.abs(await sp.evaluate(() => window.__box.track().knobX) - k0) > 1) throw new Error('one undo did not put the track back');
-    // the mode tile is a toggle: pressed while the circle is exact, and a press turns it to leaves and back, the
-    // tiles staying where they were and only their enabled state following
+    // the mode switch stands beside the rotate grip (15 Nov 2026, Tom: "a small toggle next to the rotate button on the
+    // top of the selection box"), not in the strip: a press turns the circle to leaves, the tiles staying where they were
     const order = st.tiles.map(t => t.slice(1)).join();
-    const m0 = await sp.evaluate(() => [window.__box.mode(), document.querySelector('.sel-btn[data-name="bt-mode"]').getAttribute('aria-pressed')]);
+    const m0 = await sp.evaluate(() => { const b = window.__box.button('bt-mode'), h = window.__box.handles().pts.rot;
+      return [window.__box.mode(), String(!!b && b.cx > h[0] && Math.abs(b.cy - h[1]) < 1 && b.cx - h[0] < 60 && window.__box.hit(b.cx, b.cy) === 'bt-mode')]; });
     const bt = await sp.evaluate(() => window.__box.button('bt-mode'));
     await sp.mouse.click(cv.x + bt.cx, cv.y + bt.cy);
     await sp.waitForTimeout(300);
-    const m1 = await sp.evaluate(() => [window.__box.mode(), document.querySelector('.sel-btn[data-name="bt-mode"]').getAttribute('aria-pressed'),
+    const m1 = await sp.evaluate(() => [window.__box.mode(), 'true',
       [...document.querySelectorAll('.add-strip > .controls[data-mode="select"] .sel-btn')].map(t => t.dataset.name).join(),
       false]); // (no tile left in the strip turns on or off with the mode alone for one circle, since Dash left it)
-    if (m1[0] === m0[0] || m1[1] === m0[1] || m1[1] !== String(m1[0] === 'exact') || m1[2] !== order || m1[3] !== false)
+    if (m1[0] === m0[0] || m0[1] !== 'true' || m1[2] !== order || m1[3] !== false)
       throw new Error(`the mode toggle: ${JSON.stringify(m0)} → ${JSON.stringify(m1)}`);
     await sp.keyboard.press('Escape');
     await sp.mouse.click(1200, 120);

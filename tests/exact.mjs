@@ -152,9 +152,8 @@ T.current = 'exact shapes';
     // The mode switch: "exact | leaves", the lit word the selection's mode, a press either way.
     const sw = await xp.evaluate(() => { const b = window.__box.button('bt-mode'); return b && [b.cx, b.cy, b.hw]; });
     if (!sw) throw new Error('no mode switch with an exact shape selected');
-    // and nothing over it: it is a tile in the strip at the foot now (13 Nov 2026), the panel's buttons having moved
-    // there, so what is at its point must be that tile
-    const over = await xp.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); const t = e && e.closest('.sel-btn'); return t ? t.dataset.name : (e && (e.id || e.tagName)); }, P(sw[0], sw[1]));
+    // it stands on the box, beside the rotate grip (15 Nov 2026), so what answers at its point is the canvas's own switch
+    const over = await xp.evaluate(([x, y]) => window.__box.hit(x, y), [sw[0], sw[1]]);
     if (over !== 'bt-mode') throw new Error('the mode switch is under ' + over);
     if ((await xp.evaluate(() => window.__box.mode())) !== 'exact') throw new Error('the switch does not read exact');
     await xp.mouse.click(...P(sw[0], sw[1]));

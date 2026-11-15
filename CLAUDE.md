@@ -234,8 +234,10 @@ compatibly.
   and its frame up (under the lock too), the strip at the foot turns to mode `select` by itself: every one of
   `BOX_BUTTONS` as a tile, always all of them in the same order, disabled when its `show()` says no (the knife too under
   the lock; Tom: "All buttons should be visible, just disabled when not available"), drawn by `drawBoxButton(b, hot, c)`
-  into its own canvas and pressing `runBoxButton`. The exact/leaves switch is a toggle tile (`drawModeToggle`, named
-  Exact, `aria-pressed` while exact). The smoothing track stays under the box (`sliderRowsUnderBox`; Tom: "The slider
+  into its own canvas and pressing `runBoxButton`. The exact/leaves switch was a toggle tile there; since 15 Nov 2026
+  (Tom: "Move the leaves/exact button to a small toggle next to the rotate button on the top of the selection box") it
+  is a small pill on the box, right of the rotate grip (`modeTogglePos`, `modeToggleAt`; `handleAt` answers `bt-mode`,
+  under the lock too; `__box.button('bt-mode')` is its place in canvas pixels), and `bt-mode` is in `SEL_LEFT_OUT`. The smoothing track stays under the box (`sliderRowsUnderBox`; Tom: "The slider
   should be returned to the selection box"), without the buttons (`sliderButtonsUnderBox` is false). It follows every
   `drawAll` (`__selStripSync`); `__box.button` (null for a disabled tile), `group` and `panelUp` answer for the strip.
   A change of what is selected (asked of the shapes, `spId`, not their indices, so Order's moves do not count) brings the
