@@ -240,8 +240,9 @@ try {
     if (!b[0] || b[1] !== 'star') throw new Error('a Build tile: the builder ' + JSON.stringify(b));
     await page.click('#bBuild');
     await page.waitForTimeout(300);
-    const shut = await page.evaluate(() => [window.__strip.mode, getComputedStyle(document.getElementById('shapeScroller')).visibility, document.querySelectorAll('.topbar [aria-pressed="true"]').length]);
-    // everything is still selected, so the strip goes back to the selection's options, and no button is lit
+    const shut = await page.evaluate(() => [window.__strip.mode, getComputedStyle(document.getElementById('shapeScroller')).visibility, document.querySelectorAll('.topbar [aria-pressed="true"]:not(#bSelStrip)').length]);
+    // everything is still selected, so the strip goes back to the selection's options (by itself, in the checks), and
+    // no button but the Selection button, whose strip it is, is lit
     if (shut[0] !== 'select' || shut[2]) throw new Error('Build pressed again: ' + JSON.stringify(shut));
     await page.keyboard.press('Escape');
   });
@@ -407,6 +408,48 @@ try {
       }
     } finally {
       await mp.close();
+    }
+  });
+
+  // THE SELECTION'S STRIP IS ASKED FOR (15 Nov 2026, Tom: "Selecting an object should not show the footer. Instead,
+  // Add a button to the toolbar to show the current selection footer bar"). As a visitor has it (the checks' pages
+  // otherwise bring the strip by themselves, __selAuto): a shape selected leaves the drawing's strip where it is;
+  // the Selection button, off with nothing selected, turns the strip to the selection's tiles and is lit; another
+  // shape selected keeps them; nothing selected takes them away and the button goes off.
+  await step("selecting leaves the strip alone; the Selection button shows the selection's tiles", async () => {
+    const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    sp.on('pageerror', e => failures.push(`[selection button] ${e.message}`));
+    await sp.route(/fonts\.g/, r => r.abort());
+    try {
+      await sp.addInitScript(() => { window.__selAuto = false; });
+      await sp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await sp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+        + '<rect x="170" y="30" width="80" height="60" fill="#48c"/></svg>';
+      await sp.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+      await sp.waitForTimeout(1200);
+      const st = () => sp.evaluate(() => [String(window.__strip.mode), document.getElementById('bSelStrip').disabled, document.getElementById('bSelStrip').classList.contains('active'),
+        getComputedStyle(document.getElementById('shapeScroller')).visibility, document.querySelectorAll('.add-strip > .controls.on .sel-btn').length].join());
+      await sp.evaluate(() => window.__box.select([]));
+      await sp.waitForTimeout(300);
+      const none = await st();
+      const cv = await sp.locator('#cv').boundingBox(), mx = cv.x + cv.width / 2, my = cv.y + cv.height / 2;
+      await sp.mouse.click(mx + 150, my);
+      await sp.waitForTimeout(400);
+      const picked = await st();
+      await sp.click('#bSelStrip');
+      await sp.waitForTimeout(400);
+      const shown = await st();
+      await sp.mouse.click(mx - 150, my);
+      await sp.waitForTimeout(400);
+      const other = await st();
+      await sp.keyboard.press('Escape');
+      await sp.waitForTimeout(400);
+      const gone = await st();
+      if (none !== 'null,true,false,visible,0' || picked !== 'null,false,false,visible,0' || shown !== 'select,false,true,hidden,7' || other !== shown || gone !== none)
+        throw new Error('the Selection button: ' + JSON.stringify({ none, picked, shown, other, gone }));
+    } finally {
+      await sp.close();
     }
   });
 

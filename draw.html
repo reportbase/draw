@@ -3645,6 +3645,18 @@
                     <path d="M3 16.9l9 4.9 9-4.9"/>
                 </svg>
             </button>
+            <!-- THE SELECTION'S OPTIONS (15 Nov 2026, Tom: "Selecting an object should not show the footer. Instead, Add a
+                     button to the toolbar to show the current selection footer bar"). It turns the strip at the foot to
+                     the selection's tiles and back; there while something is selected. See THE SELECTION'S STRIP IS ASKED
+                     FOR in the script. -->
+            <button id="bSelStrip" class="icon-btn" title="the selection's options — round, group, merge, straighten, smooth — in the strip at the foot">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="4" y="4" width="16" height="11" rx="1.5" stroke-dasharray="2.6 2.6"/>
+                    <path d="M4 20h16"/>
+                    <circle cx="9" cy="20" r="1.6" fill="currentColor" stroke="none"/>
+                    <circle cx="15" cy="20" r="1.6" fill="currentColor" stroke="none"/>
+                </svg>
+            </button>
             <!-- ARRANGE TO GRID. It sits at the end of the align/group/order run because it is
                      the same idea at page scale: those three arrange a SELECTION against itself,
                      this one arranges the whole page against a grid. It had been filed in the lab
@@ -57392,7 +57404,7 @@
                     more: 'linePop', moreLabel: 'Line width and opacity' },
                 align: { btn: 'bAlign', sources: () => [...document.querySelectorAll('#alignPop .align-btn, #alignPop .dist-btn')] },
                 order: { btn: 'bOrder', sources: () => [...document.querySelectorAll('#orderPop .z-btn')] },
-                select: { btn: null, build: selBuild,
+                select: { btn: 'bSelStrip', build: selBuild,
                     tap: t => {
                         runBoxButton(t.dataset.name);
                         selSig = ''; // what the button did may change what the row shows
@@ -58390,7 +58402,14 @@
                 // …and not from a drawing tool (the line, shape and text tools): while one is armed a press on the drawing is
                 // the tool's, so what is selected changes only by the tool's own doing (a word set again in bold)
                 const tool = mode === 'arrows' || mode === 'shape' || mode === 'text' || !!(paint && paint.mode === mode) || PICKS.has(mode);
-                if (want && (!mode || (picked && mode !== 'select' && !tool)))
+                // THE SELECTION'S STRIP IS ASKED FOR (15 Nov 2026, Tom: "Selecting an object should not show the footer.
+                // Instead, Add a button to the toolbar to show the current selection footer bar"). Selecting a shape
+                // used to turn the strip to its options by itself, and took the drawing's own strip away each time; it
+                // is the top bar's Selection button now (#bSelStrip, MODES.select's own button like any other mode's),
+                // lit while it shows and off while nothing is selected. Once up it follows the selection as it did,
+                // and goes when the selection does. The checks have it as it was (window.__selAuto, from
+                // tests/harness.mjs), since many of them press its tiles straight after selecting.
+                if (window.__selAuto && want && (!mode || (picked && mode !== 'select' && !tool)))
                     setMode('select');
                 else if (!want && mode === 'select')
                     setMode(null);
@@ -58608,7 +58627,8 @@
                     setMode(null);
             });
             window.__selStripSync = selSync;
-            window.__selStripWant = selWant;
+            window.__selStripWantNow = selWant;
+            window.__selStripWant = () => !!window.__selAuto && selWant(); // (the drawing's strip steps aside only when the selection's comes by itself)
             window.__strip = {
                 open: setMode,
                 mirror: () => mode && mirror(mode),
@@ -58652,7 +58672,7 @@
                 bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
                 bPlayShape: 'Play the shape', bBuild: 'Build', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
-                bAi: 'AI', bArrows: 'Line', bDrawMenu: 'Draw', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bArrangeOpen: 'Arrange',
+                bAi: 'AI', bArrows: 'Line', bDrawMenu: 'Draw', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bSelStrip: 'Selection', bArrangeOpen: 'Arrange',
                 bMorphOpen: 'Morph', bTools: 'Tools', bRead: 'Reading', bGrid: 'Grid',
                 bStyle: 'Fill', bLine: 'Outline', bDesc: 'Name and note', bFit: 'Fit to view', gearBtn: 'Settings',
                 // the edit view's bar
@@ -58786,6 +58806,11 @@
             editing ? 'align — not in edit mode'
             : (units >= 2 ? 'align and distribute the selection'
             : 'align — tap two or more shapes, then pick how in the strip'));
+            {
+                const want = !!window.__selStripWantNow && window.__selStripWantNow();
+                set($('bSelStrip'), want, want ? "the selection's options — round, group, merge, straighten, smooth — in the strip at the foot"
+                    : 'select a shape to see its options in the strip');
+            }
             set($('bOrder'), !editing,
             editing ? 'draw order — not in edit mode'
             : (canZ ? 'draw order — bring forward or send back'
