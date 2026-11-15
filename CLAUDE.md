@@ -229,6 +229,10 @@ compatibly.
   shapes still open and a double-click on one still opens its formula. Generate with AI (`#bAi`) and Reading (`#bRead`) are the
   menu's (the same day: "Move generate with ai to the menu. Move reading to the menu."): held off the bar likewise, pressed
   by the menu's `#bMenuAi` and `#bMenuRead`, their panels standing under the menu's button (`placePop`). A top-bar button is lit (`.pop-open`, styled as `.active`) while the popover it opened is up.
+- Arrange to grid is the strip's (15 Nov 2026, ARRANGE TO GRID IS THE STRIP'S; Tom: "can you move arrange to grid panel
+  to the footer?"): `#bArrangeOpen` turns the strip to `MODES.arrange` (Arrange, fill cells, fit screen, expand), each
+  tile setting the panel's control (`#bArrange`, `#tArrangeFit`, `#selArrangeExtent`); the cell's size and the captions,
+  typed in, are behind the first tile, which stands `#arrangePop` above the strip (`more`).
 - The selection's strip is asked for (15 Nov 2026, THE SELECTION'S STRIP IS ASKED FOR; Tom: "Selecting an object should
   not show the footer. Instead, Add a button to the toolbar to show the current selection footer bar"): selecting no
   longer turns the strip to mode `select`. The top bar's Selection button (`#bSelStrip`, `MODES.select.btn`, off while

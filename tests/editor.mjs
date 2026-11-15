@@ -453,6 +453,42 @@ try {
     }
   });
 
+  // ARRANGE TO GRID IS THE STRIP'S (15 Nov 2026, Tom: "can you move arrange to grid panel to the footer?"): the top
+  // bar's Arrange turns the strip to its tiles and opens no panel; a tile sets what the panel held and is lit; the
+  // first tile stands the panel above the strip; Arrange lays the shapes out.
+  await step('arrange to grid uses the strip', async () => {
+    const gp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    gp.on('pageerror', e => failures.push(`[arrange in the strip] ${e.message}`));
+    await gp.route(/fonts\.g/, r => r.abort());
+    try {
+      await gp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+      await gp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><circle cx="50" cy="50" r="40" fill="#c84"/>'
+        + '<rect x="170" y="30" width="80" height="60" fill="#48c"/></svg>';
+      await gp.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
+      await gp.waitForTimeout(1200);
+      const st = () => gp.evaluate(() => [String(window.__strip.mode), document.getElementById('arrangePop').classList.contains('open'), document.getElementById('selArrangeExtent').value,
+        [...document.querySelectorAll('.add-strip > .controls.on .icon-btn.on')].map(t => t.querySelector('.cap').textContent).join('+')].join());
+      await gp.click('#bArrangeOpen');
+      await gp.waitForTimeout(400);
+      const a0 = await st();
+      await gp.click('.add-strip [data-mode="arrange"] [data-ext="expand"]');
+      await gp.waitForTimeout(300);
+      const a1 = await st();
+      await gp.click('.add-strip [data-mode="arrange"] .strip-more');
+      await gp.waitForTimeout(300);
+      const a2 = await st();
+      await gp.click('.add-strip [data-mode="arrange"] [data-ext="fit"]');
+      await gp.click('.add-strip [data-mode="arrange"] [data-act="go"]');
+      await gp.waitForTimeout(600);
+      const said = await gp.evaluate(() => document.getElementById('status').textContent);
+      if (a0 !== 'arrange,false,fit,fill cells+fit screen' || a1 !== 'arrange,false,expand,fill cells+expand' || a2 !== 'arrange,true,expand,fill cells+expand' || !/arranged 2 shapes/.test(said))
+        throw new Error('arrange in the strip: ' + JSON.stringify({ a0, a1, a2, said: said.slice(0, 80) }));
+    } finally {
+      await gp.close();
+    }
+  });
+
   await step('drag on the canvas', () => drag([[640, 400], [700, 430], [760, 460]]));
   await step('freehand stroke', async () => {
     await page.click('#bDraw');
