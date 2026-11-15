@@ -2833,7 +2833,10 @@
                       align-items: center; gap: 8px 10px; flex-wrap: wrap; padding: 6px 12px;
                       background: var(--bar-bg); border-top: 1px solid var(--bar-line);
                     }
-                    body.morphing #animBar { display: flex; }
+                    /* …while the strip shows one of its chips' values (body.anim-bar, set with the strip's mode). The strip
+                       closed, or turned to something else (Fill, the selection), takes the bar with it (15 Nov 2026, Tom:
+                       "Morph bar does not close when footer closes or changes"); Animate on the top bar brings both back. */
+                    body.morphing.anim-bar #animBar { display: flex; }
                     #animBar #abPlay { width: 40px; height: 40px; flex: 0 0 auto; }
                     #animBar #abPlay svg { width: 20px; height: 20px; }
                     #animBar #abT { display: flex; align-items: center; gap: 8px; flex: 1 1 180px; min-width: 150px; }
@@ -2862,7 +2865,8 @@
                        end above the animation's bar and the strip (its margin is their height), so the drawing is never
                        under them. It is that margin and nothing else; the morph bar it held is gone (14 Nov 2026, THE
                        ANIMATION'S CONTROLS ARE A TABLE, NOT A BAR). */
-                    body.morphing #shapeBar { display: flex; height: 0; min-height: 0; padding: 0; overflow: hidden; margin-bottom: calc(104px + var(--anim-h, 52px)); }
+                    body.morphing #shapeBar { display: flex; height: 0; min-height: 0; padding: 0; overflow: hidden; margin-bottom: 104px; }
+                    body.morphing.anim-bar #shapeBar { margin-bottom: calc(104px + var(--anim-h, 52px)); }
                     /* ON A PHONE THE CHIPS ARE IN GROUPS (the same day, the sixth): eleven chips were a line to pan, most of
                        it out of sight. Keys, Move, Feel, Export, More and Exit fit across; a group opened shows its own
                        chips after a way back. A wide screen has the room and shows them all. */
@@ -58090,6 +58094,21 @@
                 if (typeof setShapeTool === 'function')
                     setShapeTool(mode === 'shape'); // and the Shape mode the shape tool (THE SHAPE TOOL'S CHOICES ARE THE STRIP'S)
                 document.body.classList.toggle('adding', !!mode);
+                {
+                    // THE ANIMATION'S BAR GOES WITH ITS STRIP (15 Nov 2026, Tom: "Morph bar does not close when footer
+                    // closes or changes"). The bar stood above the strip for as long as a morph was live, whatever the
+                    // strip was showing, so with the strip closed or turned to Fill it was a row of chips over nothing
+                    // of theirs. It is up only while the strip shows one of its chips' values now, and the morph's own
+                    // panel, opened from the Shape chip, goes with it; the canvas takes the room back.
+                    const bar = !!mode && mode.slice(0, 4) === 'anim' && mode !== 'animPick';
+                    if (document.body.classList.contains('anim-bar') !== bar) {
+                        document.body.classList.toggle('anim-bar', bar);
+                        if (!bar)
+                            _mrAsk = false;
+                        if (document.body.classList.contains('morphing') && typeof resizeCanvas === 'function')
+                            requestAnimationFrame(() => { resizeCanvas(); drawAll(); });
+                    }
+                }
                 if (mode)
                     document.body.dataset.strip = mode;
                 else

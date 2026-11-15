@@ -298,6 +298,10 @@ compatibly.
   (`press(name)`, `set(name, v)`, `get(name)`, `names()`). `#shapeBar` stays, empty, as the margin that ends the canvas
   above the bar and the strip. Animate (`#bMorphOpen`) with something selected goes straight in (`#bMorphLive`). A new
   control of the animation is an entry there and a tile or a dial.
+  The bar goes with its strip (15 Nov 2026, Tom: "Morph bar does not close when footer closes or changes"; THE
+  ANIMATION'S BAR GOES WITH ITS STRIP): `#animBar` shows only while `body.anim-bar`, which `setMode` sets for the
+  `anim…` modes, so the strip closed or turned to another mode takes the bar, the morph's own panel (`_mrAsk`) and the
+  bar's share of the canvas's margin with it; Animate brings them back.
 - Fill and Outline paint (14 Nov 2026, FILL AND OUTLINE PAINT in `draw.html`; Tom: "1 2 3 4 5 6", the fourth): both
   buttons are enabled with nothing selected (outside the edit view). A colour tile tapped is held (`paint`, lit when
   nothing is selected) while that strip is up, and a tap on a shape selects it and presses the same swatch; a held

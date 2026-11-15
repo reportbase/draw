@@ -1008,6 +1008,23 @@ T.current = 'the animation\'s bar and strip';
     const ad = await ap.evaluate(() => [window.__anim.get('fps'), window.__anim.get('onion'), document.getElementById('shapeBar').getBoundingClientRect().height < 1].join());
     if (pa !== 'echoes,back,80,true' || ph !== '400,-50,true,2' || ti !== '2,50,true' || ad !== '60,true,true' || drawn === false)
       throw new Error('path, physics, timing, advanced: ' + JSON.stringify({ pa, drawn, ph, ti, ad }));
+    // THE ANIMATION'S BAR GOES WITH ITS STRIP (15 Nov 2026, Tom: "Morph bar does not close when footer closes or
+    // changes"): the strip turned to Fill takes the bar away and gives the canvas its room, the strip closed leaves
+    // it away, and Animate brings both back
+    const barAt = () => ap.evaluate(() => [String(window.__strip.mode), getComputedStyle(document.getElementById('animBar')).display,
+      Math.round(document.getElementById('cv').getBoundingClientRect().bottom)]);
+    const b0 = await barAt();
+    await ap.click('#bStyle');
+    await ap.waitForTimeout(500);
+    const b1 = await barAt();
+    await ap.click('#bStyle');
+    await ap.waitForTimeout(500);
+    const b2 = await barAt();
+    await ap.click('#bMorphOpen');
+    await ap.waitForTimeout(500);
+    const b3 = await barAt();
+    if (b0[1] !== 'flex' || b1[0] !== 'fill' || b1[1] !== 'none' || !(b1[2] > b0[2] + 20) || b2[0] !== 'null' || b2[1] !== 'none' || b3[0] !== 'animKeys' || b3[1] !== 'flex' || b3[2] !== b0[2])
+      throw new Error('the bar and its strip: ' + JSON.stringify({ b0, b1, b2, b3 }));
     const more = true;
     await ap.click('#abExit');
     await ap.waitForTimeout(500);
