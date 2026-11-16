@@ -1900,8 +1900,15 @@
                 /* A direct child of .topbar now, not of the scrolling row: it keeps its place at the
                    right end at every width, and the row scrolls past it. */
                 #gearBtn { align-self: center; flex: 0 0 auto; }
-                /* (16 Nov 2026, Tom: "the back ground of the menu button should be transparent": the drawing shows through it) */
-                button#gearBtn.icon-btn, button#gearBtn.icon-btn:hover { background: transparent; box-shadow: none; }
+                /* THE MENU'S BUTTON IS ONE OF THE BAR'S (16 Nov 2026, Tom: "the back ground of the menu button should be
+                   transparent", and then, of what that was read as, "Menu button has a different style"). It was read as
+                   the chip's own fill, which was taken away, and the button then looked like no other. What stood out
+                   was round it, not in it: the ring's buttons were cut off square where the strip ends beside the
+                   pinned button, as if a box stood behind it. So the chip is the others' again (their fill, their
+                   shadow, and on a phone their line: it sat 2px high), and the strip's two ends fade instead of
+                   cutting, so a button turning past goes out softly and nothing reads as a box. */
+                .topbar .controls { -webkit-mask-image: linear-gradient(to right, transparent, #000 22px, #000 calc(100% - 22px), transparent);
+                  mask-image: linear-gradient(to right, transparent, #000 22px, #000 calc(100% - 22px), transparent); }
                 /* The settings panel is the topmost layer in the app, above the edit bar, the
                    shape bar and every popover. It was already above them by declaration order,
                    but on nothing more than "no one else set a z-index" — one stacking context
@@ -3143,7 +3150,7 @@
                          construction, so a phone and a desktop show the same thing at different sizes. */
                       /* Pinned to the RIGHT so it never spins out of reach: settings is the way out of
                          any mess, and a ring has no fixed slots to keep it in. */
-                      #gearBtn { position: absolute; right: 8px; top: 10px; transform: none; z-index: 2; }
+                      #gearBtn { position: absolute; right: 8px; top: 12px; transform: none; z-index: 2; }
                       /* The lock gets the mirror treatment on the left, and for the same reason: the ring
                          has no fixed slots, and "spin the bar to find the lock" is not a thing anyone
                          would guess either. */
