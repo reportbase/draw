@@ -18969,7 +18969,7 @@
                 y1 = Math.max(a.y, c.y);
             const mx = (x0 + x1) / 2,
                 my = (y0 + y1) / 2;
-            return {
+            const H = {
                 box: {
                     x0,
                     y0,
@@ -18988,6 +18988,14 @@
                     rot: [mx, y0 - ROTATE_GRIP_PX()],
                 },
             };
+            // SEVERAL HELD HAVE NO RESIZE GRIPS (16 Nov 2026, Tom: "With multi selected objects ... you should only be
+            // able to move the selected shapes together as a selection", and then the fourth of "1 2 3 4 5", "No resize
+            // handles on a multi-selection"). A press on a leaf of several already drags them all; the eight grips still
+            // stretched them. Taken out here, where the drawing, the hit test and the cursor all ask, so none is drawn
+            // and none answers. The rotate grip stays, and a group keeps its grips: it is one thing, and is sized as one.
+            if (!state.editMode && selectedIndices().length > 1 && !selectionIsGrouped())
+                H.pts = { rot: H.pts.rot };
+            return H;
         }
 
         const HANDLE_CURSOR = {
@@ -31342,6 +31350,13 @@
             // spins the ring — and all three are decided by MOVEMENT or by RELEASE, so a press
             // that does neither for LONG_PRESS_MS is unambiguous and is the same gesture the
             // canvas already uses for its own second meanings.
+            //
+            // A HOLD ON A TILE DOES NOTHING NOW (16 Nov 2026, Tom: "Remove long-press rename on tiles", the fifth of
+            // "1 2 3 4 5"). The tip that told of it went the same day, and a gesture nothing tells of is one met by
+            // accident: a finger resting on a tile opened a box to type in. A shape is named by the Name button on the
+            // top bar, whose fields are the strip's. TILE_HOLD_RENAMES false leaves the timer unarmed; beginTileRename
+            // is kept, reached by name.
+            const TILE_HOLD_RENAMES = false;
             let holdT = null;
             const cancelHold = () => {
                 if (holdT) {
@@ -31367,7 +31382,7 @@
                 } catch (_) {}
                 e.stopPropagation();
                 cancelHold();
-                holdT = setTimeout(() => {
+                if (TILE_HOLD_RENAMES) holdT = setTimeout(() => {
                     holdT = null;
                     if (!down || down.dragging)
                         return;

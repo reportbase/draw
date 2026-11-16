@@ -432,6 +432,10 @@ compatibly.
   able to adjust the leaves, you should only be able to move the selected shapes together as a selection"): with two
   shapes or more selected in the scene view a press on a leaf or an exact corner takes no leaf (`hit = null` in the
   canvas's mousedown) and drags the whole selection; a press on a held shape's rim keeps them all held.
+  They have no resize grips either (the same day, SEVERAL HELD HAVE NO RESIZE GRIPS in `handlePoints`; "4"): only the
+  rotate grip is drawn and answers; a group keeps its eight, being sized as one thing.
+- A hold on a tile of the drawing's strip does nothing (the same day, "5": "Remove long-press rename on tiles";
+  `TILE_HOLD_RENAMES` false): a shape is named by the Name button.
 - A pinch selects nothing (the same day, A PINCH SELECTS NOTHING; "pinching should not select objects"): when the second
   finger lands the first finger's press is spent and the selection put back as it stood before it (`_pressSelBefore`).
 - A tile with no name, count or note has no tip ("Remove tool tip long press to change name").
