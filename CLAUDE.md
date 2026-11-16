@@ -274,6 +274,12 @@ compatibly.
   above the strip while it is the AI's (`body[data-strip="ai"]`); `#aiPop` is not opened and the menu's line
   (`#bMenuAi`) is hidden. `window.__aiSync` is what the panel did when it opened. A new AI action is a tile there.
 - The menu's button wears the standard chip too (the same day: "Menu button should follow standard button scheme").
+- The lock is the menu's and off by default, and Fit to view left the bar (16 Nov 2026, THE LOCK IS THE MENU'S; Tom:
+  "remove fit to view toolbar button", "Move lock to the menu. Lock is off by default"): `#bLock` and `#bFit` are held
+  off the bar in `#topButtonsHeld`, still the code that acts (L and the fit's key work); the menu's `#bMenuLock`
+  presses the lock and reads "lock the shapes" or "unlock the shapes". `state.locked` starts false everywhere (a
+  touch device used to boot locked) and is saved as `lockedV4`. The top ring opens turned to its second again
+  (`_topRing.focus(1.5)`: a phone shows Shapes, Draw, Fill, Outline). The menu's button has no fill ("the back ground of the menu button should be transparent").
 - The lock wears the other buttons' chip (the same day: "locked toolbar button should have standerd color scheme"):
   plain when off, gold when on; only the menu's button and the edit view's pair keep the gold tint.
 - A pinch zooms half as fast (the same day: "Pinch to zoom is to fast. Slow down by half"): `PINCH_GAIN` and the

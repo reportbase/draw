@@ -1900,6 +1900,8 @@
                 /* A direct child of .topbar now, not of the scrolling row: it keeps its place at the
                    right end at every width, and the row scrolls past it. */
                 #gearBtn { align-self: center; flex: 0 0 auto; }
+                /* (16 Nov 2026, Tom: "the back ground of the menu button should be transparent": the drawing shows through it) */
+                button#gearBtn.icon-btn, button#gearBtn.icon-btn:hover { background: transparent; box-shadow: none; }
                 /* The settings panel is the topmost layer in the app, above the edit bar, the
                    shape bar and every popover. It was already above them by declaration order,
                    but on nothing more than "no one else set a z-index" — one stacking context
@@ -4795,6 +4797,7 @@
                 <div class="menu-title">tools</div>
                 <div class="group row" style="gap:6px;">
                     <button id="bMenuAi" style="display:none;" title="generate shapes with AI — describe a picture and Claude draws it as vector art (sign in once; no API key needed)">generate with AI</button>
+                    <button id="bMenuLock" style="flex:1;" title="lock the shapes so a drag pans or lassoes and nothing moves; press again to unlock (L)">lock the shapes</button>
                     <button id="bMenuRead" style="flex:1;" title="reading — reference signal, leaf dots, and the observer's rule">reading</button>
                 </div>
             </div>
@@ -7446,7 +7449,7 @@
             // report a coarse pointer while still having a fine one, and those behave like a mouse
             // because there IS a mouse. `any-pointer` asks about every input the device has rather
             // than the primary one, which is the question being asked here.
-            locked: touchOnlyDevice(),
+            locked: false, // (off everywhere since 16 Nov 2026, Tom: "Lock is off by default"; a touch device used to boot locked)
 
             marks: [],
             // placed PUNCTURES (world coords): one ray ring per mark in the edit header; empty → the origin stands in as m2
@@ -52190,6 +52193,14 @@
                 // movable.) Locked is also the default, so the padlock boots lit — a
                 // standing signal that the work is safe and drags only pan.
                 b.classList.toggle('active', !!state.locked);
+                // THE LOCK IS THE MENU'S (16 Nov 2026, Tom: "Move lock to the menu. Lock is off by default"; with it,
+                // "remove fit to view toolbar button"). Both left the bar and are held off it, still the code that acts
+                // (the L key, and F for the fit, as before); the menu's line presses the lock and says which way it is.
+                const ml = $('bMenuLock');
+                if (ml) {
+                    ml.textContent = state.locked ? 'unlock the shapes' : 'lock the shapes';
+                    ml.classList.toggle('active', !!state.locked);
+                }
                 const sh = b.querySelector('.shackle');
                 if (sh)
                     sh.setAttribute('d', state.locked ? LOCK_SHACKLE_CLOSED : LOCK_SHACKLE_OPEN);
@@ -52236,7 +52247,7 @@
             scheduleSave();
             drawAll();
         }
-        for (const id of ['bLock', 'bLockEdit']) {
+        for (const id of ['bLock', 'bLockEdit', 'bMenuLock']) {
             const b = $(id);
             if (b)
                 b.addEventListener('click', toggleLock);
@@ -57368,7 +57379,7 @@
             // reading to the menu."). Their buttons are held here too and the menu's two entries press them
             // (#bMenuAi, #bMenuRead), so each panel is opened by the code that always opened it; a panel whose
             // button is not on the screen stands under the menu's button instead (placePop).
-            for (const id of ['bGroup', 'bDrawLine', 'bPlot', 'bRead'].concat(PHONE_BAR ? ['bDraw', 'bDrawShape', 'bArrows', 'bText'] : ['bDrawMenu'])) {
+            for (const id of ['bGroup', 'bDrawLine', 'bPlot', 'bRead', 'bFit', 'bLock'].concat(PHONE_BAR ? ['bDraw', 'bDrawShape', 'bArrows', 'bText'] : ['bDrawMenu'])) {
                 const b = $(id);
                 if (b)
                     hold.appendChild(b);
@@ -57395,13 +57406,11 @@
             // leads the ring now, a button among the others (still wearing its gold, so it is found), and turns with
             // them. The ring opens turned to its third, and has the corner the lock stood in, so a phone shows the
             // lock, Shapes, Draw and Fill whole.
-            const lock = $('bLock');
-            if (bar && lock)
-                bar.prepend(lock);
+            // (the lock led the ring from 15 Nov 2026; it is the menu's since the 16th, THE LOCK IS THE MENU'S, and is held off the bar above)
         }
         const _topRing = makeRing(document.querySelector('.topbar .controls'));
         if (_topRing)
-            _topRing.focus(2); // (the lock leads now, so the third is the middle of lock, Shapes, Draw, Fill)
+            _topRing.focus(1.5); // (Shapes leads again: turned between the second and third, a phone shows Shapes, Draw, Fill and Outline whole)
         // The footer's ring is laid out in a strip that is DISPLAY:NONE until the mode opens, so
         // its clientWidth is 0 at load and every chip lands on top of the middle. enterEditMode
         // re-lays it once the strip has a width — see syncEditBtn.
@@ -62307,8 +62316,9 @@
                 serialSize: state.serialSize || 1,
                 cascadeSize: state.cascadeSize || 1,
                 // Saved under a fresh key each time the lock's default flips, so an old
-                // save can never pin a user to a retired default. V3: boots unlocked.
-                lockedV3: !!state.locked,
+                // save can never pin a user to a retired default. V3: boots unlocked. V4 (16 Nov 2026): off by
+                // default on a touch device too, where V3 had kept it on.
+                lockedV4: !!state.locked,
                 tagMode: state.tagMode,
                 headGlyph: state.headGlyph || 'dial',
                 marks: (state.marks || []).map(m => ({
@@ -63278,7 +63288,7 @@
             state.cascadeSize = clampCascadeSize(+d.cascadeSize || 1);
             // A save from before the flag existed gets the DEVICE default, not a fixed one — the
             // same question the boot asks, asked again for a scene that never answered it.
-            state.locked = d.lockedV3 == null ? touchOnlyDevice() : !!d.lockedV3;
+            state.locked = d.lockedV4 == null ? false : !!d.lockedV4;
             state.marks = Array.isArray(d.marks) ? d.marks.filter(m => m && isFinite(m.x) && isFinite(m.y)).map(m => ({
                 x: +m.x,
                 y: +m.y

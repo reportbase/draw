@@ -48,11 +48,11 @@ try {
      the button while the mouse is over it, gone when it leaves. */
   await step('the header buttons say their names', async () => {
     const names = {};
-    for (const id of ['bUndo', 'bAddStrip', 'bDraw', 'bFit', 'gearBtn']) {
+    for (const id of ['bUndo', 'bAddStrip', 'bDraw', 'gearBtn']) {
       await page.hover('#' + id);
       names[id] = await page.evaluate(() => window.__buttonName());
     }
-    const want = { bUndo: 'Undo', bAddStrip: 'Shapes', bDraw: 'Pencil', bFit: 'Fit to view', gearBtn: 'Settings' };
+    const want = { bUndo: 'Undo', bAddStrip: 'Shapes', bDraw: 'Pencil', gearBtn: 'Settings' };
     for (const [id, name] of Object.entries(want))
       if (!names[id] || names[id].id !== id || names[id].name !== name) throw new Error(`over #${id} the name shown was ${JSON.stringify(names[id])}`);
     const unnamed = await page.evaluate(() => [...document.querySelectorAll('.topbar .icon-btn')].filter(b => b.offsetParent && !b.id).length);
@@ -75,8 +75,8 @@ try {
     try {
       await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
       await mp.waitForSelector('#bAddStrip', { timeout: 60000 });
-      const w = await mp.evaluate(() => Object.fromEntries(['bLock', 'bUndo', 'gearBtn'].map(id => [id, parseFloat(getComputedStyle(document.getElementById(id)).width)])));
-      if (w.bLock !== 52 || w.bUndo !== 52 || w.gearBtn !== 52) throw new Error('top bar chips on a phone: ' + JSON.stringify(w));
+      const w = await mp.evaluate(() => Object.fromEntries(['bUndo', 'gearBtn'].map(id => [id, parseFloat(getComputedStyle(document.getElementById(id)).width)])));
+      if (w.bUndo !== 52 || w.gearBtn !== 52) throw new Error('top bar chips on a phone: ' + JSON.stringify(w));
       const edit = await mp.evaluate(() => { const b = document.querySelector('.edit-bar .icon-btn'); return b ? parseFloat(getComputedStyle(b).width) : null; });
       if (edit !== null && edit !== 42) throw new Error('an edit bar chip on a phone is ' + edit + 'px, not 42');
       // a finger sees a button's name while it is held (13 Nov 2026), and the shapes panel's pictures are drawn
@@ -122,6 +122,9 @@ try {
       if (!said || said.name !== tile[2]) throw new Error('a tile pressed said ' + JSON.stringify(said) + ', its title is ' + tile[2]);
       // the selection's options come to the strip under the lock, which a phone starts with (13 Nov 2026): the lock
       // hides the box's handles, and the strip asked for those, so a tapped shape on a phone brought nothing
+      // (a phone opens unlocked since 16 Nov 2026, "Lock is off by default", so the lock is put on for this)
+      if (await mp.evaluate(() => document.getElementById('bLock').getAttribute('aria-pressed')) !== 'false') throw new Error('a phone opened locked');
+      await mp.evaluate(() => document.getElementById('bLock').click());
       await mp.evaluate(() => window.__box.select([0]));
       await mp.waitForFunction(() => window.__strip.mode === 'select', null, { timeout: 10000 }).catch(() => {});
       const sel = await mp.evaluate(() => ({ locked: document.getElementById('bLock').getAttribute('aria-pressed'), mode: window.__strip.mode,
@@ -513,13 +516,21 @@ try {
     try {
       await lp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
       await lp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
-      const lk = await lp.evaluate(() => { const b = document.getElementById('bLock'), bar = document.querySelector('.topbar .controls');
-        return [b.parentNode === bar, bar.querySelector('.icon-btn') === b, getComputedStyle(b).position, b.getAttribute('aria-pressed')].join(); });
-      await lp.click('#bLock');
-      await lp.waitForTimeout(300);
-      const lk1 = await lp.evaluate(() => document.getElementById('bLock').getAttribute('aria-pressed'));
-      await lp.click('#bLock');
-      if (!/^true,true,absolute,/.test(lk) || lk1 === lk.split(',')[3]) throw new Error('the lock on the bar: ' + lk + ' then ' + lk1);
+      // THE LOCK IS THE MENU'S (16 Nov 2026, Tom: "remove fit to view toolbar button", "Move lock to the menu. Lock is off by
+      // default", "the back ground of the menu button should be transparent"): neither is on the bar, the menu's line
+      // turns the lock and says which way it is, and the menu's button has no fill
+      const lkOf = () => lp.evaluate(() => { const b = document.getElementById('bLock');
+        return [!b.closest('.topbar'), !document.getElementById('bFit').closest('.topbar'), b.getAttribute('aria-pressed'), document.getElementById('bMenuLock').textContent.trim(),
+          getComputedStyle(document.getElementById('gearBtn')).backgroundColor].join(); });
+      const lk = await lkOf();
+      await lp.click('#gearBtn'); await lp.waitForTimeout(300);
+      await lp.click('#bMenuLock'); await lp.waitForTimeout(300);
+      const lk1 = await lkOf();
+      await lp.click('#bMenuLock'); await lp.waitForTimeout(200);
+      const lk2 = await lkOf();
+      await lp.keyboard.press('Escape'); await lp.waitForTimeout(300);
+      const none = 'rgba(0, 0, 0, 0)';
+      if (lk !== 'true,true,false,lock the shapes,' + none || lk1 !== 'true,true,true,unlock the shapes,' + none || lk2 !== lk) throw new Error("the lock in the menu: " + [lk, lk1, lk2].join(' / '));
       const st = () => lp.evaluate(() => [String(window.__strip.mode), document.getElementById('toolsPop').classList.contains('open'), document.getElementById('bTools').classList.contains('active'),
         [...document.querySelectorAll('.add-strip > .controls.on .anim-tile')].map(t => (t.classList.contains('on') ? '*' : '') + t.querySelector('.cap').textContent).join('|')].join(';'));
       await lp.click('#bTools');
@@ -1447,7 +1458,7 @@ for (const [label, opts, lock] of [
     const cv = await hp.locator('#cv').boundingBox();
     // where each shape stands, read off its box with the lock off (the lock hides the handles)
     const locked = async () => (await hp.evaluate(() => document.getElementById('bLock').getAttribute('aria-pressed'))) === 'true';
-    if (await locked()) await hp.click('#bLock');
+    if (await locked()) await hp.evaluate(() => document.getElementById('bLock').click());
     const at = [];
     for (const i of [0, 1, 2]) {
       await hp.evaluate(i => window.__box.select([i]), i);
@@ -1455,7 +1466,7 @@ for (const [label, opts, lock] of [
       at.push([cv.x + (b.x0 + b.x1) / 2, cv.y + (b.y0 + b.y1) / 2]);
     }
     await hp.evaluate(() => window.__box.select([]));
-    if (lock !== await locked()) await hp.click('#bLock');
+    if (lock !== await locked()) await hp.evaluate(() => document.getElementById('bLock').click());
     const cdp = opts.hasTouch ? await hctx.newCDPSession(hp) : null;
     const press = async ([x, y], ms) => {
       if (cdp) {
@@ -1548,7 +1559,7 @@ T.current = 'generate with AI is on the bar';
     await ap.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
     await ap.waitForFunction(() => window.__strip && document.querySelector('#shapeScroller .shape-tile'), null, { timeout: 15000 });
     const chip = await ap.evaluate(() => { const c = id => { const s = getComputedStyle(document.getElementById(id)); return [s.backgroundColor, s.color, s.borderTopColor].join(); };
-      return [c('gearBtn') === c('bGrid'), !!document.getElementById('bAi').closest('.topbar'), getComputedStyle(document.getElementById('bMenuAi')).display].join(); });
+      return [c('gearBtn').split(',').slice(-4).join() === c('bGrid').split(',').slice(-4).join(), !!document.getElementById('bAi').closest('.topbar'), getComputedStyle(document.getElementById('bMenuAi')).display].join(); });   // (its hairline; its fill is none since the 16th)
     if (chip !== 'true,true,none') throw new Error("the menu's button wears the grid button's chip, and the AI is on the bar: " + chip);
     await ap.click('#bAi'); await ap.waitForTimeout(400);
     const st = () => ap.evaluate(() => { const ts = [...document.querySelectorAll('.add-strip .controls.on [data-ai]')];
