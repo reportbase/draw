@@ -763,6 +763,17 @@ await step('an explainer compiled from files: a beat a file, each drawing morphi
     for (const t of [0.3333, 0.6667, 0.995]) { await ep.evaluate(t => window.__box.seek(t), t); await ep.waitForTimeout(150);
       boxes.push(await ep.evaluate(() => { const m = window.__box.morph(), w = Math.max(...m.leaves) - Math.min(...m.leaves), h = Math.max(...m.leavesY) - Math.min(...m.leavesY); return +(w / h).toFixed(2); })); }
     if (Math.abs(boxes[0] - 1) > 0.03 || Math.abs(boxes[1] - 1.3) > 0.05 || Math.abs(boxes[2] - 1) > 0.05) throw new Error('the poses at the stops: ' + boxes.join());
+    // gathered a choice at a time ("It only loads a single svg file": a phone's chooser gives one file to a tap): each
+    // choice through the menu's own chooser compiles everything gathered so far, and "new explainer" empties the tray
+    const pickOne = async f => { await ep.click('#gearBtn'); await ep.waitForTimeout(250);
+      const [fc] = await Promise.all([ep.waitForEvent('filechooser'), ep.click('#bMenuExplainer')]);
+      await fc.setFiles([{ name: f.name, mimeType: /svg$/.test(f.name) ? 'image/svg+xml' : 'text/plain', buffer: Buffer.from(f.text) }]); };
+    await ep.click('#gearBtn'); await ep.waitForTimeout(250); await ep.click('#bMenuExplainerNew');
+    const grown = [];
+    for (const f of [files[1], files[0], files[2]]) { await pickOne(f);
+      await ep.waitForFunction(n => window.__explainer.tray.size === n && window.__box.morph() && window.__box.beats().beats.length === n, grown.length + 1, { timeout: 30000 });
+      grown.push(await ep.evaluate(() => window.__box.beats().beats.map(b => b.title).join('|'))); }
+    if (grown.join(' / ') !== 'One / One|The end / One|Two shapes|The end') throw new Error('gathered a file at a time: ' + grown.join(' / '));
     // and the scene reads as a page
     const scene = await ep.evaluate(() => JSON.stringify(window.__box.tvfScene()));
     const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -774,7 +785,7 @@ await step('an explainer compiled from files: a beat a file, each drawing morphi
       await xp.goto(new URL('gallery/explained.html?preview=1', base).href, { waitUntil: 'load' });
       await xp.waitForFunction(() => window.__explained && window.__explained.beats, null, { timeout: 30000 });
       const page = await xp.evaluate(() => window.__explained.beats + ':' + window.__explained.titles.join('|'));
-      if (page !== '4:One|Two shapes|The end|example · three') throw new Error('read as a page: ' + page);     // (its three beats, and the page's own closing one)
+      if (page !== '4:One|Two shapes|The end|example · explainer') throw new Error('read as a page: ' + page);     // (its three beats, and the page's own closing one)
     } finally { await xp.close(); }
   } finally { await ep.close(); }
 });

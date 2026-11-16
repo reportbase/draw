@@ -233,3 +233,8 @@ preview. `tools/compile-explainer.mjs` does the same in headless Chromium for a 
 tvfs button would. Not done: `.tvf` files as beats, `<use>` and `<image>` (refused, with the file named), `<style>`
 sheets that name the same class differently in two files, and gradients (the editor reads flat paint). The smoke test
 (motion) compiles three files given out of order and reads the result in the page.
+GATHERED A CHOICE AT A TIME (the same day, Tom, having tried it on the published page: "It only loads a single svg
+file"). The chooser was `multiple` and gave several on a desktop; a phone's gives one file to a tap, several only to a
+long press. The files chosen are now kept by name (`explainTray`, `window.__explainer.tray` and `add`) and every choice
+compiles all of them, so an explainer grows a beat at a time; the menu's line reads **add files to an explainer…** and
+**new explainer** empties the tray. The smoke test picks three files one at a time through the menu's own chooser.
