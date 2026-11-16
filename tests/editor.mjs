@@ -521,7 +521,8 @@ try {
       // turns the lock and says which way it is, and the menu's button has no fill
       const lkOf = () => lp.evaluate(() => { const b = document.getElementById('bLock');
         return [!b.closest('.topbar'), !document.getElementById('bFit').closest('.topbar'), b.getAttribute('aria-pressed'), document.getElementById('bMenuLock').textContent.trim(),
-          getComputedStyle(document.getElementById('gearBtn')).backgroundColor].join(); });
+          // (the menu's button is the others' chip again, "Menu button has a different style": fill, hairline, shadow and line)
+          (c => c('gearBtn') === c('bAddStrip'))(id => { const e = document.getElementById(id), q = getComputedStyle(e); return [q.backgroundColor, q.borderTopColor, q.boxShadow, q.width, q.borderRadius, Math.round(e.getBoundingClientRect().top)].join(); })].join(); });
       const lk = await lkOf();
       await lp.click('#gearBtn'); await lp.waitForTimeout(300);
       await lp.click('#bMenuLock'); await lp.waitForTimeout(300);
@@ -529,7 +530,7 @@ try {
       await lp.click('#bMenuLock'); await lp.waitForTimeout(200);
       const lk2 = await lkOf();
       await lp.keyboard.press('Escape'); await lp.waitForTimeout(300);
-      const none = 'rgba(0, 0, 0, 0)';
+      const none = 'true';
       if (lk !== 'true,true,false,lock the shapes,' + none || lk1 !== 'true,true,true,unlock the shapes,' + none || lk2 !== lk) throw new Error("the lock in the menu: " + [lk, lk1, lk2].join(' / '));
       const st = () => lp.evaluate(() => [String(window.__strip.mode), document.getElementById('toolsPop').classList.contains('open'), document.getElementById('bTools').classList.contains('active'),
         [...document.querySelectorAll('.add-strip > .controls.on .anim-tile')].map(t => (t.classList.contains('on') ? '*' : '') + t.querySelector('.cap').textContent).join('|')].join(';'));
