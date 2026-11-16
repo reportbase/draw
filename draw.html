@@ -1915,8 +1915,9 @@
                    fill of its own, so the buttons show through it. */
                 .topbar { padding-right: 0 !important; }
                 .topbar .controls { padding-right: 0 !important; }
-                button#gearBtn.icon-btn { position: absolute; right: 8px; top: calc(50% + 1px); transform: translateY(-50%); z-index: 300; background: transparent; box-shadow: none; }
-                button#gearBtn.icon-btn:hover { background: rgba(38, 38, 48, 0.55); transform: translateY(-50%); }
+                button#gearBtn.icon-btn { position: absolute; right: 8px; top: calc(50% + 1px); transform: translateY(-50%); z-index: 300; }
+                /* (its chip is the bar's own: "The menu button itself should have the same style as the buttons on the toolbar") */
+                button#gearBtn.icon-btn:hover { transform: translateY(-50%); }
                 /* The settings panel is the topmost layer in the app, above the edit bar, the
                    shape bar and every popover. It was already above them by declaration order,
                    but on nothing more than "no one else set a z-index" — one stacking context

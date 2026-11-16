@@ -522,8 +522,8 @@ try {
       const lkOf = () => lp.evaluate(() => { const b = document.getElementById('bLock');
         return [!b.closest('.topbar'), !document.getElementById('bFit').closest('.topbar'), b.getAttribute('aria-pressed'), document.getElementById('bMenuLock').textContent.trim(),
           // (the menu's button is the others' chip again, "Menu button has a different style": fill, hairline, shadow and line)
-          (c => c('gearBtn') === c('bAddStrip'))(id => { const e = document.getElementById(id), q = getComputedStyle(e); return [q.borderTopColor, q.width, q.borderRadius, Math.round(e.getBoundingClientRect().top)].join(); }) && getComputedStyle(document.getElementById('gearBtn')).backgroundColor === 'rgba(0, 0, 0, 0)'
-            && document.querySelector('.topbar .controls').getBoundingClientRect().right >= innerWidth - 1].join(); });   // (no fill, and the ring runs under it: THE RING RUNS UNDER THE MENU'S BUTTON)
+          (c => c('gearBtn') === c('bAddStrip'))(id => { const e = document.getElementById(id), q = getComputedStyle(e); return [q.backgroundColor, q.borderTopColor, q.boxShadow, q.width, q.borderRadius, Math.round(e.getBoundingClientRect().top)].join(); })
+            && document.querySelector('.topbar .controls').getBoundingClientRect().right >= innerWidth - 1].join(); });   // (the bar's own chip, and the ring runs under it: THE RING RUNS UNDER THE MENU'S BUTTON)
       const lk = await lkOf();
       await lp.click('#gearBtn'); await lp.waitForTimeout(300);
       await lp.click('#bMenuLock'); await lp.waitForTimeout(300);
