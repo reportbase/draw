@@ -1907,8 +1907,16 @@
                    pinned button, as if a box stood behind it. So the chip is the others' again (their fill, their
                    shadow, and on a phone their line: it sat 2px high), and the strip's two ends fade instead of
                    cutting, so a button turning past goes out softly and nothing reads as a box. */
-                .topbar .controls { -webkit-mask-image: linear-gradient(to right, transparent, #000 22px, #000 calc(100% - 22px), transparent);
-                  mask-image: linear-gradient(to right, transparent, #000 22px, #000 calc(100% - 22px), transparent); }
+                /* THE RING RUNS UNDER THE MENU'S BUTTON (16 Nov 2026, Tom: "I can't see the toolbar buttons underneath the menu
+                   button canvas. I see the main canvas. Looks bad", which is what "the back ground of the menu button
+                   should be transparent" had meant). The strip stopped short of the pinned button, so beside and under
+                   it there was a gap of drawing where the bar's buttons should have been turning past. The strip now
+                   runs the whole width, under the menu's button, which is pinned over it at every width and has no
+                   fill of its own, so the buttons show through it. */
+                .topbar { padding-right: 0 !important; }
+                .topbar .controls { padding-right: 0 !important; }
+                button#gearBtn.icon-btn { position: absolute; right: 8px; top: calc(50% + 1px); transform: translateY(-50%); z-index: 300; background: transparent; box-shadow: none; }
+                button#gearBtn.icon-btn:hover { background: rgba(38, 38, 48, 0.55); transform: translateY(-50%); }
                 /* The settings panel is the topmost layer in the app, above the edit bar, the
                    shape bar and every popover. It was already above them by declaration order,
                    but on nothing more than "no one else set a z-index" — one stacking context
@@ -3150,7 +3158,7 @@
                          construction, so a phone and a desktop show the same thing at different sizes. */
                       /* Pinned to the RIGHT so it never spins out of reach: settings is the way out of
                          any mess, and a ring has no fixed slots to keep it in. */
-                      #gearBtn { position: absolute; right: 8px; top: 12px; transform: none; z-index: 2; }
+                      button#gearBtn.icon-btn { top: calc(50% + 4px); }
                       /* The lock gets the mirror treatment on the left, and for the same reason: the ring
                          has no fixed slots, and "spin the bar to find the lock" is not a thing anyone
                          would guess either. */
