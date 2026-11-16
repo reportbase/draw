@@ -1543,13 +1543,15 @@
         /* (The top bar's lock left this pair's gold, 16 Nov 2026, Tom: "locked toolbar button should have standerd color
            scheme": it is on the ring with the others now, not pinned to a corner, so it wears their chip, plain when
            off and gold when on, as the grid's and the mirror's do.) */
-        #bCancelEdit, #gearBtn, #bLockEdit:not(.active) {
+        /* (And the menu's button, the same day: "Menu button should follow standard button scheme". It is still pinned
+           outside the ring; it no longer says so in gold.) */
+        #bCancelEdit, #bLockEdit:not(.active) {
             background: rgba(212, 160, 82, 0.14);
             color: #d4a052;
             border-color: rgba(212, 160, 82, 0.5);
         }
 
-        #bCancelEdit:hover, #gearBtn:hover, #bLockEdit:not(.active):hover {
+        #bCancelEdit:hover, #bLockEdit:not(.active):hover {
             background: rgba(212, 160, 82, 0.30);
             color: #f2d7a8;
             border-color: rgba(212, 160, 82, 0.65);
@@ -2772,6 +2774,15 @@
                     }
                     body.adding .add-strip { display: block; }
                     body.adding .shape-scroller { visibility: hidden; }
+                    /* GENERATE WITH AI IS ON THE BAR: the box to type in, above its strip */
+                    #aiBar { display: none; position: fixed; left: 50%; transform: translateX(-50%); bottom: 112px; z-index: 26; width: min(640px, calc(100vw - 24px));
+                      flex-direction: column; gap: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--line2); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
+                    body[data-strip="ai"] #aiBar { display: flex; }
+                    #aiBar #aiPrompt { width: 100%; min-height: 54px; max-height: 30vh; box-sizing: border-box; resize: vertical; font: 13px/1.4 system-ui, sans-serif; padding: 6px 8px;
+                      color: var(--fg); background: var(--bg, #0b0b10); border: 1px solid var(--line2); border-radius: 6px; outline: none; }
+                    #aiBar #aiPrompt:focus { border-color: var(--gold); }
+                    #aiBar .ai-status:empty, #aiBar .ai-crit:empty { display: none; }
+                    #aiBar .ai-crit { max-height: 28vh; overflow: auto; }
                     /* the ring's box starts after the + (12px in, 52 wide, and air), as the top bar's starts after its
                        corner buttons: a ring clips at its own box, so a tile spinning past the + slides under the box's
                        edge rather than showing behind the button */
@@ -4698,6 +4709,9 @@
         </details>
     </div>
 
+    <!-- the AI's prompt, status and critique, standing above the strip while it is the AI's (GENERATE WITH AI IS ON THE BAR) -->
+    <div id="aiBar" aria-label="what to generate"></div>
+
     <div class="menu-scrim" id="menuScrim"></div>
 
     <div class="confirm-scrim" id="confirmScrim" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
@@ -4780,7 +4794,7 @@
             <div class="group">
                 <div class="menu-title">tools</div>
                 <div class="group row" style="gap:6px;">
-                    <button id="bMenuAi" style="flex:1;" title="generate shapes with AI — describe a picture and Claude draws it as vector art (sign in once; no API key needed)">generate with AI</button>
+                    <button id="bMenuAi" style="display:none;" title="generate shapes with AI — describe a picture and Claude draws it as vector art (sign in once; no API key needed)">generate with AI</button>
                     <button id="bMenuRead" style="flex:1;" title="reading — reference signal, leaf dots, and the observer's rule">reading</button>
                 </div>
             </div>
@@ -57354,7 +57368,7 @@
             // reading to the menu."). Their buttons are held here too and the menu's two entries press them
             // (#bMenuAi, #bMenuRead), so each panel is opened by the code that always opened it; a panel whose
             // button is not on the screen stands under the menu's button instead (placePop).
-            for (const id of ['bGroup', 'bDrawLine', 'bPlot', 'bAi', 'bRead'].concat(PHONE_BAR ? ['bDraw', 'bDrawShape', 'bArrows', 'bText'] : ['bDrawMenu'])) {
+            for (const id of ['bGroup', 'bDrawLine', 'bPlot', 'bRead'].concat(PHONE_BAR ? ['bDraw', 'bDrawShape', 'bArrows', 'bText'] : ['bDrawMenu'])) {
                 const b = $(id);
                 if (b)
                     hold.appendChild(b);
@@ -57645,6 +57659,60 @@
                         }
                         return t === 'start' ? !!tourState && !tourState.paused : t === 'pause' ? !!tourState && !!tourState.paused : false;
                     } },
+                // GENERATE WITH AI IS ON THE BAR (16 Nov 2026, Tom: "move generate with ai to the toolbar with settings in the
+                // footer"). It was a line in the menu that opened a panel of a dozen buttons. Its button is on the bar
+                // again and turns the strip to those buttons, a tile each, each pressing the panel's own (so the panel's
+                // code is still what acts, with its rules for which are offered); where the result goes and which model
+                // draws are tiles lit by the panel's selects. What must be typed, and what is said back, stands in a
+                // bar just above the strip (#aiBar): the prompt's box, the status line and the critique, the panel's own
+                // elements moved there the first time.
+                ai: { btn: 'bAi',
+                    build: host => {
+                        const bar = $('aiBar');
+                        for (const id of ['aiPrompt', 'aiStatus', 'aiCrit'])
+                            if ($(id))
+                                bar.appendChild($(id));
+                        const T = (id, cap, label, g, v) => animTile(host, v == null ? { ai: id } : { ai: id, v }, label, cap, g);
+                        const P = d => '<path d="' + d + '"/>';
+                        const spark = 'M28 8l4 14l14 4l-14 4l-4 14l-4-14l-14-4l14-4z';
+                        T('aiGo', 'generate', 'Draw what the box says', P(spark));
+                        T('aiAnimate', 'animate', 'Make this drawing move as the box says', P('M10 40c8-20 16-20 24 0M34 40l12-12M40 26l6 2l-2 6'));
+                        T('aiScene', 'scene', 'Draw and animate a whole scene from the box', P('M8 44h40M14 44V24l14-10l14 10v20M24 44V32h8v12'));
+                        T('aiAnimChange', 'change', 'Change the animation that is playing as the box says', P('M12 28a16 16 0 0 1 28-10M44 28a16 16 0 0 1-28 10M40 10v8h-8M16 46v-8h8'));
+                        T('aiCritique', 'critique', 'Brief art direction on the drawing', P('M10 12h36v24H26l-10 8v-8h-6z'));
+                        T('aiFix', 'fix', 'Correct the last generation from its render', P('M36 10a10 10 0 0 0-10 14L10 40l6 6l16-16a10 10 0 0 0 14-10l-7 5l-5-5z'));
+                        T('aiPolish', 'polish', 'Rewrite a thin prompt into a rich one', P('M12 44l22-22l6 6l-22 22zM38 8v8M34 12h8M46 22v6M43 25h6'));
+                        T('aiRecolor', 'recolor', 'Recolor the drawing to a mood', P('M28 8c12 0 20 8 20 18c0 8-8 8-12 8c-6 0-4 12-10 12C16 46 8 38 8 28S16 8 28 8z') + '<circle cx="20" cy="22" r="2.5"/><circle cx="32" cy="18" r="2.5"/><circle cx="18" cy="33" r="2.5"/>');
+                        T('aiVary', '\u00d73', 'Three variations, side by side', '<rect x="6" y="18" width="12" height="20" rx="2"/><rect x="22" y="18" width="12" height="20" rx="2"/><rect x="38" y="18" width="12" height="20" rx="2"/>');
+                        T('aiImgPick', 'picture', 'Attach a picture for the two tiles beside this one', '<rect x="8" y="12" width="40" height="32" rx="3"/><circle cx="20" cy="24" r="4"/>' + P('M8 38l12-10l10 8l8-6l10 8'));
+                        T('aiFromImg', 'from picture', 'Draw the attached picture as vector art', '<rect x="6" y="14" width="22" height="18" rx="2"/>' + P('M32 23h8M36 19l4 4l-4 4M44 40l-8-12l-8 12z'));
+                        T('aiCleanTrace', 'trace', 'Trace the picture, and keep the loops that are its subject', P('M12 40c0-16 8-28 16-28s16 12 16 28M20 40c0-10 4-18 8-18s8 8 8 18'));
+                        for (const [v, cap, label, g] of [['add', 'add', 'The result lands beside what is there', '<rect x="8" y="16" width="18" height="24" rx="2"/>' + P('M38 20v16M30 28h16')],
+                            ['replace', 'replace', 'The result replaces the drawing', '<rect x="14" y="14" width="28" height="28" rx="2"/>' + P('M22 22l12 12M34 22l-12 12')],
+                            ['bg', 'behind', 'The result goes behind the drawing', '<rect x="8" y="8" width="30" height="30" rx="2" stroke-dasharray="4 4"/><rect x="18" y="18" width="30" height="30" rx="2"/>']])
+                            T('aiMode', cap, label, g, v);
+                        for (const o of $('aiModel').options)
+                            T('aiModel', o.value.replace(/^claude-/, '').replace(/-[\d-]+$/, ''), 'The model that draws: ' + o.value, '<circle cx="28" cy="28" r="' + (/haiku/.test(o.value) ? 8 : /opus/.test(o.value) ? 18 : 13) + '"/>', o.value);
+                        T('aiSignIn', 'account', 'Sign in, or out', '<circle cx="28" cy="20" r="8"/>' + P('M12 46c2-10 8-14 16-14s14 4 16 14'));
+                    },
+                    tap: b => {
+                        const el = $(b.dataset.ai);
+                        if (!el)
+                            return;
+                        if (b.dataset.v != null) {
+                            el.value = b.dataset.v;
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                        } else
+                            el.click();
+                        setTimeout(() => window.__strip && window.__strip.mirror && window.__strip.mirror('ai'), 0);
+                    },
+                    on: b => {
+                        const el = $(b.dataset.ai);
+                        if (b.dataset.ai === 'aiGo' && typeof window.__aiSync === 'function')
+                            window.__aiSync(); // (once a pass: whether there is an animation to change)
+                        return b.dataset.v != null && !!el && el.value === b.dataset.v;
+                    },
+                    off: b => { const el = $(b.dataset.ai); return b.dataset.v == null && (!el || !!el.disabled); } },
                 grid: { btn: 'bGrid', lit: () => !!(state.grid && state.grid.on),
                     build: host => {
                         const frame = '<rect x="8" y="8" width="40" height="40" rx="3"/>';
@@ -58336,7 +58404,7 @@
                     // (a colour held with nothing selected is the lit one: FILL AND OUTLINE PAINT)
                     t.classList.toggle('on', paint && paint.mode === m && (paint.pick || !selectedIndices().length) ? +t.dataset.i === paint.i
                         : s ? s.classList.contains('on') : !!(M.on && M.on(t)));
-                    t.disabled = !!(s && s.disabled);
+                    t.disabled = !!(s && s.disabled) || !!(M.off && M.off(t)); // (off: a mode's own say of a tile not offered)
                 }
             }
             function setMode(next) {

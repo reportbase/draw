@@ -468,7 +468,7 @@ T.current = 'animate streamed';
     await sp.waitForFunction(() => !/scene=/.test(location.hash) && window.__animSketch && window.__animSketch(), null, { timeout: 60000 });
     await sp.evaluate(() => document.getElementById('bAi').click()); await sp.waitForTimeout(200);
     await sp.fill('#aiPrompt', 'the sun rises');
-    await sp.click('#aiAnimate');
+    await sp.evaluate(() => document.querySelector('.add-strip [data-ai="aiAnimate"]').click());
     await sp.waitForFunction(() => { const s = window.__animSketch(); return s && s.morphs.length === 1; }, null, { timeout: 15000 });
     const s = await sp.evaluate(() => window.__animSketch());
     const status = await sp.$eval('#aiStatus', e => e.textContent);
@@ -486,8 +486,9 @@ T.current = 'animate streamed';
     reply = JSON.stringify({ name: 'sunrise', note: 'the sun comes up',
       svg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><rect x='0' y='0' width='1000' height='1000' fill='#1b2440'/><circle cx='300' cy='800' r='60' fill='#ffcc33'/><rect x='0' y='800' width='1000' height='200' fill='#2f5d3a'/><circle cx='800' cy='700' r='30' fill='#ffffff'/></svg>",
       copies: [{ of: 1, dy: -300 }, { of: 3, dy: -300 }], morphs: [{ keys: [1, 4] }], loop: 5 });
+    await sp.evaluate(() => window.__strip.open('ai'));      // (the strip went to the animation's when it began to move; the AI's again)
     await sp.fill('#aiPrompt', 'a sunrise');
-    await sp.click('#aiScene');
+    await sp.evaluate(() => document.querySelector('.add-strip [data-ai="aiScene"]').click());
     await sp.waitForFunction(() => /sunrise/.test(document.getElementById('aiStatus').textContent), null, { timeout: 15000 });
     const sc = await sp.evaluate(() => window.__animSketch());
     if (sent.system.indexOf('ONE CLOSED OUTLINE PER ELEMENT') < 0 || sc.morphs.length !== 1 || sc.morphs[0].keys !== 2 || sc.held !== sc.n || Math.abs(sc.loop - 5) > 1e-9)

@@ -1146,6 +1146,7 @@
             if (animChangeBtn) {
                 animChangeBtn.addEventListener('click', () => animate(true));
                 btn.addEventListener('click', () => { animChangeBtn.disabled = !morphRunning(); });
+                window.__aiSync = () => { animChangeBtn.disabled = !morphRunning(); }; // (the strip asks, now that the panel is not opened: GENERATE WITH AI IS ON THE BAR)
             }
             // MAKE A SCENE: the reply's svg opens as a scene link's drawing does (openScene: exact shapes, asking first
             // when the page holds your drawing), and its copies and morphs then land through animApply, in the box the
