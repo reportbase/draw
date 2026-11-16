@@ -709,13 +709,12 @@ try {
     await page.click('#bDraw');
     await drag(Array.from({ length: 24 }, (_, i) => [300 + i * 25, 600 + Math.round(Math.sin(i / 3) * 60)]));
   });
-  /* A shape with no name says, on its tile in the strip, how to give it one: by the long press that renames it (13 Nov
-     2026, Tom: "'double click to name' tooltip of footer should be changed to 'Long press to Change Name'"). The stroke
-     just drawn has none. */
-  await step('an unnamed tile says how to name it', async () => {
+  /* A shape with no name has no tip on its tile in the strip (16 Nov 2026, Tom: "Remove tool tip long press to change
+     name"; it said "Long press to Change Name" from 13 Nov). The stroke just drawn has none. */
+  await step('an unnamed tile has no tip', async () => {
     await page.waitForFunction(() => document.querySelectorAll('#shapeScroller [data-thumb]').length >= 2, null, { timeout: 10000 }).catch(() => {});
     const tips = await page.evaluate(() => [...document.querySelectorAll('#shapeScroller [data-thumb]')].map(t => t.title));
-    if (!tips.includes('Long press to Change Name') || tips.some(t => /double-click/.test(t)))
+    if (!tips.includes('') || tips.some(t => /double-click|long press/i.test(t)))
       throw new Error("the tiles' tips: " + JSON.stringify(tips));
   });
   await step('straight line', async () => {
