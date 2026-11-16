@@ -1040,7 +1040,7 @@ T.current = 'the selection\'s options in the strip';
     // the mode switch stands beside the rotate grip (15 Nov 2026, Tom: "a small toggle next to the rotate button on the
     // top of the selection box"), not in the strip: a press turns the circle to leaves, the tiles staying where they were
     const order = st.tiles.map(t => t.slice(1)).join();
-    const m0 = await sp.evaluate(() => { const b = window.__box.button('bt-mode'), h = window.__box.handles().pts.rot;
+    const m0 = await sp.evaluate(() => { const b = window.__box.button('bt-mode'), h = window.__box.handles().rot;
       return [window.__box.mode(), String(!!b && b.cx > h[0] && Math.abs(b.cy - h[1]) < 1 && b.cx - h[0] < 60 && window.__box.hit(b.cx, b.cy) === 'bt-mode')]; });
     const bt = await sp.evaluate(() => window.__box.button('bt-mode'));
     await sp.mouse.click(cv.x + bt.cx, cv.y + bt.cy);
@@ -1652,12 +1652,12 @@ T.current = 'several held move as one; a pinch selects nothing';
     const b1 = await boxes();
     const moved = b1.map((b, i) => b.map((v, k) => v - b0[i][k]).join());
     if (held !== '0,1' || moved.join(' ') !== '40,-30,40,-30 40,-30,40,-30') throw new Error('a drag from a corner with two selected: held ' + held + ', moved ' + moved.join(' '));
-    // several held have no resize grips (the rotate grip stays); a group has them, being one thing
+    // several held have no grips at all, the rotate grip included; one group alone has them (a word of text is one)
     const grips = async () => sp.evaluate(() => Object.keys(window.__box.handles().pts).join());
     await sp.evaluate(() => window.__box.select([0, 1])); await sp.waitForTimeout(200);
     const g2 = await grips(); await sp.evaluate(() => window.__box.run('bt-group')); await sp.waitForTimeout(200);
     const gg = await grips(); await sp.evaluate(() => window.__box.run('bt-group')); await sp.waitForTimeout(200);
-    if (g2 !== 'rot' || gg !== 'nw,n,ne,w,e,sw,s,se,rot' || await grips() !== 'rot') throw new Error('the grips of two held, then grouped: ' + g2 + ' | ' + gg);
+    if (g2 !== '' || gg !== 'nw,n,ne,w,e,sw,s,se,rot' || await grips() !== '') throw new Error('the grips of two held, then grouped: ' + g2 + ' | ' + gg);
     // one selected: the same drag from its corner changes its shape, not its place
     await sp.evaluate(() => window.__box.select([0])); await sp.waitForTimeout(200);
     const x2 = cv.x + b1[0][2], y2 = cv.y + b1[0][3];
@@ -1763,6 +1763,42 @@ T.current = 'there is always a footer';
   } catch (e) { failures.push(`[there is always a footer] ${e.message.split('\n')[0]}`); }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} there is always a footer`);
   await fp.close();
+}
+
+/* A SAVED SESSION IS READ AS A STRANGER'S FILE (16 Nov 2026, "4": "Harden session restore"). A session saved, then
+   spoiled the ways a save can be wrong (a shape with no leaves, one whose rows are of different lengths, a view of no
+   size, a timeline that is not one), and the page opened on it: the good shape is there, the bad ones are not, the bars
+   and the foot stand, and nothing throws. */
+T.current = 'a spoiled session still opens';
+{
+  const before = failures.length;
+  const rp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  rp.on('pageerror', e => failures.push(`[a spoiled session] ${e.message}`));
+  await rp.route(/fonts\.g/, r => r.abort());
+  try {
+    const three = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><circle cx="100" cy="150" r="70"/><circle cx="300" cy="150" r="70"/><circle cx="500" cy="150" r="70"/></svg>';
+    await rp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await rp.waitForFunction(() => window.__strip && window.__box, null, { timeout: 15000 });
+    await rp.setInputFiles('#fLoad', { name: 'three.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(three) });
+    await rp.waitForTimeout(800); await rp.keyboard.press('Control+a'); await rp.keyboard.press('ArrowRight');      // an edit is what is saved
+    await rp.waitForFunction(() => { try { const d = JSON.parse(localStorage.getItem('tangent.scene.v1')); return d && d.subpaths.length === 3; } catch (_) { return false; } }, null, { timeout: 15000 });
+    const spoil = await rp.evaluate(() => { const d = JSON.parse(localStorage.getItem('tangent.scene.v1')), a = d.subpaths[1], b = d.subpaths[2];
+      for (const k of ['x', 'y', 'rx', 'ry']) delete a[k];                                            // a shape with nothing in it
+      const row = b.lz ? 'ry' : 'y'; b[row] = b[row].slice(0, Math.floor(b[row].length / 32) * 16);     // rows of different lengths
+      if (!b.lz) delete b.ry;
+      d.view = { zoom: 0, panX: null, panY: 'x' }; d.morphs = [{ at: 7, keys: 'no' }, null]; d.morphStops = 'no'; d.grid = { mode: 'neither', size: -4 };
+      localStorage.setItem('tangent.scene.v1', JSON.stringify(d)); return d.subpaths.length; });
+    await rp.reload({ waitUntil: 'load' });
+    await rp.waitForFunction(() => window.__strip && window.__box, null, { timeout: 15000 });
+    await rp.waitForTimeout(800);
+    const r = await rp.evaluate(() => ({ n: window.__box.count(), dropped: window.__restoreDropped, threw: window.__restoreThrew || '',
+      bar: document.querySelector('.topbar .controls').getBoundingClientRect().height > 20, foot: document.getElementById('shapeScroller').getBoundingClientRect().height > 20,
+      tiles: [...document.querySelectorAll('#shapeScroller .shape-tile')].filter(t => t.getBoundingClientRect().width > 0).length }));
+    if (spoil !== 3 || r.n !== 1 || r.dropped !== 2 || r.threw || !r.bar || !r.foot || r.tiles !== 1) throw new Error('the page on a spoiled session: ' + JSON.stringify(r));
+    if (failures.length !== before) throw new Error('it threw: ' + failures[failures.length - 1]);
+  } catch (e) { failures.push(`[a spoiled session still opens] ${e.message.split('\n')[0]}`); }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} a spoiled session still opens`);
+  await rp.close();
 }
 
 await T.finish();
