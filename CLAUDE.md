@@ -266,6 +266,14 @@ compatibly.
   (`TOUR_SPEEDS`, `tourSpeed`, kept between tours) scales the camera's closing and shortens the beat on each shape.
   The menu's line (`#bTour`) is hidden and still what the page presses; space's tour, with the strip elsewhere,
   still clears the page. `window.__tour` (`do`, `state`, `speed`) is for the checks.
+- Generate with AI is on the bar (16 Nov 2026, GENERATE WITH AI IS ON THE BAR; Tom: "move generate with ai to the
+  toolbar with settings in the footer"): `#bAi` is on the top bar again and turns the strip to `MODES.ai`, a tile for
+  each of the panel's buttons (pressing the panel's own, so `parts/ai-panel.js` still acts and still says which are
+  offered: a mode's `off(tile)` disables a tile), three tiles for where the result goes (`#aiMode`), one per model
+  (`#aiModel`) and the account. The prompt's box, the status and the critique are moved into `#aiBar`, which stands
+  above the strip while it is the AI's (`body[data-strip="ai"]`); `#aiPop` is not opened and the menu's line
+  (`#bMenuAi`) is hidden. `window.__aiSync` is what the panel did when it opened. A new AI action is a tile there.
+- The menu's button wears the standard chip too (the same day: "Menu button should follow standard button scheme").
 - The lock wears the other buttons' chip (the same day: "locked toolbar button should have standerd color scheme"):
   plain when off, gold when on; only the menu's button and the edit view's pair keep the gold tint.
 - A pinch zooms half as fast (the same day: "Pinch to zoom is to fast. Slow down by half"): `PINCH_GAIN` and the

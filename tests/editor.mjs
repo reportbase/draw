@@ -403,10 +403,10 @@ try {
     try {
       await mp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
       await mp.waitForSelector('#bUndo', { state: 'visible', timeout: 60000 });
-      const on = await mp.evaluate(() => ['bPlot', 'bAi', 'bRead'].filter(i => !document.getElementById(i) || document.getElementById(i).closest('.topbar'))
+      const on = await mp.evaluate(() => ['bPlot', 'bRead'].filter(i => !document.getElementById(i) || document.getElementById(i).closest('.topbar'))
         .concat(document.getElementById('bPlayShape') || document.getElementById('playPop') ? ['Play is still in the page'] : [])); // (Play was deleted outright, 15 Nov 2026)
       if (on.length) throw new Error('still on the top bar, or gone from the page: ' + on.join());
-      for (const [item, pop] of [['bMenuAi', 'aiPop'], ['bMenuRead', 'readPop']]) {
+      for (const [item, pop] of [['bMenuRead', 'readPop']]) {     // (the AI is the bar's again: GENERATE WITH AI IS ON THE BAR)
         await mp.click('#gearBtn');
         await mp.waitForTimeout(300);
         await mp.click('#' + item);
@@ -1533,6 +1533,42 @@ T.current = 'panel: group button and menu switch';
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} panel: group button and menu switch`);
   await gp.close();
+}
+
+/* GENERATE WITH AI IS ON THE BAR (16 Nov 2026, Tom: "move generate with ai to the toolbar with settings in the footer"),
+   and "Menu button should follow standard button scheme". The bar's AI button turns the strip to the panel's buttons, a
+   tile each, with the prompt's box in a bar above the strip; the panel itself is not opened. */
+T.current = 'generate with AI is on the bar';
+{
+  const ap = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  ap.on('pageerror', e => failures.push(`[ai bar] ${e.message}`));
+  await ap.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await ap.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await ap.waitForFunction(() => window.__strip && document.querySelector('#shapeScroller .shape-tile'), null, { timeout: 15000 });
+    const chip = await ap.evaluate(() => { const c = id => { const s = getComputedStyle(document.getElementById(id)); return [s.backgroundColor, s.color, s.borderTopColor].join(); };
+      return [c('gearBtn') === c('bGrid'), !!document.getElementById('bAi').closest('.topbar'), getComputedStyle(document.getElementById('bMenuAi')).display].join(); });
+    if (chip !== 'true,true,none') throw new Error("the menu's button wears the grid button's chip, and the AI is on the bar: " + chip);
+    await ap.click('#bAi'); await ap.waitForTimeout(400);
+    const st = () => ap.evaluate(() => { const ts = [...document.querySelectorAll('.add-strip .controls.on [data-ai]')];
+      return { mode: window.__strip.mode, pop: document.getElementById('aiPop').classList.contains('open'), bar: getComputedStyle(document.getElementById('aiBar')).display,
+        box: !!document.querySelector('#aiBar #aiPrompt') && document.getElementById('aiPrompt').getBoundingClientRect().width > 200,
+        tiles: ts.map(t => t.dataset.ai + (t.dataset.v ? ':' + t.dataset.v : '') + (t.classList.contains('on') ? '*' : '') + (t.disabled ? '!' : '')).join(' '), mode2: document.getElementById('aiMode').value,
+        status: document.getElementById('aiStatus').textContent }; });
+    let s = await st();
+    if (s.mode !== 'ai' || s.pop || s.bar !== 'flex' || !s.box
+      || s.tiles !== 'aiGo aiAnimate aiScene aiAnimChange! aiCritique aiFix! aiPolish aiRecolor aiVary aiImgPick aiFromImg! aiCleanTrace! aiMode:add* aiMode:replace aiMode:bg aiModel:claude-sonnet-5* aiModel:claude-opus-5 aiModel:claude-haiku-4-5 aiSignIn')
+      throw new Error("the AI's strip: " + JSON.stringify(s));
+    const tap = q => ap.evaluate(q => document.querySelector('.add-strip .controls.on ' + q).click(), q);     // (a tile round the back of the ring)
+    await ap.fill('#aiPrompt', 'a heron'); await tap('[data-ai="aiMode"][data-v="replace"]'); await tap('[data-ai="aiGo"]'); await ap.waitForTimeout(400);
+    s = await st();
+    if (s.mode2 !== 'replace' || !/aiMode:replace\*/.test(s.tiles) || !s.status) throw new Error('a tile did not act as its button: ' + JSON.stringify(s));
+    await ap.click('#bAi'); await ap.waitForTimeout(300);
+    if ((await st()).bar !== 'none') throw new Error("the prompt's bar stayed after its strip closed");
+  } catch (e) { failures.push(`[generate with AI is on the bar] ${e.message.split('\n')[0]}`); }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} generate with AI is on the bar`);
+  await ap.close();
 }
 
 /* THE TOUR IS ON THE BAR (16 Nov 2026, Tom: "move tour the shapes to the toolbar, with next, first, prev, last, pause,
