@@ -308,6 +308,10 @@ compatibly.
   nothing is selected) does, lit while it shows; once up it follows the selection and goes when the selection does. The
   checks keep the old coming-by-itself (`window.__selAuto`, set by `tests/harness.mjs`; `__selStripWant` is false
   without it), so what the next item says of the strip turning "by itself" is true in the checks only.
+  Several selected bring it by themselves (16 Nov 2026, SEVERAL SELECTED BRING THE SELECTION'S STRIP; Tom: "When multiple
+  objects are selected, show the selection footer to let the user toggle the selection group"): when the selection
+  changes to two shapes or more `selSync` turns the strip to `select` (not from a tool's strip); closed by hand it
+  stays closed until the selection changes again.
 - The selection's options are the strip's (13 Nov 2026, THE SELECTION'S OPTIONS ARE THE STRIP'S in `draw.html`; Tom, the
   same day, after taking it back: "when an object is selected, show its options in the footer"): with something selected
   and its frame up (under the lock too), the strip at the foot turns to mode `select` by itself: every one of

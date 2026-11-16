@@ -58870,7 +58870,15 @@
                 // lit while it shows and off while nothing is selected. Once up it follows the selection as it did,
                 // and goes when the selection does. The checks have it as it was (window.__selAuto, from
                 // tests/harness.mjs), since many of them press its tiles straight after selecting.
+                // SEVERAL SELECTED BRING THE SELECTION'S STRIP (16 Nov 2026, Tom: "When multiple objects are selected, show the
+                // selection footer to let the user toggle the selection group"). One shape selected still waits for the
+                // Selection button (THE SELECTION'S STRIP IS ASKED FOR); when the selection changes to two shapes or more
+                // the strip comes by itself, since that is where Group is. Closed by hand it stays closed until the
+                // selection changes again, and a tool's strip is not taken.
+                const several = selectedIndices().length > 1;
                 if (window.__selAuto && want && (!mode || (picked && mode !== 'select' && !tool)))
+                    setMode('select');
+                else if (several && want && picked && mode !== 'select' && !tool)
                     setMode('select');
                 else if (!want && mode === 'select')
                     setMode(null);
