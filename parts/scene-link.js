@@ -652,9 +652,12 @@
                 if (T.labels.length) {
                     const L = sceneLabelsIn(S, T);
                     S = L.S;
+                    if (typeof d.plan === 'function') // (AN EXPLAINER FROM FILES: its morphs are made once its shapes are in)
+                        d = Object.assign({}, d, d.plan(S, L));
                     d = Object.assign(sceneLabelMorphs(d, L), { svg: T.svg });
                     window.__sceneLabelsLast = L; // MAKE A SCENE lands its morphs after this, by the same numbers
-                }
+                } else if (typeof d.plan === 'function')
+                    d = Object.assign({}, d, d.plan(S, null));
                 // An example is a picture: a shape the SVG gave no stroke is drawn by its fill alone, not
                 // with the editor's own outline round it (which exact shapes carry by default).
                 for (const sp of S)
@@ -672,6 +675,208 @@
                 scheduleSave();
                 flashStatus('example · ' + label + (morphRunning() ? ' — live: the morph bar at the bottom holds its controls, and exit leaves the shapes as shapes' : ''));
                 return true;
+            }
+            // AN EXPLAINER FROM FILES (16 Nov 2026, Tom: "each file is a beat and user just imports them to a compiler as a
+            // set of files with natural sort order", then, of what happens between two beats, "go with 1": each file's
+            // drawing morphs into the next). The folder is the storyboard: a beat is a file, its place in the story its
+            // name's place in the natural order (2-intro before 10-end), so a beat is put in, taken out or moved by
+            // naming a file. explainerCompile lays the files' drawings over one another in the first one's frame and
+            // makes one scene of them, which opens as any scene link does:
+            //   a beat a file, titled by the file's name without its number (03-the-kernel.svg, "The kernel"; the
+            //     svg's own <title> first if it has one), worded by a text file of the same name beside it
+            //     (03-the-kernel.md or .txt), or else the svg's <desc>;
+            //   a stop between each pair of beats, so the reading (or a click) carries the clock from one drawing to
+            //     the next;
+            //   a shape of one file morphs into its partner in the next: the shape of the same name (an element's id
+            //     or <title>), and those left over by their order, a closed shape with a closed one and a line with a
+            //     line of as many corners. A chain of partners through several files is one morph with a key a file,
+            //     each held at its beat's stop. A shape with no partner fades in during its beat and out in the next;
+            //   the first file is drawn on; a label (<text>) is its own clip, swapped for the same words in the next
+            //     file without a fade and faded otherwise.
+            // Each shape is told apart after the load by its id, written as a tag here and put back to its name there.
+            const EXPLAIN_BEAT_SECS = 4;
+            const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+            function explainerTitle(file) {
+                const base = String(file).replace(/^.*[\\/]/, '').replace(/\.[^.]*$/, '').replace(/^[\d\s._-]+/, '').replace(/[_-]+/g, ' ').trim();
+                return base ? base[0].toUpperCase() + base.slice(1) : String(file);
+            }
+            function explainerCompile(files, opts) {
+                const stem = n => String(n).replace(/^.*[\\/]/, '').replace(/\.[^.]*$/, '').toLowerCase();
+                const svgs = files.filter(f => /\.svg$/i.test(f.name)).sort((a, b) => natural(a.name, b.name));
+                const words = new Map(files.filter(f => /\.(md|txt)$/i.test(f.name)).map(f => [stem(f.name), String(f.text || '').trim()]));
+                if (!svgs.length)
+                    return { error: 'no .svg files to compile: a beat is an svg file' };
+                const N = svgs.length, beats = [], labelBeat = [];
+                let frame = null, body = '';
+                const SHAPES = 'path, rect, circle, ellipse, polygon, polyline, line', SKIP = 'defs, symbol, clipPath, mask, pattern, marker';
+                for (let k = 0; k < N; k++) {
+                    const doc = new DOMParser().parseFromString(svgs[k].text, 'image/svg+xml'), root = doc.documentElement;
+                    if (!root || root.nodeName.toLowerCase() !== 'svg' || doc.querySelector('parsererror'))
+                        return { error: svgs[k].name + ' is not an svg the page can read' };
+                    if (root.querySelector('use, image, foreignObject'))
+                        return { error: svgs[k].name + ' has a <use>, an <image> or a <foreignObject>, which a beat cannot morph: turn them into paths first' };
+                    const vb = (root.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+                    const box = vb.length === 4 && vb.every(Number.isFinite) && vb[2] > 0 && vb[3] > 0 ? vb
+                        : [0, 0, parseFloat(root.getAttribute('width')) || 1000, parseFloat(root.getAttribute('height')) || 1000];
+                    if (!frame)
+                        frame = box;
+                    const ownTitle = [...root.children].find(c => c.nodeName.toLowerCase() === 'title'),
+                        ownDesc = [...root.children].find(c => c.nodeName.toLowerCase() === 'desc');
+                    beats.push({ title: (ownTitle && ownTitle.textContent.trim()) || explainerTitle(svgs[k].name),
+                        text: words.get(stem(svgs[k].name)) || (ownDesc && ownDesc.textContent.trim()) || '' });
+                    let j = 0;
+                    for (const el of root.querySelectorAll(SHAPES)) {
+                        if (el.closest(SKIP))
+                            continue;
+                        const t = el.querySelector('title');
+                        const name = (el.getAttribute('id') || (t && t.textContent) || '').trim().replace(/\|/g, '/');
+                        el.setAttribute('id', 'tvfb|' + k + '|' + (j++) + '|' + name);
+                    }
+                    for (const el of root.querySelectorAll('text'))
+                        if (!el.closest(SKIP))
+                            labelBeat.push(k);
+                    // into the first file's frame: as it is when the frames agree, else scaled to fit and centred
+                    const sc = Math.min(frame[2] / box[2], frame[3] / box[3]),
+                        tx = frame[0] + (frame[2] - box[2] * sc) / 2 - box[0] * sc, ty = frame[1] + (frame[3] - box[3] * sc) / 2 - box[1] * sc;
+                    const same = Math.abs(sc - 1) < 1e-9 && Math.abs(tx) < 1e-9 && Math.abs(ty) < 1e-9;
+                    let g = '<g' + (same ? '' : ' transform="translate(' + tx + ' ' + ty + ') scale(' + sc + ')"');
+                    for (const a of ['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'opacity', 'style', 'class', 'font-family', 'font-size'])
+                        if (root.hasAttribute(a))
+                            g += ' ' + a + '="' + root.getAttribute(a).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"';
+                    const X = new XMLSerializer();
+                    body += g + '>' + [...root.childNodes].filter(c => !(c.nodeType === 1 && /^(title|desc|metadata)$/i.test(c.nodeName))).map(c => X.serializeToString(c)).join('') + '</g>';
+                }
+                const beat = 1 / N, at = k => k / N; // the stop that ends beat k (1-based) is at k / N
+                const plan = (S, L) => {
+                    const items = Array.from({ length: N }, () => []), seen = new Map();
+                    const extra = new Set(L ? L.extra.flat() : []);
+                    S.forEach((sp, i) => {
+                        const m = sp && typeof sp.gname === 'string' ? /^tvfb\|(\d+)\|(\d+)\|(.*)$/.exec(sp.gname) : null;
+                        if (!m || extra.has(i))
+                            return;
+                        const tag = m[1] + '|' + m[2], sub = seen.get(tag) || 0;
+                        seen.set(tag, sub + 1);
+                        sp.gname = m[3] || null; // the tag has done its work: the shape has its own name again
+                        const lz = sp._lazy || {};
+                        items[+m[1]].push({ num: i, key: m[3] ? 'N:' + m[3] + '#' + sub : null, open: !!lz.open, corners: lz.x ? lz.x.length : 0, exact: !!lz.exact });
+                    });
+                    if (L)
+                        L.num.forEach((num, j) => {
+                            if (num >= 0 && labelBeat[j] != null)
+                                items[labelBeat[j]].push({ num, label: true, key: 'L:' + (L.parts[j][0] && L.parts[j][0].gname || '') });
+                        });
+                    // partners between each file and the next: by name, then by order among the like
+                    const like = (a, b) => !a.label && !b.label && a.exact === b.exact && a.open === b.open && (!a.open || a.corners === b.corners);
+                    for (let k = 0; k + 1 < N; k++) {
+                        const A = items[k], B = items[k + 1];
+                        for (const a of A) {
+                            if (!a.key)
+                                continue;
+                            const b = B.find(b => !b.prev && b.key === a.key && (a.label || like(a, b)));
+                            if (b) {
+                                a.next = b;
+                                b.prev = a;
+                            }
+                        }
+                        const restB = B.filter(b => !b.prev && !b.label && !b.key);
+                        for (const a of A) {
+                            if (a.next || a.label || a.key)
+                                continue;
+                            const q = restB.findIndex(b => like(a, b));
+                            if (q >= 0) {
+                                const b = restB.splice(q, 1)[0];
+                                a.next = b;
+                                b.prev = a;
+                            }
+                        }
+                    }
+                    const r4 = x => Math.round(x * 1e4) / 1e4, morphs = [];
+                    items.forEach((A, k) => {
+                        for (const a of A) {
+                            if (a.label) { // a label is its own clip: swapped for the same words, faded otherwise
+                                const s = k === 0 ? 0 : at(k) + (a.prev ? 0.5 : 0.3) * beat, e = k === N - 1 ? 1 : at(k + 1) + 0.5 * beat;
+                                const clip = { start: r4(s), len: r4(e - s), in: k === 0 ? { kind: 'draw', len: r4(0.8 * beat) } : a.prev ? { kind: 'cut', len: 0 } : { kind: 'fade', len: r4(0.6 * beat) } };
+                                if (k < N - 1)
+                                    clip.out = a.next ? { kind: 'cut', len: 0 } : { kind: 'fade', len: r4(0.5 * beat) };
+                                morphs.push({ first: a.num, keys: [a.num], clip });
+                                continue;
+                            }
+                            if (a.prev)
+                                continue; // further along a chain that began in an earlier file
+                            const chain = [a];
+                            while (chain[chain.length - 1].next)
+                                chain.push(chain[chain.length - 1].next);
+                            const b = k + chain.length - 1; // the chain's files are k … b (0-based); file j is whole at at(j + 1)
+                            const s = k === 0 ? 0 : at(k) + 0.3 * beat, e = b === N - 1 ? 1 : at(b + 1) + 0.5 * beat, len = e - s;
+                            const clip = { start: r4(s), len: r4(len), in: k === 0 ? { kind: 'draw', len: r4(0.8 * beat) } : { kind: 'fade', len: r4(0.6 * beat) } };
+                            if (b < N - 1)
+                                clip.out = { kind: 'fade', len: r4(0.5 * beat) };
+                            const o = { first: a.num, keys: [a.num], clip };
+                            if (chain.length > 1) {
+                                // a key a file, each at its beat's stop on the clip's own clock, the first held from the
+                                // clip's start and the last to its end (a clip lays its first key at its start and its last at
+                                // its end, so each is given twice where it must wait)
+                                const keys = [a.num], times = [0], eases = [];
+                                chain.forEach((c, m) => {
+                                    const t = Math.min(0.99, (at(k + m + 1) - s) / len);
+                                    if (t > times[times.length - 1] + 1e-3) {
+                                        keys.push(c.num);
+                                        times.push(r4(t));
+                                        eases.push(m === 0 ? 'linear' : 'inout');
+                                    } else
+                                        keys[keys.length - 1] = c.num;
+                                });
+                                if (times[times.length - 1] < 0.985) {
+                                    keys.push(chain[chain.length - 1].num);
+                                    times.push(0.99);
+                                    eases.push('linear');
+                                }
+                                if (keys.length > 2)
+                                    eases.push('linear'); // (the stretch back round, which a clip never plays)
+                                Object.assign(o, { keys, times, eases, straight: true });
+                            }
+                            morphs.push(o);
+                        }
+                    });
+                    morphs.sort((p, q) => p.first - q.first); // (a scene draws its morphs in the order their first keys stand)
+                    for (const m of morphs)
+                        delete m.first;
+                    plan.report = { beats: N, morphs: morphs.length, chained: morphs.filter(m => m.keys.length > 1).length, shapes: items.map(A => A.length) };
+                    return { morphs, plan: null };
+                };
+                const d = { v: 1, name: (opts && opts.name) || 'explainer', exact: true, loop: N * EXPLAIN_BEAT_SECS, ease: 'inout',
+                    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + frame.join(' ') + '">' + body + '</svg>',
+                    stops: Array.from({ length: N - 1 }, (_, i) => r4s((i + 1) / N)), beats, morphs: [], plan };
+                return { scene: d, plan, order: svgs.map(f => f.name) };
+            }
+            const r4s = x => Math.round(x * 1e4) / 1e4;
+            // files in ({ name, text }), the scene open in the editor; what was made of them said back
+            async function explainerOpen(files, opts) {
+                const C = explainerCompile(files, opts);
+                if (C.error) {
+                    flashStatus('explainer: ' + C.error);
+                    return C;
+                }
+                const ok = await openScene(C.scene);
+                const R = Object.assign({ ok, order: C.order }, C.plan.report || {});
+                if (ok)
+                    flashStatus('explainer: ' + R.beats + ' beat' + (R.beats === 1 ? '' : 's') + ' from ' + C.order.length + ' file' + (C.order.length === 1 ? '' : 's')
+                        + ', ' + R.chained + ' shape' + (R.chained === 1 ? '' : 's') + ' morphing through them \u2014 the menu\u2019s \u201cpreview the explainer\u201d reads it as a page');
+                return R;
+            }
+            window.__explainer = { compile: explainerCompile, open: explainerOpen, title: explainerTitle };
+            {
+                const pick = $('fExplainer'), go = $('bMenuExplainer'), pv = $('bMenuExplainerPreview');
+                if (go && pick) {
+                    go.addEventListener('click', () => { closeMenu(); pick.value = ''; pick.click(); });
+                    pick.addEventListener('change', async () => {
+                        const files = await Promise.all([...pick.files].map(async f => ({ name: f.name, text: await f.text() })));
+                        if (files.length)
+                            explainerOpen(files, { name: 'explainer' });
+                    });
+                }
+                if (pv)
+                    pv.addEventListener('click', () => { closeMenu(); const b = $('btPreview'); if (b) b.click(); });
             }
             // CHANGE IT (ANIMATE IT WITH AI): what a reply says about morphs already live, each item
             // { morph: k, …what changes } with k counting `all` (the live morphs, then the reply's new

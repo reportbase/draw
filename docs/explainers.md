@@ -201,3 +201,35 @@ cos(Ω/2) = 1 − 2·sin²(α/2)·sin²(β/2)·sin²φ) and four more loops each
 a ring carried through M = S⁻¹R⁻¹SR at c = 2, α = 40° (the four steps, then M², M³, M⁴, every ellipse from its 2 × 2
 matrix, 1.59 × 0.63 after one, 6.26 × 0.16 after four, ζ = 0.4507); and M⁴ at c = 1.7, 1.4, 1.2, 1, the dot on
 ζ against ln c reaching nothing and the ring home whole. 40 morphs; book poses by Rodrigues, a third view from higher up.
+
+## An explainer from files
+
+AN EXPLAINER FROM FILES (16 Nov 2026, Tom, of the explainers: "What if an explainer just toured the shape groups.", then
+"Or each file is a beat and user just imports them to a compiler as a set of files with natural sort order.", and of what
+should happen between two beats, offered a morph, a cut or a camera across them laid side by side, "go with 1"). The
+folder is the storyboard: a beat is put in, taken out or moved by naming a file. `explainerCompile(files, opts)` in
+`parts/scene-link.js` takes `{name, text}` for each file and returns a scene link's object: the `.svg` files sorted by
+`localeCompare` with `numeric` (2-intro before 10-end), each one's drawing wrapped in a `<g>` and laid in the first
+file's frame (as it is when the viewBoxes agree, else scaled to fit and centred), `stops` at k/N, `beats` titled by the
+file's name without its leading number and its extension (`explainerTitle`; the svg's own root `<title>` first) and
+worded by a `.md` or `.txt` of the same name, or the root `<desc>`, and a loop of 4 s a beat (`EXPLAIN_BEAT_SECS`).
+Its morphs cannot be written until the editor has made shapes of the svg (one element can be several shapes, a label
+several more), so the scene carries a `plan(S, L)` that `openScene` calls once the shapes are in, before the labels'
+morphs are made: every shape element was given an id `tvfb|file|element|name` on the way in, which says after the load
+which file a shape came from and what it was called, and is put back to the name there.
+The pairing, between each file and the next: the shape of the same name first (the id, or the element's `<title>`; a
+second shape of one element by its place in it), then those with no name by their order, each with the first left
+that is like it (closed with closed, a line with a line of as many corners, exact with exact). A chain of partners is
+one morph, a key a file: on the clip's own clock the first key at 0 and again at its beat's stop, each later key at
+its file's stop, the last again at 0.99 where the clip runs on past it (a clip lays its first key at its start and
+its last at its end, the rule found making the essays' explainers), `straight`, linear where it waits and `inout`
+where it turns. A clip begins 0.3 of a beat into the beat its first file is read in and fades in over 0.6 of one (the
+first file's are drawn on from 0, over 0.8 of a beat), and ends half a beat after its last file's stop, fading over
+that half, so what leaves goes before what arrives has come. A label (`<text>`) is a clip of its own, never a key of
+another's: the same words in the next file take its place with a cut at the half beat, anything else fades.
+`explainerOpen` opens the scene (`openScene`, asking first if a drawing would be replaced) and says what it made; the
+menu's **compile an explainer…** hands it the files chosen, and **preview the explainer** presses the beats panel's
+preview. `tools/compile-explainer.mjs` does the same in headless Chromium for a folder and writes the `.tvfs` the
+tvfs button would. Not done: `.tvf` files as beats, `<use>` and `<image>` (refused, with the file named), `<style>`
+sheets that name the same class differently in two files, and gradients (the editor reads flat paint). The smoke test
+(motion) compiles three files given out of order and reads the result in the page.

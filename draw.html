@@ -4806,6 +4806,12 @@
                     <button id="bMenuLock" style="flex:1;" title="lock the shapes so a drag pans or lassoes and nothing moves; press again to unlock (L)">lock the shapes</button>
                     <button id="bMenuRead" style="flex:1;" title="reading — reference signal, leaf dots, and the observer's rule">reading</button>
                 </div>
+                <!-- AN EXPLAINER FROM FILES (16 Nov 2026): a beat a file, in the natural order of their names -->
+                <div class="group row" style="gap:6px;">
+                    <button id="bMenuExplainer" style="flex:1;" title="compile an explainer from files: choose a set of .svg files (and a .md or .txt of the same name for each one's words). Each file is a beat, in the natural order of their names, and each drawing morphs into the next.">compile an explainer…</button>
+                    <button id="bMenuExplainerPreview" style="flex:1;" title="open the scrolling explainer page on the scene that is playing">preview the explainer</button>
+                </div>
+                <input type="file" id="fExplainer" accept=".svg,.md,.txt,image/svg+xml,text/plain,text/markdown" multiple hidden>
             </div>
 
             <div class="group" hidden><!-- (the tour is the top bar's since 16 Nov 2026: THE TOUR IS ON THE BAR; this button is still what the page presses) -->

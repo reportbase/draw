@@ -123,6 +123,15 @@ Nothing here is edited by hand in its generated form; `npm test` fails when one 
 `applySceneMorphs` (reading) and `sceneOfEditor` (writing), both in `parts/scene-link.js`,
 `ANIM_MORPH_FIELDS` (the AI's prompts, in `parts/ai-panel.js`) and, where a scene file should carry it, the `.tvfs` writer and `player/runtime.js`.
 
+**An explainer from files** (16 Nov 2026, Tom: "each file is a beat and user just imports them to a compiler as a set of
+files with natural sort order"; AN EXPLAINER FROM FILES in `parts/scene-link.js`, `docs/explainers.md`): the menu's
+**compile an explainer…** (`#bMenuExplainer`, `#fExplainer`) or `npm run explainer -- <folder> [--out f.tvfs]`
+(`tools/compile-explainer.mjs`, which drives the editor as `npm run examples` does) takes a set of `.svg` files, a beat
+each in the natural order of their names, worded by a `.md` or `.txt` of the same name (or the svg's `<desc>`), and
+makes one scene: each drawing morphs into the next (`explainerCompile`, whose `plan` runs inside `openScene` once the
+shapes are in; `window.__explainer`). A shape finds its partner in the next file by its name (an element's `id` or
+`<title>`), then by order among the like; a new rule of pairing goes there.
+
 **Making a scene or an explainer** (the rules found making them; the rest is in
 `docs/explainers.md`): a new example is an entry in `EXAMPLES` or `SHOWPIECES` and an id in
 `SECTIONS`; an explainer is also an entry in `explained.html`'s `EXPLAINERS`. A clip plays its
