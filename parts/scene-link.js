@@ -866,15 +866,38 @@
             }
             window.__explainer = { compile: explainerCompile, open: explainerOpen, title: explainerTitle };
             {
-                const pick = $('fExplainer'), go = $('bMenuExplainer'), pv = $('bMenuExplainerPreview');
+                // THE FILES ARE GATHERED, A CHOICE AT A TIME (16 Nov 2026, Tom, having tried it: "It only loads a single svg
+                // file"). A phone's file chooser gives one file to a tap (several only to a long press that few know of),
+                // so a folder of beats could not be handed over there at all. The files chosen are kept (explainTray, by
+                // name, a later one of the same name taking the earlier's place) and each choice compiles everything
+                // gathered so far: choose one, then the next, and the explainer grows a beat at a time; choosing several
+                // at once still works. "new explainer" empties the tray.
+                const pick = $('fExplainer'), go = $('bMenuExplainer'), pv = $('bMenuExplainerPreview'), fresh = $('bMenuExplainerNew');
+                const explainTray = new Map();
+                window.__explainer.tray = explainTray;
+                window.__explainer.add = async files => {
+                    for (const f of files)
+                        explainTray.set(f.name, f.text);
+                    const R = await explainerOpen([...explainTray].map(([name, text]) => ({ name, text })), { name: 'explainer' });
+                    if (R && R.ok)
+                        flashStatus('explainer: ' + R.beats + ' beat' + (R.beats === 1 ? '' : 's') + ' (' + R.order.map(explainerTitle).join(', ')
+                            + ') \u2014 choose more files to add beats, or \u201cpreview the explainer\u201d in the menu');
+                    return R;
+                };
                 if (go && pick) {
                     go.addEventListener('click', () => { closeMenu(); pick.value = ''; pick.click(); });
                     pick.addEventListener('change', async () => {
                         const files = await Promise.all([...pick.files].map(async f => ({ name: f.name, text: await f.text() })));
                         if (files.length)
-                            explainerOpen(files, { name: 'explainer' });
+                            window.__explainer.add(files);
                     });
                 }
+                if (fresh)
+                    fresh.addEventListener('click', () => {
+                        closeMenu();
+                        explainTray.clear();
+                        flashStatus('explainer: no files gathered \u2014 \u201cadd files to an explainer\u2026\u201d starts a new one');
+                    });
                 if (pv)
                     pv.addEventListener('click', () => { closeMenu(); const b = $('btPreview'); if (b) b.click(); });
             }

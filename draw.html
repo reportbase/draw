@@ -4808,8 +4808,11 @@
                 </div>
                 <!-- AN EXPLAINER FROM FILES (16 Nov 2026): a beat a file, in the natural order of their names -->
                 <div class="group row" style="gap:6px;">
-                    <button id="bMenuExplainer" style="flex:1;" title="compile an explainer from files: choose a set of .svg files (and a .md or .txt of the same name for each one's words). Each file is a beat, in the natural order of their names, and each drawing morphs into the next.">compile an explainer…</button>
+                    <button id="bMenuExplainer" style="flex:1;" title="add files to an explainer: choose .svg files, one at a time or several at once (and a .md or .txt of the same name for each one's words). Each file is a beat, in the natural order of their names, and each drawing morphs into the next. Every choice adds to the files already gathered and compiles them all.">add files to an explainer…</button>
                     <button id="bMenuExplainerPreview" style="flex:1;" title="open the scrolling explainer page on the scene that is playing">preview the explainer</button>
+                </div>
+                <div class="group row" style="gap:6px;">
+                    <button id="bMenuExplainerNew" style="flex:1;" title="forget the files gathered, to begin another explainer">new explainer</button>
                 </div>
                 <input type="file" id="fExplainer" accept=".svg,.md,.txt,image/svg+xml,text/plain,text/markdown" multiple hidden>
             </div>

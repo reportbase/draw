@@ -125,7 +125,7 @@ Nothing here is edited by hand in its generated form; `npm test` fails when one 
 
 **An explainer from files** (16 Nov 2026, Tom: "each file is a beat and user just imports them to a compiler as a set of
 files with natural sort order"; AN EXPLAINER FROM FILES in `parts/scene-link.js`, `docs/explainers.md`): the menu's
-**compile an explainer…** (`#bMenuExplainer`, `#fExplainer`) or `npm run explainer -- <folder> [--out f.tvfs]`
+**add files to an explainer…** (`#bMenuExplainer`, `#fExplainer`; each choice adds to the files gathered, `explainTray`, and compiles them all, since a phone's chooser gives one file to a tap; **new explainer** empties it) or `npm run explainer -- <folder> [--out f.tvfs]`
 (`tools/compile-explainer.mjs`, which drives the editor as `npm run examples` does) takes a set of `.svg` files, a beat
 each in the natural order of their names, worded by a `.md` or `.txt` of the same name (or the svg's `<desc>`), and
 makes one scene: each drawing morphs into the next (`explainerCompile`, whose `plan` runs inside `openScene` once the
