@@ -1652,6 +1652,12 @@ T.current = 'several held move as one; a pinch selects nothing';
     const b1 = await boxes();
     const moved = b1.map((b, i) => b.map((v, k) => v - b0[i][k]).join());
     if (held !== '0,1' || moved.join(' ') !== '40,-30,40,-30 40,-30,40,-30') throw new Error('a drag from a corner with two selected: held ' + held + ', moved ' + moved.join(' '));
+    // several held have no resize grips (the rotate grip stays); a group has them, being one thing
+    const grips = async () => sp.evaluate(() => Object.keys(window.__box.handles().pts).join());
+    await sp.evaluate(() => window.__box.select([0, 1])); await sp.waitForTimeout(200);
+    const g2 = await grips(); await sp.evaluate(() => window.__box.run('bt-group')); await sp.waitForTimeout(200);
+    const gg = await grips(); await sp.evaluate(() => window.__box.run('bt-group')); await sp.waitForTimeout(200);
+    if (g2 !== 'rot' || gg !== 'nw,n,ne,w,e,sw,s,se,rot' || await grips() !== 'rot') throw new Error('the grips of two held, then grouped: ' + g2 + ' | ' + gg);
     // one selected: the same drag from its corner changes its shape, not its place
     await sp.evaluate(() => window.__box.select([0])); await sp.waitForTimeout(200);
     const x2 = cv.x + b1[0][2], y2 = cv.y + b1[0][3];
