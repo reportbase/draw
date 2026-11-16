@@ -30521,7 +30521,8 @@
             // (13 Nov 2026, Tom: "'double click to name' tooltip of footer should be changed to 'Long press to
             // Change Name'": the tile has been renamed by a long press, not a double-click, since the press-and-hold
             // below took the gesture over, and the tip still told of the old one)
-            const tip = parts.join(' — ') || 'Long press to Change Name';
+            // (16 Nov 2026, Tom: "Remove tool tip long press to change name": a tile with nothing to say says nothing)
+            const tip = parts.join(' — ');
             if (tile.title !== tip)
                 tile.title = tip;
             tile.dataset.thumb = '1';
@@ -41452,6 +41453,25 @@
                     // dropped, and nothing is deselected either. The gesture is for building a
                     // selection — tap one, hold the others — and the one you have got is the one it has
                     // no work to do on.
+                    // A HOLD ON SEVERAL GROUPS THEM (16 Nov 2026, Tom: "Long press multiple objects should group or in ungroup
+                    // them"). A hold on a shape that is not held still adds it, which is how several come to be held;
+                    // a hold on one of several held used to drop it, and on a group whole did nothing. Now a hold on
+                    // what is held, when that is more than one shape, is the Group button's press: the shapes held
+                    // become a group, and a group held is undone into its shapes.
+                    if (had && cur.size >= 2) {
+                        applyShapeSelection(cur);
+                        const was = selectionIsGrouped();
+                        toggleGroupSelection();
+                        syncArrangeBtns();
+                        if (navigator.vibrate) {
+                            try {
+                                navigator.vibrate(12);
+                            } catch (_) {}
+                        }
+                        flashStatus(was ? 'ungrouped \u2014 ' + cur.size + ' shapes held' : cur.size + ' shapes grouped \u2014 hold the group to undo it');
+                        drawAll();
+                        return;
+                    }
                     if (cur.size === set.length && had) {
                         // Tom's ruling (Aug 29): "long pressing the shape should also toggle the headers
                         // and footers on/off." The one press this gesture has no selection work for —
@@ -42552,7 +42572,7 @@
                     // A tap (no drag) toggles — selects an unselected group, deselects a
                     // selected one — resolved on release, so a drag never deselects.
                     e.preventDefault();
-                    const selBefore = selectedIndices().slice(); // for a hold: see FROM THE SELECTION AS IT WAS
+                    const selBefore = _pressSelBefore = selectedIndices().slice(); // for a hold: see FROM THE SELECTION AS IT WAS
                     const wasSel = hullUnder.sel;
                     if (!wasSel)
                         applyShapeSelection(new Set(hullUnder.members));
@@ -42586,7 +42606,7 @@
                     // shift-CLICK that never travels completes as a toggle on release — so
                     // shift still adds and removes from the selection, it never replaces.
                     const _tog = _mod || e.shiftKey;
-                    const selBefore = selectedIndices().slice(); // for a hold: see FROM THE SELECTION AS IT WAS
+                    const selBefore = _pressSelBefore = selectedIndices().slice(); // for a hold: see FROM THE SELECTION AS IT WAS
                     const _wasIn = spUnder >= 0 && !!(state.activeSet && state.activeSet.has(spUnder));
                     if (_tog && spUnder >= 0) {
                         if (!_wasIn) {
@@ -44856,8 +44876,27 @@
 
         // Touch pinch + pan. Two-finger pinch zooms anchored at the midpoint;
         // two-finger drag (without pinch) pans.
+        // A PINCH SELECTS NOTHING (16 Nov 2026, Tom: "pinching should not select objects"). Unlocked, a press selects the
+        // shape it lands on at once, and a pinch's first finger is a press like any other: by the time the second
+        // finger lands the shape under the first is selected, and may have been nudged. So when the second finger
+        // lands, the press is spent (no move, no tap on release, no hold) and the selection is put back as it stood
+        // before the first finger came down.
+        let _pressSelBefore = null;
+        window.addEventListener('touchend', e => { if (!e.touches.length) _pressSelBefore = null; });
+        window.addEventListener('mouseup', () => { _pressSelBefore = null; });
         cv.addEventListener('touchstart', e => {
             if (e.touches.length === 2) {
+                if (_pressSelBefore) {
+                    cancelShapeLongPress();
+                    if (state.shapeMove)
+                        state.shapeMove.fired = true;
+                    if (state.shapeMarquee)
+                        state.shapeMarquee.fired = true;
+                    lockTap = null;
+                    applyShapeSelection(new Set(_pressSelBefore));
+                    _pressSelBefore = null;
+                    drawAll();
+                }
                 e.preventDefault();
                 const t1 = e.touches[0],
                     t2 = e.touches[1];
