@@ -630,9 +630,7 @@ try {
       await tp.waitForTimeout(500);
       const t4 = await st();
       await tp.click('#bStyle');
-      await tp.click('#gearBtn');
-      await tp.waitForTimeout(300);
-      await tp.click('#bTour');
+      await tp.evaluate(() => document.getElementById('bTour').click());      // (the menu's line is the bar's button now: THE TOUR IS ON THE BAR)
       await tp.waitForTimeout(500);
       const t5 = await st();
       await tp.keyboard.press('Escape');
@@ -1535,6 +1533,42 @@ T.current = 'panel: group button and menu switch';
   }
   console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} panel: group button and menu switch`);
   await gp.close();
+}
+
+/* THE TOUR IS ON THE BAR (16 Nov 2026, Tom: "move tour the shapes to the toolbar, with next, first, prev, last, pause,
+   start, speed, stop buttons"), and with it "locked toolbar button should have standerd color scheme". The bar's Tour
+   button turns the strip to the tour's eight buttons; a tour run from them keeps the bars and the strip, and a press on
+   the strip is the tour's own. The lock wears the other buttons' chip. */
+T.current = 'the tour is on the bar';
+{
+  const tp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  tp.on('pageerror', e => failures.push(`[tour bar] ${e.message}`));
+  await tp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await tp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await tp.waitForFunction(() => window.__strip && window.__tour && document.querySelector('#shapeScroller .shape-tile'), null, { timeout: 15000 });
+    const chip = await tp.evaluate(() => { const c = id => { const s = getComputedStyle(document.getElementById(id)); return [s.backgroundColor, s.color, s.borderTopColor].join(); }; return [c('bLock') === c('bGrid'), document.getElementById('bLock').classList.contains('active')].join(); });
+    if (chip !== 'true,false') throw new Error("the lock, off, should wear the grid button's chip: " + chip);
+    await tp.click('#bAddStrip'); for (let i = 3; i < 6; i++) { await tp.click('#addRing .add-pick >> nth=' + i); await tp.waitForTimeout(200); }
+    await tp.click('#bTourStrip'); await tp.waitForTimeout(300);
+    const st = () => tp.evaluate(() => { const t = window.__tour.state; return [window.__strip.mode, t ? t.i + '/' + t.n + (t.paused ? ' paused' : '') + ' x' + t.k : 'none', document.body.classList.contains('chrome-off'),
+      [...document.querySelectorAll('.add-strip [data-t].on')].map(b => b.dataset.t).join('+'), document.querySelector('.add-strip [data-t="speed"] .cap').textContent].join(' | '); });
+    const tiles = await tp.evaluate(() => [...document.querySelectorAll('.add-strip .controls.on [data-t]')].map(b => b.dataset.t).join());
+    if (tiles !== 'start,pause,first,prev,next,last,speed,stop') throw new Error("the tour's tiles: " + tiles);
+    const seen = [await st()];
+    for (const t of ['start', 'pause', 'last', 'prev', 'first', 'next', 'speed', 'stop']) { await tp.click('.add-strip [data-t="' + t + '"]'); await tp.waitForTimeout(250); seen.push(await st()); }
+    const want = ['tour | none | false |  | speed ×1', 'tour | 0/4 x1 | false | start | speed ×1', 'tour | 0/4 paused x1 | false | pause | speed ×1', 'tour | 3/4 x1 | false | start | speed ×1',
+      'tour | 2/4 x1 | false | start | speed ×1', 'tour | 0/4 x1 | false | start | speed ×1', 'tour | 1/4 x1 | false | start | speed ×1', 'tour | 1/4 x2 | false | start | speed ×2', 'tour | none | false |  | speed ×2'];
+    if (seen.join('\n') !== want.join('\n')) throw new Error('the tour run from the strip:\n' + seen.join('\n'));
+    // a step with no tour running starts one, and a press on the drawing still ends it
+    await tp.click('.add-strip [data-t="next"]'); await tp.waitForTimeout(250);
+    if (!/^tour \| 0\/4 x2/.test(await st())) throw new Error('next with no tour running: ' + await st());
+    await tp.mouse.click(640, 120); await tp.waitForTimeout(300);
+    if (!/\| none \|/.test(await st())) throw new Error('a press on the drawing did not end the tour: ' + await st());
+  } catch (e) { failures.push(`[the tour is on the bar] ${e.message.split('\n')[0]}`); }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} the tour is on the bar`);
+  await tp.close();
 }
 
 /* THERE IS ALWAYS A FOOTER (15 Nov 2026, Tom: "what happend to the shape browser. there should always be a footer").

@@ -1540,13 +1540,16 @@
            both, so the pair cannot drift the way it had (the X gold, the menu the same grey as
            the eleven ring chips it was not part of). */
 
-        #bCancelEdit, #gearBtn, #bLock:not(.active), #bLockEdit:not(.active) {
+        /* (The top bar's lock left this pair's gold, 16 Nov 2026, Tom: "locked toolbar button should have standerd color
+           scheme": it is on the ring with the others now, not pinned to a corner, so it wears their chip, plain when
+           off and gold when on, as the grid's and the mirror's do.) */
+        #bCancelEdit, #gearBtn, #bLockEdit:not(.active) {
             background: rgba(212, 160, 82, 0.14);
             color: #d4a052;
             border-color: rgba(212, 160, 82, 0.5);
         }
 
-        #bCancelEdit:hover, #gearBtn:hover, #bLock:not(.active):hover, #bLockEdit:not(.active):hover {
+        #bCancelEdit:hover, #gearBtn:hover, #bLockEdit:not(.active):hover {
             background: rgba(212, 160, 82, 0.30);
             color: #f2d7a8;
             border-color: rgba(212, 160, 82, 0.65);
@@ -3741,6 +3744,11 @@
                     <path d="M9 3.5v17M15 3.5v17M3.5 9h17M3.5 15h17"/>
                 </svg>
             </button>
+            <button id="bTourStrip" class="icon-btn" title="the tour: visit every shape in the drawing in turn, each fitted to the screen. Its buttons stand in the strip at the foot: start, pause, first, previous, next, last, speed, stop.">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5l-5 2l2-5z"/>
+                </svg>
+            </button>
             <!-- Appearance: width, fill and line. A paint roller, because the five controls
                      behind it are the ones that decide how the shape is PAINTED, as against the two
                      left on the panel, which decide what the shape IS. -->
@@ -4777,7 +4785,7 @@
                 </div>
             </div>
 
-            <div class="group">
+            <div class="group" hidden><!-- (the tour is the top bar's since 16 Nov 2026: THE TOUR IS ON THE BAR; this button is still what the page presses) -->
                 <div class="menu-title">motion</div>
                 <div class="menu-note sub">Fly the camera from shape to shape, each one fitted to the screen, on a spring rather than a cut. Repeats until stopped; any pan, zoom or Escape stops it.</div>
                 <button id="bTour" title="the tour — visit every shape in the drawing in turn, fitted to the screen, the camera arriving on a critically damped spring. Loops. Touch the camera or press Escape to stop.">tour the shapes</button>
@@ -43958,7 +43966,7 @@
         // event on its own makes one continuous gesture flicker between panning and zooming.
         // How much faster a trackpad PINCH zooms than the same pixels of scroll would. See the
         // note at the touch pinch (PINCH_GAIN) for why a one-to-one mapping is unusable.
-        const PINCH_WHEEL_GAIN = 3.4;
+        const PINCH_WHEEL_GAIN = 1.7; // (halved, 16 Nov 2026, Tom: "Pinch to zoom is to fast. Slow down by half")
         let _wheelIsTrackpad = false;
         function _wheelLooksLikeTrackpad(e) {
             if (e.deltaMode !== 0)
@@ -44390,7 +44398,7 @@
                 v.zoom = T.want.zoom;
                 v.panX = T.want.panX;
                 v.panY = T.want.panY;
-                T.holdUntil = now + TOUR_HOLD_MS; // arrived: hold the beat
+                T.holdUntil = now + TOUR_HOLD_MS / (T.k || 1); // arrived: hold the beat
                 flashStatus(tourNameOf(T.list[T.i], T.i + 1, T.list.length));
             }
             drawAll();
@@ -44403,6 +44411,50 @@
             };
             tourRAF = requestAnimationFrame(tourStep);
         }
+        // THE TOUR IS ON THE BAR (16 Nov 2026, Tom: "move tour the shapes to the toolbar, with next, first, prev, last,
+        // pause, start, speed, stop buttons"). It was a line in the menu and four keys. The bar's Tour button turns the
+        // strip to its buttons (MODES.tour), and each is tourDo(name). A tour run from the strip keeps the bars and the
+        // strip, since they are what it is run with (the space bar's tour, with the strip elsewhere, still clears the
+        // page as it did), and a press on the strip is the tour's own, not the touch that ends it. A step asked for with
+        // no tour running starts one. The speed is kept between tours: it scales how fast the camera closes on a shape
+        // and how short the beat spent on it is.
+        const TOUR_SPEEDS = [0.5, 1, 2, 3];
+        let tourSpeed = 1;
+        const tourInStrip = () => !!(window.__strip && window.__strip.mode === 'tour');
+        function tourDo(act) {
+            if (act === 'speed') {
+                tourSpeed = TOUR_SPEEDS[(TOUR_SPEEDS.indexOf(tourSpeed) + 1) % TOUR_SPEEDS.length];
+                if (tourState)
+                    tourState.k = tourSpeed;
+                flashStatus('tour speed \u00d7' + tourSpeed);
+            } else if (act === 'stop')
+                tourStop('tour stopped');
+            else if (act === 'pause') {
+                if (tourState) {
+                    tourState.paused = !tourState.paused;
+                    flashStatus(tourState.paused ? 'tour paused' : 'tour running');
+                }
+            } else {
+                const fresh = !tourState;
+                if (fresh)
+                    tourStart();
+                const T = tourState;
+                if (!T)
+                    return;
+                T.paused = false;
+                const n = T.list.length;
+                if (act === 'first' || act === 'last')
+                    tourGo(T, (act === 'first' ? 0 : n - 1) - T.i);
+                else if (act === 'next' || act === 'prev') {
+                    if (!fresh || act === 'prev')
+                        tourGo(T, act === 'next' ? 1 : -1);
+                }
+            }
+            if (typeof window.__syncTourBtn === 'function')
+                window.__syncTourBtn();
+            drawAll();
+        }
+        window.__tour = { do: tourDo, get state() { return tourState ? { i: tourState.i, n: tourState.list.length, paused: !!tourState.paused, k: tourState.k } : null; }, get speed() { return tourSpeed; } };
         function tourStart() {
             const list = tourTargets();
             if (list.length < 1) {
@@ -44413,19 +44465,20 @@
             // THE TOUR CLOSES THE STRIP (15 Nov 2026, Tom: "tour the shapes option should close footer"): whatever
             // the strip at the foot was turned to (Fill, the selection's tiles, a tool) is put away first, so the
             // tour begins from the drawing alone and the bars come back to it plain.
-            if (window.__strip && window.__strip.mode)
+            const inStrip = tourInStrip(); // (run from its own strip: the bars and the strip stay, THE TOUR IS ON THE BAR)
+            if (!inStrip && window.__strip && window.__strip.mode)
                 window.__strip.open(null);
             // Hide the bars for the duration — the tour is something to watch, and the toolbar and
             // strip are not part of the picture. Recorded so the stop puts back exactly what it
             // found: bars already hidden by a long-press stay hidden afterwards.
-            const hidChrome = (typeof setChromeOff === 'function') && setChromeOff(true, true);
+            const hidChrome = !inStrip && (typeof setChromeOff === 'function') && setChromeOff(true, true);
             tourState = {
                 list,
                 i: 0,
                 want: null,
                 holdUntil: 0,
                 saw: null,
-                k: 1,
+                k: tourSpeed,
                 hidChrome,
                 leg: 'in',
                 paused: false
@@ -44451,6 +44504,8 @@
         window.addEventListener('pointerdown', e => {
             if (!tourState)
                 return;
+            if (tourInStrip() && e.target && e.target.closest && e.target.closest('.add-strip, #bTourStrip'))
+                return; // the tour's own buttons (THE TOUR IS ON THE BAR)
             e.stopPropagation();
             e.preventDefault();
             tourStop('tour stopped');
@@ -44830,7 +44885,7 @@
                 // gesture reversible: pinch back to the distance you started at and the ratio is 1
                 // again, 1^k is 1, and you land exactly on the zoom you began with. A gain applied
                 // to the distance instead would drift.
-                const PINCH_GAIN = 3.4;
+                const PINCH_GAIN = 1.7; // (halved, 16 Nov 2026, Tom: "Pinch to zoom is to fast. Slow down by half": it was 3.4)
                 const targetZoom = state.pinch.startZoom
                 * Math.pow(dist / state.pinch.startDist, PINCH_GAIN);
                 const clampedZoom = Math.max(zoomOutFloor(), Math.min(ZOOM_MAX, targetZoom));
@@ -57565,6 +57620,31 @@
                 // none, a fine, a middling and a coarse cross hatch, ruled lines, and dots (new with this: a dot where
                 // the hatch's lines would meet). No sliders: the panel is not opened from here at all. The button is
                 // lit while a background is on, as it was.
+                // THE TOUR IS ON THE BAR: its eight buttons. Start and pause are lit by what the tour is doing, and the
+                // speed's caption is the speed.
+                tour: { btn: 'bTourStrip', lit: () => !!tourState,
+                    build: host => {
+                        const F = 'fill="currentColor" stroke="none"';
+                        animTile(host, { t: 'start' }, 'Start the tour', 'start', '<path d="M20 14v28l24-14z" ' + F + '/>');
+                        animTile(host, { t: 'pause' }, 'Pause the tour, or let it go on', 'pause', '<rect x="17" y="14" width="8" height="28" rx="2" ' + F + '/><rect x="31" y="14" width="8" height="28" rx="2" ' + F + '/>');
+                        animTile(host, { t: 'first' }, 'The first shape', 'first', '<path d="M16 14v28"/><path d="M42 14L22 28l20 14z" ' + F + '/>');
+                        animTile(host, { t: 'prev' }, 'The shape before', 'prev', '<path d="M38 14L18 28l20 14z" ' + F + '/>');
+                        animTile(host, { t: 'next' }, 'The next shape', 'next', '<path d="M18 14l20 14l-20 14z" ' + F + '/>');
+                        animTile(host, { t: 'last' }, 'The last shape', 'last', '<path d="M40 14v28"/><path d="M14 14l20 14l-20 14z" ' + F + '/>');
+                        animTile(host, { t: 'speed' }, 'How fast the tour goes: each press the next speed', 'speed', '<path d="M10 38a18 18 0 0 1 36 0"/><path d="M28 38l9-13"/><circle cx="28" cy="38" r="2.5" ' + F + '/>');
+                        animTile(host, { t: 'stop' }, 'Stop the tour', 'stop', '<rect x="16" y="16" width="24" height="24" rx="3" ' + F + '/>');
+                    },
+                    tap: b => tourDo(b.dataset.t),
+                    on: b => {
+                        const t = b.dataset.t;
+                        if (t === 'speed') {
+                            const c = b.querySelector('.cap');
+                            if (c)
+                                c.textContent = 'speed \u00d7' + tourSpeed;
+                            return false;
+                        }
+                        return t === 'start' ? !!tourState && !tourState.paused : t === 'pause' ? !!tourState && !!tourState.paused : false;
+                    } },
                 grid: { btn: 'bGrid', lit: () => !!(state.grid && state.grid.on),
                     build: host => {
                         const frame = '<rect x="8" y="8" width="40" height="40" rx="3"/>';
@@ -58905,7 +58985,7 @@
                 bBuild: 'Build', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
                 bAi: 'AI', bArrows: 'Line', bDrawMenu: 'Draw', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bSelStrip: 'Selection', bArrangeOpen: 'Arrange',
-                bMorphOpen: 'Morph', bTools: 'Mirror', bRead: 'Reading', bGrid: 'Grid',
+                bMorphOpen: 'Morph', bTools: 'Mirror', bRead: 'Reading', bGrid: 'Grid', bTourStrip: 'Tour',
                 bStyle: 'Fill', bLine: 'Outline', bDesc: 'Name and note', bFit: 'Fit to view', gearBtn: 'Settings',
                 // the edit view's bar
                 bLockEdit: 'Lock', bCancelEdit: 'Close', bUndoEdit: 'Undo', bRedoEdit: 'Redo',

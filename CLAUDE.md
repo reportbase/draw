@@ -259,6 +259,17 @@ compatibly.
   the tour ended and whether or not it was the tour that hid them. The arrows still step a running tour. Any press
   on the page ends it too ("touching the screen should end the tour and show the toolbars"), taken in the window's
   capture with the click that follows, so it selects nothing.
+  The tour is on the bar (16 Nov 2026, THE TOUR IS ON THE BAR; Tom: "move tour the shapes to the toolbar, with next,
+  first, prev, last, pause, start, speed, stop buttons"): `#bTourStrip` turns the strip to `MODES.tour`, eight tiles,
+  each `tourDo(name)`; a tour run from that strip keeps the bars and the strip (`tourInStrip`), and a press on the
+  strip is the tour's own, not the touch that ends it. A step with no tour running starts one. The speed
+  (`TOUR_SPEEDS`, `tourSpeed`, kept between tours) scales the camera's closing and shortens the beat on each shape.
+  The menu's line (`#bTour`) is hidden and still what the page presses; space's tour, with the strip elsewhere,
+  still clears the page. `window.__tour` (`do`, `state`, `speed`) is for the checks.
+- The lock wears the other buttons' chip (the same day: "locked toolbar button should have standerd color scheme"):
+  plain when off, gold when on; only the menu's button and the edit view's pair keep the gold tint.
+- A pinch zooms half as fast (the same day: "Pinch to zoom is to fast. Slow down by half"): `PINCH_GAIN` and the
+  trackpad's `PINCH_WHEEL_GAIN` are 1.7 (they were 3.4).
 - The name and the note are typed in the strip (15 Nov 2026, THE NAME AND THE NOTE ARE TYPED IN THE STRIP; "1"):
   `#bDesc` turns the strip to `MODES.desc`, a row of fields (`form: true`, no ring): `#spName`, `#spNote` and
   `#spMetaNote` themselves, moved out of `#descPop` the first time, so `parts/appearance-panel.js` still fills and
