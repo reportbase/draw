@@ -1616,6 +1616,74 @@ T.current = 'delete is on the bar';
   await dp.close();
 }
 
+/* SEVERAL HELD MOVE AS ONE, and bring the selection's strip; A PINCH SELECTS NOTHING (16 Nov 2026, Tom: "With multi
+   selected objects, you should not be able to adjust the leaves, you should only be able to move the selected shapes
+   together as a selection", "When multiple objects are selected, show the selection footer to let the user toggle the
+   selection group", "pinching should not select objects"). Two squares: with both selected a drag begun on one's corner
+   carries both by the drag and keeps both selected, where with one selected the same drag reshapes it; two selected
+   turn the strip to the selection's tiles with Group offered, and one does not; and on a phone a pinch whose first
+   finger lands on a shape leaves nothing selected, where a tap there selects it. */
+T.current = 'several held move as one; a pinch selects nothing';
+{
+  const before = failures.length;
+  const two = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"><rect x="50" y="50" width="150" height="150" fill="#c84"/><rect x="350" y="90" width="150" height="150" fill="#48c"/></svg>';
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => failures.push(`[several held] ${e.message}`));
+  await sp.route(/fonts\.g/, r => r.abort());
+  try {
+    await sp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await sp.waitForFunction(() => window.__strip && window.__box, null, { timeout: 15000 });
+    await sp.evaluate(() => { window.__selAuto = false; });          // as a visitor has it: the strip is asked for, but for several
+    await sp.setInputFiles('#fLoad', { name: 'two.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(two) });
+    await sp.waitForTimeout(1500);
+    const cv = await sp.locator('#cv').boundingBox();
+    const boxes = async () => { const o = []; for (const i of [0, 1]) o.push(await sp.evaluate(i => { window.__box.select([i]); const h = window.__box.handles().box; return [h.x0, h.y0, h.x1, h.y1].map(Math.round); }, i)); return o; };
+    const b0 = await boxes();
+    await sp.evaluate(() => window.__box.select([])); await sp.waitForTimeout(200);
+    await sp.evaluate(() => window.__box.select([0])); await sp.waitForTimeout(300);
+    const one = await sp.evaluate(() => String(window.__strip.mode));
+    await sp.evaluate(() => window.__box.select([0, 1])); await sp.waitForTimeout(300);
+    const both = await sp.evaluate(() => String(window.__strip.mode) + ':' + [...document.querySelectorAll('.add-strip [data-mode="select"] .sel-btn')].filter(t => !t.disabled).map(t => t.getAttribute('aria-label')).includes('Group'));
+    if (one !== 'null' || both !== 'select:true') throw new Error('the strip for one selected, then two: ' + one + ', ' + both);
+    // a drag begun on the first square's far corner (inside the pair's box, off its rim): both go with it
+    const x = cv.x + b0[0][2], y = cv.y + b0[0][3];
+    await sp.mouse.move(x - 1, y - 1); await sp.mouse.down(); await sp.mouse.move(x + 39, y - 31, { steps: 6 }); await sp.mouse.up(); await sp.waitForTimeout(400);
+    const held = await sp.evaluate(() => window.__box.selected().join());
+    const b1 = await boxes();
+    const moved = b1.map((b, i) => b.map((v, k) => v - b0[i][k]).join());
+    if (held !== '0,1' || moved.join(' ') !== '40,-30,40,-30 40,-30,40,-30') throw new Error('a drag from a corner with two selected: held ' + held + ', moved ' + moved.join(' '));
+    // one selected: the same drag from its corner changes its shape, not its place
+    await sp.evaluate(() => window.__box.select([0])); await sp.waitForTimeout(200);
+    const x2 = cv.x + b1[0][2], y2 = cv.y + b1[0][3];
+    await sp.mouse.move(x2 - 1, y2 - 1); await sp.mouse.down(); await sp.mouse.move(x2 + 29, y2 + 19, { steps: 6 }); await sp.mouse.up(); await sp.waitForTimeout(400);
+    const b2 = await boxes();
+    if (b2[0][0] !== b1[0][0] || b2[0][1] !== b1[0][1] || !(b2[0][2] > b1[0][2]) || b2[1].join() !== b1[1].join()) throw new Error('a drag from a corner with one selected: ' + JSON.stringify([b1, b2]));
+  } catch (e) { failures.push(`[several held move as one] ${e.message.split('\n')[0]}`); }
+  await sp.close();
+  const pctx = await browser.newContext({ viewport: { width: 390, height: 760 }, hasTouch: true, isMobile: true });
+  const pp = await pctx.newPage();
+  pp.on('pageerror', e => failures.push(`[pinch] ${e.message}`));
+  await pp.route(/fonts\.g/, r => r.abort());
+  try {
+    await pp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await pp.waitForFunction(() => window.__strip && window.__box && document.querySelector('#shapeScroller .shape-tile'), null, { timeout: 15000 });
+    const cdp = await pctx.newCDPSession(pp);
+    const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+    const sel = () => pp.evaluate(() => window.__box.selected().join());
+    const zoom0 = await pp.evaluate(() => window.__box.viewBox().join());
+    await touch('touchStart', [[195, 380]]); await pp.waitForTimeout(60);
+    await touch('touchStart', [[195, 380], [260, 440]]); await pp.waitForTimeout(60);
+    await touch('touchMove', [[165, 350], [300, 480]]); await pp.waitForTimeout(60);
+    await touch('touchEnd', []); await pp.waitForTimeout(400);
+    const afterPinch = await sel(), zoomed = await pp.evaluate(() => window.__box.viewBox().join()) !== zoom0;
+    await touch('touchStart', [[195, 380]]); await touch('touchEnd', []); await pp.waitForTimeout(400);
+    const afterTap = await sel();
+    if (afterPinch !== '' || !zoomed || afterTap !== '0') throw new Error('a pinch on the shape: selected "' + afterPinch + '", zoomed ' + zoomed + '; then a tap: "' + afterTap + '"');
+  } catch (e) { failures.push(`[a pinch selects nothing] ${e.message.split('\n')[0]}`); }
+  await pctx.close();
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} several held move as one; a pinch selects nothing`);
+}
+
 /* THE TOUR IS ON THE BAR (16 Nov 2026, Tom: "move tour the shapes to the toolbar, with next, first, prev, last, pause,
    start, speed, stop buttons"), and with it "locked toolbar button should have standerd color scheme". The bar's Tour
    button turns the strip to the tour's eight buttons; a tour run from them keeps the bars and the strip, and a press on
