@@ -420,6 +420,13 @@ compatibly.
   and on empty canvas it is a tap there. The bars hide only for the tour, and Escape brings them back.
   Locked or not: unlocked a press selects the shape it lands on at once (select and move), so the hold works from the
   selection as it was before the press (`startShapeLongPress(idx, members, before)`; 14 Nov 2026, "it deselects").
+  A hold on several groups them (16 Nov 2026, A HOLD ON SEVERAL GROUPS THEM; Tom: "Long press multiple objects should
+  group or in ungroup them"): a hold on a shape not held still adds it; a hold on what is held, when that is two shapes
+  or more, is the Group button's press (`toggleGroupSelection`), so the held become a group and a group held is undone.
+  It no longer drops the one held.
+- A pinch selects nothing (the same day, A PINCH SELECTS NOTHING; "pinching should not select objects"): when the second
+  finger lands the first finger's press is spent and the selection put back as it stood before it (`_pressSelBefore`).
+- A tile with no name, count or note has no tip ("Remove tool tip long press to change name").
 - Comments explain *why*, at length. Keep the voice.
 
 ## Testing

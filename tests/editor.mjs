@@ -1487,10 +1487,14 @@ for (const [label, opts, lock] of [
     await press(at[0]); seen.push(await sel());
     await press(at[1], 800); seen.push(await sel());
     await press(at[2], 800); seen.push(await sel());
-    await press(at[1], 800); seen.push(await sel());
+    // a hold on one of several held groups them, and a hold on the group undoes it (16 Nov 2026, Tom: "Long press
+    // multiple objects should group or in ungroup them"); it used to drop the one held
+    const said = () => hp.evaluate(() => (window.__flashLog || []).slice(-1)[0] || '');
+    await press(at[1], 800); seen.push(await sel() + (/shapes grouped/.test(await said()) ? ' grouped' : ' (not grouped: ' + await said() + ')'));
+    await press(at[1], 800); seen.push(await sel() + (/^ungrouped/.test(await said()) ? ' ungrouped' : ' (not ungrouped: ' + await said() + ')'));
     await press([cv.x + 20, cv.y + cv.height * 0.25], 800);
     const off = await hp.evaluate(() => document.body.classList.contains('chrome-off'));
-    if (seen.join(' | ') !== '0 | 0,1 | 0,1,2 | 0,2' || off)
+    if (seen.join(' | ') !== '0 | 0,1 | 0,1,2 | 0,1,2 grouped | 0,1,2 ungrouped' || off)
       throw new Error('holds: ' + seen.join(' | ') + (off ? ', and the bars went' : ''));
   } catch (e) {
     failures.push(`[hold, ${label}] ${e.message.split('\n')[0]}`);
