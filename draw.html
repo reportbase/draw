@@ -42250,6 +42250,13 @@
             if (hit && !state.editMode && !state.editMotion && !state.editLeafMotion && state.brush === 'drag'
             && state.subpaths[hit.sp] && state.subpaths[hit.sp].gid != null)
                 hit = null;
+            // SEVERAL HELD MOVE AS ONE (16 Nov 2026, Tom: "With multi selected objects, you should not be able to adjust
+            // the leaves, you should only be able to move the selected shapes together as a selection"). With two
+            // shapes or more selected in the scene view a press on a leaf (or an exact shape's corner) is a press on
+            // its shape: no leaf is taken, and the drag carries the whole selection, as a group's does. One shape
+            // selected, or none, and its leaves answer as before.
+            if (hit && !state.editMode && !state.editMotion && !state.editLeafMotion && selectedIndices().length > 1)
+                hit = null;
             // A click while the shape is in motion just stops it — the circles stay up.
             // EXCEPT in edit mode when a leaf is under the cursor: selecting the leaf wins,
             // so leaves stay clickable even if the shape is animating.
@@ -42614,7 +42621,7 @@
                             cur.add(spUnder);
                             applyShapeSelection(cur, spUnder);
                         }
-                    } else if ((grpUnder || soloUnder) && !insideSel) {
+                    } else if ((grpUnder || soloUnder) && !insideSel && !(_wasIn && selBefore.length > 1)) { // (a held one's rim, with several held, keeps them all: SEVERAL HELD MOVE AS ONE)
                         applyShapeSelection(new Set([spUnder])); // select the shape/group before dragging it
                         setSelAnchor(spUnder);
                     }
