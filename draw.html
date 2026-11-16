@@ -18758,7 +18758,7 @@
             if (!(units >= 2 || selectionIsGrouped()))
                 return null;
             const r = HANDLE_PX() + 2;
-            const rot = H.pts.rot;
+            const rot = H.rot;
             return {
                 cx: rot[0] + ROTATE_GRIP_PX() * 0.85,
                 cy: rot[1],
@@ -18781,7 +18781,7 @@
             const H = handlePoints();
             if (!H)
                 return null;
-            const hh = HANDLE_PX() + 2, hw = hh * 1.9, rot = H.pts.rot;
+            const hh = HANDLE_PX() + 2, hw = hh * 1.9, rot = H.rot;
             return { name: 'bt-mode', cx: rot[0] + HANDLE_PX() + 8 + hw, cy: rot[1], hw, hh, r: hw };
         }
         function modeToggleAt(px, py) {
@@ -18992,9 +18992,17 @@
             // able to move the selected shapes together as a selection", and then the fourth of "1 2 3 4 5", "No resize
             // handles on a multi-selection"). A press on a leaf of several already drags them all; the eight grips still
             // stretched them. Taken out here, where the drawing, the hit test and the cursor all ask, so none is drawn
-            // and none answers. The rotate grip stays, and a group keeps its grips: it is one thing, and is sized as one.
-            if (!state.editMode && selectedIndices().length > 1 && !selectionIsGrouped())
-                H.pts = { rot: H.pts.rot };
+            // and none answers.
+            // NOR THE ROTATE GRIP (the same day, Tom: "1 2 3 4 5 7", the fifth: "Several selected shapes still show the
+            // rotate grip, and a group still has resize handles. Say if either should go"). The rotate grip goes: several
+            // things held are moved and nothing else, which is the sentence he gave, and "several" is counted in things,
+            // so two groups held, or a group and a shape, have no grips either. ONE group alone keeps all nine, and
+            // that is the half not done as asked: a word of text is a group of its letters (addTextShapes), and so is
+            // an imported drawing, and with no grips neither could be sized or turned by hand at all. H.rot keeps the
+            // grip's place, since the group's switch and the leaves/exact pill stand beside it.
+            H.rot = H.pts.rot;
+            if (!state.editMode && selectionUnitCount() > 1)
+                H.pts = {};
             return H;
         }
 
@@ -23408,7 +23416,8 @@
             // the rotate grip and its stem
             if (inert)
                 ctx.globalAlpha = 0.62;
-            const rot = H.pts.rot;
+            const rot = H.rot;
+            if (H.pts.rot) {
             ctx.strokeStyle = 'rgba(212,160,82,0.45)';
             ctx.beginPath();
             ctx.moveTo((x0 + x1) / 2, y0);
@@ -23422,6 +23431,7 @@
             ctx.strokeStyle = 'rgba(212,160,82,0.9)';
             ctx.lineWidth = 1.4;
             ctx.stroke();
+            }
             // (The properties switch used to be drawn here, beside the grip. propsButtonPos now
             // answers null and this whole block went with it — the smoothing track is always
             // shown, so there is nothing for the switch to switch.)
@@ -63265,6 +63275,42 @@
             morphWrite();
             morphBarSync();
         }
+        // a shape as it must be to be drawn: its two rows (the exact corners of a shape kept exact, else its leaves) the
+        // same length, two or more, every one a finite number; a reference that is not that is made from the leaves
+        function spSane(sp) {
+            const row = a => {
+                if (!a || !(a.length >= 2))
+                    return false;
+                for (let i = 0; i < a.length; i++)
+                    if (!isFinite(a[i]))
+                        return false;
+                return true;
+            };
+            if (!sp)
+                return false;
+            if (sp._lazy)
+                return row(sp._lazy.x) && row(sp._lazy.y) && sp._lazy.x.length === sp._lazy.y.length;
+            if (!row(sp.leafX) || !row(sp.leafY) || sp.leafX.length !== sp.leafY.length)
+                return false;
+            if (!row(sp.refX) || !row(sp.refY) || sp.refX.length !== sp.refY.length) {
+                sp.refX = Float64Array.from(sp.leafX);
+                sp.refY = Float64Array.from(sp.leafY);
+            }
+            return true;
+        }
+
+        // The whole restore, kept from stopping the page: what it had done when it threw stays (the shapes come first),
+        // and the page goes on starting. A page that starts whole has its bars and its foot.
+        function restoreSceneSafely() {
+            try {
+                return restoreScene();
+            } catch (e) {
+                console.warn('the saved session was only partly restored:', e);
+                window.__restoreThrew = String(e && e.message || e);
+                return !!(state.subpaths && state.subpaths.length);
+            }
+        }
+
         function restoreScene() {
             let raw;
             try {
@@ -63283,17 +63329,41 @@
             }
             if (!d || d.v !== 1 || !Array.isArray(d.subpaths) || !d.subpaths.length)
                 return false;
-            try {
-                state.subpaths = d.subpaths.map(spLoad);
-            } catch (_) {
+            // A SAVED SESSION IS READ AS A STRANGER'S FILE (16 Nov 2026, Tom: "1 2 3 4 5 7", the fourth, "Harden session
+            // restore"). The bare foot of that morning was one case of a general fault: what the page saved last time is
+            // trusted whole this time, and one bad value in it throws while the page is still starting, so everything
+            // after the throw never runs and every refresh throws again. Three rules now. A shape is loaded by itself:
+            // one that cannot be read, or whose leaves are not two rows of the same length of finite numbers, is left
+            // out and the others kept (the whole drawing used to be given up for it). The timeline is restored only
+            // when every shape came back, since it names shapes by their place in the list, and a throw inside it costs
+            // the timeline, not the page. And the view is taken only when it is one a drawing can be seen through.
+            const loaded = d.subpaths.map(q => {
+                try {
+                    const sp = spLoad(q);
+                    return spSane(sp) ? sp : null;
+                } catch (_) {
+                    return null;
+                }
+            });
+            state.subpaths = loaded.filter(Boolean);
+            window.__restoreDropped = loaded.length - state.subpaths.length;
+            if (!state.subpaths.length)
                 return false;
+            if (!window.__restoreDropped) {
+                try {
+                    restoreMorphs(d); // THE TIMELINE IS SAVED
+                } catch (e) {
+                    console.warn('the saved timeline was not restored:', e);
+                    try {
+                        morphExit(null);
+                    } catch (_) {}
+                }
             }
-            restoreMorphs(d); // THE TIMELINE IS SAVED
             state.svgName = d.name || 'restored';
-            if (d.view) {
-                state.view.zoom = d.view.zoom;
-                state.view.panX = d.view.panX;
-                state.view.panY = d.view.panY;
+            if (d.view && isFinite(d.view.zoom) && d.view.zoom > 0 && isFinite(d.view.panX) && isFinite(d.view.panY)) {
+                state.view.zoom = +d.view.zoom;
+                state.view.panX = +d.view.panX;
+                state.view.panY = +d.view.panY;
             }
             if (d.N)
                 state.N = d.N;
@@ -63500,7 +63570,7 @@
 
         // Boot: last session if there is one, otherwise a moderate-complexity shape so the
         // first run shows something interesting immediately.
-        const _restored = EMBED ? false : restoreScene(); // THE EMBED never reads the saved scene
+        const _restored = EMBED ? false : restoreSceneSafely(); // THE EMBED never reads the saved scene
         if (!_restored) {
             loadSvg(PRESETS.find(p => p.name === 'maple (hand-drawn)').svg, 'maple (hand-drawn)');
             // The boot document settles onto the rung its own contour justifies (loadSvg →

@@ -411,6 +411,12 @@ compatibly.
   of another length, on the restored morph's first frame, before the page had finished starting. It makes the
   reference the leaves' length when it is not. No watcher keeps the foot ("you should not have to put it in a loop"):
   the strip is on from the start, and a page that starts whole has it.
+- A saved session is read as a stranger's file (16 Nov 2026, A SAVED SESSION IS READ AS A STRANGER'S FILE in
+  `restoreScene`; "4" of "1 2 3 4 5 7", "Harden session restore"): each shape is loaded by itself and one that cannot
+  be read or is not two equal rows of finite numbers is left out (`spSane`, `window.__restoreDropped`); the timeline
+  is restored only when every shape came back, and a throw in it costs the timeline alone; a view of no size is not
+  taken; and `restoreSceneSafely` keeps any other throw from stopping the page's start. A new thing restored at the
+  start is checked the same way: what it reads may be anything.
 - The drawing's strip holds still while it is put away (13 Nov 2026, Tom: "Stop panning the shapes if the main shape
   footer bar is not open"): `centerShape` and a glide do nothing while `stripShowing()` is false, that is while another
   mode has the strip (`body.adding`) or the selection's buttons are about to take it (`__selStripWant`).
@@ -432,8 +438,10 @@ compatibly.
   able to adjust the leaves, you should only be able to move the selected shapes together as a selection"): with two
   shapes or more selected in the scene view a press on a leaf or an exact corner takes no leaf (`hit = null` in the
   canvas's mousedown) and drags the whole selection; a press on a held shape's rim keeps them all held.
-  They have no resize grips either (the same day, SEVERAL HELD HAVE NO RESIZE GRIPS in `handlePoints`; "4"): only the
-  rotate grip is drawn and answers; a group keeps its eight, being sized as one thing.
+  They have no resize grips either (the same day, SEVERAL HELD HAVE NO RESIZE GRIPS in `handlePoints`; "4"): nor the
+  rotate grip ("5" of "1 2 3 4 5 7"): several things held (`selectionUnitCount() > 1`, so two groups too) are moved
+  and nothing else. One group alone keeps its grips: a word of text and an imported drawing are groups, and would
+  have no way to be sized. `H.rot` keeps the grip's place for the group switch and the pill beside it.
 - A hold on a tile of the drawing's strip does nothing (the same day, "5": "Remove long-press rename on tiles";
   `TILE_HOLD_RENAMES` false): a shape is named by the Name button.
 - A pinch selects nothing (the same day, A PINCH SELECTS NOTHING; "pinching should not select objects"): when the second
