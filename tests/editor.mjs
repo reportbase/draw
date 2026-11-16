@@ -1582,6 +1582,35 @@ T.current = 'generate with AI is on the bar';
   await ap.close();
 }
 
+/* DELETE IS ON THE BAR (16 Nov 2026, Tom: "Add x delete button to toolbar"): off with nothing selected, and pressed it
+   removes what is selected, one undo. */
+T.current = 'delete is on the bar';
+{
+  const dp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  dp.on('pageerror', e => failures.push(`[delete] ${e.message}`));
+  await dp.route(/fonts\.g/, r => r.abort());
+  const before = failures.length;
+  try {
+    await dp.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await dp.waitForFunction(() => window.__strip && window.__box && document.querySelector('#shapeScroller .shape-tile'), null, { timeout: 15000 });
+    await dp.click('#bAddStrip'); for (let i = 3; i < 5; i++) { await dp.click('#addRing .add-pick >> nth=' + i); await dp.waitForTimeout(200); }
+    await dp.click('#bAddStrip');
+    const st = () => dp.evaluate(() => [document.querySelectorAll('#shapeScroller .shape-tile').length && [...document.querySelectorAll('#shapeScroller .shape-tile')].filter(t => t.style.display !== 'none').length,
+      document.getElementById('bDelete').disabled, !!document.getElementById('bDelete').closest('.topbar')].join());
+    await dp.evaluate(() => window.__box.select([])); await dp.waitForTimeout(200);
+    const s0 = await st();
+    await dp.evaluate(() => window.__box.select([1])); await dp.waitForTimeout(200);
+    const s1 = await st();
+    await dp.click('#bDelete'); await dp.waitForTimeout(300);
+    const s2 = await st();
+    await dp.keyboard.press('Control+z'); await dp.waitForTimeout(300);
+    const s3 = await st();
+    if (s0 !== '3,true,true' || s1 !== '3,false,true' || s2 !== '2,true,true' || !/^3,/.test(s3)) throw new Error('the delete button: ' + [s0, s1, s2, s3].join(' / '));
+  } catch (e) { failures.push(`[delete is on the bar] ${e.message.split('\n')[0]}`); }
+  console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} delete is on the bar`);
+  await dp.close();
+}
+
 /* THE TOUR IS ON THE BAR (16 Nov 2026, Tom: "move tour the shapes to the toolbar, with next, first, prev, last, pause,
    start, speed, stop buttons"), and with it "locked toolbar button should have standerd color scheme". The bar's Tour
    button turns the strip to the tour's eight buttons; a tour run from them keeps the bars and the strip, and a press on

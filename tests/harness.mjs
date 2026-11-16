@@ -35,7 +35,7 @@ const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascrip
    (lock, and the two drawing tools, which are exercised separately below). The
    settings menu's own items (new scene, load, save, export) are left alone too,
    since they open file dialogs or start downloads. */
-export const SKIP = new Set(['bLock', 'bCut', 'bPaste', 'bAi', 'bDraw', 'bDrawLine']);
+export const SKIP = new Set(['bLock', 'bCut', 'bDelete', 'bPaste', 'bAi', 'bDraw', 'bDrawLine']);
 
 // The gallery's pages, and which of them have their own tile code: the chart pages draw a measurement per tile
 // rather than a list of loops, the bench is numbered steps, heard plays its tiles, and the loop and composed

@@ -3508,6 +3508,12 @@
                     <rect x="9" y="2.6" width="6" height="4" rx="1.3"/>
                 </svg>
             </button>
+            <!-- DELETE IS ON THE BAR (16 Nov 2026, Tom: "Add x delete button to toolbar"): the Delete key's own doing, for a hand with no keyboard -->
+            <button id="bDelete" class="icon-btn" title="delete the selected shapes (Delete)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18"/>
+                </svg>
+            </button>
             <!-- (Play the shape's button stood here until 15 Nov 2026) -->
             <!-- THE SHAPE BROWSER'S SWITCH IS GONE FROM THE BAR. The strip is how you get
                      around a scene — it is the scene's table of contents — and a button for it was
@@ -12804,6 +12810,28 @@
         }
 
         // Delete the selected signals.
+        // What the Delete key does, and the bar's x (DELETE IS ON THE BAR): a group selected is undone first, its shapes
+        // kept, and the next one removes the shapes; otherwise the selected shapes go. True when something was done.
+        function deleteSelection() {
+            if (selectionIsGrouped()) {
+                const res = ungroupActive();
+                if (res.ok) {
+                    flashStatus('group deleted \u2014 shapes kept \u00b7 Delete again removes the shapes');
+                    refreshGroupBtn();
+                    pushHistory();
+                    drawAll();
+                }
+                return true;
+            }
+            const n = deleteActive();
+            if (n) {
+                rebuildSignalSelect();
+                rebuildScroller();
+                pushHistory();
+                drawAll();
+            }
+            return !!n;
+        }
         function deleteActive() {
             // Deleting re-indexes the array: a frozen edit set would go stale, and the
             // selection invariant must be released before the teardown clears it.
@@ -52860,25 +52888,8 @@
             && !_isEditableTarget(e.target)) {
                 // A selected GROUP deletes as just the group: the binding dissolves, the
                 // shapes stay (and stay selected). Press Delete again to remove the shapes.
-                if (selectionIsGrouped()) {
+                if (deleteSelection())
                     e.preventDefault();
-                    const res = ungroupActive();
-                    if (res.ok) {
-                        flashStatus('group deleted — shapes kept · Delete again removes the shapes');
-                        refreshGroupBtn();
-                        pushHistory();
-                        drawAll();
-                    }
-                    return;
-                }
-                const n = deleteActive();
-                if (n) {
-                    e.preventDefault();
-                    rebuildSignalSelect();
-                    rebuildScroller();
-                    pushHistory();
-                    drawAll();
-                }
                 return;
             }
             // Arrow keys nudge. Priority (resolved in _arrowTick): selected LEAVES get a
@@ -55974,7 +55985,7 @@
             // shared with the key that does the same thing — see doCut / doCopy / doPaste.
             // The menu carries the same three under their names — same handler, same disabled
             // state, so the two views cannot disagree about what is possible.
-            for (const [id, fn] of [['bCut', () => doCut()], ['bCopy', () => doCopy()], ['bPaste', () => doPasteFromSystem()],
+            for (const [id, fn] of [['bCut', () => doCut()], ['bCopy', () => doCopy()], ['bPaste', () => doPasteFromSystem()], ['bDelete', () => deleteSelection()],
             ['bMenuCut', () => doCut()], ['bMenuCopy', () => doCopy()], ['bMenuPaste', () => doPasteFromSystem()]]) {
                 const el = $(id);
                 if (el)
@@ -59058,7 +59069,7 @@
                 // the shapes button's name is one word like its neighbours', open or shut (13 Nov 2026, Tom: "tool tip for
                 // shapes button should just be shapes, one word like the others"); it said what a press would do
                 bAddStrip: 'Shapes',
-                bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste',
+                bLock: 'Lock', bUndo: 'Undo', bRedo: 'Redo', bCut: 'Cut', bCopy: 'Copy', bPaste: 'Paste', bDelete: 'Delete',
                 bBuild: 'Build', bDraw: 'Pencil',
                 bDrawLine: 'Straight lines', bDrawShape: 'Drag out a shape', bPlot: 'Plot a formula', bText: 'Text',
                 bAi: 'AI', bArrows: 'Line', bDrawMenu: 'Draw', bAlign: 'Align', bGroup: 'Group', bMergeTop: 'Merge', bOrder: 'Order', bSelStrip: 'Selection', bArrangeOpen: 'Arrange',
@@ -59227,6 +59238,7 @@
                 for (const id of ids)
                     set($(id), ok, why);
             };
+            setAll(['bDelete'], !editing && nSel > 0, editing ? 'delete \u2014 not in edit mode' : (nSel ? 'delete the selected shapes (Delete)' : 'select a shape to delete'));
             setAll(['bCut', 'bMenuCut'], !editing && nSel > 0,
             editing ? 'cut — not in edit mode'
             : (nSel ? 'cut the selected shapes (⌘/Ctrl+X) — their .tvf goes to the system clipboard too' : 'select a shape to cut'));
