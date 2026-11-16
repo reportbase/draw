@@ -727,4 +727,56 @@ await step('plots, in and out, labels into labels', async () => {
   }
 });
 
+/* AN EXPLAINER FROM FILES (16 Nov 2026, Tom: "each file is a beat and user just imports them to a compiler as a set of
+   files with natural sort order", then "go with 1": each drawing morphs into the next). Three svg files and one's
+   words go in out of order; the editor makes one scene of them: the beats in the natural order of the names, titled
+   by the names and worded by the text file or the svg's own, a stop between each pair, the shape of one name a
+   single morph with a key a file, the shape with no partner a clip of its own; nothing said in warning. The scene the
+   tvfs button gives then reads as a page, a beat a file. */
+await step('an explainer compiled from files: a beat a file, each drawing morphing into the next', async () => {
+  const S = inner => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">${inner}</svg>`;
+  const files = [
+    { name: '10-the-end.svg', text: S('<desc>All done.</desc><circle id="body" cx="200" cy="150" r="90" fill="#e2563f"/>') },
+    { name: '1-one.svg', text: S('<rect id="body" x="110" y="60" width="180" height="180" fill="#7c5cff"/>') },
+    { name: '2-two_shapes.svg', text: S('<polygon id="body" points="200,40 330,240 70,240" fill="#3aa675"/><rect x="20" y="20" width="60" height="40" fill="#e9b949"/>') },
+    { name: '2-two_shapes.md', text: 'A triangle now, and a **small box** arrives.' }];
+  const ep = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  ep.on('pageerror', e => failures.push(`[explainer from files] ${e.message}`));
+  await ep.route(/fonts\.g/, r => r.abort());
+  try {
+    await ep.goto(new URL('draw.html', base).href, { waitUntil: 'load' });
+    await ep.waitForFunction(() => window.__explainer && window.__box, null, { timeout: 60000 });
+    const bad = await ep.evaluate(() => window.__explainer.compile([{ name: 'notes.md', text: 'no drawing' }]).error);
+    if (!/no \.svg files/.test(bad || '')) throw new Error('a folder with no svg should be refused: ' + bad);
+    const R = await ep.evaluate(files => window.__explainer.open(files, { name: 'three' }), files);
+    await ep.waitForFunction(() => window.__box.morph(), null, { timeout: 60000 });
+    await ep.waitForTimeout(300);
+    const got = await ep.evaluate(() => { const B = window.__box.beats(), sc = window.__box.tvfScene();
+      return { stops: B.stops.join(), titles: B.beats.map(b => b.title).join('|'), words: B.beats.map(b => b.text).join('|'), K: window.__box.morph().K, runs: sc.morphs.length, tvfsBeats: (sc.beats || []).length,
+        warn: (window.__sceneWarnings || []).join(' / ') }; });
+    const want = { stops: '0.3333,0.6667', titles: 'One|Two shapes|The end', words: '|A triangle now, and a **small box** arrives.|All done.', K: 4, runs: 2, tvfsBeats: 3, warn: '' };
+    if (!R.ok || R.order.join() !== '1-one.svg,2-two_shapes.svg,10-the-end.svg' || R.beats !== 3 || R.morphs !== 2 || R.chained !== 1 || JSON.stringify(got) !== JSON.stringify(want))
+      throw new Error('compiled: ' + JSON.stringify(R) + ' ' + JSON.stringify(got));
+    // the one shape is the square at the first stop, the triangle at the second and the circle at the end: its box's
+    // width over its height says which (1, 260 / 200, 1), and the triangle is the widest of the three
+    const boxes = [];
+    for (const t of [0.3333, 0.6667, 0.995]) { await ep.evaluate(t => window.__box.seek(t), t); await ep.waitForTimeout(150);
+      boxes.push(await ep.evaluate(() => { const m = window.__box.morph(), w = Math.max(...m.leaves) - Math.min(...m.leaves), h = Math.max(...m.leavesY) - Math.min(...m.leavesY); return +(w / h).toFixed(2); })); }
+    if (Math.abs(boxes[0] - 1) > 0.03 || Math.abs(boxes[1] - 1.3) > 0.05 || Math.abs(boxes[2] - 1) > 0.05) throw new Error('the poses at the stops: ' + boxes.join());
+    // and the scene reads as a page
+    const scene = await ep.evaluate(() => JSON.stringify(window.__box.tvfScene()));
+    const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    xp.on('pageerror', e => failures.push(`[explainer from files, the page] ${e.message}`));
+    await xp.route(/fonts\.g/, r => r.abort());
+    try {
+      await xp.goto(new URL('gallery/explained.html', base).href, { waitUntil: 'load' });
+      await xp.evaluate(sc => localStorage.setItem('tvf-explainer-preview', sc), scene);
+      await xp.goto(new URL('gallery/explained.html?preview=1', base).href, { waitUntil: 'load' });
+      await xp.waitForFunction(() => window.__explained && window.__explained.beats, null, { timeout: 30000 });
+      const page = await xp.evaluate(() => window.__explained.beats + ':' + window.__explained.titles.join('|'));
+      if (page !== '4:One|Two shapes|The end|example · three') throw new Error('read as a page: ' + page);     // (its three beats, and the page's own closing one)
+    } finally { await xp.close(); }
+  } finally { await ep.close(); }
+});
+
 await T.finish();
