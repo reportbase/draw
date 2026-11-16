@@ -288,7 +288,7 @@ compatibly.
   off the bar in `#topButtonsHeld`, still the code that acts (L and the fit's key work); the menu's `#bMenuLock`
   presses the lock and reads "lock the shapes" or "unlock the shapes". `state.locked` starts false everywhere (a
   touch device used to boot locked) and is saved as `lockedV4`. The top ring opens turned to its second again
-  (`_topRing.focus(1.5)`: a phone shows Shapes, Draw, Fill, Outline). The ring runs under the menu's button (THE RING RUNS UNDER THE MENU'S BUTTON; "the back ground of the menu button should be transparent", then "I can't see the toolbar buttons underneath the menu button canvas. I see the main canvas"): the top strip runs the whole width, and `#gearBtn` is pinned over it at every width (`z-index: 300`, above the ring's 100) with no fill, on the other buttons' line.
+  (`_topRing.focus(1.5)`: a phone shows Shapes, Draw, Fill, Outline). The ring runs under the menu's button (THE RING RUNS UNDER THE MENU'S BUTTON; "the back ground of the menu button should be transparent", then "I can't see the toolbar buttons underneath the menu button canvas. I see the main canvas"): the top strip runs the whole width, and `#gearBtn` is pinned over it at every width (`z-index: 300`, above the ring's 100), wearing the bar's own chip ("The menu button itself should have the same style as the buttons on the toolbar"), on the other buttons' line.
 - Delete is on the bar (16 Nov 2026, DELETE IS ON THE BAR; Tom: "Add x delete button to toolbar"): `#bDelete`, an x
   after Paste, off with nothing selected; it and the Delete key both call `deleteSelection()` (a group selected is
   undone first, the next press removes the shapes).
