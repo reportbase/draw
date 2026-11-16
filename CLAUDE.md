@@ -424,6 +424,10 @@ compatibly.
   group or in ungroup them"): a hold on a shape not held still adds it; a hold on what is held, when that is two shapes
   or more, is the Group button's press (`toggleGroupSelection`), so the held become a group and a group held is undone.
   It no longer drops the one held.
+- Several held move as one (16 Nov 2026, SEVERAL HELD MOVE AS ONE; Tom: "With multi selected objects, you should not be
+  able to adjust the leaves, you should only be able to move the selected shapes together as a selection"): with two
+  shapes or more selected in the scene view a press on a leaf or an exact corner takes no leaf (`hit = null` in the
+  canvas's mousedown) and drags the whole selection; a press on a held shape's rim keeps them all held.
 - A pinch selects nothing (the same day, A PINCH SELECTS NOTHING; "pinching should not select objects"): when the second
   finger lands the first finger's press is spent and the selection put back as it stood before it (`_pressSelBefore`).
 - A tile with no name, count or note has no tip ("Remove tool tip long press to change name").
