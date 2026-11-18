@@ -238,3 +238,37 @@ file"). The chooser was `multiple` and gave several on a desktop; a phone's give
 long press. The files chosen are now kept by name (`explainTray`, `window.__explainer.tray` and `add`) and every choice
 compiles all of them, so an explainer grows a beat at a time; the menu's line reads **add files to an explainer…** and
 **new explainer** empties the tray. The smoke test picks three files one at a time through the menu's own chooser.
+
+## A scene composed in code: tvf-flow.js
+
+  - (18 Nov 2026, Tom: "The draw explainer are interesting. Tvf is better at composing a flow of animations with code.",
+then "Let's keep pushing TVF into larger situations. Seems like it is unusually good for code based animations.") The
+explainers above were written in code from the first, in `gallery/animated.html`, but each against the scene's own
+fields. `breath` gives twenty-two times to one ring as shares of a 0-to-1 loop (0.62, 0.635, 0.64 …), and every block
+declares `put`, `add`, `shows`, `track`, `span`, `rel`, `fadeIn`, `drawIn`, `pop`, `one`, `many` and `lit` again. A
+beat lengthened early moved every number after it, by hand.
+    `tvf-flow.js` is those helpers once, with time turned round: the writer says what happens and for how long, in
+seconds, and a cursor carries the time on. `show(thing, { in, dur })`, `go(thing, pose, { dur, ease })`,
+`hide(thing, { out, dur })`, `wait(s)`, `look([things], { pad, dur })`; `together(fn)` starts everything inside at
+one moment and leaves the cursor at the latest end; `stagger(items, gap, fn)` says the same of each, each `gap`
+later; `at(t)` and `now()` for lining one thing up with another. A beat is `beat(title, text, fn, { tail })`, the
+scene stopping at its end, 0.8 s after the last thing said unless `tail` says otherwise. `build()` divides by the
+total and writes one morph for each thing shown: its clip from when it was shown to when it was hidden (or the end),
+with its `in` and `out`; where it moved, its keys laid across that window with the pose given again where each move
+starts and at the window's end, `straight`, with `times` and `eases`. `[words](a, b)` in a beat's text becomes
+`#lit:` with the morph numbers of `a` and `b`. What could not be played is refused as it is written, naming the
+thing: a name twice, a pose that is not there, shown or hidden twice, two moves at once, words naming a thing never
+shown.
+    `draw` has the few shapes the explainers draw (`line`, `poly`, `rect`, `ring` as n points so one ring can become
+another, `text`), and `code(piece)` is the scene link's uncompressed form, so `tools/compile-flow.mjs`
+(`npm run flow`) opens a flow in the editor without the gallery page and writes the `.tvfs`.
+    The first flow is `flows/pythagoras.mjs`: four right triangles (legs 3 and 4) in a square of side 7, the tilted
+c² between them; three slide, none turns (by (0, a), (−b, 0) and (a, −b)), one stays, and the room left is a² and b².
+Twelve things, three beats, 11.15 s, 38 KB; the editor took it with no fallback. Its paper is the view's own size:
+with no camera a scene is fitted to all its shapes, and a paper three views across (the first try) left the picture
+a fifth of the frame. It plays at `gallery/explained.html?src=../flows/pythagoras.tvfs`.
+    Not done: none of the existing explainers is rewritten in it (the test of the library would be one of them
+giving the same scene), and it does not yet say a path to ride, a motion (`bounce`, `fall`), an emitter, a trail, a
+parent or a camera that follows; those are fields of a morph a thing can be given through `shape(name, poses,
+{ … })`, which are copied onto its morph as they are.
+

@@ -132,6 +132,17 @@ makes one scene: each drawing morphs into the next (`explainerCompile`, whose `p
 shapes are in; `window.__explainer`). A shape finds its partner in the next file by its name (an element's `id` or
 `<title>`), then by order among the like; a new rule of pairing goes there.
 
+**A scene composed in code** (18 Nov 2026, Tom: "Tvf is better at composing a flow of animations with code", "Let's keep
+pushing TVF into larger situations"; `tvf-flow.js`, `docs/explainers.md`): `TVF_FLOW.flow()` is the way to write a new
+scene in code. Things have poses (`shape(name, [svg, …])`); a beat says what happens in seconds from a cursor
+(`show`, `go`, `hide`, `wait`, `look`, with `together` and `stagger`), and `[words](name, name)` in its text lights
+those things. `build()` gives `{ name, svg, scene }`, what a SHOWPIECE is, and the library keeps the rules below (an
+`in` on every clip, a pose held between moves and to the end, `#lit:` by name), refusing what could not be played.
+A flow is a script in `flows/` whose default export takes the library; `npm run flow -- flows/x.mjs` opens it in the
+editor and writes `flows/x.tvfs` (**generated**; `npm test`, motion, fails when it is stale). `tvf-flow.js` reads
+nothing but what it is given and runs under Node; `npm run test:unit` checks its arithmetic. A new thing a flow can
+say is added there, with a check, not worked out again in a scene.
+
 **Making a scene or an explainer** (the rules found making them; the rest is in
 `docs/explainers.md`): a new example is an entry in `EXAMPLES` or `SHOWPIECES` and an id in
 `SECTIONS`; an explainer is also an entry in `explained.html`'s `EXPLAINERS`. A clip plays its
