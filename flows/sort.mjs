@@ -49,13 +49,13 @@ export default function (TVF_FLOW, opts = {}) {
   // one comparison, said: the bracket goes to the pair, and the two bars change places if the left is the taller
   const say = (b, st, look, swap) => {
     b.go(mark, st.i, { dur: look });
-    if (st.swap) b.together(() => { b.go(bar[st.left], st.i + 1, { dur: swap }); b.go(bar[st.right], st.i, { dur: swap }); });
+    if (st.swap) b.swap(bar[st.left], st.i + 1, bar[st.right], st.i, { dur: swap });
     else b.wait(look);
   };
 
   F.beat('Ten bars, out of order', `[${N} bars](${Object.values(bar).map(t => t.name).join(', ')}) stand in a row, shuffled.`, b => {
     b.show(base, { in: 'draw', dur: 0.7 });
-    b.stagger(row, 0.07, (v, k) => b.show(bar[v], { pose: k, dur: 0.4 }));
+    b.stagger(row, 0.07, (v, k) => b.show(bar[v], { pose: k, dur: 0.4 }));      // (not reveal: each bar comes in at its own place)
   });
   F.beat('Two neighbours at a time',
     `[A bracket](mark) looks at two neighbours. If the left one is the taller, they change places. One pass along the row carries [the tallest](bar${N}) to the end.`, b => {

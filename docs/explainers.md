@@ -295,5 +295,19 @@ and says each comparison as the sort makes it: the bracket to the pair, the two 
 the taller. 45 pairs in 9 passes, 30 swaps, 27.9 s, 112 shapes made and 34 KB written; the first pass at reading
 pace, the rest faster; the last beat's words are the run's own counts. Change the seed or the count and the scene
 follows.
+    **Moves with names, and the playground** (the same day, Tom: "Proceed"). `F.define(name, fn)` gives a function of
+the beat a name, said like the library's own words; four come with it, the ones the first flows wrote out by hand:
+`reveal(things, { gap, in, dur })`, `relay(things, pose, { gap, dur })`, `leave(things, { gap, out, dur })` and
+`swap(x, i, y, j, { dur })`. The three flows use them and make the scenes they made. A thing's moves need not be said
+in the order they happen any more: `build()` sorts them and refuses two that overlap, so the ring of `breath`, which
+turns through two beats, is said once (the port's `part` helper is gone).
+    `flow.html`, beside the editor, is a script on the left and the scene playing on the right, made again 350 ms
+after a keystroke. It runs the script as a module (a blob URL, so what is typed is a flow file as it stands), hands
+`build()`'s scene to a hidden editor (`draw.html?embed=1`, the converter the animated gallery uses, asked and answered
+by message) and plays the animated SVG that comes back. What the library refuses shows under the script by the
+thing's name, the last picture staying. The examples are read from `flows/`; from disk they cannot be, so it opens on
+the one written into the page (a ball, a floor, a fall). The picture loops and has no stops: **open in the editor**
+takes the scene to `draw.html#scene=`. The script typed is kept in localStorage (`tvf-flow-playground`). Hook
+`window.__flow` (`state`, `make`, `set(text)`).
     Not done: a camera that follows a thing (the scene's camera is boxes at times), an emitter or a trail given a
 word of its own (they pass through as fields), reusable named moves, and the gallery adopting the library.

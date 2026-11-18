@@ -202,16 +202,12 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
   const T4 = [0.62, 0.635, 0.64, 0.655, 0.66, 0.675, 0.68, 0.695, 0.71, 0.725, 0.735, 0.75, 0.76, 0.775, 0.82, 0.84, 0.85, 0.87, 0.88, 0.90, 0.91, 0.93],
     E4 = [BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ, null, BZ];
   // the ring's keys: home (the turn leaves it as it is), SR, R⁻¹SR, M, M², M³, M⁴, M⁴ at 1.7, 1.4, 1.2, and home at c = 1.
-  // Its moves run through both beats; a thing's moves are said in the order they happen, so beat 4 says them to 0.8 and
-  // beat 5 the rest
+  // Its moves run through both beats and are said once, in the beat that brings it (a thing's moves need not be said in order)
   const RING = hold2([0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0]).slice(1, -1), SPOKE = hold2([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0]).slice(1, -1);
-  const part = (b, name, K, lo, hi) => { for (let i = 1; i < K.length; i++) if (K[i] !== K[i - 1] && T4[i - 1] >= lo && T4[i - 1] < hi)
-    b.together(() => { b.at(sec(T4[i - 1])); b.go(name, K[i], { dur: sec(T4[i] - T4[i - 1]), ease: E4[i - 1] || 'inout' }); }); };
   F.beat(TITLES[3], TEXT[3].text, b => {
     look(b, 0.6, ['stretchAx', 'ring'], 0.08, 0.03);
     shows(b, 'ringGhost', 0.605, 'fade', 0.01); shows(b, 'stretchAx', 0.605, 'draw', 0.012);
-    shows(b, 'ring', 0.61, 'fade', 0.01); shows(b, 'spoke', 0.612, 'draw', 0.01);
-    part(b, 'ring', RING, 0, 0.8); part(b, 'spoke', SPOKE, 0, 0.8);
+    track(b, 'ring', RING, 0.61, T4, E4, 'fade', 0.01); track(b, 'spoke', SPOKE, 0.612, T4, E4, 'draw', 0.01);
     shows(b, 'lC', 0.64, 'fade', 0.012);
     b.at(sec(0.8));
   }, { tail: 0 });
@@ -219,7 +215,6 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
   F.beat(TITLES[4], TEXT[4].text, b => {
     look(b, 0.8, ['stretchAx', 'axesZ', 'zcurve'], 0.08, 0.03);
     shows(b, 'axesZ', 0.805, 'draw', 0.012); shows(b, 'zcurve', 0.81, 'draw', 0.02);
-    part(b, 'ring', RING, 0.8, 1); part(b, 'spoke', SPOKE, 0.8, 1);
     track(b, 'zdot', [0, 1, 2, 3, 4], 0.81, [0.82, 0.84, 0.87, 0.90, 0.93], [BZ, BZ, BZ, BZ], 'fade', 0.008);
     shows(b, 'lZ', 0.815, 'fade', 0.012); shows(b, 'lLnC', 0.815, 'fade', 0.012);
     look(b, 0.92, ['ringGhost', 'axesZ', 'zcurve'], 0.1, 0.03);

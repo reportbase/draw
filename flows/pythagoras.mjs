@@ -34,18 +34,18 @@ export default function (TVF_FLOW) {
     'Four equal right triangles stand in [a square](frame), one in each corner. The room they leave is [a tilted square](cc, lc) on the long side: c².', b => {
       b.show(frame, { in: 'draw', dur: 1 });
       b.show(cc, { dur: 0.4 });
-      b.stagger(TRI, 0.25, t => b.show(t, { dur: 0.5 }));
+      b.reveal(TRI, { gap: 0.25, dur: 0.5 });
       b.show(lc);
     });
   F.beat('Slide them',
     'Slide [three of them](tri1, tri3, tri4), turning none. [One](tri2) stays where it is. The square they stand in is the same square.', b => {
       b.together(() => { b.hide(lc, { dur: 0.4 }); b.hide(cc, { dur: 0.4 }); });
       b.together(() => { b.show(aa, { dur: 0.3 }); b.show(bb, { dur: 0.3 }); });
-      b.stagger([TRI[0], TRI[2], TRI[3]], 0.35, t => b.go(t, 1, { dur: 1.3 }));
+      b.relay([TRI[0], TRI[2], TRI[3]], 1, { gap: 0.35, dur: 1.3 });
     });
   F.beat('Two squares',
     'Now the room they leave is two squares, [one on each short side](aa, la, bb, lb). The triangles took up the same room both times, so what was left is the same: [c² = a² + b²](eq).', b => {
-      b.stagger([la, lb], 0.3, t => b.show(t));
+      b.reveal([la, lb], { gap: 0.3 });
       b.wait(0.4);
       b.show(eq, { dur: 0.8 });
     }, { tail: 1.5 });
