@@ -26,7 +26,7 @@ through it, and the sorting flow (`docs/explainers.md`, "A scene composed in cod
 **What it does not do for the writer**
 
 4. **A place is a pose.** With no transform, standing somewhere else is being another shape. Ten bars that may
-   each stand in ten places are a hundred shapes written, though only the poses taken are kept (note 11).
+   each stand in ten places are a hundred shapes written, though only the poses taken are kept (note 14).
 5. **Holding still is not said, it is arranged.** A morph plays from its first key to its last across its window.
    To wait, the key is given again and the morph marked `straight`; to hold to the end, the last key is given again
    at the window's end.
