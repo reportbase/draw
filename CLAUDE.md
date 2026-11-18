@@ -17,6 +17,7 @@ and why (the names to search for, the numbers measured, the owner's words) are i
 | the live morph, the scene link, motions, the AI's animation, the animated SVG | `docs/animation.md` |
 | a gallery page (which carries what, chart pages, `embedded`, `played`) | `docs/gallery.md` |
 | `gallery/explained.html`, an explainer, the video tool | `docs/explainers.md` |
+| the scene format itself: what it is like to write, its limits, what was measured | `docs/tvf-notes.md` |
 
 When a change adds something a later session would need to know, put the rule here in a
 line and the account of it in the `docs/` file, dated, in the voice those have.
