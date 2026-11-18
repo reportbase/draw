@@ -144,7 +144,9 @@ editor and writes `flows/x.tvfs` (**generated**; `npm test`, motion, fails when 
 nothing but what it is given and runs under Node; `npm run test:unit` checks its arithmetic. A new thing a flow can
 say is added there, with a check, not worked out again in a scene. A move said more than once is given a name there (`F.define`;
 `reveal`, `relay`, `leave` and `swap` come with it). `flow.html` is the playground: a script typed, the scene played,
-through the hidden editor (`draw.html?embed=1`); a flow in `flows/` is offered in its list (`FLOWS` in the page). `flows/breath.mjs` is the gallery's `breath` said
+through the hidden editor (`draw.html?embed=1`); a flow in `flows/` is offered in its list (`FLOWS` in the page). Its **write it** asks Claude for a flow (`SYS`
+there is the library's brief: a word added to the library is added to it) and sends a refusal back to be put right;
+every script runs in a frame of no origin, since one may be unread. `flows/breath.mjs` is the gallery's `breath` said
 again, and motion compares the two scenes move for move: a change to either that makes them differ fails it.
 
 **Making a scene or an explainer** (the rules found making them; the rest is in

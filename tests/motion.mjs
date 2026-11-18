@@ -799,6 +799,8 @@ await step('a flow written in code opens in the editor, and its scene file is up
   // each flow: its script, the morphs and beats it should make, and what else to ask of it
   const FLOWS = [['pythagoras', 12, 3, () => ''],
     ['sort', 13, 4, p => p.run.sorted.join() === '1,2,3,4,5,6,7,8,9,10' && p.run.swaps === 30 && /looked at 45 pairs in 9 passes and made 30 swaps/.test(p.scene.beats[3].text) ? '' : 'the run: ' + JSON.stringify(p.run)]];
+  // the Fourier flow's words are its run's: the overshoot beside a jump settles at Gibbs's 8.95% of the jump, measured there
+  FLOWS.push(['fourier', 11, 4, p => Math.abs(p.run.over[5] - 0.0895) < 0.0006 && p.run.over[0] > p.run.over[5] && /by 9\.1%, 9\.0% and 9\.0% of the jump/.test(p.scene.beats[3].text) ? '' : 'the overshoot: ' + p.run.over.map(v => v.toFixed(4)) + ' | ' + p.scene.beats[3].text.slice(60, 160)]);
   for (const [id, morphs, beats, also] of FLOWS) {
     const piece = (await import(`../flows/${id}.mjs`)).default(globalThis.TVF_FLOW);
     if (piece.scene.morphs.length !== morphs || piece.scene.beats.length !== beats) throw new Error(id + ': ' + piece.scene.morphs.length + ' morphs, ' + piece.scene.beats.length + ' beats');
@@ -880,6 +882,23 @@ await step('the flow playground: a script becomes a playing picture, and a refus
     s = await st(); if (!/^27\.9 s · 4 beats · 13 things moving/.test(s.say)) throw new Error('the sort: ' + s.say);
     await pp.evaluate(() => window.__flow.set(document.getElementById('src').value.replace('b.hide(mark, { dur: 0.3 });', 'b.hide(mark); b.hide(mark);')));
     s = await st(); if (s.cls !== 'bad' || s.say !== 'mark is hidden twice' || !s.img) throw new Error('a refusal: ' + JSON.stringify(s).slice(0, 200));
+    // "write it": Claude (stood in for here) is asked for a flow. Its first script names a pose that is not there; the
+    // library's refusal goes back with the script, and the second is run and played. Not signed in, it says so.
+    const out = await pp.evaluate(() => window.__flow.write('a dot crossing')); if (out.error !== 'not signed in') throw new Error('asked without a sign-in: ' + JSON.stringify(out));
+    const good = "export default function ({ flow, draw }) {\n  const F = flow({ name: 'a dot', w: 400, h: 200, paper: '#fff' });\n  const d = F.shape('dot', [draw.ring(60, 100, 20, '#c33'), draw.ring(340, 100, 20, '#c33')]);\n  F.beat('Across', 'A [dot](dot) crosses.', b => { b.show(d); b.go(d, 1, { dur: 2 }); });\n  return F.build();\n}\n";
+    const replies = ['```js\n' + good.replace('b.go(d, 1,', 'b.go(d, 5,') + '```', good], asked = [];
+    await pp.route('https://login.tangent.workers.dev/v1/messages', r => { asked.push(JSON.parse(r.request().postData() || '{}'));
+      const ev = (t, d) => 'event: ' + t + '\ndata: ' + JSON.stringify(d) + '\n\n', text = replies[asked.length - 1] || good;
+      r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream', 'access-control-allow-origin': '*' },
+        body: ev('message_start', { type: 'message_start', message: {} }) + text.match(/[\s\S]{1,60}/g).map(p => ev('content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: p } })).join('') + ev('message_stop', { type: 'message_stop' }) }); });
+    await pp.evaluate(() => localStorage.setItem('tangent.login.v1', 'test-session'));
+    const wrote = await pp.evaluate(() => window.__flow.write('a dot crossing'));
+    await pp.waitForFunction(() => window.__flow.state.picture, null, { timeout: 60000 });
+    s = await st();
+    const back = asked[1] ? asked[1].messages.map(m => m.role).join() + ' | ' + asked[1].messages[2].content : '';
+    if (!wrote.ok || wrote.tries !== 2 || asked.length !== 2 || !/dot has no pose 5/.test(back) || !/^user,assistant,user/.test(back) || !/^3\.4 s · 1 beat · 1 thing moving/.test(s.say) || !/tvf-flow/.test(asked[0].system) || asked[0].messages[0].content !== 'The scene: a dot crossing')
+      throw new Error('written and put right: ' + JSON.stringify({ wrote, n: asked.length, back, say: s.say }).slice(0, 400));
+    if (!(await pp.evaluate(() => document.getElementById('src').value)).startsWith('export default function')) throw new Error('the fences were left on the script');
   } finally { await pp.close(); }
 });
 

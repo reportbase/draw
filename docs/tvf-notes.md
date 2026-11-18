@@ -63,6 +63,10 @@ through it, and the sorting flow (`docs/explainers.md`, "A scene composed in cod
     fivefold `CLAUDE.md` gives for a scene past the limit, since each of these shapes is four corners exact and
     hundreds of leaves otherwise. Compiling took about 3 s at every size.
 
+15. **A label's letters are shapes.** The Fourier flow with a line of words under its harmonic at each of six
+    steps was 164 shapes, opened as leaves, 911 KB; without those six labels it is exact and 216 KB. Words that
+    change are dear: each version is all its letters again. (Its twelve curves of 241 points each are twelve.)
+
 **What follows from these**
 
 The format is a good thing to compile to and a poor thing to write by hand. What makes it awkward to author

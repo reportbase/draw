@@ -309,5 +309,18 @@ thing's name, the last picture staying. The examples are read from `flows/`; fro
 the one written into the page (a ball, a floor, a fall). The picture loops and has no stops: **open in the editor**
 takes the scene to `draw.html#scene=`. The script typed is kept in localStorage (`tvf-flow-playground`). Hook
 `window.__flow` (`state`, `make`, `set(text)`).
+    **Written by Claude, in the playground** (the same day, Tom: "Proceed with your recomendations"). `flow.html` has a
+line to describe a scene in and **write it**: Claude is asked, through the editor's gateway and sign-in, for a flow
+module, not for a scene's fields. Its brief (`SYS` in the page) is the library in about thirty lines. What comes
+back is put in the box and run; if the library refuses it, the refusal goes back with the script ("That script was
+refused when it ran: dot has no pose 5 (it has 2)") and the answer is tried again, three tries in all. Checked with
+the gateway stood in for (a first reply naming a pose that is not there, a second put right): not yet with Claude
+itself, so how good its flows are is not known. Because a script may now be one nobody has read, every script runs
+in a frame of no origin (`sandbox="allow-scripts"`) that has the library and nothing else of the page, not its
+storage, where the sign-in is; what it builds comes back by message as data.
+    **A square wave from sines** (`flows/fourier.mjs`): one curve with a pose for each partial sum of the odd
+harmonics at 1, 2, 3, 5, 9 and 20 terms, the harmonic being added below it, 241 points a curve; 21.1 s, four beats,
+216 KB. The last beat's words are measured in the script: the sum stands above the wave beside each jump by 9.1%,
+9.0% and 9.0% of the jump at 5, 9 and 20 terms (Gibbs's 8.95%; 13.7% with one sine).
     Not done: a camera that follows a thing (the scene's camera is boxes at times), an emitter or a trail given a
 word of its own (they pass through as fields), reusable named moves, and the gallery adopting the library.
