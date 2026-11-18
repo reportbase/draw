@@ -861,4 +861,26 @@ await step("a flow tells the gallery's own explainer: breath, the same shapes, m
   } finally { await gp.close(); }
 });
 
+/* THE FLOW PLAYGROUND (18 Nov 2026, flow.html): a script typed, the scene made again and played. It opens on the flow
+   written into it with a picture from the hidden editor; another flow is read from flows/ and played; and what the
+   library refuses is said under the script, by the thing's name, the picture left as it was. */
+await step('the flow playground: a script becomes a playing picture, and a refusal is said as it is typed', async () => {
+  const pp = await browser.newPage({ viewport: { width: 1280, height: 760 } });
+  pp.on('pageerror', e => failures.push(`[the flow playground] ${e.message}`));
+  await pp.route(/fonts\.g/, r => r.abort());
+  try {
+    await pp.goto(new URL('flow.html', base).href, { waitUntil: 'load' });
+    await pp.waitForFunction(() => window.__flow && window.__flow.state.picture, null, { timeout: 60000 });
+    const st = () => pp.evaluate(() => ({ say: document.getElementById('say').textContent, cls: document.getElementById('say').className, img: !!document.querySelector('#stage img') && document.querySelector('#stage img').naturalWidth > 0,
+      beats: document.querySelectorAll('#beats p').length, lit: document.querySelectorAll('#beats em').length, open: document.getElementById('open').getAttribute('href') || '' }));
+    let s = await st();
+    if (!/^5\.1 s · 2 beats · 3 things moving/.test(s.say) || s.cls !== 'ok' || !s.img || s.beats !== 2 || s.lit !== 3 || !/^draw\.html#scene=r/.test(s.open)) throw new Error('as it opens: ' + JSON.stringify(s).slice(0, 300));
+    await pp.selectOption('#pick', 'flows/sort.mjs');
+    await pp.waitForFunction(() => window.__flow.state.picture && window.__flow.state.beats === 4, null, { timeout: 60000 });
+    s = await st(); if (!/^27\.9 s · 4 beats · 13 things moving/.test(s.say)) throw new Error('the sort: ' + s.say);
+    await pp.evaluate(() => window.__flow.set(document.getElementById('src').value.replace('b.hide(mark, { dur: 0.3 });', 'b.hide(mark); b.hide(mark);')));
+    s = await st(); if (s.cls !== 'bad' || s.say !== 'mark is hidden twice' || !s.img) throw new Error('a refusal: ' + JSON.stringify(s).slice(0, 200));
+  } finally { await pp.close(); }
+});
+
 await T.finish();

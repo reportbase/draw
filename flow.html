@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>flow · a scene written in code</title>
+<!--
+  THE FLOW PLAYGROUND (18 Nov 2026, Tom: "Proceed", to "a live playground page so you can write flows and watch them
+  without going through me"). A flow script on the left, the scene it makes playing on the right, made again a moment
+  after each keystroke. It is tvf-flow.js and nothing else on this side: the script is run as it would be by
+  `npm run flow`, what `build()` gives is handed to a hidden editor (draw.html?embed=1, THE EMBED AS A CONVERTER, the one
+  the animated gallery uses) and the picture that comes back plays on its own. What the library refuses is said under
+  the script as it is typed, which is most of what makes writing a flow by hand quick: a pose that is not there, a
+  thing shown twice, a word naming nothing, each with its thing's name.
+
+  The picture is the editor's animated SVG, so it loops and has no stops; "open in the editor" takes the same scene to
+  draw.html, where it is a live morph with its beats, and from there to a .tvfs. Opened from disk the examples cannot be
+  fetched (a browser will not read a neighbour file from file://), so the page starts on the one written into it.
+-->
+<style>
+  :root { --bg: #0e1320; --panel: #151b2b; --line: rgba(255,255,255,.14); --fg: #e6e4ee; --dim: #9aa0b4; --gold: #d4a052; --bad: #ff8f7a; --ok: #7fd1b9; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, sans-serif; }
+  body { display: grid; grid-template-rows: auto 1fr; }
+  header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 15px; margin: 0 8px 0 0; font-weight: 650; }
+  header h1 span { color: var(--dim); font-weight: 400; }
+  select, button, a.btn { font: inherit; color: var(--fg); background: #1a1a21; border: 1px solid rgba(255,255,255,.18); border-radius: 9px; padding: 6px 11px; cursor: pointer; text-decoration: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,.22), 0 3px 8px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.06); }
+  select:hover, button:hover, a.btn:hover { background: #262630; border-color: rgba(255,255,255,.34); }
+  .grow { flex: 1; }
+  main { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr); min-height: 0; }
+  .left { display: grid; grid-template-rows: 1fr auto; min-height: 0; border-right: 1px solid var(--line); }
+  textarea { width: 100%; height: 100%; resize: none; border: 0; outline: 0; padding: 14px; background: var(--panel); color: var(--fg);
+    font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; tab-size: 2; white-space: pre; overflow: auto; }
+  #say { padding: 9px 14px; border-top: 1px solid var(--line); min-height: 38px; color: var(--dim); font-size: 13px; }
+  #say.bad { color: var(--bad); } #say.ok { color: var(--ok); }
+  .right { display: grid; grid-template-rows: 1fr auto; min-height: 0; }
+  #stage { display: grid; place-items: center; padding: 14px; min-height: 0; overflow: hidden; }
+  #stage img { max-width: 100%; max-height: 100%; border-radius: 10px; box-shadow: 0 10px 34px rgba(0,0,0,.45); }
+  #stage .wait { color: var(--dim); }
+  #beats { border-top: 1px solid var(--line); padding: 9px 14px; max-height: 34vh; overflow: auto; font-size: 13px; color: var(--dim); }
+  #beats b { color: var(--fg); font-weight: 600; } #beats p { margin: 0 0 6px; } #beats em { color: var(--gold); font-style: normal; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; grid-template-rows: 46vh 1fr; } .left { border-right: 0; border-bottom: 1px solid var(--line); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>flow <span>· a scene written in code</span></h1>
+  <select id="pick" title="a flow to start from" aria-label="a flow to start from"></select>
+  <span class="grow"></span>
+  <a class="btn" id="open" target="_blank" rel="noopener" title="the same scene in the editor: a live morph with its beats, and from there a .tvfs">open in the editor</a>
+</header>
+<main>
+  <div class="left">
+    <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="the flow's script"></textarea>
+    <div id="say" role="status" aria-live="polite"></div>
+  </div>
+  <div class="right">
+    <div id="stage"><span class="wait">the scene plays here</span></div>
+    <div id="beats"></div>
+  </div>
+</main>
+<script src="tvf-flow.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id), src = $('src'), say = $('say'), stage = $('stage');
+  // the one written into the page: a ball, a floor, a fall and a bounce, with every kind of word once
+  const STARTER = `// A flow: things with poses, and beats that say what happens, in seconds.
+// Change anything; the scene is made again as you type.
+export default function ({ flow, draw }) {
+  const F = flow({ name: 'A ball', w: 800, h: 500, paper: '#f4f1ea' });
+
+  const floor = F.shape('floor', draw.line([[80, 420], [720, 420]], '#3b4256', 3));
+  // one thing, three poses: up, down and squashed on the floor
+  const ball = F.shape('ball', [
+    draw.ring(400, 110, 46, '#7c5cff'),
+    draw.ring(400, 372, 46, '#7c5cff'),
+    draw.ring(400, 390, 60, '#7c5cff', 24, 30)]);
+  const label = F.shape('label', draw.text(332, 470, 'it comes back', '#3b4256', 24));
+
+  F.beat('A ball above a floor', 'A [ball](ball) hangs over a [floor](floor).', b => {
+    b.show(floor, { in: 'draw', dur: 0.8 });
+    b.show(ball, { dur: 0.5 });
+  });
+  F.beat('It falls, and comes back', 'Down, [squashed](ball), and up again.', b => {
+    b.go(ball, 1, { dur: 0.7, ease: 'in' });
+    b.go(ball, 2, { dur: 0.12, ease: 'out' });
+    b.go(ball, 1, { dur: 0.12, ease: 'in' });
+    b.go(ball, 0, { dur: 0.7, ease: 'out' });
+    b.show(label);
+  });
+  return F.build();
+}
+`;
+  const FLOWS = [['', 'a ball (start here)'], ['flows/pythagoras.mjs', 'Pythagoras by rearrangement'], ['flows/sort.mjs', 'sorting, bar by bar'], ['flows/breath.mjs', 'three loops (the gallery\'s, ported)']];
+  for (const [file, name] of FLOWS) { const o = document.createElement('option'); o.value = file; o.textContent = name; $('pick').appendChild(o); }
+
+  // THE HIDDEN EDITOR that turns a scene into a picture: one iframe, asked by message, answered by message
+  let host = null, hostReady = null, nextId = 1; const waiting = new Map();
+  const hostUp = () => hostReady || (hostReady = new Promise(res => {
+    host = document.createElement('iframe'); host.title = 'the leaf editor, turning the scene into a picture'; host.setAttribute('aria-hidden', 'true');
+    host.style.cssText = 'position:absolute;left:-9999px;top:0;width:480px;height:320px;border:0;visibility:hidden';
+    host.src = new URL('draw.html?embed=1', location.href).href;
+    host.addEventListener('load', () => setTimeout(res, 400), { once: true }); document.body.appendChild(host); }));
+  window.addEventListener('message', e => { const m = e.data;
+    if (!host || e.source !== host.contentWindow || !m || m.type !== 'tvf-scene-svg' || !waiting.has(m.id)) return;
+    const res = waiting.get(m.id); waiting.delete(m.id); res(m.svg); });
+  const picture = async code => { await hostUp(); const id = nextId++;
+    return new Promise(res => { waiting.set(id, res); host.contentWindow.postMessage({ type: 'tvf-scene-svg', id, code }, '*'); setTimeout(() => { if (waiting.delete(id)) res(null); }, 30000); }); };
+
+  // THE SCRIPT, RUN: as a module, the way `npm run flow` imports it, so what is written here is a file as it stands
+  const run = async text => { const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
+    try { const mod = await import(url); if (typeof mod.default !== 'function') throw new Error('the script\'s default export is a function of the library');
+      const piece = mod.default(window.TVF_FLOW); if (!piece || !piece.svg || !piece.scene) throw new Error('the function returns what F.build() gives'); return piece; }
+    finally { URL.revokeObjectURL(url); } };
+
+  let turn = 0, shown = '';
+  const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  async function make() {
+    const mine = ++turn, text = src.value;
+    let piece;
+    try { piece = await run(text); }
+    catch (e) { if (mine !== turn) return; say.className = 'bad'; say.textContent = String(e && e.message || e).replace(/^flow: /, ''); window.__flow.state = { error: say.textContent }; return; }
+    if (mine !== turn) return;
+    const code = window.TVF_FLOW.code(piece), S = piece.scene;
+    say.className = 'ok';
+    say.textContent = `${piece.seconds.toFixed(1)} s · ${S.beats.length} beat${S.beats.length === 1 ? '' : 's'} · ${S.morphs.length} thing${S.morphs.length === 1 ? '' : 's'} moving · ${(piece.svg.match(/<(path|polygon|rect|text|circle|ellipse|line)\b/g) || []).length} shapes`;
+    $('open').href = 'draw.html#scene=' + code;
+    $('beats').innerHTML = S.beats.map((b, i) => `<p><b>${i + 1}. ${esc(b.title)}</b> ${esc(b.text).replace(/\[([^\]]+)\]\(#lit:[\d,]+\)/g, '<em>$1</em>').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')}</p>`).join('');
+    window.__flow.state = { seconds: piece.seconds, beats: S.beats.length, morphs: S.morphs.length, code, picture: false };
+    if (code === shown) { window.__flow.state.picture = true; return; }
+    const svg = await picture(code);
+    if (mine !== turn) return;
+    if (!svg) { say.className = 'bad'; say.textContent = 'the editor did not answer with a picture'; return; }
+    shown = code;
+    const img = new Image(); img.alt = piece.name; img.src = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    img.onload = () => { stage.replaceChildren(img); window.__flow.state.picture = true; };
+  }
+  let wait = 0; const soon = () => { clearTimeout(wait); wait = setTimeout(make, 350); };
+  src.addEventListener('input', () => { try { localStorage.setItem('tvf-flow-playground', src.value); } catch (_) {} soon(); });
+  // Tab types two spaces: a script is indented, and Tab leaving the box loses the place
+  src.addEventListener('keydown', e => { if (e.key !== 'Tab' || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return; e.preventDefault();
+    const a = src.selectionStart, b = src.selectionEnd; src.setRangeText('  ', a, b, 'end'); soon(); });
+  const load = async file => { if (!file) return STARTER; const r = await fetch(file); if (!r.ok) throw new Error(file + ': ' + r.status); return r.text(); };
+  $('pick').addEventListener('change', async () => { try { src.value = await load($('pick').value); } catch (e) { say.className = 'bad'; say.textContent = 'could not read ' + $('pick').value + ' (from disk a page cannot read its neighbours)'; return; }
+    try { localStorage.removeItem('tvf-flow-playground'); } catch (_) {} make(); });
+  window.__flow = { state: {}, make, set: text => { src.value = text; return make(); } };      // for the checks
+  let kept = ''; try { kept = localStorage.getItem('tvf-flow-playground') || ''; } catch (_) {}
+  src.value = kept || STARTER; make();
+})();
+</script>
+</body>
+</html>

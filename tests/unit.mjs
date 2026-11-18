@@ -178,6 +178,20 @@ step('a flow: a pose a thing never takes is not in the drawing', () => {
   want(n === 4 && /points="20,0/.test(p.svg) && /points="60,0/.test(p.svg) && !/points="40,0/.test(p.svg) && !/points="9,80/.test(p.svg), 'the drawing holds ' + n + ' outlines: ' + p.svg);
   want(M[0].keys.join() === '1,1,2,2' && M[1].keys.join() === '4' && p.scene.camera[0].fit.join() === '1,2,4', 'the numbers counted again: ' + M[0].keys + ' | ' + M[1].keys + ' | ' + p.scene.camera[0].fit);
 });
+step('a flow: moves with names, and a thing\'s moves said in any order', () => {
+  const F = FLOW.flow({}), T = [0, 1, 2].map(i => F.shape('t' + i, [sq(i * 20, 0), sq(i * 20, 50)]));
+  F.define('nod', (b, t, o) => { b.go(t, 1, o); b.go(t, 0, o); });
+  F.beat('b', x => { x.reveal(T, { gap: 0.5, dur: 1 });                       // shown at 0, 0.5, 1; the cursor at 2
+    x.swap(T[0], 1, T[1], 1, { dur: 1 });                                     // both 2–3
+    x.together(() => { x.at(6); x.go(T[2], 1, { dur: 1 }); });                // said first, happens last
+    x.at(3); x.nod(T[2], { dur: 1 }); x.at(7); }, { tail: 0 });               // 3–4 down, 4–5 back
+  const p = F.build(), M = p.scene.morphs, abs = m => m.times.map(t => +(m.clip.start * 7 + t / 0.9999 * m.clip.len * 7).toFixed(2));
+  want(p.seconds === 7 && M.map(m => +(m.clip.start * 7).toFixed(2)).join() === '0,0.5,1', 'reveal: ' + M.map(m => m.clip.start));
+  want(abs(M[0]).join() === '0,2,3,7' && abs(M[1]).join() === '0.5,2,3,7', 'swap: ' + abs(M[0]) + ' | ' + abs(M[1]));
+  want(abs(M[2]).join() === '1,3,4,5,6,7' && M[2].keys[5] === M[2].keys[2] && M[2].keys[4] === M[2].keys[0] && M[2].keys[5] !== M[2].keys[4], 'a nod, then the move said first: ' + abs(M[2]) + ' ' + M[2].keys);
+  const why = fn => { try { const G = FLOW.flow({}); fn(G); G.build(); return ''; } catch (e) { return e.message; } };
+  want(/go cannot be a move/.test(why(G => G.define('go', () => {}))), 'a move named for one of the beat\'s own words');
+});
 step('a flow refuses what could not be played, and says which thing', () => {
   const why = fn => { try { const F = FLOW.flow({}); fn(F); F.build(); return ''; } catch (e) { return e.message; } };
   want(/two things called a/.test(why(F => { F.shape('a', sq(0, 0)); F.shape('a', sq(1, 1)); })), 'a name used twice');

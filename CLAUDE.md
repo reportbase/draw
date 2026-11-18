@@ -141,7 +141,9 @@ scene in code. Things have poses (`shape(name, [svg, …])`); a beat says what h
 A flow is a script in `flows/` whose default export takes the library; `npm run flow -- flows/x.mjs` opens it in the
 editor and writes `flows/x.tvfs` (**generated**; `npm test`, motion, fails when it is stale). `tvf-flow.js` reads
 nothing but what it is given and runs under Node; `npm run test:unit` checks its arithmetic. A new thing a flow can
-say is added there, with a check, not worked out again in a scene. `flows/breath.mjs` is the gallery's `breath` said
+say is added there, with a check, not worked out again in a scene. A move said more than once is given a name there (`F.define`;
+`reveal`, `relay`, `leave` and `swap` come with it). `flow.html` is the playground: a script typed, the scene played,
+through the hidden editor (`draw.html?embed=1`); a flow in `flows/` is offered in its list (`FLOWS` in the page). `flows/breath.mjs` is the gallery's `breath` said
 again, and motion compares the two scenes move for move: a change to either that makes them differ fails it.
 
 **Making a scene or an explainer** (the rules found making them; the rest is in

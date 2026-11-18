@@ -46,6 +46,7 @@
     const EASES = ['linear', 'inout', 'in', 'out', 'anticipate', 'overshoot'];
     const INS = ['fade', 'draw', 'cut', 'pop'], OUTS = ['fade', 'undraw', 'cut'];
     const fail = s => { throw new Error('flow: ' + s); };
+    const WORDS = ['now', 'at', 'wait', 'show', 'go', 'act', 'hide', 'together', 'stagger', 'look'];      // the beat's own words: a move may not take one's name
     // what a thing may be given when it is made, beside its poses: the fields of a morph the library has no word of its
     // own for (parts/ai-panel.js, ANIM_MORPH_FIELDS, says what each does)
     const FIELDS = ['path', 'laps', 'at', 'turn', 'mode', 'rate', 'phase', 'spin', 'emit', 'trail', 'fx', 'lag', 'follow', 'parent', 'look'];
@@ -114,9 +115,10 @@
                     if (t.shown == null) { t.shown = { at, kind: 'cut', len: 0 }; t.first = t.pose; }
                     if (at < t.shown.at) fail(t.name + ' moves before it is shown');
                     for (const p of list) {
-                        const k = pose(t, p), last = t.events[t.events.length - 1];
-                        if (last && at < last.end - 1e-9) fail(t.name + ' is asked to move while it is moving (at ' + r4(at) + ' s)');
-                        t.events.push({ at, end: at + d, from: t.pose, to: k, ease });
+                        // its moves need not be said in the order they happen (a ring that turns through two beats is
+                        // said once, with `at`): build() puts them in order and refuses two that overlap
+                        const k = pose(t, p);
+                        t.events.push({ at, end: at + d, to: k, ease });
                         t.pose = k; at += d;
                     }
                     return done(at), b;
@@ -172,7 +174,23 @@
                     return done(cameras.length > 1 ? at + d : at), b;
                 }
             };
+            // the moves that have names (define): each is said like the library's own words, b.reveal(things)
+            for (const name in moves) b[name] = (...args) => (moves[name](b, ...args), b);
             return b;
+        }
+        // A MOVE WITH A NAME (18 Nov 2026, Tom: "Proceed": reusable moves, then a playground). A move is a function of
+        // the beat that says several things; given a name it is said like one of the library's own words, in every flow
+        // that defines it: F.define('swap', (b, x, i, y, j, o) => …), then b.swap(a, 3, c, 2). Four come with the
+        // library, the ones the first flows each wrote out by hand:
+        //   reveal(things, { gap, in, dur })   each shown, `gap` after the one before
+        //   relay(things, pose, { gap, dur })  each going to a pose (a number, or a function of the thing and its place)
+        //   leave(things, { gap, out, dur })   each hidden in turn
+        //   swap(x, i, y, j, { dur })          two things changing places at once: x to pose i, y to pose j
+        const moves = Object.create(null);
+        function define(name, fn) {
+            if (!/^[a-z]\w*$/i.test(name || '') || WORDS.includes(name)) fail((name || 'a move') + ' cannot be a move\'s name');
+            if (typeof fn !== 'function') fail(name + ': a move is a function of the beat');
+            moves[name] = fn; return F;
         }
         function pose(t, p) {
             const k = typeof p === 'number' ? p : fail(t.name + ': a pose is its number');
@@ -214,6 +232,10 @@
                     // its keys laid across its window: the pose it is in given again where each move starts (so it holds
                     // until then), and the last given again at the window's end (so it holds there)
                     const K = [t.first], T = [s], E = [];
+                    t.events.sort((x, y) => x.at - y.at);
+                    t.events.forEach((ev, i) => { const was = t.events[i - 1];
+                        if (was && ev.at < was.end - 1e-9) fail(t.name + ' is asked to move while it is moving (at ' + r4(ev.at) + ' s)');
+                        ev.from = was ? was.to : t.first; });
                     for (const ev of t.events) {
                         if (ev.at > T[T.length - 1] + 1e-9) { K.push(ev.from); T.push(ev.at); E.push(null); }
                         K.push(ev.to); T.push(ev.end); E.push(ev.ease);
@@ -287,7 +309,11 @@
             if (!name || byName[name] || groups[name]) fail(name ? 'two things called ' + name : 'a group needs a name');
             groups[name] = list.map(thing); return groups[name];
         }
-        const F = { shape, group, beat, build, thing, get seconds() { return cursor; } };
+        const F = { shape, group, beat, build, thing, define, get seconds() { return cursor; } };
+        define('reveal', (b, list, o) => b.stagger(list, o && o.gap != null ? o.gap : 0.12, t => b.show(t, o)));
+        define('relay', (b, list, to, o) => b.stagger(list, o && o.gap != null ? o.gap : 0.12, (t, i) => b.go(t, typeof to === 'function' ? to(t, i) : to, o)));
+        define('leave', (b, list, o) => b.stagger(list, o && o.gap != null ? o.gap : 0.12, t => b.hide(t, o)));
+        define('swap', (b, x, i, y, j, o) => b.together(() => { b.go(x, i, o); b.go(y, j, o); }));
         return F;
     }
 
