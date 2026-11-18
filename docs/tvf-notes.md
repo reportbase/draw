@@ -77,3 +77,45 @@ move among many places reaches 150 keys quickly, and past it the cost is not gra
 Open: whether a place could be said without a pose (a morph that carries its one key along a line it is given, as
 `path` does for a shape to ride) so that a bar in ten places is one shape; whether a thing could have more than one
 window.
+
+## K, not N (18 Nov 2026)
+
+Tom: "TVF does something important.  It shows that N is not needed.    K is all you need.  And all the natural world
+gets." The letters are wander's, *Reads and Writes* §5 "K and N" (`papers/readers-and-writers.md` there): **N** is how
+many items there are, a count, the whole, the dual hemispherical vantage's question; **K** is how many are held, the
+read's fineness, laid out as K addresses at the heat's quantiles. "A read never knows N; it knows K." (Claude first
+took N for the master's leaves and K for a level of detail, which put both letters on the writer's side; the paper's
+meanings are the ones meant.) This note is about the curve format (`.tvf`), not the scene layer above.
+
+A reading, with what it rests on:
+
+1. **A TVF curve is K and nothing else.** The file is a count of leaves and their values (`TVF N 1 2`, then a row of x
+   and a row of y; the header's letter is the file's own and is the paper's K). The leaves stand at even steps of the
+   turn, which is the paper's "K places at the heat's quantiles": the uniform turn is the Cauchy in the slope. The
+   leaves' positions are the addresses and the values the payload, as `CLAUDE.md` already says of the papers.
+2. **N is left behind on the way in and not asked for again.** A drawing arrives as a polyline of however many points;
+   it is read at K leaves and those are kept. Drawing at any size, the morph, the ladder of detail (fewer of the same
+   K, "nothing precomputed per level", `papers/tvf.md`), and the scenes of the notes above all work from K. Nothing
+   downstream asks how many points the drawing had.
+3. **The work is by K whatever N.** The paper says it of the Cauchy as a cull (`star-field.html`: the view at N and 2N
+   apart by less than 10⁻⁷ at N = 2⁴⁰). TVF is the same for a shape.
+4. **It is exact where it says it is.** The reconstruction is exact at the leaves and a partition of unity at every
+   count tested (`papers/tvf.md`'s table, N = 8 … 1024; `npm run test:unit`). K rebuilds what K can tell apart, with no
+   limit over N appealed to.
+
+So: the paper argues that a read holds K and says nothing of N; TVF is a format made that way and in use, in which N
+does not enter.
+
+Two cautions, in the paper's terms:
+
+- **"All the natural world gets" is Tom's expectation, not a result.** Wander's R1062 records the same for non-human
+  processes as expected and untested. TVF shows K is enough for a format. That supports the claim; it does not
+  establish it for nature.
+- **The proof is still the dual vantage's.** *Reads and Writes* §9: the Tangent Bridge is "proved from no standpoint,
+  run from one". TVF runs on K with no trigonometric call, and the theorem that says it works was proved in the angle
+  chart. What is shown is that the reader does not need N, not that nobody did.
+
+And one thing from the notes above that belongs here: the scene layer's two costs, a pose for every place (note 4)
+and the 150 shapes (note 14), are both N coming back, shapes counted and a place stored for each. They are limits of
+the scene layer as built, not of K.
+
