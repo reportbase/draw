@@ -157,6 +157,27 @@ step('a flow: said in turn, played in turn; together starts together; stagger st
   const q = G.build();
   want(q.seconds === 2 && q.scene.morphs.map(m => m.clip.start).every((v, i) => near(v, i * 0.25)), 'stagger: ' + q.scene.morphs.map(m => m.clip.start));
 });
+step('a flow: acts are a motion or a chain; a path, a parent and onto are named by thing', () => {
+  const F = FLOW.flow({}), floor = F.shape('floor', sq(0, 90)), track = F.shape('track', FLOW.draw.line([[0, 0], [90, 0]])),
+    ball = F.shape('ball', sq(10, 10)), hat = F.shape('hat', sq(10, 0), { parent: 'ball' }), car = F.shape('car', sq(0, 0), { path: track, turn: true });
+  F.beat('b', x => { x.show(floor, { in: 'cut' }); x.show(car, { in: 'cut' }); x.show(hat, { in: 'cut' });
+    x.act(ball, { kind: 'throw', amount: 2, onto: floor }, { dur: 1 }); x.act(ball, { kind: 'bounce', amount: 1, onto: 'floor' }, { dur: 3 }); }, { tail: 0 });
+  const p = F.build(), M = p.scene.morphs, ballM = M[p.at.ball[0]];
+  want(p.seconds === 4 && ballM.motion.kind === 'chain' && ballM.motion.steps.map(s => s.kind + s.share + s.onto).join() === 'throw10,bounce30', 'the chain: ' + JSON.stringify(ballM.motion));
+  want(Math.abs(ballM.clip.len - 1) < 2e-4 && ballM.clip.in.kind === 'fade' && ballM.keys.length === 1, 'the ball\'s clip: ' + JSON.stringify(ballM.clip));
+  want(M[p.at.hat[0]].parent === p.at.ball[0] && M[p.at.car[0]].path === 1 && M[p.at.car[0]].turn === true, 'the hat\'s parent and the car\'s path: ' + M[p.at.hat[0]].parent + ', ' + M[p.at.car[0]].path);
+  const why = fn => { try { const G = FLOW.flow({}); fn(G); G.build(); return ''; } catch (e) { return e.message; } };
+  want(/wobble is not a field/.test(why(G => { const a = G.shape('a', sq(0, 0), { wobble: 1 }); G.beat('b', x => x.show(a)); })), 'a field that is not one');
+  want(/cannot also act/.test(why(G => { const a = G.shape('a', [sq(0, 0), sq(1, 1)]); G.beat('b', x => { x.go(a, 1); x.act(a, { kind: 'bounce' }); }); })), 'going and acting');
+  want(/after a gap/.test(why(G => { const a = G.shape('a', sq(0, 0)); G.beat('b', x => { x.act(a, { kind: 'bounce' }); x.wait(1); x.act(a, { kind: 'roll' }); }); })), 'acts with a gap');
+});
+step('a flow: a pose a thing never takes is not in the drawing', () => {
+  const F = FLOW.flow({ paper: '#fff' }), a = F.shape('a', [sq(0, 0), sq(20, 0), sq(40, 0), sq(60, 0)]), still = F.shape('still', [sq(0, 80), sq(9, 80)]), c = F.shape('c', sq(0, 40));
+  F.beat('b', x => { x.show(a, { pose: 1 }); x.go(a, 3); x.show(c); x.look([a, c]); });
+  const p = F.build(), n = (p.svg.match(/<polygon/g) || []).length, M = p.scene.morphs;
+  want(n === 4 && /points="20,0/.test(p.svg) && /points="60,0/.test(p.svg) && !/points="40,0/.test(p.svg) && !/points="9,80/.test(p.svg), 'the drawing holds ' + n + ' outlines: ' + p.svg);
+  want(M[0].keys.join() === '1,1,2,2' && M[1].keys.join() === '4' && p.scene.camera[0].fit.join() === '1,2,4', 'the numbers counted again: ' + M[0].keys + ' | ' + M[1].keys + ' | ' + p.scene.camera[0].fit);
+});
 step('a flow refuses what could not be played, and says which thing', () => {
   const why = fn => { try { const F = FLOW.flow({}); fn(F); F.build(); return ''; } catch (e) { return e.message; } };
   want(/two things called a/.test(why(F => { F.shape('a', sq(0, 0)); F.shape('a', sq(1, 1)); })), 'a name used twice');

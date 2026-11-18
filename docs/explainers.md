@@ -267,8 +267,33 @@ c² between them; three slide, none turns (by (0, a), (−b, 0) and (a, −b)), 
 Twelve things, three beats, 11.15 s, 38 KB; the editor took it with no fallback. Its paper is the view's own size:
 with no camera a scene is fitted to all its shapes, and a paper three views across (the first try) left the picture
 a fifth of the frame. It plays at `gallery/explained.html?src=../flows/pythagoras.tvfs`.
-    Not done: none of the existing explainers is rewritten in it (the test of the library would be one of them
-giving the same scene), and it does not yet say a path to ride, a motion (`bounce`, `fall`), an emitter, a trail, a
-parent or a camera that follows; those are fields of a morph a thing can be given through `shape(name, poses,
-{ … })`, which are copied onto its morph as they are.
-
+    **The gallery's own explainer, said again** (the same day, Tom: "Proceed with your recommendations": rewrite a real
+explainer, add what it needs, then a larger piece). `flows/breath.mjs` is THREE LOOPS with the gallery's geometry
+lines unchanged and its times said through the library. A step of the motion part reads both scenes back as what
+happens (the shapes; when each thing comes and how; each move, from when to when, to which pose, by which ease; the
+camera; the stops; the words and what they light) and they agree: 40 morphs, 79 moves, 11 camera keys, five beats,
+to a thousandth of the loop. A hold is not a move, so the gallery's key given again and the library's are the same
+thing there. The port needed two things the library lacked: a thing **popped in** (`in: 'pop'`, the editor's pop
+motion in a short clip, `show: 'in'`; such a thing is a still) and a **group** (`group(name, things)`: six dots that
+a beat's words light as one). It also showed where the library is still awkward: a thing whose moves run through
+two beats (the ring) has to have them said in both, in order, and the port keeps the gallery's times as shares of
+the loop, so it tests what the library can say, not how it reads. The gallery's block is still the one published;
+a gallery page bundles its script, so it cannot load `tvf-flow.js` until `npm run sync` carries it.
+    **More of the format** (the second step). `act(thing, motion, { dur, in })` is a motion the editor computes
+(bounce, fall, throw, roll …) played once over `dur`, the thing coming as it begins (`in: 'always'` and it is there
+from the start); acts said one after another with no gap are a `chain`, each step's share its seconds; `onto` may
+be a thing. A thing that acts does not also go from pose to pose. What a thing is given when it is made is checked
+against the fields of a morph (`path`, `laps`, `at`, `turn`, `mode`, `rate`, `phase`, `spin`, `emit`, `trail`, `fx`,
+`lag`, `follow`, `parent`, `look`) and a thing may be named where the scene wants a number: a path is a shape's,
+a parent and a thing looked at a morph's.
+    **Only the poses a thing takes are in the drawing.** A shape that is no morph's key is a still, drawn the whole
+scene. The sorting flow gave each bar a pose for each of ten places; a bar stood in four, and its other six were on
+the picture, every bar looking like the tallest. `build()` now writes the shapes that are keys, the one pose of a
+thing never shown, a path ridden and the paper, and counts the scene's numbers again.
+    **A scene nobody keys** (the third step). `flows/sort.mjs` shuffles ten bars from a seed, runs a bubble sort
+and says each comparison as the sort makes it: the bracket to the pair, the two bars changing places if the left is
+the taller. 45 pairs in 9 passes, 30 swaps, 27.9 s, 112 shapes made and 34 KB written; the first pass at reading
+pace, the rest faster; the last beat's words are the run's own counts. Change the seed or the count and the scene
+follows.
+    Not done: a camera that follows a thing (the scene's camera is boxes at times), an emitter or a trail given a
+word of its own (they pass through as fields), reusable named moves, and the gallery adopting the library.
