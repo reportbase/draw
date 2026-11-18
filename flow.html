@@ -29,6 +29,8 @@
     box-shadow: 0 1px 2px rgba(0,0,0,.22), 0 3px 8px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.06); }
   select:hover, button:hover, a.btn:hover { background: #262630; border-color: rgba(255,255,255,.34); }
   .grow { flex: 1; }
+  #ask { flex: 1; min-width: 180px; font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 6px 11px; }
+  button:disabled { opacity: .5; cursor: default; }
   main { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr); min-height: 0; }
   .left { display: grid; grid-template-rows: 1fr auto; min-height: 0; border-right: 1px solid var(--line); }
   textarea { width: 100%; height: 100%; resize: none; border: 0; outline: 0; padding: 14px; background: var(--panel); color: var(--fg);
@@ -48,7 +50,8 @@
 <header>
   <h1>flow <span>· a scene written in code</span></h1>
   <select id="pick" title="a flow to start from" aria-label="a flow to start from"></select>
-  <span class="grow"></span>
+  <input id="ask" type="text" placeholder="describe a scene, and it is written as a flow" aria-label="describe a scene">
+  <button id="askGo" title="Claude writes the scene as a flow script; what the library refuses is sent back to be put right">write it</button>
   <a class="btn" id="open" target="_blank" rel="noopener" title="the same scene in the editor: a live morph with its beats, and from there a .tvfs">open in the editor</a>
 </header>
 <main>
@@ -93,7 +96,7 @@ export default function ({ flow, draw }) {
   return F.build();
 }
 `;
-  const FLOWS = [['', 'a ball (start here)'], ['flows/pythagoras.mjs', 'Pythagoras by rearrangement'], ['flows/sort.mjs', 'sorting, bar by bar'], ['flows/breath.mjs', 'three loops (the gallery\'s, ported)']];
+  const FLOWS = [['', 'a ball (start here)'], ['flows/pythagoras.mjs', 'Pythagoras by rearrangement'], ['flows/sort.mjs', 'sorting, bar by bar'], ['flows/fourier.mjs', 'a square wave from sines'], ['flows/breath.mjs', 'three loops (the gallery\'s, ported)']];
   for (const [file, name] of FLOWS) { const o = document.createElement('option'); o.value = file; o.textContent = name; $('pick').appendChild(o); }
 
   // THE HIDDEN EDITOR that turns a scene into a picture: one iframe, asked by message, answered by message
@@ -109,11 +112,33 @@ export default function ({ flow, draw }) {
   const picture = async code => { await hostUp(); const id = nextId++;
     return new Promise(res => { waiting.set(id, res); host.contentWindow.postMessage({ type: 'tvf-scene-svg', id, code }, '*'); setTimeout(() => { if (waiting.delete(id)) res(null); }, 30000); }); };
 
-  // THE SCRIPT, RUN: as a module, the way `npm run flow` imports it, so what is written here is a file as it stands
-  const run = async text => { const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
-    try { const mod = await import(url); if (typeof mod.default !== 'function') throw new Error('the script\'s default export is a function of the library');
-      const piece = mod.default(window.TVF_FLOW); if (!piece || !piece.svg || !piece.scene) throw new Error('the function returns what F.build() gives'); return piece; }
-    finally { URL.revokeObjectURL(url); } };
+  // THE SCRIPT, RUN: as a module, the way `npm run flow` imports it, so what is written here is a file as it stands.
+  // IN A BOX OF ITS OWN (18 Nov 2026, with "write it"): a script here may be one nobody has read, written by Claude a
+  // moment ago and run as it arrives. So it runs in a frame with no origin (sandbox="allow-scripts"): it has the
+  // library and nothing else of this page, not its storage, where the sign-in is kept, nor the editor beside it.
+  // What it builds comes back by message, as data.
+  let box = null, boxReady = null, runId = 1; const running = new Map();
+  const boxUp = () => boxReady || (boxReady = new Promise(res => {
+    box = document.createElement('iframe'); box.setAttribute('sandbox', 'allow-scripts'); box.title = 'the flow\'s script, running'; box.setAttribute('aria-hidden', 'true');
+    box.style.cssText = 'position:absolute;left:-9999px;top:0;width:10px;height:10px;border:0;visibility:hidden';
+    box.srcdoc = '<!doctype html><script src="' + new URL('tvf-flow.js', location.href).href + '"><\/script><script>'
+      + 'addEventListener("message", async e => { const m = e.data; if (!m || m.type !== "flow-run") return; let out;'
+      + ' const url = URL.createObjectURL(new Blob([m.text], { type: "text/javascript" }));'
+      + ' try { const mod = await import(url); if (typeof mod.default !== "function") throw new Error("the script\\u0027s default export is a function of the library");'
+      + '  const p = mod.default(self.TVF_FLOW); if (!p || !p.svg || !p.scene) throw new Error("the function returns what F.build() gives");'
+      + '  out = { piece: { name: String(p.name), svg: String(p.svg), scene: JSON.parse(JSON.stringify(p.scene)), seconds: +p.seconds } }; }'
+      + ' catch (err) { out = { error: String(err && err.message || err) }; } finally { URL.revokeObjectURL(url); }'
+      + ' parent.postMessage(Object.assign({ type: "flow-ran", id: m.id }, out), "*"); });'
+      + 'parent.postMessage({ type: "flow-box" }, "*");<\/script>';
+    window.addEventListener('message', function up(e) { if (e.source === box.contentWindow && e.data && e.data.type === 'flow-box') { window.removeEventListener('message', up); res(); } });
+    document.body.appendChild(box); }));
+  window.addEventListener('message', e => { const m = e.data;
+    if (!box || e.source !== box.contentWindow || !m || m.type !== 'flow-ran' || !running.has(m.id)) return;
+    const res = running.get(m.id); running.delete(m.id); res(m); });
+  const run = async text => { await boxUp(); const id = runId++;
+    const m = await new Promise(res => { running.set(id, res); box.contentWindow.postMessage({ type: 'flow-run', id, text }, '*');
+      setTimeout(() => { if (running.delete(id)) res({ error: 'the script did not finish (ten seconds)' }); }, 10000); });
+    if (m.error) throw new Error(m.error); return m.piece; };
 
   let turn = 0, shown = '';
   const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -121,7 +146,7 @@ export default function ({ flow, draw }) {
     const mine = ++turn, text = src.value;
     let piece;
     try { piece = await run(text); }
-    catch (e) { if (mine !== turn) return; say.className = 'bad'; say.textContent = String(e && e.message || e).replace(/^flow: /, ''); window.__flow.state = { error: say.textContent }; return; }
+    catch (e) { if (mine !== turn) return; say.className = 'bad'; say.textContent = String(e && e.message || e).replace(/^flow: /, ''); window.__flow.state = { error: say.textContent }; return { error: say.textContent }; }
     if (mine !== turn) return;
     const code = window.TVF_FLOW.code(piece), S = piece.scene;
     say.className = 'ok';
@@ -129,13 +154,14 @@ export default function ({ flow, draw }) {
     $('open').href = 'draw.html#scene=' + code;
     $('beats').innerHTML = S.beats.map((b, i) => `<p><b>${i + 1}. ${esc(b.title)}</b> ${esc(b.text).replace(/\[([^\]]+)\]\(#lit:[\d,]+\)/g, '<em>$1</em>').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')}</p>`).join('');
     window.__flow.state = { seconds: piece.seconds, beats: S.beats.length, morphs: S.morphs.length, code, picture: false };
-    if (code === shown) { window.__flow.state.picture = true; return; }
+    if (code === shown) { window.__flow.state.picture = true; return { ok: true }; }
     const svg = await picture(code);
     if (mine !== turn) return;
     if (!svg) { say.className = 'bad'; say.textContent = 'the editor did not answer with a picture'; return; }
     shown = code;
     const img = new Image(); img.alt = piece.name; img.src = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
     img.onload = () => { stage.replaceChildren(img); window.__flow.state.picture = true; };
+    return { ok: true };
   }
   let wait = 0; const soon = () => { clearTimeout(wait); wait = setTimeout(make, 350); };
   src.addEventListener('input', () => { try { localStorage.setItem('tvf-flow-playground', src.value); } catch (_) {} soon(); });
@@ -145,7 +171,76 @@ export default function ({ flow, draw }) {
   const load = async file => { if (!file) return STARTER; const r = await fetch(file); if (!r.ok) throw new Error(file + ': ' + r.status); return r.text(); };
   $('pick').addEventListener('change', async () => { try { src.value = await load($('pick').value); } catch (e) { say.className = 'bad'; say.textContent = 'could not read ' + $('pick').value + ' (from disk a page cannot read its neighbours)'; return; }
     try { localStorage.removeItem('tvf-flow-playground'); } catch (_) {} make(); });
-  window.__flow = { state: {}, make, set: text => { src.value = text; return make(); } };      // for the checks
+  // WRITE IT (18 Nov 2026, Tom: "Proceed with your recomendations", the AI writing flows). The editor's AI is asked for a
+  // scene's own fields: shapes' numbers, shares of the loop, keys given again to hold. Asked for a flow it writes a
+  // tenth as much, in names and seconds, and what it gets wrong the library says by name. So a refusal is sent back
+  // with the script that earned it, and the answer tried again, twice at most. It goes through the same gateway as
+  // the editor's (the page holds no key; the sign-in is the editor's, kept in this origin's storage).
+  const GATEWAY = 'https://login.tangent.workers.dev', TRIES = 3;
+  const SYS = [
+    'You write a short animated scene as a JavaScript module for the tvf-flow library. Reply with ONLY the module\'s source: no code fences, no commentary before or after.',
+    '',
+    'The module is:  export default function ({ flow, draw }) { const F = flow({ name, w, h, paper }); ... return F.build(); }',
+    '',
+    'THINGS. const t = F.shape(name, pose) or F.shape(name, [pose, pose, ...]). A pose is one svg element, as a string. A thing with several poses can go from one to another; every pose of one thing must be the same kind of element with the same number of points, since the outline of one becomes the outline of the next. A place is a pose: to move a thing, give it a pose where it starts and a pose where it ends. Names are unique. Things are drawn in the order they are made, later ones on top.',
+    'draw.line(points, stroke, width)   an open line through [[x, y], ...]',
+    'draw.poly(points, fill)            a closed outline through [[x, y], ...]',
+    'draw.rect(x, y, w, h, fill)        a rectangle (four points)',
+    'draw.ring(cx, cy, r, fill, n = 24, ry = r)   a circle or ellipse as n points',
+    'draw.text(x, y, words, fill, size) a label (one pose only: text does not go from pose to pose)',
+    '',
+    'BEATS. F.beat(title, words, b => { ... }) is a step of the story; the scene pauses at its end. In the words, [a phrase](name, name) lights those things while the beat is read. Inside, each call happens after the one before, in seconds:',
+    'b.show(t, { in: "fade" | "draw" | "cut" | "pop", dur, pose })   the thing appears ("draw" for a line drawn on). A thing is not seen until it is shown, and is shown once.',
+    'b.go(t, pose, { dur, ease })       to another of its poses, by its number from 0; ease is "inout", "in", "out", "linear", "anticipate" or "overshoot". A list of poses is gone through in turn.',
+    'b.hide(t, { out: "fade" | "undraw" | "cut", dur })   it goes, and is not shown again',
+    'b.wait(seconds)',
+    'b.together(() => { ... })          everything inside starts at the same moment',
+    'b.stagger(list, gap, (item, i) => { ... })   the same thing for each item, each starting gap seconds after the last',
+    'b.reveal(things, { gap, dur })   b.relay(things, pose, { gap, dur })   b.leave(things, { gap, dur })   b.swap(x, i, y, j, { dur })',
+    'b.act(t, { kind: "bounce" | "fall" | "throw" | "roll" | "sway" | "swing", amount }, { dur })   a motion worked out for a body; such a thing has one pose and is shown by its act',
+    '',
+    'Keep it under 100 shapes in all, 2 to 5 beats, 8 to 30 seconds. Use plain JavaScript (loops, Math) to work positions out; no imports, no DOM, no timers. Stay inside the w by h picture. Prefer few things that move meaningfully to many that do not.',
+  ].join('\n');
+  const session = () => { try { return localStorage.getItem('tangent.login.v1') || ''; } catch (_) { return ''; } };
+  const model = () => { try { return localStorage.getItem('tangent.aiModel') || 'claude-sonnet-5'; } catch (_) { return 'claude-sonnet-5'; } };
+  async function claude(messages) {
+    const res = await fetch(GATEWAY + '/v1/messages', { method: 'POST',
+      headers: { 'content-type': 'application/json', 'anthropic-version': '2023-06-01', authorization: 'Bearer ' + session() },
+      body: JSON.stringify({ model: model(), max_tokens: 8000, system: SYS, messages, stream: true }) });
+    if (!res.ok) { const d = await res.json().catch(() => null), msg = d && d.error && d.error.message;
+      throw new Error(res.status === 401 ? 'signed out: sign in from the editor\'s AI button, then come back' : msg || 'the request failed (HTTP ' + res.status + ')'); }
+    if (!/event-stream/.test(res.headers.get('content-type') || '')) { const d = await res.json(); return ((d.content || []).find(c => c.type === 'text') || {}).text || ''; }
+    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = '', text = '';
+    for (;;) { const { done, value } = await rd.read(); if (done) break; buf += dec.decode(value, { stream: true }); let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) { const ev = buf.slice(0, i); buf = buf.slice(i + 2); const line = ev.split('\n').find(l => l.startsWith('data:')); if (!line) continue;
+        let d; try { d = JSON.parse(line.slice(5)); } catch (_) { continue; }
+        if (d.type === 'content_block_delta' && d.delta && d.delta.type === 'text_delta') { text += d.delta.text; say.className = ''; say.textContent = 'writing… ' + text.length + ' characters'; }
+        else if (d.type === 'error') throw new Error((d.error && d.error.message) || 'the reply broke off'); } }
+    return text; }
+  const bare = t => t.replace(/^\s*```[a-z]*\s*\n/i, '').replace(/\n```\s*$/, '').trim() + '\n';
+  async function write(what) {
+    if (!what.trim()) return;
+    if (!session()) { say.className = 'bad'; say.innerHTML = 'not signed in: press the AI button in <a href="draw.html" style="color:inherit">the editor</a> to sign in, then come back'; return { error: 'not signed in' }; }
+    const go = $('askGo'); go.disabled = true;
+    const messages = [{ role: 'user', content: 'The scene: ' + what.trim() }]; let last = null;
+    try {
+      for (let n = 1; n <= TRIES; n++) {
+        say.className = ''; say.textContent = n === 1 ? 'asking…' : 'put right, try ' + n + '…';
+        const text = bare(await claude(messages));
+        src.value = text; try { localStorage.setItem('tvf-flow-playground', text); } catch (_) {}
+        last = await make();
+        if (!last || last.ok) return Object.assign({ tries: n }, last);
+        // the refusal, with the script that earned it, goes back as it stands
+        messages.push({ role: 'assistant', content: text }, { role: 'user', content: 'That script was refused when it ran: ' + last.error + '\nSend the whole module again, with that put right.' });
+      }
+      say.className = 'bad'; say.textContent = 'after ' + TRIES + ' tries the script is still refused: ' + last.error;
+      return Object.assign({ tries: TRIES }, last);
+    } catch (e) { say.className = 'bad'; say.textContent = String(e && e.message || e); return { error: say.textContent }; }
+    finally { go.disabled = false; }
+  }
+  $('askGo').addEventListener('click', () => write($('ask').value));
+  $('ask').addEventListener('keydown', e => { if (e.key === 'Enter') write($('ask').value); });
+  window.__flow = { state: {}, make, write, set: text => { src.value = text; return make(); } };      // for the checks
   let kept = ''; try { kept = localStorage.getItem('tvf-flow-playground') || ''; } catch (_) {}
   src.value = kept || STARTER; make();
 })();
