@@ -44,8 +44,11 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     const r4 = v => +(+v).toFixed(4);
     const EASES = ['linear', 'inout', 'in', 'out', 'anticipate', 'overshoot'];
-    const INS = ['fade', 'draw', 'cut'], OUTS = ['fade', 'undraw', 'cut'];
+    const INS = ['fade', 'draw', 'cut', 'pop'], OUTS = ['fade', 'undraw', 'cut'];
     const fail = s => { throw new Error('flow: ' + s); };
+    // what a thing may be given when it is made, beside its poses: the fields of a morph the library has no word of its
+    // own for (parts/ai-panel.js, ANIM_MORPH_FIELDS, says what each does)
+    const FIELDS = ['path', 'laps', 'at', 'turn', 'mode', 'rate', 'phase', 'spin', 'emit', 'trail', 'fx', 'lag', 'follow', 'parent', 'look'];
 
     function flow(opts) {
         opts = opts || {};
@@ -63,7 +66,7 @@
             if (!name || byName[name]) fail(name ? 'two things called ' + name : 'a thing needs a name');
             const list = Array.isArray(poses) ? poses : [poses];
             if (!list.length || list.some(s => typeof s !== 'string' || !/^\s*</.test(s))) fail(name + ': a pose is an svg element');
-            const t = { name, poses: list.map(s => shapes.push(s) - 1), events: [], pose: 0, shown: null, hidden: null, opts: o || {} };
+            const t = { name, poses: list.map(s => shapes.push(s) - 1), events: [], acts: [], pose: 0, shown: null, hidden: null, opts: o || {} };
             things.push(t); byName[name] = t;
             return t;
         }
@@ -93,6 +96,9 @@
                     const kind = o.in || 'fade'; if (!INS.includes(kind)) fail(t.name + ': in is one of ' + INS.join(', '));
                     const d = kind === 'cut' ? 0 : dur(o, 0.6), at = start();
                     t.shown = { at, kind, len: d }; if (o.pose != null) t.pose = pose(t, o.pose);
+                    // pop: it springs up from nothing to its size and a little past (the editor's own motion), and stays.
+                    // Its morph is that one motion, so a thing popped in is a still: it cannot then be asked to move.
+                    if (kind === 'pop') t.shown.amount = o.amount != null ? +o.amount : 0.5;
                     t.first = t.pose;
                     return done(at + d), b;
                 },
@@ -101,6 +107,8 @@
                 go(t, to, o) {
                     t = thing(t); o = o || {};
                     const list = Array.isArray(to) ? to : [to], d = dur(o, 1), ease = o.ease || 'inout';
+                    if (t.shown && t.shown.kind === 'pop') fail(t.name + ' was popped in, and a popped thing is a still');
+                    if (t.acts.length) fail(t.name + ' acts, so it cannot also go from pose to pose');
                     if (!EASES.includes(ease) && !Array.isArray(ease)) fail(t.name + ': ease is one of ' + EASES.join(', ') + ' or a cubic Bézier [x1, y1, x2, y2]');
                     let at = start();
                     if (t.shown == null) { t.shown = { at, kind: 'cut', len: 0 }; t.first = t.pose; }
@@ -112,6 +120,24 @@
                         t.pose = k; at += d;
                     }
                     return done(at), b;
+                },
+                // act: a motion the editor computes (bounce, fall, throw, roll, sway, swing, pop ...), played once over dur.
+                // The thing comes as its motion begins (`in`, a fade unless said; `in: 'always'` and it is there from the
+                // scene's start). Acts said one after another, with no gap, are one chain: thrown, then bouncing, then
+                // rolling, each from where the last ended. `onto` in a motion may be a thing. A thing that acts is carried
+                // by the motion: it is not also asked to go from pose to pose.
+                act(t, motion, o) {
+                    t = thing(t); o = o || {};
+                    if (!motion || typeof motion.kind !== 'string') fail(t.name + ': a motion has a kind');
+                    if (t.events.length) fail(t.name + ' goes from pose to pose, so it cannot also act');
+                    const d = dur(o, 1), at = start(), last = t.acts[t.acts.length - 1];
+                    if (!last) {
+                        if (t.shown != null) fail(t.name + ' is shown before it acts: an act shows it (in: \'always\' if it is there from the start)');
+                        const kind = o.in || 'fade'; if (kind !== 'always' && !INS.includes(kind) || kind === 'pop') fail(t.name + ': an act comes in by ' + INS.filter(k => k !== 'pop').join(', ') + ' or always');
+                        t.shown = { at, kind, len: kind === 'cut' || kind === 'always' ? 0 : Math.min(d, o.inDur != null ? +o.inDur : 0.4) }; t.first = t.pose;
+                    } else if (Math.abs(at - last.end) > 1e-6) fail(t.name + ' acts again after a gap: say its acts one after another');
+                    t.acts.push({ at, end: at + d, motion: Object.assign({}, motion) });
+                    return done(at + d), b;
                 },
                 // hide: the thing goes (fade, undraw or cut) and is not seen again
                 hide(t, o) {
@@ -171,7 +197,7 @@
         function build() {
             if (!beats.length) fail('a flow needs a beat');
             const total = cursor, sh = t => r4(Math.min(0.9999, t / total));
-            const morphs = [], at = Object.create(null);
+            const morphs = [], at = Object.create(null), refs = [];
             for (const t of things) {
                 if (t.shown == null) continue;                        // made and never shown: it is not in the scene's motion
                 const s = t.shown.at, e = t.hidden ? t.hidden.at : total;
@@ -179,6 +205,11 @@
                 const clip = { start: sh(s), len: r4(Math.max(0.0002, Math.min(1, e / total) - sh(s))), in: { kind: t.shown.kind, len: r4(t.shown.len / total) } };
                 if (t.hidden) clip.out = { kind: t.hidden.kind, len: r4(t.hidden.len / total) };
                 const m = { keys: [t.poses[t.first]], clip };
+                if (t.shown.kind === 'pop') {
+                    if (t.hidden) fail(t.name + ' was popped in, and a popped thing is not hidden');
+                    m.motion = { kind: 'pop', amount: t.shown.amount };
+                    m.clip = { start: sh(s), len: r4(Math.max(0.0002, t.shown.len / total)), show: 'in' };
+                }
                 if (t.events.length) {
                     // its keys laid across its window: the pose it is in given again where each move starts (so it holds
                     // until then), and the last given again at the window's end (so it holds there)
@@ -194,12 +225,36 @@
                     m.times = T.map(x => r4(0.9999 * (x - s) / (e - s)));
                     m.eases = E.concat([null]);
                 }
-                Object.assign(m, t.opts);
+                if (t.acts.length) {
+                    // its window is its acts', first to last; one act is the motion itself, several are a chain, each
+                    // step's share its seconds
+                    const a0 = t.acts[0].at, a1 = t.acts[t.acts.length - 1].end;
+                    if (t.hidden && t.hidden.at < a1 - 1e-9) fail(t.name + ' is hidden while it acts');
+                    const onto = mo => { if (mo.onto != null && typeof mo.onto !== 'number') mo.onto = thing(mo.onto).poses[0]; return mo; };
+                    m.motion = t.acts.length === 1 ? onto(t.acts[0].motion)
+                        : { kind: 'chain', steps: t.acts.map(a => Object.assign(onto(a.motion), { share: r4(a.end - a.at) })) };
+                    m.clip = { start: sh(a0), len: r4(Math.max(0.0002, Math.min(1, a1 / total) - sh(a0))) };
+                    if (t.shown.kind !== 'always') m.clip.in = { kind: t.shown.kind, len: r4(t.shown.len / total) };
+                    if (t.hidden) m.clip.out = { kind: t.hidden.kind, len: r4(t.hidden.len / total) };
+                }
+                // what else a thing was given when it was made (FIELDS): copied onto its morph, a thing named where the
+                // scene wants a number. A path is a shape's number, a parent or a thing to look at a morph's.
+                for (const k in t.opts) {
+                    if (!FIELDS.includes(k)) fail(t.name + ': ' + k + ' is not a field of a morph (' + FIELDS.join(', ') + ')');
+                    m[k] = t.opts[k];
+                }
+                if (m.path != null && typeof m.path !== 'number') m.path = thing(m.path).poses[0];
+                refs.push(m);
                 (at[t.name] = at[t.name] || []).push(morphs.length); morphs.push(m);
             }
+            for (const m of refs) for (const k of ['parent', 'look']) if (m[k] != null && typeof m[k] !== 'number') {
+                const to = thing(m[k]); if (!at[to.name]) fail('a ' + k + ' must be shown: ' + to.name);
+                m[k] = at[to.name][0];
+            }
             // words that light what they name: [words](a, b) → [words](#lit:i,j), the morphs of the things named
+            const litOf = n => at[n] || (groups[n] && groups[n].flatMap(t => at[t.name] || [])) || [];
             const lit = text => text.replace(/\]\(([^)#:/]+)\)/g, (all, names) => {
-                const ids = names.split(',').map(n => n.trim()).filter(Boolean).flatMap(n => at[n] || fail('a beat\'s words name ' + n + ', which is not shown'));
+                const ids = names.split(',').map(n => n.trim()).filter(Boolean).flatMap(n => { const a = litOf(n); return a.length ? a : fail('a beat\'s words name ' + n + ', which is not shown'); });
                 return '](#lit:' + ids.join(',') + ')';
             });
             const scene = {
@@ -209,11 +264,30 @@
                 morphs
             };
             if (cameras.length) scene.camera = cameras.map(c => ({ t: sh(c.t), fit: c.fit.flatMap(t => t.poses), pad: c.pad }));
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">${shapes.join('')}</svg>`;
+            // ONLY THE POSES A THING TAKES ARE IN THE DRAWING. A shape that is no morph's key is a still, drawn where it
+            // stands the whole scene: a bar with a pose for each of ten places, standing in four of them, left six bars
+            // on the picture that nothing moved (the sorting flow, the first to have poses it did not use). So the svg
+            // is the shapes that are keys, the one pose of a thing never shown (a still, meant), a path ridden and the
+            // paper; the numbers in the scene are counted again to match.
+            const keep = new Set(opts.paper ? [0] : []);
+            for (const t of things) if (t.shown == null) keep.add(t.poses[0]);
+            for (const m of morphs) { m.keys.forEach(k => keep.add(k)); if (typeof m.path === 'number') keep.add(m.path);
+                for (const mo of m.motion ? (m.motion.steps || [m.motion]) : []) if (typeof mo.onto === 'number') keep.add(mo.onto); }
+            const num = new Map([...keep].sort((a, b) => a - b).map((k, i) => [k, i]));
+            for (const m of morphs) { m.keys = m.keys.map(k => num.get(k)); if (typeof m.path === 'number') m.path = num.get(m.path);
+                for (const mo of m.motion ? (m.motion.steps || [m.motion]) : []) if (typeof mo.onto === 'number') mo.onto = num.get(mo.onto); }
+            if (scene.camera) for (const c of scene.camera) c.fit = c.fit.filter(k => num.has(k)).map(k => num.get(k));
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">${shapes.filter((x, i) => num.has(i)).join('')}</svg>`;
             return { name: opts.name || 'a flow', svg, scene, seconds: total, things: things.map(t => t.name), at };
         }
 
-        const F = { shape, beat, build, thing, get seconds() { return cursor; } };
+        // A GROUP: several things under one name, for a beat's words to light together (six dots that are one idea)
+        const groups = Object.create(null);
+        function group(name, list) {
+            if (!name || byName[name] || groups[name]) fail(name ? 'two things called ' + name : 'a group needs a name');
+            groups[name] = list.map(thing); return groups[name];
+        }
+        const F = { shape, group, beat, build, thing, get seconds() { return cursor; } };
         return F;
     }
 

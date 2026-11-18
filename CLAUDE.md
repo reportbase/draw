@@ -135,13 +135,14 @@ shapes are in; `window.__explainer`). A shape finds its partner in the next file
 **A scene composed in code** (18 Nov 2026, Tom: "Tvf is better at composing a flow of animations with code", "Let's keep
 pushing TVF into larger situations"; `tvf-flow.js`, `docs/explainers.md`): `TVF_FLOW.flow()` is the way to write a new
 scene in code. Things have poses (`shape(name, [svg, …])`); a beat says what happens in seconds from a cursor
-(`show`, `go`, `hide`, `wait`, `look`, with `together` and `stagger`), and `[words](name, name)` in its text lights
-those things. `build()` gives `{ name, svg, scene }`, what a SHOWPIECE is, and the library keeps the rules below (an
+(`show`, `go`, `act` for a motion the editor computes, `hide`, `wait`, `look`, with `together` and `stagger`), and
+`[words](name, name)` in its text lights those things (a `group` names several). `build()` gives `{ name, svg, scene }`, what a SHOWPIECE is, and the library keeps the rules below (an
 `in` on every clip, a pose held between moves and to the end, `#lit:` by name), refusing what could not be played.
 A flow is a script in `flows/` whose default export takes the library; `npm run flow -- flows/x.mjs` opens it in the
 editor and writes `flows/x.tvfs` (**generated**; `npm test`, motion, fails when it is stale). `tvf-flow.js` reads
 nothing but what it is given and runs under Node; `npm run test:unit` checks its arithmetic. A new thing a flow can
-say is added there, with a check, not worked out again in a scene.
+say is added there, with a check, not worked out again in a scene. `flows/breath.mjs` is the gallery's `breath` said
+again, and motion compares the two scenes move for move: a change to either that makes them differ fails it.
 
 **Making a scene or an explainer** (the rules found making them; the rest is in
 `docs/explainers.md`): a new example is an entry in `EXAMPLES` or `SHOWPIECES` and an id in

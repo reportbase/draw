@@ -795,20 +795,70 @@ await step('an explainer compiled from files: a beat a file, each drawing morphi
    file beside the script is what the script makes now (run `npm run flow -- flows/pythagoras.mjs` when it is not). */
 await step('a flow written in code opens in the editor, and its scene file is up to date', async () => {
   await import('../tvf-flow.js');
-  const piece = (await import('../flows/pythagoras.mjs')).default(globalThis.TVF_FLOW);
-  const fp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  fp.on('pageerror', e => failures.push(`[a flow] ${e.message}`));
-  await fp.route(/fonts\.g/, r => r.abort());
+  const { readFile } = await import('node:fs/promises');
+  // each flow: its script, the morphs and beats it should make, and what else to ask of it
+  const FLOWS = [['pythagoras', 12, 3, () => ''],
+    ['sort', 13, 4, p => p.run.sorted.join() === '1,2,3,4,5,6,7,8,9,10' && p.run.swaps === 30 && /looked at 45 pairs in 9 passes and made 30 swaps/.test(p.scene.beats[3].text) ? '' : 'the run: ' + JSON.stringify(p.run)]];
+  for (const [id, morphs, beats, also] of FLOWS) {
+    const piece = (await import(`../flows/${id}.mjs`)).default(globalThis.TVF_FLOW);
+    if (piece.scene.morphs.length !== morphs || piece.scene.beats.length !== beats) throw new Error(id + ': ' + piece.scene.morphs.length + ' morphs, ' + piece.scene.beats.length + ' beats');
+    const more = also(piece); if (more) throw new Error(id + ': ' + more);
+    const fp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    fp.on('pageerror', e => failures.push(`[the flow ${id}] ${e.message}`));
+    await fp.route(/fonts\.g/, r => r.abort());
+    try {
+      await fp.goto(new URL('draw.html', base).href + '#scene=' + globalThis.TVF_FLOW.code(piece), { waitUntil: 'load' });
+      await fp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
+      await fp.waitForTimeout(300);
+      const got = await fp.evaluate(() => ({ scene: window.__box.tvfScene(), warn: (window.__sceneWarnings || []).slice() }));
+      if (got.warn.length) throw new Error(id + ': the editor fell back on: ' + got.warn.join('; '));
+      if (JSON.stringify(got.scene) !== await readFile(new URL(`../flows/${id}.tvfs`, import.meta.url), 'utf8')) throw new Error(`flows/${id}.tvfs is not what flows/${id}.mjs makes: run npm run flow -- flows/${id}.mjs`);
+    } finally { await fp.close(); }
+  }
+});
+
+/* THE SAME SCENE, SAID TWO WAYS (18 Nov 2026): the gallery's `breath` explainer, written against the scene's own fields,
+   and flows/breath.mjs, the same explainer said with tvf-flow.js. Each is read back as what happens: which shapes there
+   are, when each thing comes and how, each move it makes (from when to when, to which pose, by which ease), the camera,
+   the stops and the words with what they light. The two must tell the same story to a thousandth of the loop. A hold
+   is not a move, so the gallery's key given again and the library's are the same thing here. */
+await step("a flow tells the gallery's own explainer: breath, the same shapes, moves, camera and words", async () => {
+  await import('../tvf-flow.js');
+  const mine = (await import('../flows/breath.mjs')).default(globalThis.TVF_FLOW);
+  const gp = await browser.newPage();
+  gp.on('pageerror', e => failures.push(`[breath as a flow] ${e.message}`));
+  await gp.route(/fonts\.g/, r => r.abort());
   try {
-    await fp.goto(new URL('draw.html', base).href + '#scene=' + globalThis.TVF_FLOW.code(piece), { waitUntil: 'load' });
-    await fp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
-    await fp.waitForTimeout(300);
-    const got = await fp.evaluate(() => ({ scene: window.__box.tvfScene(), warn: (window.__sceneWarnings || []).slice() }));
-    if (got.warn.length) throw new Error('the editor fell back on: ' + got.warn.join('; '));
-    if (piece.scene.morphs.length !== 12 || piece.scene.beats.length !== 3) throw new Error('the flow: ' + piece.scene.morphs.length + ' morphs, ' + piece.scene.beats.length + ' beats');
-    const kept = (await import('node:fs/promises')).readFile(new URL('../flows/pythagoras.tvfs', import.meta.url), 'utf8');
-    if (JSON.stringify(got.scene) !== await kept) throw new Error('flows/pythagoras.tvfs is not what flows/pythagoras.mjs makes: run npm run flow -- flows/pythagoras.mjs');
-  } finally { await fp.close(); }
+    await gp.goto(new URL('gallery/animated.html', base).href, { waitUntil: 'load' });
+    await gp.waitForFunction(() => typeof EXAMPLES !== 'undefined' && EXAMPLES.some(e => e.id === 'breath'));
+    const diff = await gp.evaluate(mine => {
+      const theirs = EXAMPLES.find(e => e.id === 'breath');
+      const story = p => { const sh = [...new DOMParser().parseFromString(p.svg, 'image/svg+xml').documentElement.children].map(e => e.outerHTML), S = p.scene;
+        const of = m => { const c = m.clip, key = sh[m.keys[0]], moves = [];
+          if (m.times) for (let i = 1; i < m.keys.length; i++) if (m.keys[i] !== m.keys[i - 1])
+            moves.push({ t0: c.start + m.times[i - 1] / 0.9999 * c.len, t1: c.start + m.times[i] / 0.9999 * c.len, to: sh[m.keys[i]], ease: JSON.stringify(m.eases[i - 1] || 'inout') });
+          return { key, start: c.start, into: c.in ? c.in.kind : c.show, inLen: c.in ? c.in.len : c.len, out: c.out ? c.out.kind : '', motion: JSON.stringify(m.motion || null), moves }; };
+        const M = S.morphs.map(of);
+        return { shapes: sh.slice().sort(), M, loop: S.loop, ease: S.ease, stops: S.stops, camera: S.camera.map(c => ({ t: c.t, pad: c.pad, fit: c.fit.map(i => sh[i]).sort().join('') })),
+          beats: S.beats.map(b => ({ title: b.title, text: b.text.replace(/#lit:([\d,]+)/g, (a, ids) => '#lit:' + ids.split(',').map(i => M[+i].key).sort().join('|')) })) }; };
+      const A = story(theirs), B = story(mine), bad = [], near = (x, y) => Math.abs(x - y) < 1.5e-3;
+      if (A.shapes.join('\n') !== B.shapes.join('\n')) bad.push('the shapes differ (' + A.shapes.length + ' and ' + B.shapes.length + ')');
+      if (A.loop !== B.loop || A.ease !== B.ease || A.stops.join() !== B.stops.join()) bad.push('loop, ease or stops: ' + [A.loop, A.ease, A.stops] + ' and ' + [B.loop, B.ease, B.stops]);
+      if (A.M.length !== B.M.length) bad.push(A.M.length + ' morphs and ' + B.M.length);
+      const byKey = new Map(B.M.map(m => [m.key, m]));
+      for (const a of A.M) { const b = byKey.get(a.key), name = a.key.slice(0, 60);
+        if (!b) { bad.push('no morph of the flow starts on ' + name); continue; }
+        if (!near(a.start, b.start) || a.into !== b.into || !near(a.inLen, b.inLen) || a.out !== b.out || a.motion !== b.motion) bad.push('how it comes: ' + name + ' ' + JSON.stringify([a.start, a.into, a.inLen, a.motion]) + ' and ' + JSON.stringify([b.start, b.into, b.inLen, b.motion]));
+        if (a.moves.length !== b.moves.length) { bad.push(a.moves.length + ' moves and ' + b.moves.length + ': ' + name); continue; }
+        a.moves.forEach((x, i) => { const y = b.moves[i]; if (!near(x.t0, y.t0) || !near(x.t1, y.t1) || x.to !== y.to || x.ease !== y.ease) bad.push('move ' + i + ' of ' + name + ': ' + [x.t0.toFixed(4), x.t1.toFixed(4), x.ease] + ' and ' + [y.t0.toFixed(4), y.t1.toFixed(4), y.ease]); }); }
+      if (A.camera.length !== B.camera.length) bad.push(A.camera.length + ' camera keys and ' + B.camera.length);
+      else A.camera.forEach((x, i) => { const y = B.camera[i]; if (!near(x.t, y.t) || x.pad !== y.pad || x.fit !== y.fit) bad.push('camera key ' + i + ': ' + [x.t, x.pad] + ' and ' + [y.t, y.pad] + (x.fit !== y.fit ? ', fitting other things' : '')); });
+      A.beats.forEach((x, i) => { const y = B.beats[i] || {}; if (x.title !== y.title || x.text !== y.text) bad.push('beat ' + (i + 1) + ' reads otherwise'); });
+      return { bad, n: A.M.length, moves: A.M.reduce((n, m) => n + m.moves.length, 0) };
+    }, { svg: mine.svg, scene: mine.scene });
+    if (diff.bad.length) throw new Error(diff.bad.length + ' differences, the first: ' + diff.bad.slice(0, 3).join(' ;; '));
+    if (diff.n !== 40 || diff.moves !== 79) throw new Error('compared only ' + diff.n + ' morphs and ' + diff.moves + ' moves');
+  } finally { await gp.close(); }
 });
 
 await T.finish();
