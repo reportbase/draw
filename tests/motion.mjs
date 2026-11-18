@@ -790,4 +790,25 @@ await step('an explainer compiled from files: a beat a file, each drawing morphi
   } finally { await ep.close(); }
 });
 
+/* A FLOW, IN THE EDITOR (18 Nov 2026, tvf-flow.js): the first scene said in code with the library, opened by its scene
+   link as the tool opens it. The editor takes it whole (no quiet fallback), every thing shown is a live morph, and the
+   file beside the script is what the script makes now (run `npm run flow -- flows/pythagoras.mjs` when it is not). */
+await step('a flow written in code opens in the editor, and its scene file is up to date', async () => {
+  await import('../tvf-flow.js');
+  const piece = (await import('../flows/pythagoras.mjs')).default(globalThis.TVF_FLOW);
+  const fp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  fp.on('pageerror', e => failures.push(`[a flow] ${e.message}`));
+  await fp.route(/fonts\.g/, r => r.abort());
+  try {
+    await fp.goto(new URL('draw.html', base).href + '#scene=' + globalThis.TVF_FLOW.code(piece), { waitUntil: 'load' });
+    await fp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
+    await fp.waitForTimeout(300);
+    const got = await fp.evaluate(() => ({ scene: window.__box.tvfScene(), warn: (window.__sceneWarnings || []).slice() }));
+    if (got.warn.length) throw new Error('the editor fell back on: ' + got.warn.join('; '));
+    if (piece.scene.morphs.length !== 12 || piece.scene.beats.length !== 3) throw new Error('the flow: ' + piece.scene.morphs.length + ' morphs, ' + piece.scene.beats.length + ' beats');
+    const kept = (await import('node:fs/promises')).readFile(new URL('../flows/pythagoras.tvfs', import.meta.url), 'utf8');
+    if (JSON.stringify(got.scene) !== await kept) throw new Error('flows/pythagoras.tvfs is not what flows/pythagoras.mjs makes: run npm run flow -- flows/pythagoras.mjs');
+  } finally { await fp.close(); }
+});
+
 await T.finish();

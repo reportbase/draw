@@ -135,5 +135,37 @@ step('what is not a curve file is refused, and says why', () => {
   want(why('TVF 4 1 2\n0 1 2 3 4\n') !== '', 'a curve with no y row was accepted');
 });
 
+// tvf-flow.js (18 Nov 2026): a scene said in code. What it promises is arithmetic, so it is checked here: seconds
+// become shares of the loop, things said in turn happen in turn, a pose holds between moves and to the end, words
+// light the morphs of the things they name, and what cannot be played is refused when it is written.
+const FLOW = await load('tvf-flow.js');
+const sq = (x, y) => FLOW.draw.rect(x, y, 10, 10, '#000');
+step('a flow: said in turn, played in turn; together starts together; stagger steps', () => {
+  const F = FLOW.flow({ w: 100, h: 100 }), a = F.shape('a', [sq(0, 0), sq(50, 0)]), b = F.shape('b', sq(0, 50)), c = F.shape('c', sq(50, 50));
+  F.beat('one', 'An [a](a) and [two more](b, c).', x => { x.show(a, { dur: 1 }); x.wait(1); x.go(a, 1, { dur: 2 }); }, { tail: 0 });        // 0–1, wait to 2, move 2–4
+  F.beat('two', x => { x.together(() => { x.show(b, { dur: 1 }); x.show(c, { dur: 3 }); }); x.wait(1); }, { tail: 0 });                    // both at 4; the cursor at 7, then 8
+  const p = F.build(), M = p.scene.morphs, near = (u, v) => Math.abs(u - v) < 2e-4;
+  want(p.seconds === 8 && p.scene.loop === 8, 'the loop: ' + p.seconds);
+  want(p.scene.stops.length === 1 && near(p.scene.stops[0], 0.5), 'the stop: ' + p.scene.stops);
+  want(M.length === 3 && near(M[0].clip.start, 0) && near(M[0].clip.in.len, 1 / 8), 'a\'s clip: ' + JSON.stringify(M[0].clip));
+  want(M[0].keys.join() === '0,0,1,1' && M[0].straight === true, 'a\'s keys hold before and after its move: ' + M[0].keys);
+  want(M[0].times.every((t, i) => near(t, [0, 0.25, 0.5, 0.9999][i])), 'a\'s times: ' + M[0].times);
+  want(near(M[1].clip.start, 0.5) && near(M[2].clip.start, 0.5) && M[1].keys.length === 1, 'together: ' + M[1].clip.start + ', ' + M[2].clip.start);
+  want(p.scene.beats[0].text === 'An [a](#lit:0) and [two more](#lit:1,2).', 'the words: ' + p.scene.beats[0].text);
+  const G = FLOW.flow({}), T = [0, 1, 2].map(i => G.shape('t' + i, sq(i * 20, 0)));
+  G.beat('s', x => x.stagger(T, 0.5, t => x.show(t, { dur: 1 })), { tail: 0 });
+  const q = G.build();
+  want(q.seconds === 2 && q.scene.morphs.map(m => m.clip.start).every((v, i) => near(v, i * 0.25)), 'stagger: ' + q.scene.morphs.map(m => m.clip.start));
+});
+step('a flow refuses what could not be played, and says which thing', () => {
+  const why = fn => { try { const F = FLOW.flow({}); fn(F); F.build(); return ''; } catch (e) { return e.message; } };
+  want(/two things called a/.test(why(F => { F.shape('a', sq(0, 0)); F.shape('a', sq(1, 1)); })), 'a name used twice');
+  want(/a has no pose 2/.test(why(F => { const a = F.shape('a', [sq(0, 0), sq(1, 1)]); F.beat('b', x => x.go(a, 2)); })), 'a pose that is not there');
+  want(/a is shown twice/.test(why(F => { const a = F.shape('a', sq(0, 0)); F.beat('b', x => { x.show(a); x.show(a); }); })), 'shown twice');
+  want(/while it is moving/.test(why(F => { const a = F.shape('a', [sq(0, 0), sq(1, 1)]); F.beat('b', x => x.together(() => { x.go(a, 1); x.go(a, 0); })); })), 'two moves at once');
+  want(/name c, which is not shown/.test(why(F => { const a = F.shape('a', sq(0, 0)); F.shape('c', sq(1, 1)); F.beat('b', 'A [thing](c).', x => x.show(a)); })), 'words naming what is not shown');
+  want(/needs a beat/.test(why(() => {})), 'no beat');
+});
+
 if (failures.length) { console.error(`\nunit: ${failures.length} failure(s):\n` + failures.map(f => '  ' + f).join('\n')); process.exit(1); }
 console.log('\nunit: no failures');
