@@ -4,8 +4,9 @@
 // places. The timeline is the run of the algorithm. Change the seed, the count or the sort and the scene follows; the
 // last beat's words count the comparisons and swaps the run made.
 //
-// A bar has a pose for every place in the row (a pose is a place here, since a morph is how a thing moves), so ten bars
-// are a hundred shapes, under the 150 past which the editor opens a scene as leaves.
+// A bar is one shape, drawn at the row's first place and moved (19 Nov 2026: the library's `move`, the editor's slide).
+// It was a pose for every place, ten bars a hundred shapes written and seventy-two kept, and sixteen bars were past the
+// 150 at which the editor opens a scene as leaves (1,622 KB). Now a scene of n bars is n + 4 shapes.
 //
 //   npm run flow -- flows/sort.mjs
 export default function (TVF_FLOW, opts = {}) {
@@ -25,10 +26,10 @@ export default function (TVF_FLOW, opts = {}) {
   // each bar, named by its height, with a pose for every place it could stand
   const bar = {};
   for (let v = 1; v <= N; v++)
-    bar[v] = F.shape('bar' + v, Array.from({ length: N }, (_, k) => draw.rect(X0 + k * STEP, BASE - v * UNIT, BW, v * UNIT, hue(v))));
-  // the bracket under the pair being looked at: a pose for each pair
-  const mark = F.shape('mark', Array.from({ length: N - 1 }, (_, k) =>
-    draw.line([[X0 + k * STEP, BASE + 14], [X0 + k * STEP, BASE + 26], [X0 + (k + 1) * STEP + BW, BASE + 26], [X0 + (k + 1) * STEP + BW, BASE + 14]], GOLD, 4)));
+    bar[v] = F.shape('bar' + v, draw.rect(X0, BASE - v * UNIT, BW, v * UNIT, hue(v)));
+  const at = k => [k * STEP, 0];                                  // the k-th place, from the first
+  // the bracket under the pair being looked at, drawn under the first pair
+  const mark = F.shape('mark', draw.line([[X0, BASE + 14], [X0, BASE + 26], [X0 + STEP + BW, BASE + 26], [X0 + STEP + BW, BASE + 14]], GOLD, 4));
   // the tops in order, drawn on at the end
   const stair = F.shape('stair', draw.line(Array.from({ length: N }, (_, k) => [[X0 + k * STEP, BASE - (k + 1) * UNIT - 8], [X0 + k * STEP + BW, BASE - (k + 1) * UNIT - 8]]).flat(), GOLD, 3));
 
@@ -48,18 +49,18 @@ export default function (TVF_FLOW, opts = {}) {
 
   // one comparison, said: the bracket goes to the pair, and the two bars change places if the left is the taller
   const say = (b, st, look, swap) => {
-    b.go(mark, st.i, { dur: look });
-    if (st.swap) b.swap(bar[st.left], st.i + 1, bar[st.right], st.i, { dur: swap });
+    b.move(mark, at(st.i), { dur: look });
+    if (st.swap) b.together(() => { b.move(bar[st.left], at(st.i + 1), { dur: swap }); b.move(bar[st.right], at(st.i), { dur: swap }); });
     else b.wait(look);
   };
 
   F.beat('Ten bars, out of order', `[${N} bars](${Object.values(bar).map(t => t.name).join(', ')}) stand in a row, shuffled.`, b => {
     b.show(base, { in: 'draw', dur: 0.7 });
-    b.stagger(row, 0.07, (v, k) => b.show(bar[v], { pose: k, dur: 0.4 }));      // (not reveal: each bar comes in at its own place)
+    b.stagger(row, 0.07, (v, k) => b.show(bar[v], { at: at(k), dur: 0.4 }));     // (not reveal: each bar comes in at its own place)
   });
   F.beat('Two neighbours at a time',
     `[A bracket](mark) looks at two neighbours. If the left one is the taller, they change places. One pass along the row carries [the tallest](bar${N}) to the end.`, b => {
-      b.show(mark, { pose: 0, dur: 0.3 });
+      b.show(mark, { dur: 0.3 });
       passes[0].forEach(st => say(b, st, 0.28, 0.5));
     });
   F.beat('Again, and again',

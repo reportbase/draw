@@ -10,7 +10,7 @@ import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { serveRoot } from './write-examples.mjs';
-import '../tvf-flow.js';
+import { flowEnv } from './flow-env.mjs';
 
 export async function compileFlow(base, piece) {
   const launch = { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] };
@@ -32,7 +32,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!file) { console.error('usage: npm run flow -- <a flow script .mjs> [--out file.tvfs]'); process.exit(2); }
   const server = await serveRoot();
   try {
-    const piece = (await import(pathToFileURL(file).href)).default(globalThis.TVF_FLOW);
+    const piece = (await import(pathToFileURL(file).href)).default(await flowEnv());
     const { scene, warnings } = await compileFlow(`http://127.0.0.1:${server.address().port}/`, piece);
     const to = out ? resolve(out) : file.replace(/\.mjs$/, '') + '.tvfs', text = JSON.stringify(scene);
     await writeFile(to, text);

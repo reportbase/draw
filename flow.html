@@ -13,8 +13,10 @@
   the script as it is typed, which is most of what makes writing a flow by hand quick: a pose that is not there, a
   thing shown twice, a word naming nothing, each with its thing's name.
 
-  The picture is the editor's animated SVG, so it loops and has no stops; "open in the editor" takes the same scene to
-  draw.html, where it is a live morph with its beats, and from there to a .tvfs. Opened from disk the examples cannot be
+  The picture was the editor's animated SVG, which loops and has no stops. Since 19 Nov 2026 (Tom: "1 3 5 6", the
+  third, "Stops in the playground") the hidden editor is asked for the scene file as well and the player beside this
+  page plays it: it waits at the end of each beat, the beat being read is lit in the list, and the buttons under the
+  picture go to the next beat, the one before, or the start. "Open in the editor" takes the same scene to draw.html. Opened from disk the examples cannot be
   fetched (a browser will not read a neighbour file from file://), so the page starts on the one written into it.
 -->
 <style>
@@ -41,6 +43,10 @@
   #stage { display: grid; place-items: center; padding: 14px; min-height: 0; overflow: hidden; }
   #stage img { max-width: 100%; max-height: 100%; border-radius: 10px; box-shadow: 0 10px 34px rgba(0,0,0,.45); }
   #stage .wait { color: var(--dim); }
+  #stage { grid-template-rows: 1fr auto; gap: 10px; }
+  #stage canvas { max-width: 100%; max-height: 100%; min-height: 0; border-radius: 10px; box-shadow: 0 10px 34px rgba(0,0,0,.45); cursor: pointer; }
+  #steps { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim); } #steps[hidden] { display: none; } #steps button { padding: 4px 10px; }
+  #beats p.now b { color: var(--gold); } #beats p.now { color: var(--fg); }
   #beats { border-top: 1px solid var(--line); padding: 9px 14px; max-height: 34vh; overflow: auto; font-size: 13px; color: var(--dim); }
   #beats b { color: var(--fg); font-weight: 600; } #beats p { margin: 0 0 6px; } #beats em { color: var(--gold); font-style: normal; }
   @media (max-width: 760px) { main { grid-template-columns: 1fr; grid-template-rows: 46vh 1fr; } .left { border-right: 0; border-bottom: 1px solid var(--line); } }
@@ -60,11 +66,14 @@
     <div id="say" role="status" aria-live="polite"></div>
   </div>
   <div class="right">
-    <div id="stage"><span class="wait">the scene plays here</span></div>
+    <div id="stage"><span class="wait" id="pic">the scene plays here</span>
+      <div id="steps" hidden><button id="sFirst" title="from the start">⏮</button><button id="sPrev" title="the beat before">◀</button><button id="sNext" title="play on to the end of the next beat">▶</button><span id="sWhere"></span></div></div>
     <div id="beats"></div>
   </div>
 </main>
 <script src="tvf-flow.js"></script>
+<script src="tvf-core.js"></script>
+<script src="player/tvf-player.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id), src = $('src'), say = $('say'), stage = $('stage');
@@ -96,7 +105,7 @@ export default function ({ flow, draw }) {
   return F.build();
 }
 `;
-  const FLOWS = [['', 'a ball (start here)'], ['flows/pythagoras.mjs', 'Pythagoras by rearrangement'], ['flows/sort.mjs', 'sorting, bar by bar'], ['flows/fourier.mjs', 'a square wave from sines'], ['flows/breath.mjs', 'three loops (the gallery\'s, ported)']];
+  const FLOWS = [['', 'a ball (start here)'], ['flows/pythagoras.mjs', 'Pythagoras by rearrangement'], ['flows/sort.mjs', 'sorting, bar by bar'], ['flows/fourier.mjs', 'a square wave from sines'], ['flows/kn.mjs', 'K, not N'], ['flows/breath.mjs', 'three loops (the gallery\'s, ported)']];
   for (const [file, name] of FLOWS) { const o = document.createElement('option'); o.value = file; o.textContent = name; $('pick').appendChild(o); }
 
   // THE HIDDEN EDITOR that turns a scene into a picture: one iframe, asked by message, answered by message
@@ -108,9 +117,9 @@ export default function ({ flow, draw }) {
     host.addEventListener('load', () => setTimeout(res, 400), { once: true }); document.body.appendChild(host); }));
   window.addEventListener('message', e => { const m = e.data;
     if (!host || e.source !== host.contentWindow || !m || m.type !== 'tvf-scene-svg' || !waiting.has(m.id)) return;
-    const res = waiting.get(m.id); waiting.delete(m.id); res(m.svg); });
+    const res = waiting.get(m.id); waiting.delete(m.id); res({ svg: m.svg, tvfs: m.tvfs || null }); });
   const picture = async code => { await hostUp(); const id = nextId++;
-    return new Promise(res => { waiting.set(id, res); host.contentWindow.postMessage({ type: 'tvf-scene-svg', id, code }, '*'); setTimeout(() => { if (waiting.delete(id)) res(null); }, 30000); }); };
+    return new Promise(res => { waiting.set(id, res); host.contentWindow.postMessage({ type: 'tvf-scene-svg', id, code, want: 'tvfs' }, '*'); setTimeout(() => { if (waiting.delete(id)) res(null); }, 30000); }); };
 
   // THE SCRIPT, RUN: as a module, the way `npm run flow` imports it, so what is written here is a file as it stands.
   // IN A BOX OF ITS OWN (18 Nov 2026, with "write it"): a script here may be one nobody has read, written by Claude a
@@ -121,7 +130,7 @@ export default function ({ flow, draw }) {
   const boxUp = () => boxReady || (boxReady = new Promise(res => {
     box = document.createElement('iframe'); box.setAttribute('sandbox', 'allow-scripts'); box.title = 'the flow\'s script, running'; box.setAttribute('aria-hidden', 'true');
     box.style.cssText = 'position:absolute;left:-9999px;top:0;width:10px;height:10px;border:0;visibility:hidden';
-    box.srcdoc = '<!doctype html><script src="' + new URL('tvf-flow.js', location.href).href + '"><\/script><script>'
+    box.srcdoc = '<!doctype html><script src="' + new URL('tvf-core.js', location.href).href + '"><\/script><script src="' + new URL('tvf-flow.js', location.href).href + '"><\/script><script>'
       + 'addEventListener("message", async e => { const m = e.data; if (!m || m.type !== "flow-run") return; let out;'
       + ' const url = URL.createObjectURL(new Blob([m.text], { type: "text/javascript" }));'
       + ' try { const mod = await import(url); if (typeof mod.default !== "function") throw new Error("the script\\u0027s default export is a function of the library");'
@@ -155,14 +164,38 @@ export default function ({ flow, draw }) {
     $('beats').innerHTML = S.beats.map((b, i) => `<p><b>${i + 1}. ${esc(b.title)}</b> ${esc(b.text).replace(/\[([^\]]+)\]\(#lit:[\d,]+\)/g, '<em>$1</em>').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')}</p>`).join('');
     window.__flow.state = { seconds: piece.seconds, beats: S.beats.length, morphs: S.morphs.length, code, picture: false };
     if (code === shown) { window.__flow.state.picture = true; return { ok: true }; }
-    const svg = await picture(code);
+    const got = await picture(code);
     if (mine !== turn) return;
-    if (!svg) { say.className = 'bad'; say.textContent = 'the editor did not answer with a picture'; return; }
+    if (!got || !got.svg) { say.className = 'bad'; say.textContent = 'the editor did not answer with a picture'; return; }
     shown = code;
-    const img = new Image(); img.alt = piece.name; img.src = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-    img.onload = () => { stage.replaceChildren(img); window.__flow.state.picture = true; };
+    if (got.tvfs && window.TVFPlayer) { playIt(piece, got.tvfs); return { ok: true }; }
+    // an editor that does not send the scene file (an old copy in the browser's cache): its picture, looping
+    const img = new Image(); img.alt = piece.name; img.id = 'pic'; img.src = URL.createObjectURL(new Blob([got.svg], { type: 'image/svg+xml' }));
+    img.onload = () => { $('pic').replaceWith(img); $('steps').hidden = true; window.__flow.state.picture = true; };
     return { ok: true };
   }
+  // THE PLAYER, AND ITS STOPS. A new canvas for each scene (the last one's frames stop with it); the scene plays to the
+  // end of its first beat and waits. The beat being played or waited at is lit in the list; a click on the picture or
+  // ▶ plays on, ◀ goes back a beat, ⏮ to the start.
+  let ctl = null, tick = 0;
+  function playIt(piece, tvfs) {
+    if (ctl) { ctl.pause && ctl.pause(); ctl = null; } clearInterval(tick);
+    const cv = document.createElement('canvas'), box = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(piece.svg), n = piece.scene.beats.length;
+    cv.id = 'pic'; cv.setAttribute('aria-label', piece.name); cv.style.aspectRatio = box ? box[1] + ' / ' + box[2] : '16 / 10'; cv.style.width = '100%';
+    $('pic').replaceWith(cv); $('steps').hidden = false;
+    const stops = piece.scene.stops || [];
+    const where = () => { if (!ctl) return; const at = ctl.playing ? -1 : stops.findIndex(x => Math.abs(x - ctl.t) < 1e-6),      // waiting at a stop: the beat it ends
+      k = Math.min(n - 1, at >= 0 ? at : stops.filter(x => x <= ctl.t + 1e-6).length);
+      [...$('beats').children].forEach((p, i) => p.classList.toggle('now', i === k));
+      $('sWhere').textContent = 'beat ' + (k + 1) + ' of ' + n + (ctl.playing ? '' : ' · waiting');
+      Object.assign(window.__flow.state, { beat: k + 1, playing: !!ctl.playing, t: ctl.t }); };
+    ctl = window.TVFPlayer.play(cv, tvfs, { autoplay: true, onstop: where });
+    ctl.ready.then(() => { window.__flow.state.picture = true; window.__flow.state.player = true; where(); });
+    tick = setInterval(where, 200);
+  }
+  $('sNext').addEventListener('click', () => { if (ctl) ctl.playing ? 0 : ctl.next ? ctl.next() : ctl.play(); });
+  $('sPrev').addEventListener('click', () => { if (ctl && ctl.prev) ctl.prev(); });
+  $('sFirst').addEventListener('click', () => { if (ctl) { ctl.seek(0); ctl.play(); } });
   let wait = 0; const soon = () => { clearTimeout(wait); wait = setTimeout(make, 350); };
   src.addEventListener('input', () => { try { localStorage.setItem('tvf-flow-playground', src.value); } catch (_) {} soon(); });
   // Tab types two spaces: a script is indented, and Tab leaving the box loses the place
@@ -197,6 +230,7 @@ export default function ({ flow, draw }) {
     'b.together(() => { ... })          everything inside starts at the same moment',
     'b.stagger(list, gap, (item, i) => { ... })   the same thing for each item, each starting gap seconds after the last',
     'b.reveal(things, { gap, dur })   b.relay(things, pose, { gap, dur })   b.leave(things, { gap, dur })   b.swap(x, i, y, j, { dur })',
+    'b.move(t, [right, down], { dur, ease: "inout" | "linear" })   to another place with no other pose: [right, down] from where the thing is drawn, in the picture\'s units ([0, 0] is home); b.show(t, { at: [right, down] }) shows it somewhere else to begin with. Use move, not poses, when a thing only changes place; it works for things drawn with draw.poly, rect, ring or line.',
     'b.act(t, { kind: "bounce" | "fall" | "throw" | "roll" | "sway" | "swing", amount }, { dur })   a motion worked out for a body; such a thing has one pose and is shown by its act',
     '',
     'Keep it under 100 shapes in all, 2 to 5 beats, 8 to 30 seconds. Use plain JavaScript (loops, Math) to work positions out; no imports, no DOM, no timers. Stay inside the w by h picture. Prefer few things that move meaningfully to many that do not.',

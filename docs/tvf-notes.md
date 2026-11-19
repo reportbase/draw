@@ -67,6 +67,13 @@ through it, and the sorting flow (`docs/explainers.md`, "A scene composed in cod
     steps was 164 shapes, opened as leaves, 911 KB; without those six labels it is exact and 216 KB. Words that
     change are dear: each version is all its letters again. (Its twelve curves of 241 points each are twelve.)
 
+16. **A place no longer needs a pose** (19 Nov 2026; notes 4 and 14 as they were found stand above). The editor's
+    `slide` motion carries one shape through stops, and the library's `move` writes it. The sort at 16 bars is 20
+    shapes and 23.9 KB, exact (it was 165 shapes, opened as leaves, 1,622 KB); at 40 bars, 44 shapes and 66.5 KB. The
+    150 still stands for scenes whose things change outline; it is no longer met by things that only change place.
+    A slide is in the shape's own size, since a motion does not know the drawing's units; the library converts, and
+    can only measure outlines of straight sides.
+
 **What follows from these**
 
 The format is a good thing to compile to and a poor thing to write by hand. What makes it awkward to author
@@ -74,9 +81,7 @@ The format is a good thing to compile to and a poor thing to write by hand. What
 program to reason about. The limit that matters for larger scenes is note 14: a scene of many simple things that
 move among many places reaches 150 keys quickly, and past it the cost is not gradual.
 
-Open: whether a place could be said without a pose (a morph that carries its one key along a line it is given, as
-`path` does for a shape to ride) so that a bar in ten places is one shape; whether a thing could have more than one
-window.
+Open: whether a thing could have more than one window. (A place without a pose was open here; see note 16.)
 
 ## K, not N (18 Nov 2026)
 

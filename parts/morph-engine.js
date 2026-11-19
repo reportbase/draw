@@ -2747,7 +2747,7 @@
         // It acts on the pose after its path and spin, in the page's own up and across (gravity is down the page),
         // measured from where the pose is placed and from the shape's own size (its first key), and before a parent
         // carries it. The ground is where the shape was drawn: a ball drawn on the floor bounces off it.
-        const MORPH_MOTIONS = ['bounce', 'fall', 'swing', 'spring', 'roll', 'throw', 'sway', 'pop', 'drift', 'chain'],
+        const MORPH_MOTIONS = ['bounce', 'fall', 'swing', 'spring', 'roll', 'throw', 'sway', 'pop', 'drift', 'slide', 'chain'],
             MORPH_MOTION_PIVOTS = ['top', 'bottom', 'left', 'right', 'centre'],
             MORPH_MOTION_ALONG = ['y', 'x', 'scale', 'turn'];
         // a motion as a record holds it: its kind and its numbers, each within reach, or null
@@ -2795,6 +2795,20 @@
                 const to = Array.isArray(m.to) ? m.to : [];
                 o.to = [num(to[0], -200, 200, 0), num(to[1], -200, 200, -8)];
                 o.amount = num(m.amount, 0, 20, 0.5);
+            } else if (m.kind === 'slide') {
+                // A PLACE WITHOUT A POSE (19 Nov 2026, Tom: "1 3 5 6", the first: "Move without a pose for every place").
+                // A shape stood somewhere else by being another shape: ten bars that may each stand in ten places were
+                // a hundred shapes, and a scene past 150 opens as leaves at twenty times the size (docs/tvf-notes.md,
+                // notes 4 and 14). A slide is the place alone, said as stops: [u, right, up] or [u, right, up, 'linear'],
+                // u from 0 to 1 through the cycle (the clip's window), right and up from where the shape is drawn, in
+                // its own size (the larger of its width and its height, so a flat line has a size too). Between two
+                // stops it goes straight, easing in and out unless the later stop says linear; two stops at one place
+                // are a wait; before the first and after the last it stays. One shape, as many places as it likes.
+                const stops = (Array.isArray(m.stops) ? m.stops : []).slice(0, 256).map(q => Array.isArray(q) ? [num(q[0], 0, 1, NaN), num(q[1], -1000, 1000, 0), num(q[2], -1000, 1000, 0), q[3] === 'linear' ? 'linear' : ''] : null)
+                    .filter(q => q && Number.isFinite(q[0])).sort((a, b) => a[0] - b[0]);
+                if (!stops.length)
+                    return null;
+                o.stops = stops.map(q => q[3] ? q : q.slice(0, 3));
             } else { // pop
                 o.amount = num(m.amount, 0, 1, 0.5);
             }
@@ -3354,6 +3368,18 @@
                     const f = Math.max(0.001, Math.min(1, u / 0.08, (1 - u) / 0.08));
                     sx = sy = f;
                 }
+            } else if (M.kind === 'slide') {
+                // where its stops put it at u: the stop before and the stop after, and the share of the way between
+                const S = M.stops, unit = 2 * Math.max(Z.w, Z.h);
+                let i = 0;
+                while (i < S.length - 1 && u >= S[i + 1][0])
+                    i++;
+                const a = S[i], b = S[Math.min(S.length - 1, i + 1)];
+                let f = a === b || u <= a[0] ? 0 : Math.min(1, (u - a[0]) / (b[0] - a[0]));
+                if (b[3] !== 'linear')
+                    f = f * f * (3 - 2 * f);
+                dx = (a[1] + (b[1] - a[1]) * f) * unit;
+                dy = (a[2] + (b[2] - a[2]) * f) * unit;
             } else if (M.kind === 'pop') {
                 // from nothing to its size, overshooting and settling: a damped spring let go at the start
                 const d = 3 + 9 * (1 - M.amount),

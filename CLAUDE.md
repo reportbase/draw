@@ -136,7 +136,8 @@ shapes are in; `window.__explainer`). A shape finds its partner in the next file
 **A scene composed in code** (18 Nov 2026, Tom: "Tvf is better at composing a flow of animations with code", "Let's keep
 pushing TVF into larger situations"; `tvf-flow.js`, `docs/explainers.md`): `TVF_FLOW.flow()` is the way to write a new
 scene in code. Things have poses (`shape(name, [svg, …])`); a beat says what happens in seconds from a cursor
-(`show`, `go`, `act` for a motion the editor computes, `hide`, `wait`, `look`, with `together` and `stagger`), and
+(`show`, `go`, `move` to another place with no other pose, `act` for a motion the editor computes, `hide`, `wait`,
+`look` and `follow` for the camera, with `together` and `stagger`), and
 `[words](name, name)` in its text lights those things (a `group` names several). `build()` gives `{ name, svg, scene }`, what a SHOWPIECE is, and the library keeps the rules below (an
 `in` on every clip, a pose held between moves and to the end, `#lit:` by name), refusing what could not be played.
 A flow is a script in `flows/` whose default export takes the library; `npm run flow -- flows/x.mjs` opens it in the
@@ -146,7 +147,11 @@ say is added there, with a check, not worked out again in a scene. A move said m
 `reveal`, `relay`, `leave` and `swap` come with it). `flow.html` is the playground: a script typed, the scene played,
 through the hidden editor (`draw.html?embed=1`); a flow in `flows/` is offered in its list (`FLOWS` in the page). Its **write it** asks Claude for a flow (`SYS`
 there is the library's brief: a word added to the library is added to it) and sends a refusal back to be put right;
-every script runs in a frame of no origin, since one may be unread. `flows/breath.mjs` is the gallery's `breath` said
+every script runs in a frame of no origin, since one may be unread. It plays the scene with the player and waits at each beat
+(the embed sends the scene file when asked, `want: 'tvfs'`). A flow may use the curve library (`globalThis.TVF_CORE`;
+`tools/flow-env.mjs` sets it and the library up under Node, and a check that imports a flow calls it first).
+**`slide`** is the editor's motion for a place without a pose (19 Nov 2026, `parts/morph-engine.js`): a new kind of
+motion goes in `MORPH_MOTIONS`, `morphMotionOk`, `morphMotionMap` and `ANIM_MORPH_FIELDS`, then `npm run player`. `flows/breath.mjs` is the gallery's `breath` said
 again, and motion compares the two scenes move for move: a change to either that makes them differ fails it.
 
 **Making a scene or an explainer** (the rules found making them; the rest is in

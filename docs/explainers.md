@@ -322,5 +322,35 @@ storage, where the sign-in is; what it builds comes back by message as data.
 harmonics at 1, 2, 3, 5, 9 and 20 terms, the harmonic being added below it, 241 points a curve; 21.1 s, four beats,
 216 KB. The last beat's words are measured in the script: the sum stands above the wave beside each jump by 9.1%,
 9.0% and 9.0% of the jump at 5, 9 and 20 terms (Gibbs's 8.95%; 13.7% with one sine).
-    Not done: a camera that follows a thing (the scene's camera is boxes at times), an emitter or a trail given a
-word of its own (they pass through as fields), reusable named moves, and the gallery adopting the library.
+    **A place without a pose, stops in the playground, a camera that follows, and K, not N** (19 Nov 2026, Tom:
+"1 3 5 6", of seven things offered). *A place without a pose.* The editor has a new motion, `slide` (in
+`parts/morph-engine.js`, A PLACE WITHOUT A POSE): `stops: [[u, right, up], …]`, u through the cycle or the clip, right
+and up from where the shape is drawn in its own size (the larger of its width and height), straight and eased between
+stops (`'linear'` as a fourth entry for an even pace), two stops at one place a wait. It is a motion like the others,
+so the scene link, the `.tvfs` and the player carry it with nothing added, and `ANIM_MORPH_FIELDS` tells the AI of it.
+The library's word is `move(thing, [right, down], { dur, ease })`, in the drawing's units from where the thing is
+drawn, and `show(thing, { at: [right, down] })` to begin somewhere else; it measures the thing's size from its pose,
+which it can only do for straight sides (a polygon's points, a path of M and L), and says so otherwise. A thing moved
+may still go from pose to pose; it may not also act. The sort is one shape a bar now: 14 shapes and 12.5 KB at ten
+bars (72 and 34 KB), 20 and 23.9 KB at sixteen (165, opened as leaves, 1,622 KB), 44 and 66.5 KB at forty, every one
+exact. The pictures at ten bars are the ones the poses gave.
+    *Stops in the playground.* The embed's converter sends the scene file too when asked (`want: 'tvfs'`), and
+`flow.html` plays it with the player (`tvf-core.js` and `player/tvf-player.js` beside it): it waits at the end of a
+beat, the beat being read is lit in the list, and ⏮ ◀ ▶ under the picture go to the start, back a beat and on. An
+editor that sends no scene file (an old copy in a cache) still gets its looping picture.
+    *A camera that follows.* `follow(thing, { pad, dur })`: the camera goes to the thing and stays on it as it is
+moved, until `look` or another `follow`. The scene's camera is boxes at times and eases between them as a slide does
+between stops, so the library writes a box (the camera's `box`, in the drawing's units) where each move starts and
+ends and the thing stays framed; a linear move drifts in the frame between. For things that are moved. A scene whose
+first camera is a follow opens on the thing; `look` first for a wide opening.
+    *K, not N* (`flows/kn.mjs`, `gallery/explained.html?src=../flows/kn.tvfs`): the first explainer written from
+nothing in the library on a subject of its own, after `docs/tvf-notes.md`'s "K, not N". A drawing of 720 points is read
+at 16 leaves (the curve library's `leafPositions`), let go, and made again by the curve library's own `reconstruct`;
+then at 32 and 64. Measured in the script and said in its words: every rebuilt curve meets its leaves to 11 decimal
+places; 16 leaves stay within 24 units of a drawing 400 across, 32 within 8.5, and 64 give the drawing back (its
+finest wiggle goes round 23 times). Then a field: 81 things even along the ground laid on the turn, crowding to the
+horizon, and 16 places even on the turn, 8 inside one thumb, what lies past 8 thumbs in the last 8%. A flow may now
+use the curve library (`globalThis.TVF_CORE`; `tools/flow-env.mjs` gives it under Node, the playground's box loads
+it). 24.9 s, five beats, 178 KB.
+    Not done: a thing that leaves and comes back, words that change without a shape a letter, an emitter or a trail
+given a word of its own, the gallery adopting the library, and "write it" tried with Claude itself.

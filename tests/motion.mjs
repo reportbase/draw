@@ -794,13 +794,16 @@ await step('an explainer compiled from files: a beat a file, each drawing morphi
    link as the tool opens it. The editor takes it whole (no quiet fallback), every thing shown is a live morph, and the
    file beside the script is what the script makes now (run `npm run flow -- flows/pythagoras.mjs` when it is not). */
 await step('a flow written in code opens in the editor, and its scene file is up to date', async () => {
-  await import('../tvf-flow.js');
+  await (await import('../tools/flow-env.mjs')).flowEnv();          // the library, and the curve library a flow may use
   const { readFile } = await import('node:fs/promises');
   // each flow: its script, the morphs and beats it should make, and what else to ask of it
   const FLOWS = [['pythagoras', 12, 3, () => ''],
-    ['sort', 13, 4, p => p.run.sorted.join() === '1,2,3,4,5,6,7,8,9,10' && p.run.swaps === 30 && /looked at 45 pairs in 9 passes and made 30 swaps/.test(p.scene.beats[3].text) ? '' : 'the run: ' + JSON.stringify(p.run)]];
+    ['sort', 13, 4, p => p.run.sorted.join() === '1,2,3,4,5,6,7,8,9,10' && p.run.swaps === 30 && (p.svg.match(/<(polygon|path)\b/g) || []).length === 13 && p.scene.morphs[p.at.bar10[0]].motion.kind === 'slide' && /looked at 45 pairs in 9 passes and made 30 swaps/.test(p.scene.beats[3].text) ? '' : 'the run: ' + JSON.stringify(p.run)]];
   // the Fourier flow's words are its run's: the overshoot beside a jump settles at Gibbs's 8.95% of the jump, measured there
   FLOWS.push(['fourier', 11, 4, p => Math.abs(p.run.over[5] - 0.0895) < 0.0006 && p.run.over[0] > p.run.over[5] && /by 9\.1%, 9\.0% and 9\.0% of the jump/.test(p.scene.beats[3].text) ? '' : 'the overshoot: ' + p.run.over.map(v => v.toFixed(4)) + ' | ' + p.scene.beats[3].text.slice(60, 160)]);
+  // K, not N: the curve library's own rebuild meets its leaves, 64 leaves give this drawing back, half the places inside one thumb
+  FLOWS.push(['kn', 31, 5, p => p.run.built.every(b => b.atLeaf < 1e-9) && p.run.built[0].off > 20 && p.run.built[1].off < 9 && p.run.built[2].off < 1e-9 && p.run.inside === 8
+    && /At 64 it is the drawing again, to 11 decimal places/.test(p.scene.beats[3].text) ? '' : 'the run: ' + JSON.stringify(p.run)]);
   for (const [id, morphs, beats, also] of FLOWS) {
     const piece = (await import(`../flows/${id}.mjs`)).default(globalThis.TVF_FLOW);
     if (piece.scene.morphs.length !== morphs || piece.scene.beats.length !== beats) throw new Error(id + ': ' + piece.scene.morphs.length + ' morphs, ' + piece.scene.beats.length + ' beats');
@@ -825,7 +828,7 @@ await step('a flow written in code opens in the editor, and its scene file is up
    the stops and the words with what they light. The two must tell the same story to a thousandth of the loop. A hold
    is not a move, so the gallery's key given again and the library's are the same thing here. */
 await step("a flow tells the gallery's own explainer: breath, the same shapes, moves, camera and words", async () => {
-  await import('../tvf-flow.js');
+  await (await import('../tools/flow-env.mjs')).flowEnv();
   const mine = (await import('../flows/breath.mjs')).default(globalThis.TVF_FLOW);
   const gp = await browser.newPage();
   gp.on('pageerror', e => failures.push(`[breath as a flow] ${e.message}`));
@@ -873,10 +876,16 @@ await step('the flow playground: a script becomes a playing picture, and a refus
   try {
     await pp.goto(new URL('flow.html', base).href, { waitUntil: 'load' });
     await pp.waitForFunction(() => window.__flow && window.__flow.state.picture, null, { timeout: 60000 });
-    const st = () => pp.evaluate(() => ({ say: document.getElementById('say').textContent, cls: document.getElementById('say').className, img: !!document.querySelector('#stage img') && document.querySelector('#stage img').naturalWidth > 0,
+    const st = () => pp.evaluate(() => ({ say: document.getElementById('say').textContent, cls: document.getElementById('say').className, img: !!document.querySelector('#stage canvas#pic') && document.querySelector('#stage canvas#pic').width > 50,
       beats: document.querySelectorAll('#beats p').length, lit: document.querySelectorAll('#beats em').length, open: document.getElementById('open').getAttribute('href') || '' }));
     let s = await st();
     if (!/^5\.1 s · 2 beats · 3 things moving/.test(s.say) || s.cls !== 'ok' || !s.img || s.beats !== 2 || s.lit !== 3 || !/^draw\.html#scene=r/.test(s.open)) throw new Error('as it opens: ' + JSON.stringify(s).slice(0, 300));
+    // it is the player now, and it waits at the end of a beat (19 Nov 2026): the first beat lit, ▶ plays the second to the end, ◀ goes back
+    const beat = () => pp.evaluate(() => [window.__flow.state.player, window.__flow.state.beat, window.__flow.state.playing, document.getElementById('sWhere').textContent, [...document.querySelectorAll('#beats p')].findIndex(p => p.classList.contains('now'))].join());
+    await pp.waitForFunction(() => window.__flow.state.player && window.__flow.state.playing === false, null, { timeout: 30000 });
+    const b1 = await beat(); await pp.click('#sNext'); await pp.waitForFunction(() => window.__flow.state.playing === false && window.__flow.state.t > 0.99, null, { timeout: 30000 });
+    const b2 = await beat(); await pp.click('#sPrev'); await pp.waitForFunction(() => window.__flow.state.beat === 1, null, { timeout: 10000 });
+    if (b1 !== 'true,1,false,beat 1 of 2 · waiting,0' || b2 !== 'true,2,false,beat 2 of 2 · waiting,1' || await beat() !== b1) throw new Error('the stops: ' + b1 + ' | ' + b2 + ' | ' + await beat());
     await pp.selectOption('#pick', 'flows/sort.mjs');
     await pp.waitForFunction(() => window.__flow.state.picture && window.__flow.state.beats === 4, null, { timeout: 60000 });
     s = await st(); if (!/^27\.9 s · 4 beats · 13 things moving/.test(s.say)) throw new Error('the sort: ' + s.say);
