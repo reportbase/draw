@@ -804,7 +804,14 @@ await step('a flow written in code opens in the editor, and its scene file is up
   // K, not N: the curve library's own rebuild meets its leaves, 64 leaves give this drawing back, half the places inside one thumb
   FLOWS.push(['kn', 31, 5, p => p.run.built.every(b => b.atLeaf < 1e-9) && p.run.built[0].off > 20 && p.run.built[1].off < 9 && p.run.built[2].off < 1e-9 && p.run.inside === 8
     && /At 64 it is the drawing again, to 11 decimal places/.test(p.scene.beats[3].text) ? '' : 'the run: ' + JSON.stringify(p.run)]);
-  for (const [id, morphs, beats, also] of FLOWS) {
+  // a line of algebra: its moving things are words, moved in the drawing's units, which the editor turns to each one's size
+  FLOWS.push(['algebra', 10, 5, p => { const m = p.scene.morphs[p.at.five[0]].motion; return m.kind === 'slide' && m.units === 'svg' && m.stops[m.stops.length - 1][1] === 282 ? '' : 'the five: ' + JSON.stringify(m); },
+    // in the editor the five went 282 of the drawing's units, whatever its own width: its last stop times its size, against
+    // the terms as drawn (the 3's left to the minus's right, some 425)
+    S => { const m = S.morphs.find(m => m.fill && m.fill.color === '#c4593d' && m.own.motion && m.own.motion.stops.length === 3), k = m.keys[0], w = Math.max(...k.x) - Math.min(...k.x), h = Math.max(...k.y) - Math.min(...k.y),
+        all = S.morphs.concat(S.items || []).flatMap(q => q.keys ? q.keys[0].x : q.x || []), span = Math.max(...all) - Math.min(...all), went = m.own.motion.stops[2][1] * Math.max(w, h);
+      return !m.own.motion.units && went > 0.62 * span && went < 0.72 * span ? '' : 'the five went ' + went + ' of ' + span; }]);
+  for (const [id, morphs, beats, also, inEditor] of FLOWS) {
     const piece = (await import(`../flows/${id}.mjs`)).default(globalThis.TVF_FLOW);
     if (piece.scene.morphs.length !== morphs || piece.scene.beats.length !== beats) throw new Error(id + ': ' + piece.scene.morphs.length + ' morphs, ' + piece.scene.beats.length + ' beats');
     const more = also(piece); if (more) throw new Error(id + ': ' + more);
@@ -816,6 +823,7 @@ await step('a flow written in code opens in the editor, and its scene file is up
       await fp.waitForFunction(() => !/scene=/.test(location.hash) && window.__box && window.__box.morph(), null, { timeout: 60000 });
       await fp.waitForTimeout(300);
       const got = await fp.evaluate(() => ({ scene: window.__box.tvfScene(), warn: (window.__sceneWarnings || []).slice() }));
+      const said = inEditor ? inEditor(got.scene) : ''; if (said) throw new Error(id + ': ' + said);
       if (got.warn.length) throw new Error(id + ': the editor fell back on: ' + got.warn.join('; '));
       if (JSON.stringify(got.scene) !== await readFile(new URL(`../flows/${id}.tvfs`, import.meta.url), 'utf8')) throw new Error(`flows/${id}.tvfs is not what flows/${id}.mjs makes: run npm run flow -- flows/${id}.mjs`);
     } finally { await fp.close(); }

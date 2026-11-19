@@ -396,7 +396,8 @@
                 return out;
             }
             // A CAMERA, AND STOPS, from a scene: a key frames shapes of the scene by their number ("fit": a list,
-            // or "all"; "pad" the margin round them, a share of their size, 0.12 if not given), or gives a box
+            // or "all"; "pad" the margin round them, a share of their size, 0.12 if not given; "by" where they
+            // stand then, from where they are drawn), or gives a box
             // in the scene's svg's own units ("box": [x0, y0, x1, y1], y down), which is how the editor writes
             // one back (THE SCENE LINK, WRITTEN BY THE EDITOR)
             function sceneCameraIn(d, S) {
@@ -423,6 +424,17 @@
                         if (isFinite(x0)) {
                             const pad = clamp(k.pad, 0, 3, 0.12) * Math.max(x1 - x0, y1 - y0);
                             box = [x0 - pad, y0 - pad, x1 + pad, y1 + pad];
+                            // the shapes as they stand somewhere else ("by": [right, down] in the svg's units): a
+                            // thing a slide has moved is framed where it is then, by whoever knows where but not
+                            // how large it is (a flow's follow)
+                            if (Array.isArray(k.by) && Number.isFinite(+k.by[0]) && Number.isFinite(+k.by[1])) {
+                                if (R === undefined)
+                                    R = typeof window.__sceneBoxOf === 'function' ? window.__sceneBoxOf(d.svg, S) : null;
+                                if (R) {
+                                    const q = R.half / 500;
+                                    box = [box[0] + q * k.by[0], box[1] - q * k.by[1], box[2] + q * k.by[0], box[3] - q * k.by[1]];
+                                }
+                            }
                         }
                     } else if (Array.isArray(k.box) && k.box.length === 4 && k.box.every(v => Number.isFinite(+v))) {
                         if (R === undefined)
@@ -569,6 +581,23 @@
             }
             // What an entry of `morphs` gives the run it made: its clock, path, timing, clip and trail.
             // partial: only what the entry names changes (the AI's "change it"), else the defaults.
+            // A SLIDE SAID IN THE DRAWING'S UNITS (19 Nov 2026, Tom: "Ok", to moving circles and text). The engine's slide
+            // counts in the shape's own size, which whoever writes a scene then has to know: tvf-flow.js measured it
+            // from a polygon's corners and refused a circle, a curve and a word, whose sizes are the editor's to say
+            // (a word's is its font's). A slide with "units": "svg" gives its stops as [u, right, up] in the svg's
+            // units instead, and is turned to the shape's own size here, where the shape is in hand: the drawing's
+            // scale as a camera's box is read (__sceneBoxOf) over the size the engine will count in. What is written
+            // back (sceneOfEditor) is the engine's own, so a file and the player never see the word.
+            function sceneSlideIn(run, M, d, S) {
+                if (!M || M.kind !== 'slide' || M.units !== 'svg' || !Array.isArray(M.stops))
+                    return M;
+                const R = typeof window.__sceneBoxOf === 'function' ? window.__sceneBoxOf(d.svg, S) : null,
+                    Z = morphMotionSize(run),
+                    k = R ? R.half / 500 / (2 * Math.max(Z.w, Z.h)) : 0;
+                if (!(k > 0) || !isFinite(k))
+                    return M;
+                return { kind: 'slide', stops: M.stops.map(q => Array.isArray(q) ? [q[0], +(q[1] * k).toFixed(5), +(q[2] * k).toFixed(5)].concat(q[3] === 'linear' ? ['linear'] : []) : q) };
+            }
             function sceneRunOwn(run, o, d, S, partial) {
                 const has = k => !partial || o[k] !== undefined;
                 if (has('phase'))
@@ -578,7 +607,7 @@
                 if (has('spin'))
                     run.spin = Number.isFinite(+o.spin) ? +o.spin : 0;
                 if (has('motion')) // PHYSICAL MOTIONS; CONTACT: `onto` a shape of the link, by its number, followed
-                    morphMotionSet(run, o.motion, S);
+                    morphMotionSet(run, sceneSlideIn(run, o.motion, d, S), S);
                 if (has('laps'))
                     run.laps = Math.max(1, Math.round(+o.laps || 1));
                 if (has('at'))

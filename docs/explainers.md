@@ -354,3 +354,20 @@ use the curve library (`globalThis.TVF_CORE`; `tools/flow-env.mjs` gives it unde
 it). 24.9 s, five beats, 178 KB.
     Not done: a thing that leaves and comes back, words that change without a shape a letter, an emitter or a trail
 given a word of its own, the gallery adopting the library, and "write it" tried with Claude itself.
+
+
+    **Circles and words move too, and a line of algebra** (19 Nov 2026, later; Tom, after the playground's "write it"
+wrote him a scene: "It works. It seems more suitable for geometry or algebra explainers", then "Ok" to moving circles
+and text first). `move` and `follow` refused anything but straight sides, because the engine's slide counts in the
+shape's own size and the library had to measure it. A step of algebra is a term crossing, and a term is a word. Now
+the library writes a slide's stops in the drawing's units (`units: 'svg'`) and `sceneSlideIn` in `parts/scene-link.js`
+turns them to the shape's size where the shape is in hand (the drawing's scale from `__sceneBoxOf`, over
+`morphMotionSize`); a followed thing's camera keys are `{ fit: [shape], pad, by: [right, down] }`, which
+`sceneCameraIn` frames and shifts. What the editor writes back is the engine's own, so a `.tvfs` and the player never
+see either word, and `flows/sort.tvfs` and `flows/kn.tvfs` came out the same to the byte. A word is a shape a
+letter and each letter is given the same distance by its own size (probed: "3x" moved 200 of 400, the 3 by 9.40291 of
+its sizes and the x by 12.43781, both 0.9 of the editor's units). `boxOf` and `sizeOf` are gone from `tvf-flow.js`;
+`draw.circle` is a true circle. `flows/algebra.mjs` solves 3x + 5 = 20 in five beats, a thing a term: the five
+crosses and its sign turns, twenty less five is fifteen, the three goes under, five. The playground's brief (`SYS`)
+says anything moves and that a term is a thing. Motion's flow check opens it and asks that the five went 282 of the
+drawing's units in the editor. Not done: a word followed is framed by its first letter; terms are placed by hand.

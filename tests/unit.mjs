@@ -198,11 +198,17 @@ step('a flow: a thing moved is one shape with a slide, and a camera that follows
     x.wait(1); x.move(a, [50, -10], { dur: 2 }); x.wait(1); x.move(a, [0, 0], { dur: 4, ease: 'linear' }); }, { tail: 0 });
   const p = F.build(), m = p.scene.morphs[p.at.a[0]], n = (p.svg.match(/<polygon/g) || []).length;
   want(p.seconds === 8 && n === 2 && m.keys.length === 1 && m.motion.kind === 'slide', 'one shape and a slide: ' + n + ' ' + JSON.stringify(m.motion).slice(0, 80));
-  // its size is 10 (a square of 10): 20 right is 2 sizes; down is minus up; the place given again where a move starts
-  want(JSON.stringify(m.motion.stops) === '[[0,2,0],[0.125,2,0],[0.375,5,1],[0.5,5,1],[1,0,0,"linear"]]', 'the stops: ' + JSON.stringify(m.motion.stops));
-  want(JSON.stringify(p.scene.camera) === '[{"t":0,"box":[20,10,50,40]},{"t":0.125,"box":[20,10,50,40]},{"t":0.375,"box":[50,0,80,30]},{"t":0.5,"box":[50,0,80,30]},{"t":0.9999,"box":[0,10,30,40]}]', 'the camera: ' + JSON.stringify(p.scene.camera));
+  // in the drawing's own units, which the editor turns to the shape's size: down is minus up; the place given again
+  // where a move starts
+  want(m.motion.units === 'svg' && JSON.stringify(m.motion.stops) === '[[0,20,0],[0.125,20,0],[0.375,50,10],[0.5,50,10],[1,0,0,"linear"]]', 'the stops: ' + JSON.stringify(m.motion));
+  // the camera frames the thing's own shape, moved by where it is then: the size is the editor's to know
+  want(JSON.stringify(p.scene.camera) === '[{"t":0,"fit":[1],"pad":1,"by":[20,0]},{"t":0.125,"fit":[1],"pad":1,"by":[20,0]},{"t":0.375,"fit":[1],"pad":1,"by":[50,-10]},{"t":0.5,"fit":[1],"pad":1,"by":[50,-10]},{"t":0.9999,"fit":[1],"pad":1,"by":[0,0]}]', 'the camera: ' + JSON.stringify(p.scene.camera));
   const why = fn => { try { const G = FLOW.flow({}); fn(G); G.build(); return ''; } catch (e) { return e.message; } };
-  want(/cannot be moved: only a thing drawn with straight sides/.test(why(G => { const c = G.shape('c', '<circle cx="5" cy="5" r="4"/>'); G.beat('b', x => x.move(c, [9, 9])); })), 'a circle element moved');
+  // a circle and a word are moved and followed as a square is (19 Nov 2026: they were refused, having no corners to measure)
+  { const G = FLOW.flow({}), c = G.shape('c', FLOW.draw.circle(5, 5, 4)), t = G.shape('t', FLOW.draw.text(0, 30, '3x'));
+    G.beat('b', x => { x.show(c, { in: 'cut' }); x.show(t, { in: 'cut' }); x.follow(t, { dur: 0 }); x.together(() => { x.move(c, [9, 9]); x.move(t, [-4, 0]); }); });
+    const q = G.build(), st = k => JSON.stringify(q.scene.morphs[k].motion.stops.slice(-1)[0].slice(1));
+    want(st(0) === '[9,-9]' && st(1) === '[-4,0]' && q.scene.camera.every(k => k.fit[0] === 1 && k.by), 'a circle and a word moved: ' + st(0) + ' ' + st(1) + ' ' + JSON.stringify(q.scene.camera)); }
   want(/cannot also be moved/.test(why(G => { const c = G.shape('c', sq(0, 0)); G.beat('b', x => { x.act(c, { kind: 'bounce' }); x.move(c, [9, 9]); }); })), 'acting and moving');
   want(/while it is moving/.test(why(G => { const c = G.shape('c', sq(0, 0)); G.beat('b', x => x.together(() => { x.move(c, [9, 9]); x.move(c, [1, 1]); })); })), 'two moves at once');
 });
