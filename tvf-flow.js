@@ -376,13 +376,52 @@
             if (!name || byName[name] || groups[name]) fail(name ? 'two things called ' + name : 'a group needs a name');
             groups[name] = list.map(thing); return groups[name];
         }
-        const F = { shape, group, beat, build, thing, define, get seconds() { return cursor; } };
+        // A LINE OF TERMS (19 Nov 2026, Tom: "Yes", to a word for laying out an equation). A step of algebra moves a
+        // term, so each term is a thing; and a line of things, each a word, had to be placed by eye, since the width
+        // of "20" is its font's and only the editor reads the font. The gaps of an equation are forgiving, though: a
+        // term's width is taken from the common sans-serif's own table (widthOf) and the line is laid from that, each
+        // term a thing where the one before ends, a ' ' in the list a gap. What comes back knows where each stands,
+        // so a move is said by name: L.to('five', 'twenty') is the way from the five's place to the twenty's, and
+        // L.after('twenty', 1) is where a term stood one gap past it would be drawn.
+        //   const L = F.terms([['three', '3', TEAL], ['x', 'x'], ' ', ['plus', '+'], ' ', ['five', '5'], ' ', ['eq', '='], ' ', ['twenty', '20']], { y: 170, size: 64, center: 400 });
+        //   L.t.five is the thing; L.left(name), L.right(name), L.width(name); L.y, L.size, L.gap
+        function terms(list, o) {
+            o = o || {};
+            const size = o.size || 22, gap = o.gap != null ? o.gap : 0.45 * size, y = o.y != null ? o.y : H / 2, at = Object.create(null), t = Object.create(null);
+            if (!Array.isArray(list) || !list.some(Array.isArray)) fail('terms takes a list of [name, words] and gaps');
+            let x = 0; const laid = [];
+            for (const it of list) {
+                if (!Array.isArray(it)) { x += gap * (typeof it === 'number' ? it : 1); continue; }
+                const w = widthOf(it[1], size); laid.push([it, x, w]); x += w;
+            }
+            const x0 = o.center != null ? o.center - x / 2 : o.x != null ? o.x : (W - x) / 2;
+            for (const [it, dx, w] of laid) { at[it[0]] = [x0 + dx, w]; t[it[0]] = shape(it[0], draw.text(x0 + dx, y, it[1], it[2] || o.fill, size)); }
+            const of = n => at[n] || fail('no term named ' + n + ' in this line');
+            const L = { t, y, size, gap, left: n => of(n)[0], width: n => of(n)[1], right: n => of(n)[0] + of(n)[1], start: x0, end: x0 + x,
+                // where a term would be drawn so many gaps past another's end, and the way from one term's place to
+                // another's, or to an x (and so many units down)
+                after: (n, gaps) => L.right(n) + gap * (gaps != null ? gaps : 1),
+                to: (n, where, down) => [+(((typeof where === 'number' ? where : of(where)[0]) - of(n)[0]).toFixed(2)), down || 0],
+                // a term made later for this line (what a step brings: a sign, a sum), at an x; it is in L.t and can be asked of
+                add: (name, words, x, fill, dy) => { at[name] = [x, widthOf(words, size)]; return (t[name] = shape(name, draw.text(x, y + (dy || 0), words, fill || o.fill, size))); } };
+            return L;
+        }
+        const F = { shape, group, terms, beat, build, thing, define, get seconds() { return cursor; } };
         define('reveal', (b, list, o) => b.stagger(list, o && o.gap != null ? o.gap : 0.12, t => b.show(t, o)));
         define('relay', (b, list, to, o) => b.stagger(list, o && o.gap != null ? o.gap : 0.12, (t, i) => b.go(t, typeof to === 'function' ? to(t, i) : to, o)));
         define('leave', (b, list, o) => b.stagger(list, o && o.gap != null ? o.gap : 0.12, t => b.hide(t, o)));
         define('swap', (b, x, i, y, j, o) => b.together(() => { b.go(x, i, o); b.go(y, j, o); }));
         return F;
     }
+
+    // HOW WIDE WORDS ARE, nearly: the advance of each character in the common sans-serif (Helvetica's and Arial's
+    // table, in thousandths of the size), which is what `font-family: sans-serif` gives on most machines. It is for
+    // laying terms out with gaps between, not for setting type: the editor draws the letters from the font it has.
+    const ADV = { ' ': 278, '+': 584, '=': 584, '−': 584, '<': 584, '>': 584, '×': 584, '÷': 584, '±': 584, '-': 333, '(': 333, ')': 333, '.': 278, ',': 278, '/': 278, '·': 278,
+        '²': 333, '³': 333, 'i': 278, 'j': 278, 'l': 278, 'f': 333, 't': 333, 'r': 389, 'm': 889, 'w': 778, 'M': 833, 'W': 944, 'I': 278 };
+    function widthOf(words, size) { let w = 0;
+        for (const ch of String(words)) w += ADV[ch] != null ? ADV[ch] : /[A-Z]/.test(ch) ? 700 : 556;
+        return +(w * (size || 22) / 1000).toFixed(2); }
 
     // A FEW SHAPES, as the explainers draw them: enough to write a flow without an svg at hand. Each returns one svg
     // element. A closed outline is given by points so that two poses of one thing have the same number of them.
@@ -409,5 +448,5 @@
         return 'r' + b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
-    return { flow, draw, code };
+    return { flow, draw, code, widthOf };
 });

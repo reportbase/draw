@@ -83,6 +83,14 @@ through it, and the sorting flow (`docs/explainers.md`, "A scene composed in cod
     words: ten terms, five beats, 24.2 KB. A word followed is framed by its first letter, since a thing's number is
     its first shape's; and a term is placed by hand, since nothing outside the editor knows how wide it is.
 
+18. **A width near enough** (19 Nov 2026, later still; Tom: "Yes", to a word for laying an equation out). Note 17's last
+    clause stands: only the editor reads the font. But an equation's gaps forgive, so the library carries the common
+    sans-serif's table of advances (`widthOf`: a digit 0.556 of the size, a sign 0.584) and lays a line of terms from
+    it (`F.terms`). Probed against the editor: a "3" at size 30 came out 14.9 wide as drawn, its advance by the table
+    16.7. The line knows where each term stands, so a step is said by name (`L.to('five', x)`), and
+    `flows/algebra.mjs` has no position set by eye. On a machine whose sans-serif is far from that table the gaps
+    will be uneven; the terms will still be whole and in order.
+
 **What follows from these**
 
 The format is a good thing to compile to and a poor thing to write by hand. What makes it awkward to author
