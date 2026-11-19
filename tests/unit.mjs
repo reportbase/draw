@@ -212,6 +212,20 @@ step('a flow: a thing moved is one shape with a slide, and a camera that follows
   want(/cannot also be moved/.test(why(G => { const c = G.shape('c', sq(0, 0)); G.beat('b', x => { x.act(c, { kind: 'bounce' }); x.move(c, [9, 9]); }); })), 'acting and moving');
   want(/while it is moving/.test(why(G => { const c = G.shape('c', sq(0, 0)); G.beat('b', x => x.together(() => { x.move(c, [9, 9]); x.move(c, [1, 1]); })); })), 'two moves at once');
 });
+step('a flow: a line of terms is laid out from its words\' widths, and says the way from one term to another', () => {
+  const F = FLOW.flow({ w: 800, h: 300 });
+  const L = F.terms([['three', '3'], ['x', 'x'], ' ', ['plus', '+'], ' ', ['five', '5'], ' ', ['eq', '='], ' ', ['twenty', '20']], { y: 100, size: 100, center: 400 });
+  // at size 100 a digit and an x are 55.6 wide, a sign 58.4, a gap 45: 3·55.6 + 58.4·2 + 111.2 + 4·45 = 574.8
+  want(Math.abs(FLOW.widthOf('20', 100) - 111.2) < 1e-9 && Math.abs(L.end - L.start - 574.8) < 1e-6 && Math.abs((L.start + L.end) / 2 - 400) < 1e-6, 'the line: ' + L.start + ' to ' + L.end);
+  want(Math.abs(L.left('x') - L.right('three')) < 1e-9 && Math.abs(L.left('plus') - L.right('x') - 45) < 1e-9, 'a term where the last ends, a gap where one is asked: ' + L.left('x') + ' ' + L.left('plus'));
+  want(JSON.stringify(L.to('five', 'twenty')) === JSON.stringify([+(L.left('twenty') - L.left('five')).toFixed(2), 0]) && L.to('three', 0, 50)[1] === 50 && Math.abs(L.after('twenty', 2) - L.right('twenty') - 90) < 1e-9, 'the way from one to another: ' + L.to('five', 'twenty'));
+  const m = L.add('minus', '−', L.after('twenty'), '#c00');
+  want(L.t.minus === m && Math.abs(L.width('minus') - 58.4) < 1e-9 && L.t.five && L.t.x, 'a term added later is the line\'s too');
+  F.beat('b', x => { x.reveal(Object.values(L.t), { dur: 0.2 }); x.move(L.t.five, L.to('five', L.after('minus'))); });
+  const p = F.build(); want((p.svg.match(/<text/g) || []).length === 7 && p.scene.morphs[p.at.five[0]].motion.kind === 'slide', 'seven words, the five moved');
+  let why = ''; try { L.left('nine'); } catch (e) { why = e.message; } want(/no term named nine/.test(why), 'a term not in the line: ' + why);
+});
+
 step('a flow refuses what could not be played, and says which thing', () => {
   const why = fn => { try { const F = FLOW.flow({}); fn(F); F.build(); return ''; } catch (e) { return e.message; } };
   want(/two things called a/.test(why(F => { F.shape('a', sq(0, 0)); F.shape('a', sq(1, 1)); })), 'a name used twice');

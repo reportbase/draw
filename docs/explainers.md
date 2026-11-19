@@ -371,3 +371,13 @@ its sizes and the x by 12.43781, both 0.9 of the editor's units). `boxOf` and `s
 crosses and its sign turns, twenty less five is fifteen, the three goes under, five. The playground's brief (`SYS`)
 says anything moves and that a term is a thing. Motion's flow check opens it and asks that the five went 282 of the
 drawing's units in the editor. Not done: a word followed is framed by its first letter; terms are placed by hand.
+
+    **A line of terms** (19 Nov 2026, later still; Tom: "Yes", to "a word for laying out an equation, so the terms
+space themselves"). `F.terms([[name, words, fill], ' ', …], { y, size, center, fill })` in `tvf-flow.js` makes a thing
+a term and lays them in a line: a term where the last ends, a `' '` a gap (0.45 of the size; a number is so many). The
+widths are `TVF_FLOW.widthOf(words, size)`, from the common sans-serif's advances (`ADV`), since the font is the
+editor's to read and a flow runs without one. What comes back: `L.t.name` the thing, `left`, `right`, `width`,
+`after(name, gaps)`, `to(name, otherOrX, down)` (the `[right, down]` a `move` takes), and `add(name, words, x, fill)` for
+a term a step brings. `flows/algebra.mjs` is said with it: the line centred on 400, the five moved to `L.after('minus')`
+(296.71), the left side closed up by what the `+ 5` left, the three centred under the fifteen. The playground's brief
+has an ALGEBRA paragraph telling Claude to use it and not guess. Unit checks the arithmetic (574.8 wide at size 100).
