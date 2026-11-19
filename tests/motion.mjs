@@ -804,6 +804,10 @@ await step('a flow written in code opens in the editor, and its scene file is up
   // K, not N: the curve library's own rebuild meets its leaves, 64 leaves give this drawing back, half the places inside one thumb
   FLOWS.push(['kn', 31, 5, p => p.run.built.every(b => b.atLeaf < 1e-9) && p.run.built[0].off > 20 && p.run.built[1].off < 9 && p.run.built[2].off < 1e-9 && p.run.inside === 8
     && /At 64 it is the drawing again, to 11 decimal places/.test(p.scene.beats[3].text) ? '' : 'the run: ' + JSON.stringify(p.run)]);
+  // the sweep and its two faces: what the picture draws is measured from its own points. The far end of a bar of 1 goes Ω,
+  // the place 1/Ω along it goes 1, and the two multiply to the bar (32 straight pieces to a sweep, so to 4 places)
+  FLOWS.push(['sweep', 21, 6, p => Math.abs(p.run.outer - Math.PI / 2) < 2e-4 && Math.abs(p.run.inner - 1) < 2e-4 && Math.abs(p.run.stands - 2 / Math.PI) < 1e-12 && Math.abs(p.run.product - 1) < 2e-4
+    && !/angle|sine|cosine|radian|degree|arc\b/i.test(p.scene.beats.slice(0, 5).map(b => b.title + ' ' + b.text).join(' ')) && /no angles, no trig/.test(p.scene.beats[5].text) ? '' : 'the sweep: ' + JSON.stringify(p.run)]);
   // a line of algebra: its moving things are words, moved in the drawing's units, which the editor turns to each one's size
   FLOWS.push(['algebra', 10, 5, p => { const m = p.scene.morphs[p.at.five[0]].motion; return m.kind === 'slide' && m.units === 'svg' && m.stops[m.stops.length - 1][1] === 296.71 ? '' : 'the five: ' + JSON.stringify(m); },
     // in the editor the five went 296.71 of the drawing's units (where F.terms put it: past the 20 and the minus), whatever its own width: its last stop times its size, against

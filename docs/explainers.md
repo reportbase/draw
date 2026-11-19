@@ -381,3 +381,21 @@ editor's to read and a flow runs without one. What comes back: `L.t.name` the th
 a term a step brings. `flows/algebra.mjs` is said with it: the line centred on 400, the five moved to `L.after('minus')`
 (296.71), the left side closed up by what the `+ 5` left, the three centred under the fifteen. The playground's brief
 has an ALGEBRA paragraph telling Claude to use it and not guess. Unit checks the arithmetic (574.8 wide at size 100).
+
+    **The sweep and its two faces** (`flows/sweep.mjs`, 19 Nov 2026; Tom: "I think this is among the most fundamental
+concepts in math and science. Everyone gets it wrong. I believe we now have it correct. This should be our first
+explainer."). What he said, in order: "Pi/2 * 2/pi = 1. Omega * 1/Omega = 1. H to V." "A sweep is H to V." "Drop the
+thumb, use a bar. Orientate the bar horizontally. The bar has a length of 1. The bar has two ends, or faces. Rotate
+the bar to vertical." "There is outside and inside face, they are inverses. Multiplying them removes the facing." "1
+has no facing, it's the discrete truth." And of the names it had gone by: "We have struggled with this. Calling it
+inscribed and central. They are not. Those are dhv concepts. The shv concept is the sweep, no angles, no trig", then
+"Inscribed and central are not wrong, just that they are dhv." So the beats' words name no angle and use no trig
+(motion checks the first five for the words), and the last beat says the two names are DHV and not wrong.
+    The picture is Claude's and is measured, not assumed. Tracing the bar's two ends does not give Ω and 1/Ω as
+lengths (with a pivot on the bar the two paths add to Ω; off it they differ by Ω; worked out before drawing), so it
+draws the two faces as one sweep read each way: the far end of a bar of 1 goes Ω (sweep for bar), and the place whose
+own path is 1 stands 1/Ω along the bar (bar for sweep). Each path grows with the bar (a pose a step, the points not
+yet reached standing on the place) and is then laid straight beside the bar, point for point: 1.5706 bars and 0.9999
+(32 straight pieces to a sweep). Six beats, 20.8 s, 21 things, 58.3 KB. It leads the playground's list, and plays as a
+scrolling explainer at `gallery/explained.html?src=../flows/sweep.tvfs`. Whether the inside face is rightly drawn as
+that place is Tom's to say.
