@@ -418,7 +418,7 @@
     // table, in thousandths of the size), which is what `font-family: sans-serif` gives on most machines. It is for
     // laying terms out with gaps between, not for setting type: the editor draws the letters from the font it has.
     const ADV = { ' ': 278, '+': 584, '=': 584, '−': 584, '<': 584, '>': 584, '×': 584, '÷': 584, '±': 584, '-': 333, '(': 333, ')': 333, '.': 278, ',': 278, '/': 278, '·': 278,
-        '²': 333, '³': 333, 'i': 278, 'j': 278, 'l': 278, 'f': 333, 't': 333, 'r': 389, 'm': 889, 'w': 778, 'M': 833, 'W': 944, 'I': 278 };
+        '²': 333, '³': 333, 'Ω': 768, 'π': 549, 'i': 278, 'j': 278, 'l': 278, 'f': 333, 't': 333, 'r': 389, 'm': 889, 'w': 778, 'M': 833, 'W': 944, 'I': 278 };
     function widthOf(words, size) { let w = 0;
         for (const ch of String(words)) w += ADV[ch] != null ? ADV[ch] : /[A-Z]/.test(ch) ? 700 : 556;
         return +(w * (size || 22) / 1000).toFixed(2); }

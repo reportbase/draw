@@ -91,6 +91,11 @@ through it, and the sorting flow (`docs/explainers.md`, "A scene composed in cod
     `flows/algebra.mjs` has no position set by eye. On a machine whose sans-serif is far from that table the gaps
     will be uneven; the terms will still be whole and in order.
 
+**The sweep, and what is DHV** (19 Nov 2026, Tom). The sweep is H to V. It has an outside face and an inside face,
+Ω and 1/Ω, inverses; multiplying them removes the facing and leaves 1, which has none. "Inscribed" and "central" are
+a writer's names for the pair: "not wrong, just that they are dhv". Of a reader say the sweep and its faces, with no
+angle and no trig. `flows/sweep.mjs` is the explainer.
+
 **What follows from these**
 
 The format is a good thing to compile to and a poor thing to write by hand. What makes it awkward to author

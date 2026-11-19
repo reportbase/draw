@@ -181,6 +181,10 @@ them. The editor says a scene's quiet fallbacks aloud (`window.__sceneWarnings`)
   **corner** (π/4) and the **horizon** (π/2), the reader's **unit circle** (not the virtual circle), the
   **reconstruction** (not the presentation), the reader's and the writer's (not inside and outside). Other papers
   are cited by their own titles (*The Observation Atom* keeps its name).
+  The **sweep** is H to V, with an **outside face** and an **inside face**, Ω and 1/Ω, inverses whose product is 1, which
+  has no facing (19 Nov 2026, Tom; `flows/sweep.mjs`, `docs/tvf-notes.md`). "Inscribed" and "central" are the writer's
+  names for the pair ("not wrong, just that they are dhv"): keep them where a writer speaks, and of a reader say the
+  sweep and its faces, with no angle and no trig.
   Since 29 Oct 2026 (Tom: "update the tb paper with new wander framing") both Tangent Bridge presentations follow
   wander's *Observation from Somewhere* where they touch it: the Cauchy is the one **rotation-invariant** law, the
   Möbius maps carrying its family into itself (never "the unique Möbius-invariant distribution": no probability law

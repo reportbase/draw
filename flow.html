@@ -105,7 +105,7 @@ export default function ({ flow, draw }) {
   return F.build();
 }
 `;
-  const FLOWS = [['', 'a ball (start here)'], ['flows/pythagoras.mjs', 'Pythagoras by rearrangement'], ['flows/sort.mjs', 'sorting, bar by bar'], ['flows/fourier.mjs', 'a square wave from sines'], ['flows/kn.mjs', 'K, not N'], ['flows/algebra.mjs', 'a line of algebra, solved'], ['flows/breath.mjs', 'three loops (the gallery\'s, ported)']];
+  const FLOWS = [['', 'a ball (start here)'], ['flows/sweep.mjs', 'the sweep and its two faces'], ['flows/pythagoras.mjs', 'Pythagoras by rearrangement'], ['flows/sort.mjs', 'sorting, bar by bar'], ['flows/fourier.mjs', 'a square wave from sines'], ['flows/kn.mjs', 'K, not N'], ['flows/algebra.mjs', 'a line of algebra, solved'], ['flows/breath.mjs', 'three loops (the gallery\'s, ported)']];
   for (const [file, name] of FLOWS) { const o = document.createElement('option'); o.value = file; o.textContent = name; $('pick').appendChild(o); }
 
   // THE HIDDEN EDITOR that turns a scene into a picture: one iframe, asked by message, answered by message
