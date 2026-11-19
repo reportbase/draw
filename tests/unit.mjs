@@ -192,6 +192,20 @@ step('a flow: moves with names, and a thing\'s moves said in any order', () => {
   const why = fn => { try { const G = FLOW.flow({}); fn(G); G.build(); return ''; } catch (e) { return e.message; } };
   want(/go cannot be a move/.test(why(G => G.define('go', () => {}))), 'a move named for one of the beat\'s own words');
 });
+step('a flow: a thing moved is one shape with a slide, and a camera that follows has a box at each end of a move', () => {
+  const F = FLOW.flow({ paper: '#fff' }), a = F.shape('a', sq(10, 20)), far = F.shape('far', sq(300, 20));
+  F.beat('b', x => { x.show(a, { in: 'cut', at: [20, 0] }); x.show(far, { in: 'cut' }); x.follow(a, { pad: 1, dur: 0 });
+    x.wait(1); x.move(a, [50, -10], { dur: 2 }); x.wait(1); x.move(a, [0, 0], { dur: 4, ease: 'linear' }); }, { tail: 0 });
+  const p = F.build(), m = p.scene.morphs[p.at.a[0]], n = (p.svg.match(/<polygon/g) || []).length;
+  want(p.seconds === 8 && n === 2 && m.keys.length === 1 && m.motion.kind === 'slide', 'one shape and a slide: ' + n + ' ' + JSON.stringify(m.motion).slice(0, 80));
+  // its size is 10 (a square of 10): 20 right is 2 sizes; down is minus up; the place given again where a move starts
+  want(JSON.stringify(m.motion.stops) === '[[0,2,0],[0.125,2,0],[0.375,5,1],[0.5,5,1],[1,0,0,"linear"]]', 'the stops: ' + JSON.stringify(m.motion.stops));
+  want(JSON.stringify(p.scene.camera) === '[{"t":0,"box":[20,10,50,40]},{"t":0.125,"box":[20,10,50,40]},{"t":0.375,"box":[50,0,80,30]},{"t":0.5,"box":[50,0,80,30]},{"t":0.9999,"box":[0,10,30,40]}]', 'the camera: ' + JSON.stringify(p.scene.camera));
+  const why = fn => { try { const G = FLOW.flow({}); fn(G); G.build(); return ''; } catch (e) { return e.message; } };
+  want(/cannot be moved: only a thing drawn with straight sides/.test(why(G => { const c = G.shape('c', '<circle cx="5" cy="5" r="4"/>'); G.beat('b', x => x.move(c, [9, 9])); })), 'a circle element moved');
+  want(/cannot also be moved/.test(why(G => { const c = G.shape('c', sq(0, 0)); G.beat('b', x => { x.act(c, { kind: 'bounce' }); x.move(c, [9, 9]); }); })), 'acting and moving');
+  want(/while it is moving/.test(why(G => { const c = G.shape('c', sq(0, 0)); G.beat('b', x => x.together(() => { x.move(c, [9, 9]); x.move(c, [1, 1]); })); })), 'two moves at once');
+});
 step('a flow refuses what could not be played, and says which thing', () => {
   const why = fn => { try { const F = FLOW.flow({}); fn(F); F.build(); return ''; } catch (e) { return e.message; } };
   want(/two things called a/.test(why(F => { F.shape('a', sq(0, 0)); F.shape('a', sq(1, 1)); })), 'a name used twice');

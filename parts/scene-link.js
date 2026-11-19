@@ -1380,7 +1380,8 @@
                     const m = e.data;
                     if (e.origin !== location.origin || !m || m.type !== 'tvf-scene-svg' || typeof m.code !== 'string')
                         return;
-                    let svg = null;
+                    let svg = null,
+                        tvfs = null;
                     try {
                         const d = await decodeScene(m.code);
                         d.play = false;
@@ -1389,11 +1390,15 @@
                             morphLive.t = clamp(d.t, 0, 1, 0);
                             morphWrite();
                             svg = window.__box.morphSvg({});
+                            // AND THE SCENE FILE, WHEN ASKED (19 Nov 2026, the flow playground's stops): with `want: 'tvfs'`
+                            // the reply carries the scene as the player plays it too, so a page can stop at its beats
+                            if (m.want === 'tvfs')
+                                tvfs = window.__box.tvfScene();
                         }
                     } catch (err) {
                         console.warn('[embed] scene to svg failed', err);
                     }
-                    (e.source || window.parent).postMessage({ type: 'tvf-scene-svg', id: m.id, svg }, location.origin);
+                    (e.source || window.parent).postMessage(tvfs ? { type: 'tvf-scene-svg', id: m.id, svg, tvfs } : { type: 'tvf-scene-svg', id: m.id, svg }, location.origin);
                 });
             // after the saved scene has restored, as the shape link waits
             if (document.readyState === 'complete')

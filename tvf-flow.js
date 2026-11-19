@@ -46,7 +46,7 @@
     const EASES = ['linear', 'inout', 'in', 'out', 'anticipate', 'overshoot'];
     const INS = ['fade', 'draw', 'cut', 'pop'], OUTS = ['fade', 'undraw', 'cut'];
     const fail = s => { throw new Error('flow: ' + s); };
-    const WORDS = ['now', 'at', 'wait', 'show', 'go', 'act', 'hide', 'together', 'stagger', 'look'];      // the beat's own words: a move may not take one's name
+    const WORDS = ['now', 'at', 'wait', 'show', 'go', 'move', 'act', 'hide', 'together', 'stagger', 'look', 'follow'];      // the beat's own words: a move may not take one's name
     // what a thing may be given when it is made, beside its poses: the fields of a morph the library has no word of its
     // own for (parts/ai-panel.js, ANIM_MORPH_FIELDS, says what each does)
     const FIELDS = ['path', 'laps', 'at', 'turn', 'mode', 'rate', 'phase', 'spin', 'emit', 'trail', 'fx', 'lag', 'follow', 'parent', 'look'];
@@ -67,7 +67,7 @@
             if (!name || byName[name]) fail(name ? 'two things called ' + name : 'a thing needs a name');
             const list = Array.isArray(poses) ? poses : [poses];
             if (!list.length || list.some(s => typeof s !== 'string' || !/^\s*</.test(s))) fail(name + ': a pose is an svg element');
-            const t = { name, poses: list.map(s => shapes.push(s) - 1), events: [], acts: [], pose: 0, shown: null, hidden: null, opts: o || {} };
+            const t = { name, poses: list.map(s => shapes.push(s) - 1), events: [], acts: [], moves: [], place: null, pose: 0, shown: null, hidden: null, opts: o || {} };
             things.push(t); byName[name] = t;
             return t;
         }
@@ -97,6 +97,7 @@
                     const kind = o.in || 'fade'; if (!INS.includes(kind)) fail(t.name + ': in is one of ' + INS.join(', '));
                     const d = kind === 'cut' ? 0 : dur(o, 0.6), at = start();
                     t.shown = { at, kind, len: d }; if (o.pose != null) t.pose = pose(t, o.pose);
+                    if (o.at) t.place = spot(t, o.at);                 // shown somewhere other than where it is drawn
                     // pop: it springs up from nothing to its size and a little past (the editor's own motion), and stays.
                     // Its morph is that one motion, so a thing popped in is a still: it cannot then be asked to move.
                     if (kind === 'pop') t.shown.amount = o.amount != null ? +o.amount : 0.5;
@@ -123,6 +124,22 @@
                     }
                     return done(at), b;
                 },
+                // move: to another place, with no other shape for the place. `to` is [right, down] from where the thing is
+                // drawn, in the drawing's own units, so move(bar, [68, 0]) stands it 68 to the right of its drawing and
+                // move(bar, [0, 0]) brings it home. It goes straight, easing in and out (or `ease: 'linear'`). A thing
+                // may be moved as often as it likes and stays one shape (the editor's slide; docs/tvf-notes.md, note 4);
+                // it may go from pose to pose as well, but not also act, since the slide is its one motion.
+                move(t, to, o) {
+                    t = thing(t); o = o || {};
+                    if (t.acts.length) fail(t.name + ' acts, so it cannot also be moved');
+                    if (t.shown && t.shown.kind === 'pop') fail(t.name + ' was popped in, and a popped thing is a still');
+                    const ease = o.ease || 'inout'; if (ease !== 'inout' && ease !== 'linear') fail(t.name + ': a move eases inout or linear');
+                    const d = dur(o, 1), at = start(), p = spot(t, to);
+                    if (t.shown == null) { t.shown = { at, kind: 'cut', len: 0 }; t.first = t.pose; }
+                    if (at < t.shown.at) fail(t.name + ' moves before it is shown');
+                    t.moves.push({ at, end: at + d, to: p, ease });
+                    return done(at + d), b;
+                },
                 // act: a motion the editor computes (bounce, fall, throw, roll, sway, swing, pop ...), played once over dur.
                 // The thing comes as its motion begins (`in`, a fade unless said; `in: 'always'` and it is there from the
                 // scene's start). Acts said one after another, with no gap, are one chain: thrown, then bouncing, then
@@ -132,6 +149,7 @@
                     t = thing(t); o = o || {};
                     if (!motion || typeof motion.kind !== 'string') fail(t.name + ': a motion has a kind');
                     if (t.events.length) fail(t.name + ' goes from pose to pose, so it cannot also act');
+                    if (t.moves.length || t.place) fail(t.name + ' is moved, so it cannot also act');
                     const d = dur(o, 1), at = start(), last = t.acts[t.acts.length - 1];
                     if (!last) {
                         if (t.shown != null) fail(t.name + ' is shown before it acts: an act shows it (in: \'always\' if it is there from the start)');
@@ -169,8 +187,20 @@
                     o = o || {}; const list = (Array.isArray(fit) ? fit : [fit]).map(thing), d = dur(o, 1.2), at = start();
                     if (!list.length) fail('look() needs something to look at');
                     const pad = o.pad != null ? +o.pad : 0.1, last = cameras[cameras.length - 1];
-                    if (last && at > last.t) cameras.push({ t: at, fit: last.fit, pad: last.pad });      // held where it was until now
+                    if (last && at > last.t) cameras.push(Object.assign({}, last, { t: at }));       // held where it was (or on what it followed) until now
                     cameras.push({ t: cameras.length ? at + d : at, fit: list, pad });
+                    return done(cameras.length > 1 ? at + d : at), b;
+                },
+                // follow: the camera goes to a thing over dur and then stays on it as it is moved, until the camera is
+                // asked for something else (look, another follow) or the scene ends. The scene's camera is boxes at
+                // times, eased between as a move is, so a box where each move starts and one where it ends keeps the
+                // thing framed all the way (a linear move drifts in the frame a little between). For a thing that is
+                // moved (`move`), since its places are what the library knows.
+                follow(t, o) {
+                    t = thing(t); o = o || {};
+                    const d = dur(o, 1.2), at = start(), pad = o.pad != null ? +o.pad : 0.6, last = cameras[cameras.length - 1];
+                    if (last && at > last.t) cameras.push(Object.assign({}, last, { t: at }));
+                    cameras.push({ t: cameras.length ? at + d : at, follow: t, pad });
                     return done(cameras.length > 1 ? at + d : at), b;
                 }
             };
@@ -191,6 +221,11 @@
             if (!/^[a-z]\w*$/i.test(name || '') || WORDS.includes(name)) fail((name || 'a move') + ' cannot be a move\'s name');
             if (typeof fn !== 'function') fail(name + ': a move is a function of the beat');
             moves[name] = fn; return F;
+        }
+        // a place: [right, down] in the drawing's units, from where the thing is drawn
+        function spot(t, p) {
+            if (!Array.isArray(p) || p.length !== 2 || !p.every(v => Number.isFinite(+v))) fail(t.name + ': a place is [right, down], two numbers');
+            return [+p[0], +p[1]];
         }
         function pose(t, p) {
             const k = typeof p === 'number' ? p : fail(t.name + ': a pose is its number');
@@ -259,6 +294,22 @@
                     if (t.shown.kind !== 'always') m.clip.in = { kind: t.shown.kind, len: r4(t.shown.len / total) };
                     if (t.hidden) m.clip.out = { kind: t.hidden.kind, len: r4(t.hidden.len / total) };
                 }
+                if (t.moves.length || t.place) {
+                    // its places, as the editor's slide: stops through its window, [u, right, up] in its own size (the
+                    // larger of its width and height, which is the engine's unit and is measured here from its pose).
+                    // The place it is in is given again where each move starts, so it waits there until then.
+                    const size = sizeOf(shapes[t.poses[t.first]]) || fail(t.name + ' cannot be moved: only a thing drawn with straight sides (draw.poly, rect, ring, line) has a size the library can measure');
+                    const u = x => Math.round(1e5 * Math.max(0, Math.min(1, (x - s) / (e - s)))) / 1e5, q = p => [+(p[0] / size).toFixed(5), +(-p[1] / size).toFixed(5)];
+                    let here = t.place || [0, 0]; const stops = [[0, ...q(here)]];
+                    t.moves.sort((x, y) => x.at - y.at);
+                    t.moves.forEach((mv, i) => { const was = t.moves[i - 1];
+                        if (was && mv.at < was.end - 1e-9) fail(t.name + ' is asked to move while it is moving (at ' + r4(mv.at) + ' s)');
+                        if (mv.end > e + 1e-9) fail(t.name + ' is still moving when it is hidden');
+                        if (u(mv.at) > stops[stops.length - 1][0]) stops.push([u(mv.at), ...q(here)]);
+                        stops.push(mv.ease === 'linear' ? [u(mv.end), ...q(mv.to), 'linear'] : [u(mv.end), ...q(mv.to)]);
+                        here = mv.to; });
+                    m.motion = { kind: 'slide', stops };
+                }
                 // what else a thing was given when it was made (FIELDS): copied onto its morph, a thing named where the
                 // scene wants a number. A path is a shape's number, a parent or a thing to look at a morph's.
                 for (const k in t.opts) {
@@ -285,7 +336,23 @@
                 beats: beats.map(b => ({ title: b.title, text: lit(b.text) })),
                 morphs
             };
-            if (cameras.length) scene.camera = cameras.map(c => ({ t: sh(c.t), fit: c.fit.flatMap(t => t.poses), pad: c.pad }));
+            if (cameras.length) {
+                // a followed thing's box at a time: its pose's box at the place it has then (its moves in order)
+                const placeAt = (t, x) => { let p = t.place || [0, 0]; for (const mv of t.moves.slice().sort((a, b) => a.at - b.at)) { if (x >= mv.end) p = mv.to; else if (x > mv.at) { const f = (x - mv.at) / (mv.end - mv.at), g = mv.ease === 'linear' ? f : f * f * (3 - 2 * f); p = [p[0] + (mv.to[0] - p[0]) * g, p[1] + (mv.to[1] - p[1]) * g]; break; } else break; } return p; };
+                const boxAt = (c, x) => { const B = boxOf(shapes[c.follow.poses[c.follow.first != null ? c.follow.first : 0]]) || fail(c.follow.name + ' cannot be followed: only a thing drawn with straight sides has a box the library can measure');
+                    const p = placeAt(c.follow, x), pad = c.pad * Math.max(B[2] - B[0], B[3] - B[1]);
+                    return [B[0] + p[0] - pad, B[1] + p[1] - pad, B[2] + p[0] + pad, B[3] + p[1] + pad].map(v => +v.toFixed(2)); };
+                const keys = [];
+                cameras.forEach((c, i) => {
+                    if (!c.follow) { keys.push({ t: sh(c.t), fit: c.fit.flatMap(t => t.poses), pad: c.pad }); return; }
+                    if (c.follow.shown == null) fail(c.follow.name + ' is followed and never shown');
+                    const until = cameras[i + 1] ? cameras[i + 1].t : total;
+                    keys.push({ t: sh(c.t), box: boxAt(c, c.t) });
+                    for (const mv of c.follow.moves) for (const x of [mv.at, mv.end]) if (x > c.t + 1e-9 && x < until - 1e-9) keys.push({ t: sh(x), box: boxAt(c, x) });
+                    if (!cameras[i + 1] && until > c.t) keys.push({ t: sh(until), box: boxAt(c, until) });      // to the scene's end; before another camera its own key is the next
+                });
+                scene.camera = keys.sort((a, b) => a.t - b.t).filter((k, i, K) => !i || k.t > K[i - 1].t || JSON.stringify(k) !== JSON.stringify(K[i - 1]));
+            }
             // ONLY THE POSES A THING TAKES ARE IN THE DRAWING. A shape that is no morph's key is a still, drawn where it
             // stands the whole scene: a bar with a pose for each of ten places, standing in four of them, left six bars
             // on the picture that nothing moved (the sorting flow, the first to have poses it did not use). So the svg
@@ -298,7 +365,7 @@
             const num = new Map([...keep].sort((a, b) => a - b).map((k, i) => [k, i]));
             for (const m of morphs) { m.keys = m.keys.map(k => num.get(k)); if (typeof m.path === 'number') m.path = num.get(m.path);
                 for (const mo of m.motion ? (m.motion.steps || [m.motion]) : []) if (typeof mo.onto === 'number') mo.onto = num.get(mo.onto); }
-            if (scene.camera) for (const c of scene.camera) c.fit = c.fit.filter(k => num.has(k)).map(k => num.get(k));
+            if (scene.camera) for (const c of scene.camera) if (c.fit) c.fit = c.fit.filter(k => num.has(k)).map(k => num.get(k));
             const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">${shapes.filter((x, i) => num.has(i)).join('')}</svg>`;
             return { name: opts.name || 'a flow', svg, scene, seconds: total, things: things.map(t => t.name), at };
         }
@@ -316,6 +383,20 @@
         define('swap', (b, x, i, y, j, o) => b.together(() => { b.go(x, i, o); b.go(y, j, o); }));
         return F;
     }
+
+    // a pose's size as the engine takes it for a slide: the larger of its width and its height, from its corners. Read
+    // only from an outline of straight sides (a polygon's points, a path of M and L), where the corners are the box.
+    function boxOf(svg) {
+        let nums = null;
+        const pg = /<polygon\b[^>]*\bpoints="([^"]+)"/.exec(svg), ph = /<path\b[^>]*\bd="([^"]+)"/.exec(svg);
+        if (pg) nums = pg[1].trim().split(/[\s,]+/).map(Number);
+        else if (ph && !/[^ML\d\s.,eE+-]/.test(ph[1].replace(/Z\s*$/i, ''))) nums = (ph[1].match(/-?\d*\.?\d+(?:[eE][-+]?\d+)?/g) || []).map(Number);
+        if (!nums || nums.length < 4 || nums.length % 2 || nums.some(v => !Number.isFinite(v))) return null;
+        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+        for (let i = 0; i < nums.length; i += 2) { x0 = Math.min(x0, nums[i]); x1 = Math.max(x1, nums[i]); y0 = Math.min(y0, nums[i + 1]); y1 = Math.max(y1, nums[i + 1]); }
+        return [x0, y0, x1, y1];
+    }
+    function sizeOf(svg) { const B = boxOf(svg); return B ? Math.max(B[2] - B[0], B[3] - B[1]) : 0; }
 
     // A FEW SHAPES, as the explainers draw them: enough to write a flow without an svg at hand. Each returns one svg
     // element. A closed outline is given by points so that two poses of one thing have the same number of them.
