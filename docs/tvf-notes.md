@@ -87,6 +87,16 @@ read's fineness, laid out as K addresses at the heat's quantiles. "A read never 
 took N for the master's leaves and K for a level of detail, which put both letters on the writer's side; the paper's
 meanings are the ones meant.) This note is about the curve format (`.tvf`), not the scene layer above.
 
+Then (19 Nov, Tom): "Cauchy is the great kull, leaves K, compresses N at the horizon". The paper's own sentence,
+the same section: "So the Cauchy is a cull: an implementation holding K samples does O(K) work, whatever N." How it
+does both halves: the K addresses stand at the quantiles of the even turn, half of them inside one thumb, in
+proportion, the other half over everything beyond, in ratios (one in 2, one in 4, one in 8); each address farther out
+covers twice the distance of the one before, so the far gathers in rows just under the horizon, and everything past
+the last address lands on the one at the horizon. However large N is, unbounded too, it has somewhere to go, in no
+more than K places. What the cull gives up, the paper says beside it: sameness. A count that holds N holds every item
+as 1/N of the whole, no standpoint favoured; the read's K is spent finest at the corner and coarser each stretch away,
+"and that unevenness is the vantage". A TVF curve's leaves are those K places on the turn.
+
 A reading, with what it rests on:
 
 1. **A TVF curve is K and nothing else.** The file is a count of leaves and their values (`TVF N 1 2`, then a row of x
