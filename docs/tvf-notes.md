@@ -74,6 +74,15 @@ through it, and the sorting flow (`docs/explainers.md`, "A scene composed in cod
     A slide is in the shape's own size, since a motion does not know the drawing's units; the library converts, and
     can only measure outlines of straight sides.
 
+17. **A size is the editor's to know** (19 Nov 2026, later; Tom, of what the playground wrote for him: "It seems more
+    suitable for geometry or algebra explainers"). Note 16's last sentence was the library holding something it had
+    no way to read: a circle's size is its curve's, a word's is its font's, and a word is a shape a letter (note 15),
+    each with a size of its own. So the scene link takes a slide's stops in the drawing's units (`"units": "svg"`)
+    and the editor turns them to each shape's size as it makes the morph; a camera key frames shapes where they stand
+    then (`"by"`). The library measures nothing now. `flows/algebra.mjs` is the first scene whose moving things are
+    words: ten terms, five beats, 24.2 KB. A word followed is framed by its first letter, since a thing's number is
+    its first shape's; and a term is placed by hand, since nothing outside the editor knows how wide it is.
+
 **What follows from these**
 
 The format is a good thing to compile to and a poor thing to write by hand. What makes it awkward to author

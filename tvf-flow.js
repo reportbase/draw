@@ -295,11 +295,12 @@
                     if (t.hidden) m.clip.out = { kind: t.hidden.kind, len: r4(t.hidden.len / total) };
                 }
                 if (t.moves.length || t.place) {
-                    // its places, as the editor's slide: stops through its window, [u, right, up] in its own size (the
-                    // larger of its width and height, which is the engine's unit and is measured here from its pose).
-                    // The place it is in is given again where each move starts, so it waits there until then.
-                    const size = sizeOf(shapes[t.poses[t.first]]) || fail(t.name + ' cannot be moved: only a thing drawn with straight sides (draw.poly, rect, ring, line) has a size the library can measure');
-                    const u = x => Math.round(1e5 * Math.max(0, Math.min(1, (x - s) / (e - s)))) / 1e5, q = p => [+(p[0] / size).toFixed(5), +(-p[1] / size).toFixed(5)];
+                    // its places, as the editor's slide: stops through its window, [u, right, up]. They are given in the
+                    // drawing's own units ("units": "svg") and the editor turns them to the shape's size, which is
+                    // the engine's unit: so a circle, a curve or a word moves as a square does, and nothing here has
+                    // to know how large a thing is (19 Nov 2026; this measured a polygon's corners and refused the
+                    // rest). The place it is in is given again where each move starts, so it waits there until then.
+                    const u = x => Math.round(1e5 * Math.max(0, Math.min(1, (x - s) / (e - s)))) / 1e5, q = p => [+(+p[0]).toFixed(3), +(-p[1]).toFixed(3)];
                     let here = t.place || [0, 0]; const stops = [[0, ...q(here)]];
                     t.moves.sort((x, y) => x.at - y.at);
                     t.moves.forEach((mv, i) => { const was = t.moves[i - 1];
@@ -308,7 +309,7 @@
                         if (u(mv.at) > stops[stops.length - 1][0]) stops.push([u(mv.at), ...q(here)]);
                         stops.push(mv.ease === 'linear' ? [u(mv.end), ...q(mv.to), 'linear'] : [u(mv.end), ...q(mv.to)]);
                         here = mv.to; });
-                    m.motion = { kind: 'slide', stops };
+                    m.motion = { kind: 'slide', units: 'svg', stops };
                 }
                 // what else a thing was given when it was made (FIELDS): copied onto its morph, a thing named where the
                 // scene wants a number. A path is a shape's number, a parent or a thing to look at a morph's.
@@ -337,19 +338,18 @@
                 morphs
             };
             if (cameras.length) {
-                // a followed thing's box at a time: its pose's box at the place it has then (its moves in order)
+                // a followed thing at a time: its first pose framed where its moves have put it by then ("by", which
+                // the editor adds to the shape's own box: the size is the editor's to know)
                 const placeAt = (t, x) => { let p = t.place || [0, 0]; for (const mv of t.moves.slice().sort((a, b) => a.at - b.at)) { if (x >= mv.end) p = mv.to; else if (x > mv.at) { const f = (x - mv.at) / (mv.end - mv.at), g = mv.ease === 'linear' ? f : f * f * (3 - 2 * f); p = [p[0] + (mv.to[0] - p[0]) * g, p[1] + (mv.to[1] - p[1]) * g]; break; } else break; } return p; };
-                const boxAt = (c, x) => { const B = boxOf(shapes[c.follow.poses[c.follow.first != null ? c.follow.first : 0]]) || fail(c.follow.name + ' cannot be followed: only a thing drawn with straight sides has a box the library can measure');
-                    const p = placeAt(c.follow, x), pad = c.pad * Math.max(B[2] - B[0], B[3] - B[1]);
-                    return [B[0] + p[0] - pad, B[1] + p[1] - pad, B[2] + p[0] + pad, B[3] + p[1] + pad].map(v => +v.toFixed(2)); };
+                const boxAt = (c, x) => ({ fit: [c.follow.poses[c.follow.first != null ? c.follow.first : 0]], pad: c.pad, by: placeAt(c.follow, x).map(v => +v.toFixed(2)) });
                 const keys = [];
                 cameras.forEach((c, i) => {
                     if (!c.follow) { keys.push({ t: sh(c.t), fit: c.fit.flatMap(t => t.poses), pad: c.pad }); return; }
                     if (c.follow.shown == null) fail(c.follow.name + ' is followed and never shown');
                     const until = cameras[i + 1] ? cameras[i + 1].t : total;
-                    keys.push({ t: sh(c.t), box: boxAt(c, c.t) });
-                    for (const mv of c.follow.moves) for (const x of [mv.at, mv.end]) if (x > c.t + 1e-9 && x < until - 1e-9) keys.push({ t: sh(x), box: boxAt(c, x) });
-                    if (!cameras[i + 1] && until > c.t) keys.push({ t: sh(until), box: boxAt(c, until) });      // to the scene's end; before another camera its own key is the next
+                    keys.push(Object.assign({ t: sh(c.t) }, boxAt(c, c.t)));
+                    for (const mv of c.follow.moves) for (const x of [mv.at, mv.end]) if (x > c.t + 1e-9 && x < until - 1e-9) keys.push(Object.assign({ t: sh(x) }, boxAt(c, x)));
+                    if (!cameras[i + 1] && until > c.t) keys.push(Object.assign({ t: sh(until) }, boxAt(c, until)));      // to the scene's end; before another camera its own key is the next
                 });
                 scene.camera = keys.sort((a, b) => a.t - b.t).filter((k, i, K) => !i || k.t > K[i - 1].t || JSON.stringify(k) !== JSON.stringify(K[i - 1]));
             }
@@ -384,20 +384,6 @@
         return F;
     }
 
-    // a pose's size as the engine takes it for a slide: the larger of its width and its height, from its corners. Read
-    // only from an outline of straight sides (a polygon's points, a path of M and L), where the corners are the box.
-    function boxOf(svg) {
-        let nums = null;
-        const pg = /<polygon\b[^>]*\bpoints="([^"]+)"/.exec(svg), ph = /<path\b[^>]*\bd="([^"]+)"/.exec(svg);
-        if (pg) nums = pg[1].trim().split(/[\s,]+/).map(Number);
-        else if (ph && !/[^ML\d\s.,eE+-]/.test(ph[1].replace(/Z\s*$/i, ''))) nums = (ph[1].match(/-?\d*\.?\d+(?:[eE][-+]?\d+)?/g) || []).map(Number);
-        if (!nums || nums.length < 4 || nums.length % 2 || nums.some(v => !Number.isFinite(v))) return null;
-        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-        for (let i = 0; i < nums.length; i += 2) { x0 = Math.min(x0, nums[i]); x1 = Math.max(x1, nums[i]); y0 = Math.min(y0, nums[i + 1]); y1 = Math.max(y1, nums[i + 1]); }
-        return [x0, y0, x1, y1];
-    }
-    function sizeOf(svg) { const B = boxOf(svg); return B ? Math.max(B[2] - B[0], B[3] - B[1]) : 0; }
-
     // A FEW SHAPES, as the explainers draw them: enough to write a flow without an svg at hand. Each returns one svg
     // element. A closed outline is given by points so that two poses of one thing have the same number of them.
     const n2 = v => +(+v).toFixed(2);
@@ -408,6 +394,8 @@
         // a round thing as a ring of n points, so it can become any other ring of n points
         ring: (cx, cy, r, fill, n, ry) => draw.poly(Array.from({ length: n || 24 }, (_, i) => { const a = 2 * Math.PI * i / (n || 24) - Math.PI / 2;
             return [cx + r * Math.cos(a), cy + (ry != null ? ry : r) * Math.sin(a)]; }), fill),
+        // a true circle: it cannot become a polygon as a ring can, and it is moved and followed like anything else
+        circle: (cx, cy, r, fill) => `<circle cx="${n2(cx)}" cy="${n2(cy)}" r="${n2(r)}" fill="${fill || '#3b4256'}"/>`,
         text: (x, y, s, fill, size) => `<text x="${n2(x)}" y="${n2(y)}" font-size="${size || 22}" font-family="sans-serif" font-weight="600" fill="${fill || '#3b4256'}">${String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>`
     };
 

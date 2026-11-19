@@ -150,6 +150,7 @@ there is the library's brief: a word added to the library is added to it) and se
 every script runs in a frame of no origin, since one may be unread. It plays the scene with the player and waits at each beat
 (the embed sends the scene file when asked, `want: 'tvfs'`). A flow may use the curve library (`globalThis.TVF_CORE`;
 `tools/flow-env.mjs` sets it and the library up under Node, and a check that imports a flow calls it first).
+A flow's `move` and `follow` say places in the drawing's units and the editor turns them to a shape's size (`units: 'svg'` on a slide, `by` on a camera's `fit` key; `sceneSlideIn`, `sceneCameraIn` in `parts/scene-link.js`), so the library measures no shape: keep it so. `flows/algebra.mjs` moves words.
 **`slide`** is the editor's motion for a place without a pose (19 Nov 2026, `parts/morph-engine.js`): a new kind of
 motion goes in `MORPH_MOTIONS`, `morphMotionOk`, `morphMotionMap` and `ANIM_MORPH_FIELDS`, then `npm run player`. `flows/breath.mjs` is the gallery's `breath` said
 again, and motion compares the two scenes move for move: a change to either that makes them differ fails it.

@@ -105,7 +105,7 @@ export default function ({ flow, draw }) {
   return F.build();
 }
 `;
-  const FLOWS = [['', 'a ball (start here)'], ['flows/pythagoras.mjs', 'Pythagoras by rearrangement'], ['flows/sort.mjs', 'sorting, bar by bar'], ['flows/fourier.mjs', 'a square wave from sines'], ['flows/kn.mjs', 'K, not N'], ['flows/breath.mjs', 'three loops (the gallery\'s, ported)']];
+  const FLOWS = [['', 'a ball (start here)'], ['flows/pythagoras.mjs', 'Pythagoras by rearrangement'], ['flows/sort.mjs', 'sorting, bar by bar'], ['flows/fourier.mjs', 'a square wave from sines'], ['flows/kn.mjs', 'K, not N'], ['flows/algebra.mjs', 'a line of algebra, solved'], ['flows/breath.mjs', 'three loops (the gallery\'s, ported)']];
   for (const [file, name] of FLOWS) { const o = document.createElement('option'); o.value = file; o.textContent = name; $('pick').appendChild(o); }
 
   // THE HIDDEN EDITOR that turns a scene into a picture: one iframe, asked by message, answered by message
@@ -215,11 +215,12 @@ export default function ({ flow, draw }) {
     '',
     'The module is:  export default function ({ flow, draw }) { const F = flow({ name, w, h, paper }); ... return F.build(); }',
     '',
-    'THINGS. const t = F.shape(name, pose) or F.shape(name, [pose, pose, ...]). A pose is one svg element, as a string. A thing with several poses can go from one to another; every pose of one thing must be the same kind of element with the same number of points, since the outline of one becomes the outline of the next. A place is a pose: to move a thing, give it a pose where it starts and a pose where it ends. Names are unique. Things are drawn in the order they are made, later ones on top.',
+    'THINGS. const t = F.shape(name, pose) or F.shape(name, [pose, pose, ...]). A pose is one svg element, as a string. A thing with several poses can go from one to another; every pose of one thing must be the same kind of element with the same number of points, since the outline of one becomes the outline of the next. A thing that only changes place needs one pose and b.move. Names are unique. Things are drawn in the order they are made, later ones on top.',
     'draw.line(points, stroke, width)   an open line through [[x, y], ...]',
     'draw.poly(points, fill)            a closed outline through [[x, y], ...]',
     'draw.rect(x, y, w, h, fill)        a rectangle (four points)',
     'draw.ring(cx, cy, r, fill, n = 24, ry = r)   a circle or ellipse as n points',
+    'draw.circle(cx, cy, r, fill)       a true circle (one pose; it can be moved)',
     'draw.text(x, y, words, fill, size) a label (one pose only: text does not go from pose to pose)',
     '',
     'BEATS. F.beat(title, words, b => { ... }) is a step of the story; the scene pauses at its end. In the words, [a phrase](name, name) lights those things while the beat is read. Inside, each call happens after the one before, in seconds:',
@@ -230,7 +231,7 @@ export default function ({ flow, draw }) {
     'b.together(() => { ... })          everything inside starts at the same moment',
     'b.stagger(list, gap, (item, i) => { ... })   the same thing for each item, each starting gap seconds after the last',
     'b.reveal(things, { gap, dur })   b.relay(things, pose, { gap, dur })   b.leave(things, { gap, dur })   b.swap(x, i, y, j, { dur })',
-    'b.move(t, [right, down], { dur, ease: "inout" | "linear" })   to another place with no other pose: [right, down] from where the thing is drawn, in the picture\'s units ([0, 0] is home); b.show(t, { at: [right, down] }) shows it somewhere else to begin with. Use move, not poses, when a thing only changes place; it works for things drawn with draw.poly, rect, ring or line.',
+    'b.move(t, [right, down], { dur, ease: "inout" | "linear" })   to another place with no other pose: [right, down] from where the thing is drawn, in the picture\'s units ([0, 0] is home); b.show(t, { at: [right, down] }) shows it somewhere else to begin with. Use move, not poses, when a thing only changes place; anything moves this way, a word or a circle too. For algebra make each term its own draw.text thing and move the terms.',
     'b.act(t, { kind: "bounce" | "fall" | "throw" | "roll" | "sway" | "swing", amount }, { dur })   a motion worked out for a body; such a thing has one pose and is shown by its act',
     '',
     'Keep it under 100 shapes in all, 2 to 5 beats, 8 to 30 seconds. Use plain JavaScript (loops, Math) to work positions out; no imports, no DOM, no timers. Stay inside the w by h picture. Prefer few things that move meaningfully to many that do not.',
