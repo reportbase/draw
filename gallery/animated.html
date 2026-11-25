@@ -4943,6 +4943,178 @@ const rectP = (x0, y0, x1, y1, fill) => polyOf([[x0, y0], [x1, y0], [x1, y1], [x
     }
   });
 }
+// 34. ONE PREMISE (25 Nov 2026, Tom, via the session: an explainer for wander's essay 33 §15, "One premise for light and
+// gravity", and *Reads and Writes* §7, "Gravity on the stage, in one account"; the plans CLM, LGS and LNS): the scene of
+// explained.html?x=premise, in five beats. A column of matter slid out along its line from a place, its pull the same at
+// the inverse square (its cross-section grows as r², the law falls as 1/r²), and nearly double or a half at the powers
+// half a step either side; a shell with a place inside it, chords through the place, each direction and its opposite
+// meeting equal columns, so no pull inside (Newton, Principia I, Prop. 70); a ball moved out from a place, its light and
+// its pull falling together on the one share of directions it fills, their ratio unmoved; a face-on cube at half a side,
+// two sides and twenty sides off, its light and pull parting, the ratio up by three quarters (LGS: 0.542, 0.692, 0.953);
+// and a lens, rays bent by the column inside their closest approach only. Every pose is computed here.
+{
+  const f1 = v => +v.toFixed(2), D2R = Math.PI / 180,
+    line = (P, stroke, w, extra = '') => `<path d="M${P.map(p => f1(p[0]) + ' ' + f1(p[1])).join(' L')}" fill="none" stroke="${stroke}" stroke-width="${w}"${extra}/>`,
+    label = (x, y, s, fill, size = 22) => `<text x="${x}" y="${y}" font-size="${size}" font-family="sans-serif" font-weight="600" fill="${fill}">${s}</text>`,
+    INK = '#3b4256', GOLD = '#d4a052', TEAL = '#2f9e8f', VIOLET = '#7c5cff', GREY = '#9a927f', RED = '#c4593d', PALE = '#d9d2c3',
+    ESSAY = 'https://github.com/reportbase/wander/blob/main/papers/essays/33-one-stage-two-plays.md',
+    bar = (x, y, w, fill) => rectP(x, y - 9, x + Math.max(2, w), y + 9, fill),
+    arc = (c, r0, r1, a0, a1, fill) => { const n = 8, A = Array.from({ length: n + 1 }, (_, j) => a0 + (a1 - a0) * j / n);
+      return polyOf([...A.map(a => [c[0] + r1 * Math.cos(a), c[1] + r1 * Math.sin(a)]), ...A.reverse().map(a => [c[0] + r0 * Math.cos(a), c[1] + r0 * Math.sin(a)])], fill); };
+  const S = [], idx = {};
+  const put = (name, s) => { (idx[name] = idx[name] || []).push(S.length); S.push(s); };
+  put('paper', rectP(-400, -300, 3900, 1200, '#f4f1ea'));
+  // A COLUMN SLID ALONG ITS LINE: from the place, one direction and the thin cone of directions about it (half-width a
+  // slope of 0.06); a column 40 px long within it at r = 150 and at r = 600. Its matter goes as r² dr, its pull at 1/r^p
+  // as r^(2−p) dr: at p = 2 the same at every r, at p = 1.5 and 2.5 grown and shrunk by the ratios worked out here
+  const P1 = [130, 450], WS = 0.06, CL = 40, R0 = 150, R1 = 600,
+    col = r => polyOf([[P1[0] + r, P1[1] - WS * r], [P1[0] + r + CL, P1[1] - WS * (r + CL)], [P1[0] + r + CL, P1[1] + WS * (r + CL)], [P1[0] + r, P1[1] + WS * r]], VIOLET),
+    pullAt = (r, p) => p === 3 ? Math.log((r + CL) / r) : ((r + CL) ** (3 - p) - r ** (3 - p)) / (3 - p),
+    K15 = pullAt(R1, 1.5) / pullAt(R0, 1.5), K25 = pullAt(R1, 2.5) / pullAt(R0, 2.5), BX1 = 330, BW1 = 200;
+  put('dir', line([P1, [P1[0] + 760, P1[1]]], '#c9c2b4', 1.4));
+  put('cone', line([[P1[0] + 760, P1[1] - WS * 760], P1, [P1[0] + 760, P1[1] + WS * 760]], GREY, 1.4));
+  put('place1', circ4(...P1, 9, INK));
+  put('column', col(R0)); put('column', col(R1));
+  put('bar2', bar(BX1, 640, BW1, GOLD));
+  put('bar15', bar(BX1, 700, BW1, PALE)); put('bar15', bar(BX1, 700, BW1 * K15, PALE));
+  put('bar25', bar(BX1, 760, BW1, PALE)); put('bar25', bar(BX1, 760, BW1 * K25, PALE));
+  // A SHELL FROM INSIDE: a shell of radius 250 about C, a place Q inside it off the middle; four chords through Q, and on
+  // two of them the thin double cone of directions about the chord (half-width 6°), the pieces of shell it meets at either
+  // end drawn thick: longer at the far end by as much as that end is farther, so their pulls are equal and opposite
+  const C2 = [1250, 450], RS = 250, Q2 = [1170, 505], HW = 6 * D2R,
+    hit = th => { const u = [Math.cos(th), Math.sin(th)], w = [Q2[0] - C2[0], Q2[1] - C2[1]], b = u[0] * w[0] + u[1] * w[1],
+      t = -b + Math.sqrt(b * b - (w[0] * w[0] + w[1] * w[1] - RS * RS)); return [Q2[0] + t * u[0], Q2[1] + t * u[1]]; },
+    angOn = p => Math.atan2(p[1] - C2[1], p[0] - C2[0]),
+    arrow = (th, len, fill) => { const u = [Math.cos(th), Math.sin(th)], v = [-u[1], u[0]], at = (a, b) => [Q2[0] + a * u[0] + b * v[0], Q2[1] + a * u[1] + b * v[1]];
+      return polyOf([at(12, -3), at(len - 14, -3), at(len - 14, -9), at(len, 0), at(len - 14, 9), at(len - 14, 3), at(12, 3)], fill); };
+  put('shell', circ4(...C2, RS, 'none', ` stroke="${INK}" stroke-width="5"`));
+  [20, 65, 110, 155].forEach(d => put('chords', line([hit(d * D2R + Math.PI), hit(d * D2R)], '#c9c2b4', 1.6)));
+  [20, 110].forEach((d, n) => {
+    [0, Math.PI].forEach(s => { const a = d * D2R + s, e0 = hit(a - HW), e1 = hit(a + HW);
+      put('wedge' + n, polyOf([Q2, e0, e1], n ? '#d8cff7' : '#cfe8e3'));
+      let a0 = angOn(e0), a1 = angOn(e1); if (a1 < a0 - Math.PI) a1 += 2 * Math.PI; if (a1 > a0 + Math.PI) a1 -= 2 * Math.PI;
+      put('patch' + n, arc(C2, RS - 7, RS + 7, a0, a1, n ? VIOLET : TEAL)); });
+    put('arrows' + n, arrow(d * D2R, 70, RED)); put('arrows' + n, arrow(d * D2R + Math.PI, 70, RED)); });
+  put('placeQ', circ4(...Q2, 9, INK));
+  // A BALL, THEN A CUBE, ON ONE SHARE: a place, a ball of radius 60 at 200 and at 500 px, the two lines that bound the
+  // directions it fills (tangent to it); then a cube of side 32 face-on, its near face at 16, 64 and 640 px (half a side,
+  // two sides, twenty sides), the lines to its near face's edges. Bars: light and pull, each over its value at the start,
+  // and the pull over the light. The ball's share is π(R/d)²: both bars fall by (200/500)², the ratio stays. The cube's
+  // light is its near face's cosine-weighted share, D = 4·A·atan(A/√(1 + A²))/√(1 + A²) with A = half a side over the
+  // distance; its pull over its light is LGS's 0.542, 0.692 and 0.953 (× Gρ/B) at those three distances
+  const P3 = [1760, 450], RB = 60, DN = 200, DF = 500, SQ = 32, SD = [0.5, 2, 20],
+    tang = d => { const s = RB / d, c = Math.sqrt(1 - s * s), L = Math.sqrt(d * d - RB * RB); return [[P3[0] + L * c, P3[1] - L * s], [P3[0] + L * c, P3[1] + L * s]]; },
+    face = s => { const x = P3[0] + s * SQ; return [[x, P3[1] - SQ / 2], [x, P3[1] + SQ / 2]]; },
+    Dsq = s => { const A = 0.5 / s, q = Math.sqrt(1 + A * A); return 4 * (A / q) * Math.atan(A / q); },
+    GF = [0.542, 0.692, 0.953], LIGHT = SD.map(s => Dsq(s) / Dsq(SD[0])), PULL = LIGHT.map((l, i) => l * GF[i] / GF[0]),
+    BX3 = 1900, BW3 = 300, BR3 = 150, FAR = (DN / DF) ** 2;
+  put('place3', circ4(...P3, 9, INK));
+  [0, 1].forEach(e => [tang(DN), tang(DF), ...SD.map(face)].forEach(T => put('edge' + e, line([P3, T[e]], GREY, 1.6))));
+  put('ball', circ4(P3[0] + DN, P3[1], RB, TEAL)); put('ball', circ4(P3[0] + DF, P3[1], RB, TEAL));
+  SD.forEach(s => put('cube', rectP(P3[0] + s * SQ, P3[1] - SQ / 2, P3[0] + (s + 1) * SQ, P3[1] + SQ / 2, VIOLET)));
+  [1, FAR, LIGHT[1], LIGHT[2]].forEach(v => put('light', bar(BX3, 650, BW3 * v, GOLD)));
+  [1, FAR, PULL[1], PULL[2]].forEach(v => put('pull', bar(BX3, 710, BW3 * v, TEAL)));
+  [1, GF[1] / GF[0], GF[2] / GF[0]].forEach(v => put('ratio', bar(BX3, 770, BR3 * v, RED)));
+  // A LENS READS THE COLUMN: a mass at M5 seen along the line of sight, its column laid on the lens's plane (the band);
+  // parallel rays at impact b above and below, each bent at the plane toward the axis by k·b/(b² + a²), the projected
+  // mass inside b over b (a Plummer column, a = 60); one ray lit, at b = 70 and then 170, with the column inside it (a
+  // gold bar beside the plane)
+  const M5 = [3150, 450], XL = M5[0], AP = 60, KB = 30, X0 = 2820, X1 = 3520,
+    bend = b => { const s = KB * Math.abs(b) / (b * b + AP * AP) * Math.sign(b); return [[X0, M5[1] - b], [XL, M5[1] - b], [X1, M5[1] - b + s * (X1 - XL)]]; },
+    inner = b => rectP(XL - 26, M5[1] - b, XL - 18, M5[1] + b, GOLD);
+  put('plane', line([[XL, M5[1] - 250], [XL, M5[1] + 250]], '#c9c2b4', 1.4));
+  put('band', rectP(XL - 12, M5[1] - 220, XL + 12, M5[1] + 220, '#e3dcf6'));
+  put('mass', circ4(...M5, 42, '#b8a8f0'));
+  [40, 100, 190, -40, -100, -190].forEach(b => put('rays', line(bend(b), GREY, 1.8)));
+  put('inner', inner(70)); put('inner', inner(170));
+  put('litRay', line(bend(70), GOLD, 3)); put('litRay', line(bend(170), GOLD, 3));
+  // labels, last
+  put('l2', label(150, 648, '1/r^{2}', GOLD)); put('l15', label(150, 708, '1/r^{1.5}', GREY)); put('l25', label(150, 768, '1/r^{2.5}', GREY));
+  put('lNo', label(Q2[0] + 50, Q2[1] + 72, 'no pull', RED, 20));
+  put('lLight', label(1760, 658, 'light', GOLD)); put('lPull', label(1760, 718, 'pull', TEAL)); put('lRatio', label(1760, 778, 'pull/light', RED));
+  const body = S.join('');
+  const one = n => idx[n][0], many = (...ns) => ns.flatMap(n => idx[n]);
+  const span = (start, end, io) => Object.assign({ start: +start.toFixed(4), len: +(end - start).toFixed(4) }, io || {}),
+    fadeIn = len => ({ in: { kind: 'fade', len } }), drawIn = len => ({ in: { kind: 'draw', len } }),
+    rel = (a, b, T) => T.map(t => +(0.9999 * (t - a) / (b - a)).toFixed(4)), BZ = [0.45, 0, 0.25, 1];
+  const morphs = [], at = {};
+  const add = (name, m) => { (at[name] = at[name] || []).push(morphs.length); morphs.push(m); };
+  const shows = (name, i, m) => add(name, Object.assign({ keys: [i] }, m));
+  // a morph through the keys K at the times T (each later than start), E the ease of each stretch between them, holding its
+  // first key from the window's start and its last to the window's end
+  const track = (name, K, start, end, T, E, io) => add(name, { keys: [K[0], ...K, K[K.length - 1]], straight: true,
+    times: rel(start, end, [start, ...T, end]), eases: [null, ...E, null, null], clip: span(start, end, io) });
+  // beat 1, 0–0.2: the line, its cone, the place; the column and the bars; the column out 0.07–0.11 and back 0.14–0.18
+  shows('dir', one('dir'), { clip: span(0.004, 0.99, drawIn(0.012)) });
+  shows('cone', one('cone'), { clip: span(0.014, 0.99, drawIn(0.012)) });
+  shows('place1', one('place1'), { clip: span(0.01, 0.99, fadeIn(0.01)) });
+  shows('bar2', one('bar2'), { clip: span(0.035, 0.99, fadeIn(0.01)) });
+  const T1 = [0.07, 0.11, 0.14, 0.18], E1 = [BZ, null, BZ];
+  [['column', 0.03], ['bar15', 0.04], ['bar25', 0.045]].forEach(([n, s]) => { const k = idx[n];
+    track(n, [k[0], k[1], k[1], k[0]], s, 0.99, T1, E1, fadeIn(0.01)); });
+  // beat 2, 0.2–0.4: the shell, the place inside it, the chords; one double cone and its two pieces of shell, the two
+  // pulls, then another; then no pull
+  shows('shell', one('shell'), { clip: span(0.205, 0.99, drawIn(0.02)) });
+  shows('placeQ', one('placeQ'), { clip: span(0.215, 0.99, fadeIn(0.01)) });
+  idx.chords.forEach((k, n) => shows('chords', k, { clip: span(0.23 + 0.01 * n, 0.99, drawIn(0.012)) }));
+  [0, 1].forEach(n => { const t = 0.28 + 0.05 * n;
+    idx['wedge' + n].forEach(k => shows('wedge' + n, k, { clip: span(t, 0.99, fadeIn(0.01)) }));
+    idx['patch' + n].forEach(k => shows('patch' + n, k, { clip: span(t + 0.006, 0.99, fadeIn(0.01)) }));
+    idx['arrows' + n].forEach(k => shows('arrows' + n, k, { clip: span(t + 0.02, 0.99, fadeIn(0.01)) })); });
+  // beat 3, 0.4–0.6: the place, the ball and its two bounding lines; out 0.44–0.50. Beat 4, 0.6–0.8: the ball goes, the
+  // cube comes at half a side (0.625), out to two sides (0.66–0.69), to twenty (0.72–0.76); the bars follow
+  shows('place3', one('place3'), { clip: span(0.405, 0.99, fadeIn(0.01)) });
+  const T34 = [0.44, 0.50, 0.615, 0.625, 0.66, 0.69, 0.72, 0.76], E34 = [BZ, null, BZ, null, BZ, null, BZ];
+  [0, 1].forEach(e => { const k = idx['edge' + e];
+    track('edge' + e, [k[0], k[1], k[1], k[2], k[2], k[3], k[3], k[4]], 0.41, 0.99, T34, E34, drawIn(0.012)); });
+  track('ball', [idx.ball[0], idx.ball[1]], 0.41, 0.618, [0.44, 0.50], [BZ], { in: { kind: 'fade', len: 0.01 }, out: { kind: 'fade', len: 0.008 } });
+  const q = idx.cube;
+  track('cube', [q[0], q[0], q[1], q[1], q[2]], 0.618, 0.99, T34.slice(3), E34.slice(3), fadeIn(0.008));
+  [['light', 0.415], ['pull', 0.42]].forEach(([n, s]) => { const k = idx[n];
+    track(n, [k[0], k[1], k[1], k[0], k[0], k[2], k[2], k[3]], s, 0.99, T34, E34, fadeIn(0.01)); });
+  const r = idx.ratio;
+  track('ratio', [r[0], r[0], r[1], r[1], r[2]], 0.425, 0.99, T34.slice(3), E34.slice(3), fadeIn(0.01));
+  // beat 5, 0.8–1: the lens's plane, the column laid on it, the mass; the rays drawn on; one ray lit, its column inside
+  // it, at b = 70 and then 170
+  shows('plane', one('plane'), { clip: span(0.805, 0.99, drawIn(0.012)) });
+  shows('band', one('band'), { clip: span(0.81, 0.99, fadeIn(0.01)) });
+  shows('mass', one('mass'), { clip: span(0.812, 0.99, fadeIn(0.01)) });
+  idx.rays.forEach((k, n) => shows('rays', k, { clip: span(0.82 + 0.006 * n, 0.99, drawIn(0.015)) }));
+  track('inner', [idx.inner[0], idx.inner[0], idx.inner[1]], 0.86, 0.99, [0.87, 0.90, 0.93], [null, BZ], fadeIn(0.01));
+  track('litRay', [idx.litRay[0], idx.litRay[0], idx.litRay[1]], 0.862, 0.99, [0.87, 0.90, 0.93], [null, BZ], drawIn(0.012));
+  // the labels, each fading in with what it names
+  [['l2', 0.035], ['l15', 0.04], ['l25', 0.045], ['lNo', 0.36], ['lLight', 0.415], ['lPull', 0.42], ['lRatio', 0.425]].forEach(([n, t]) =>
+    shows(n, one(n), { clip: span(t, 0.99, fadeIn(0.012)) }));
+  const lit = (...names) => names.flatMap(n => at[n]).join(',');
+  const PREMISE_BEATS = [
+    { title: 'A column slid along its line',
+      text: `From [a place](#lit:${lit('place1')}), take [one direction](#lit:${lit('dir')}) and the thin [cone of directions](#lit:${lit('cone')}) about it. Put [a column of matter](#lit:${lit('column')}) in it and slide it out and back. Four times as far, it is sixteen times as broad, and a pull falling as one over the distance squared loses sixteen times: [its pull](#lit:${lit('bar2')}) is the same wherever along the line it sits.\n\nAt the powers [half a step less](#lit:${lit('bar15')}) and [half a step more](#lit:${lit('bar25')}) it nearly doubles or halves (1.91 and 0.52 here). A direction's pull depends only on how much matter lies along it, not where, under the inverse square and no other law.` },
+    { title: 'A shell from inside',
+      text: `Stand [inside a shell](#lit:${lit('shell')}), [off its middle](#lit:${lit('placeQ')}). Every [line through the place](#lit:${lit('chords')}) meets the shell at its two ends, and meets it at the same slant at both. So the thin cone of directions along it takes [a piece of shell](#lit:${lit('patch0')}) at each end, the farther piece larger by just as much as it is farther.\n\nEach direction and its opposite carry equal columns, and [their pulls](#lit:${lit('arrows0', 'arrows1')}) cancel, [line after line](#lit:${lit('wedge1', 'patch1')}): [no pull](#lit:${lit('lNo')}) inside. This is Newton's own argument, Proposition 70 of the *Principia*.` },
+    { title: 'A ball, its light and its pull',
+      text: `Light keeps the same premise: a surface's brightness per direction stays the same along a ray. So [a ball](#lit:${lit('ball')}) seen from [a place](#lit:${lit('place3')}) gives [light](#lit:${lit('light')}) as its brightness times [the share of directions it fills](#lit:${lit('edge0', 'edge1')}), and [a pull](#lit:${lit('pull')}) as that same share times one amount, its density times four thirds of its radius.\n\nMove it out and both fall together. [The pull over the light](#lit:${lit('ratio')}) has no distance in it.` },
+    { title: 'A cube parts them',
+      text: `Put [a cube](#lit:${lit('cube')}) face on in its place. Its light is still its brightness times [the share its near face fills](#lit:${lit('edge0', 'edge1')}), but its pull now takes columns of different lengths, and how they weigh changes with distance.\n\nFrom half a side off to twenty sides off, [the pull over the light](#lit:${lit('ratio')}) rises by about three quarters. Only a round body keeps the two on one share.` },
+    { title: 'A lens reads the column',
+      text: `Light passing [a mass](#lit:${lit('mass')}) is bent by [the column along its line of sight](#lit:${lit('band')}), laid out on the sky. [The rays](#lit:${lit('rays')}) bend by the pull's own law one dimension down: only [the column inside a ray's closest approach](#lit:${lit('inner')}) bends [it](#lit:${lit('litRay')}), the sky's own shell theorem.\n\nWhat a look sees bent is a column's pull, carried to it as directions. [The essay, §15](${ESSAY})` }
+  ];
+  SHOWPIECES.push({
+    id: 'premise', name: 'one premise', section: 'explainers', tags: ['camera', 'labels', 'morph', 'essay'],
+    note: 'One premise for light and gravity, from wander\'s essay 33 and its plans CLM, LGS and LNS, in five beats: a column of matter slid out along its line from a place, its pull the same at the inverse square and doubled or halved at the powers half a step either side; a shell with a place inside it, each line through the place meeting equal columns at its two ends, so no pull inside; a ball moved out, its light and its pull falling together on the one share of directions it fills, their ratio unmoved; a face-on cube taking that ratio up by three quarters between half a side and twenty sides off; and a lens, each ray bent only by the column inside its closest approach. The scene of the explainer page\'s twenty-first explainer.',
+    svg: svg(3500, 900, body),
+    scene: {
+      loop: 48, ease: 'inout', stops: [0.2, 0.4, 0.6, 0.8],
+      camera: [
+        { t: 0, fit: many('cone', 'bar25', 'l25'), pad: 0.1 }, { t: 0.2, fit: many('cone', 'bar25', 'l25'), pad: 0.1 },
+        { t: 0.23, fit: many('shell'), pad: 0.14 }, { t: 0.4, fit: many('shell'), pad: 0.14 },
+        { t: 0.43, fit: many('place3', 'ball', 'light', 'ratio', 'lRatio'), pad: 0.1 }, { t: 0.6, fit: many('place3', 'ball', 'light', 'ratio', 'lRatio'), pad: 0.1 },
+        { t: 0.62, fit: many('place3', 'cube', 'light', 'ratio', 'lRatio'), pad: 0.1 }, { t: 0.8, fit: many('place3', 'cube', 'light', 'ratio', 'lRatio'), pad: 0.1 },
+        { t: 0.83, fit: many('plane', 'rays'), pad: 0.1 }],
+      beats: PREMISE_BEATS,
+      morphs
+    }
+  });
+}
 // 12. PHYSICAL MOTIONS (27 Oct 2026): one shape and a motion the editor computes, gravity's own timing, no keys
 // placed by hand. Each thing is drawn where it rests: the balls on the floor, the lantern hanging, the jelly on its plate.
 {
@@ -5072,7 +5244,7 @@ const SECTIONS = [
     note: 'What the live morph can do when every morph keeps its own clock, path, spin, colour and trail: a few dozen shapes moving at once, all on one loop that closes without a seam. Each is a handful of shapes and the settings that set them going; nothing is drawn frame by frame.' },
   { id: 'sequences', title: 'sequences', ids: ['house', 'seed'],
     note: 'Morphs that play once, each in its own stretch of the loop, one after another: things come on, do what they do and stay, or fade away. A sequence is a handful of shapes and when each one plays.' },
-  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates', 'cauchymap', 'plane', 'special', 'parties', 'array', 'kn', 'writer', 'free', 'order', 'paradox', 'breath'],
+  { id: 'explainers', title: 'explainers', ids: ['explainer', 'leaves', 'bridge', 'reading', 'turned', 'addresses', 'nearfar', 'standpoints', 'pictures', 'rates', 'cauchymap', 'plane', 'special', 'parties', 'array', 'kn', 'writer', 'free', 'order', 'paradox', 'breath', 'premise'],
     note: 'Explainers are sequences that wait. A shape can be drawn on as a pen would draw it (its clip shown "draw"), a camera keyed on the clock frames what each moment is about, and stops make the scene wait at the end of each beat until the viewer clicks on. The tile\'s picture plays straight through; live, and in the TVF player, it waits.' },
   { id: 'physics', title: 'physical motions', ids: ['bouncing-ball', 'dropped', 'lantern', 'jelly', 'wheel', 'toss', 'wind', 'pop', 'rider'],
     note: 'Motion the editor computes rather than keys: a bounce, a fall that settles, a swing, a spring, a roll, a throw, a sway and a pop, each with gravity\'s or a spring\'s own timing. Each is one shape drawn where it rests and one motion; a follower riding it moves with it. Nothing else is set by hand.' },
