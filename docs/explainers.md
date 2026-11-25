@@ -201,6 +201,18 @@ cos(Ω/2) = 1 − 2·sin²(α/2)·sin²(β/2)·sin²φ) and four more loops each
 a ring carried through M = S⁻¹R⁻¹SR at c = 2, α = 40° (the four steps, then M², M³, M⁴, every ellipse from its 2 × 2
 matrix, 1.59 × 0.63 after one, 6.26 × 0.16 after four, ζ = 0.4507); and M⁴ at c = 1.7, 1.4, 1.2, 1, the dot on
 ζ against ln c reaching nothing and the ring home whole. 40 morphs; book poses by Rodrigues, a third view from higher up.
+`?x=premise` is ONE PREMISE (25 Nov 2026, Tom, via the session; wander's essay 33 §15, "One premise for light and
+gravity", *Reads and Writes* §7 "Gravity on the stage, in one account", and the plans CLM, LGS and LNS), five beats: from
+a place one direction and its thin cone, a column 40 px long slid from r = 150 to 600 and back, its pull at 1/r² the same
+(matter as r² dr) and at 1/r^1.5 and 1/r^2.5 1.91 and 0.52 times as much (worked out in the page from the integrals);
+a shell with a place inside it off the middle, four chords through it, on two of them the double cone of directions
+(6° each side) and the pieces of shell it meets at both ends, equal and opposite pulls, no pull inside (Principia I,
+Prop. 70); a ball moved from 200 to 500 px, its two bounding lines, light and pull each over its start falling together
+by (200/500)² and their ratio unmoved; a face-on cube at half a side, two and twenty sides, its light its near face's
+cosine-weighted share 4·A·atan(A/√(1 + A²))/√(1 + A²), its pull over its light LGS run 1's 0.542, 0.692, 0.953 (so up
+1.758, "about three quarters"); and a lens, six rays bent at the plane by k·b/(b² + a²) (a Plummer column, a = 60), one
+lit at b = 70 then 170 with a gold bar for the column inside it. The beats give no angle to a reader and never call the
+pull a read. 87 morphs, 76 shapes and seven short labels, no scene warnings.
 
 ## An explainer from files
 

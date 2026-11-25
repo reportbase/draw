@@ -50,7 +50,8 @@
     "free",
     "order",
     "paradox",
-    "breath"
+    "breath",
+    "premise"
    ]
   },
   {
@@ -575,6 +576,16 @@
     "essay"
    ]
   },
+  "premise": {
+   "name": "one premise",
+   "note": "One premise for light and gravity, from wander's essay 33 and its plans CLM, LGS and LNS, in five beats: a column of matter slid out along its line from a place, its pull the same at the inverse square and doubled or halved at the powers half a step either side; a shell with a place inside it, each line through the place meeting equal columns at its two ends, so no pull inside; a ball moved out, its light and its pull falling together on the one share of directions it fills, their ratio unmoved; a face-on cube taking that ratio up by three quarters between half a side and twenty sides off; and a lens, each ray bent only by the column inside its closest approach. The scene of the explainer page's twenty-first explainer.",
+   "tags": [
+    "camera",
+    "labels",
+    "morph",
+    "essay"
+   ]
+  },
   "bouncing-ball": {
    "name": "a bouncing ball",
    "note": "One ball and a bounce: it rises and falls along gravity's parabola, slowest at the top, and squashes flat as it meets the floor, stretching the way it travels on the way up and down.",
@@ -781,6 +792,7 @@
   "free": 108592,
   "order": 142768,
   "paradox": 194879,
-  "breath": 184114
+  "breath": 184114,
+  "premise": 123815
  }
 }
