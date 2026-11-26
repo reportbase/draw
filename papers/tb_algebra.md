@@ -8,6 +8,8 @@
 
 *Revised 29 October 2026: brought into the framing of *Observation from Somewhere* (the wander papers) in three places. §1.1 called the Cauchy "the unique Möbius-invariant distribution"; no probability law is unchanged by every Möbius map, so it now says rotation-invariant, the Möbius maps carrying the Cauchy family into itself. §3.1 names the leaf positions as addresses and the values read there as the payload. §15.2 gains "The measure the torus carries": the even pan × tilt grid is not the uniform measure on directions, and in space the laws that are one on the circle part.*
 
+*Revised 26 November 2026: four results from the wander tests (reportbase/wander, `plans/fab-plan.md`, `tbh-plan.md`, `rah-plan.md`, `dbr-plan.md`). Appendix A.6's open floor is proved in the literature (Tao 2026), by the writer's tools; §15.2 gains "The reader's hemisphere" (a bridge laid round the look, and what one hemisphere holds); §16 gains "The window as a whole bridge, behind a dial". Nothing earlier changed.*
+
 ## Abstract
 
 *The Geometry of Bounded Observation* (the foundational paper) builds the reader from a single set primitive — the sweep, the interval of ratios $[0,\infty]$ — and closes it into a unit circle. This paper proves the theorem that says what that reader does with continuous content: it holds the content as a finite set of leaves and gives it back as continuous on its circle, exactly at the leaves and with bounded error between. The Tangent Bridge is the formal statement of the foundational thesis — *bounded observation is discrete readings given back continuously on the reader's unit circle.*
@@ -835,6 +837,25 @@ Pan's own pair ($v_2$ against $h$) keeps its corner either way, the pan being ev
 
 Two more things change between the circle and the sphere, and both bear on a gauge held per aperture. Turns of space do not commute: pan then tilt is not tilt then pan (two quarter turns about perpendicular axes, taken in the two orders, leave a book in poses $120^\circ$ apart), so the nesting fixes an order the sphere itself does not have. And the laws that are one law on the circle part on $S^2$. In the plane the Möbius image of the uniform turn, harmonic measure, the law whose moments are the powers $w^n$ of its standpoint, and twice the landings' density less the uniform are the same law; on the sphere, for a reader on the axis at radius $r$, harmonic measure has mean $r$, while the Möbius law (the spherical Cauchy at $\rho = \tanh(\eta/2)$, the boosted sky's) has mean $\coth\eta - \eta/\sinh^2\eta$, and the nearest harmonic measure to it is $3.8\%$ off at $\rho = 1/2$. Liouville's theorem is the reason: in three dimensions the conformal maps are the Möbius maps alone, so the plane's many conformal maps, which hold the four together, are gone. A statement about "the Cauchy on the sphere" has to say which law it means (*Observation from Somewhere*, Appendix A; *Why the plane is special*, the thirteenth of the wander essays; the wander run EUL).
 
+**The reader's hemisphere (26 November 2026; wander TBH and RAH, `plans/tbh-plan.md`, `plans/rah-plan.md`, predictions
+committed before each run).** The verdict above concerns the pan × tilt torus. A different construction lays the bridge
+round the look: each line through the look is one reader's universe of period $\pi$, its slope $\tan\alpha$ the reading
+off the look, tensored with the azimuth $\beta$ round it (the classical double Fourier sphere of Merilees 1973 and
+Orszag 1974, here with its pole at the look), on the hemisphere in front. In the slope chart (leaves by halving and
+tangent addition, kernels rational in the composed slopes, the horizon given its address as in §11.2) it runs with zero
+trigonometric calls. Its findings: (i) the reader's quadratic shares $h^2$, $v^2$, $hv$, $vv_2$ are held to $10^{-14}$ from
+$8\times4$ leaves, smooth even content to $10^{-12}$ by $N=64$; (ii) period $\pi$ makes a line's two ends one point, so the
+rim's antipodes are glued and the closure is the projective plane: content that differs there ($v$, $v_2$) rings at
+every $N$, and is held exactly ($10^{-14}$) only with $\alpha$ of period $2\pi$, both hemispheres held, the writer's;
+(iii) the grid is finest at the look, half its leaves within one thumb against 29% of the uniform measure, and moving it
+onto that measure costs ($\Lambda=6.4\times10^{7}$ at 32 leaves by substitution; by conjugation a cusp at the look, $hv$
+converging as $N^{-0.52}$), §10.2's two halves again. And the line between what one hemisphere holds and what it does not
+is the single square root: of the 84 monomials $h^av^bv_2^c$ to degree six, the 50 rational in the slopes (exactly the
+even-degree ones) are held to $4\times10^{-13}$, the 34 carrying $\sqrt{1+s_1^2+s_2^2}$ never exactly (with $h^a$ in
+them they converge as $N^{-a}$, without $h$ they ring at the rim), and the writer's two-hemisphere form holds all 84. The
+square root that §11 makes the one non-rational step is the line between what the reader's single hemisphere holds and
+what needs the other.
+
 ### 15.3 Optimality: the local variational characterization, and the test record
 
 The optimality question has moved from open to partially answered, and this subsection is also the **record of the stress tests already run** — their scripts, results, and kills — so they are not repeated.
@@ -951,6 +972,19 @@ amplification and not accuracy.
 `[refutable by]` a renormalised $K$-window of the leaf kernel whose disagreement with the full
 read falls below the floor above as $K$ grows, at fixed $N$ and non-bandlimited content.
 
+**The window as a whole bridge, behind a dial (26 November 2026; wander DBR, `plans/dbr-plan.md`).** The floor above is
+the price of reading a $K$-window *as a cut of the $N$-kernel*. A reader that rebuilds its window as a bridge of its own
+pays none. Behind the calendar's dial (reportbase/calendar, `dial.js`: a needle that is a rate and one that is a place,
+over a list with no end), a window round the needle's record $c$ in the ratio coordinate $y=(x-c)/(x+c)$, with $K$ leaves at
+the chord's Chebyshev nodes (§9) generated from the lattice of §11.1 (Gauss's seed $1/\sqrt3$ for $K=24$) and rebuilt
+by the barycentric formula, holds content that is the same in ratio to the same error from $10$ to $10^{12}$ thumbs out
+($1.14$–$1.23\times10^{-3}$ at $K=24$, the double's rounding at $K=48$), each read $K$ terms with zero trigonometric calls;
+its Lebesgue constant is Chebyshev's to four digits, and its error falls a thousandfold from $K=12$ to $24$. Content with
+a size in records is lost by a ratio window and held by a window in records until the double stops telling the records
+apart; and one bridge over the whole endless list (the rational map of a half-line) holds ratio content poorly
+everywhere, since that content never settles toward home or the horizon. The $K$-circle of §1.2, rebuilt as the reader
+moves, is the operator that works. (A page: wander's `dial-bridge.html`.)
+
 ---
 
 ## Conclusion
@@ -1010,9 +1044,23 @@ A third route, tested this pass, does not close the question but *localizes* it,
 
 What the reduction does *not* do is discharge that last step, and the reason is located precisely (`faber_step3.js`). The logarithm does not live in the local structure: the integral of $|\ell_k|$ over the gap adjacent to its own node is $O(1/N)$ and sums to $O(1)$ — the local humps, which *are* order-and-counting data (each $\ell_k$ vanishes at the other nodes and is $1$ at its own, forcing a hump of universally bounded area, measured $\geq 0.06$ even for random nodes), do not produce the growth. The $\ln N$ lives in the *tails* — $\ell_k$ far from node $k$, where the ratio products accumulate — and the tail's lower bound, in every proof this pass could construct, is extracted by a global $L^1$-duality (a conjugate-function argument), which is a completed dual object of exactly the kind the reader declines. So the honest status is unchanged in verdict but improved in resolution: the universal envelope remains **[open]**, still on current evidence the writer's, but the difficulty is now pinned to one question — *whether the harmonic floor on the average Lebesgue function is reachable by order and counting alone, or requires the conjugate function*. The local hump area is reader-side and insufficient; the tail floor is sufficient and, so far, only writer-reachable. That the entire gap reduces to the tail's $L^1$ floor is the progress; that the floor still calls a completed dual is why the claim is not made (`faber_route.js`, `faber_partition.js`, `faber_rigor.js`, `faber_step3.js`). A further pass sharpened *why* the dual is called, by trying to eliminate it. If the log-floor were concentrated at some order-identifiable location $x^\*$ — an edge, an outermost gap — the reader could bound $\lambda(x^\*)$ there by counting and take $\Lambda \geq \lambda(x^\*)$ directly, no integral, no dual. Three such single-point routes were tried and all refuted (`faber_gapmax.js`, `faber_finding.js`): evaluation just outside the interval is extrapolation blow-up, not the Lebesgue constant (a caught test error, not a bound); and the outer-gap midpoint and the outer-gap maximum are both driven below the $\ln N$ floor by an adversary positioning nodes so that *particular* point goes cheap (outer-gap max pushed to $\approx 1.0$ against a floor of $1.8$–$2.2$ at $N=16,32$). The pattern is uniform and it is the finding: *any single point the reader can name in advance can be made cheap*; the growth is not concentrated but **distributed** across the interval, which is exactly why the average $\int\lambda$ — which integrates the distributed growth and cannot be cheated — is the right object, and why $\max \geq \text{average}$ is the only available bridge. This locates the obstruction precisely: order and counting are pointwise, local operations, but the $\ln N$ floor is a global, distributed fact, so no local argument reaches it and the classical proof's global dual (the conjugate function) is doing essential work. The sharpened open question is therefore not whether the bound is reader-reachable in general but whether an *reader-native* global object can play the conjugate function's role — and there is one candidate the framework already owns: the combination-law rotation on the unit circle (foundational §8), which is global rather than pointwise, is the reader's own operation, and is of the same rotational type as the conjugate operator on the circle. Whether the §8 rotation discharges the $L^1$ floor that the conjugate function classically discharges is untested, and is the single most promising remaining probe. The envelope stays **[open]**; the pass converted a diffuse question into a specific one with a named candidate mechanism.
 
+**Proved in the literature, by the writer's tools (26 November 2026).** Tao (2026, *Local Bernstein theory, and lower
+bounds for Lebesgue constants*, arXiv:2603.21453; read from its abstract, its author's blog post and the first part of the
+paper, not yet checked against a refereed version) proves, for any distinct $x_1<\dots<x_n$ in $[-1,1]$ and a fixed
+interval $I$, $\int_I\lambda \ge (4|I|/\pi^2)\log n - o(\log n)$ with the sharp constant, and
+$\sup_I\lambda \ge (2/\pi)\log n - O(1)$, completing Erdős and Szabados (1978). The floor this appendix left open is
+therefore a theorem. Its proof uses an $L^1$ duality resting on the Fourier series of the square wave and the residue
+theorem round closed contours (with Nevanlinna's two-constant theorem for the localization): a completed dual and
+completed loops, exactly the writer's objects this appendix expected. Whether order and counting alone reach it is still
+**[open]**. Three checks from the wander tests (FAB, `plans/fab-plan.md`): the §8 rotation, read as a turn of the places,
+is Fubini and supplies no floor by itself (some turned reads are near $1$ at every $N$); Tao's trigonometric toy
+$\int_0^{2\pi}\sum_k|P(x)|/|P'(x_k)|\,dx \ge 8$ is met by the sinusoid with its two factors $4$ and $2$ computed with
+no trigonometric call, $\pi$ entering only when the integral is made a mean, as in §7.5; and on the circle the equally
+spaced places gave the least average Lebesgue function in every minimization tried, climbing at $(4/\pi^2)\ln N$.
+
 ### A.7 The factorization
 
-Classical approximation theory factors cleanly over the reader/writer line. The reader's court holds the constructive half — near-best estimates (A.1), the logarithmic growth law in both directions (A.2), the sampling limit by counting (A.3), the sharp direct theorem by squaring (A.4), derivative control and the inverse theorems (A.5) — all from the round-trip identity, order, dyadic self-similarity, and squaring in the pair algebra. The writer's court holds the variational half — existence, characterization, completed density, all evaluated constants, and on current evidence the universal lower envelope — each requiring a completed total or a quantifier over unheld objects. That this paper proves the bridge *from* the classical results and this appendix recovers the classical constructive results *from* the reader is not circular: the two directions meet at the constructive core, which is common to both, while each court keeps what the other cannot reach. The dependency is mutual exactly where it should be, and the boundary between the courts is, once again, the bandwidth horizon.
+Classical approximation theory factors cleanly over the reader/writer line. The reader's court holds the constructive half — near-best estimates (A.1), the logarithmic growth law in both directions (A.2), the sampling limit by counting (A.3), the sharp direct theorem by squaring (A.4), derivative control and the inverse theorems (A.5) — all from the round-trip identity, order, dyadic self-similarity, and squaring in the pair algebra. The writer's court holds the variational half — existence, characterization, completed density, all evaluated constants, and the universal lower envelope (now proved, by the writer's tools: A.6) — each requiring a completed total or a quantifier over unheld objects. That this paper proves the bridge *from* the classical results and this appendix recovers the classical constructive results *from* the reader is not circular: the two directions meet at the constructive core, which is common to both, while each court keeps what the other cannot reach. The dependency is mutual exactly where it should be, and the boundary between the courts is, once again, the bandwidth horizon.
 
 *Full derivations, the numerical verification suite, and the session record including the rejected results are maintained in the working note `approx_from_observer.md`.*
 
