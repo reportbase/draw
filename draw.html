@@ -57048,50 +57048,34 @@
 
         // --- the button rings ---
         //
-        // THE SAME WIDGET AS THE SHAPE BROWSER, on the same maths. Not a lookalike: the
-        // positions come from boma.realDimension (which items are inside the aperture) and
-        // boma.fisheye.project (where each one sits), and the spin is pixelsToAngle on a
-        // continuous angle. If the browser's feel changes, this changes with it, because there
-        // is only one set of numbers.
+        // THE RING READ FROM ONE VANTAGE (27 Nov 2026, Tom: "the two ring works very well, ithe should be used by default.
+        // draw repos uses the old ring. update it to the new ring."): the games page's toolbar ring, carried here. The
+        // old ring was the shape browser's machinery (boma.realDimension, boma.fisheye.project, an angle on a turn,
+        // capped at one lap, so a bar could show about half its chips). This one is an index read from a focus: chip k
+        // stands at d = k − f items from it (the nearer way round, a count mod n, so the ring has no end), d is read
+        // in thumbs, s = d/H, and laid on the line chart x = s/(1 + |s|) across the strip's half-width: rational both ways,
+        // the thumb (s = ±1) at half the half-width, x(s) + x(1/s) = 1, the strip's ends the horizon, never reached.
+        // H is set so the focus's neighbours stand a chip's pitch apart; out from there each chip has less room and is
+        // drawn smaller in proportion (--ring-s), gone below 0.15. No square root and no trigonometry on the way
+        // (wander's ring.html, R1266; essay 16 §10). A drag keeps the chip under the finger (f = i₀ − H·s(x)); the wheel
+        // turns f by its pixels over the pitch; a throw glides and slows.
         //
-        // What is different is only what has to be. The browser's tiles are a POOL — there can
-        // be five thousand shapes, so the DOM holds only what fits and each tile is re-stamped
-        // as the window slides. These are buttons, each a specific thing you are aiming at, so
-        // every one keeps its own element for its whole life and the layout only decides where
-        // it goes and whether it is on screen at all.
+        // THE RING ONLY WHEN THE CHIPS DO NOT FIT (the games bar's rule, the same day: "use the ring … if the button widths
+        // are greater than the screen width"): their own widths side by side with a 4px gap against the strip's width; while
+        // they fit they stand in one centred row, each at its own width, and nothing turns.
         //
-        // The ring is infinite: spin far enough and the first button comes round again. That is
-        // the property that makes a fisheye toolbar work at any width — nothing is ever off the
-        // end, because there is no end.
-        //
-        // TWO OF THEM NOW, from one factory: the toolbar across the top of the scene view and
-        // the footer along the bottom of the edit view. They were a fisheye and a flex row, which
-        // is two implementations of one idea and two things to keep in step — and it showed, in
-        // chips that were the same size by declaration and visibly different on the glass,
-        // because only one of them was being scaled. A ring is a ring.
+        // Every chip keeps its own element for its whole life (they are buttons, not the browser's pool of tiles); the
+        // layout decides only where each goes, how large, and whether it shows.
         function makeRing(strip) {
             if (!strip)
                 return null;
-            const GAP = 16; // the pitch between chips, on top of their width
-            let angle = 0; // the ring's focus, in radians — the whole state
-            let raf = 0;
+            const GAP = 16, GAP_MIN = 4; // the pitch's air at the focus, and the least a row may have
+            const LINE = { x: s => s / (1 + (s < 0 ? -s : s)), s: x => x / (1 - (x < 0 ? -x : x)) };
+            const THROW_MS = 140, FRICTION = 0.88, V_MAX = 1.2, V_MIN = 0.004; // velocities in chips a frame
+            let f = 0; // the ring's focus, in chips: the whole state
+            let raf = 0, vel = 0, geo = null;
             const items = () => Array.prototype.slice.call(strip.querySelectorAll('.icon-btn'));
-            // THE PITCH IS A CONSTANT, and it has to be measured as one. This asked the FIRST
-            // .icon-btn for its offsetWidth — and the ring itself sets display:none on whatever it
-            // culls, so as soon as that particular button crossed the seam its width read 0 and the
-            // expression fell through to the 32px default. On a desktop that is harmless by luck
-            // (32 + 16 is the answer either way); at the touch/narrow breakpoint the real chip is
-            // 42, so the pitch flipped between 58 and 48 the instant the first button went off.
-            //
-            // The pitch feeds virtualWidth, which feeds the aperture, every projected position AND
-            // the drag's pixels-to-radians — so the whole ring jumped, and jumped again on the way
-            // back, every time it passed the seam. That is the jitter. The shape browser never had
-            // it because its ITEM_W is a literal.
-            //
-            // Measured across ALL the items and cached: a hidden element reports 0, so the maximum
-            // is the real chip width as long as one is on screen, and it cannot change because of
-            // something this function's own output caused. Invalidated only by a resize, which is
-            // the one thing that legitimately changes it.
+            // the widest chip, measured over every item and cached (a culled chip reports 0); a resize forgets it
             let _item = 0;
             const itemExtent = () => {
                 if (_item)
@@ -57106,116 +57090,68 @@
             const forgetExtent = () => {
                 _item = 0;
             };
-            const virtualWidth = () => items().length * itemExtent() * boma.PSI;
+            const wrapF = n => {
+                if (n > 0) {
+                    f = f % n;
+                    if (f < 0)
+                        f += n;
+                }
+            };
+            const sAt = px => {
+                if (!geo)
+                    return 0;
+                let x = (px - geo.mid) / geo.half;
+                x = x > 0.995 ? 0.995 : x < -0.995 ? -0.995 : x;
+                return LINE.s(x);
+            };
 
             function layout() {
                 const btns = items();
                 const n = btns.length;
+                geo = null;
                 if (!n)
                     return;
-                const W = strip.clientWidth || 600,
-                    half = W / 2;
-                const ITEM = itemExtent();
-                const vw = n * ITEM * boma.PSI;
-                const buffer = 2 * ITEM;
-                // ── WHEN EVERYTHING FITS, THERE IS NO WINDOW TO BOUND ────────────────────────
-                // The aperture below is capped at one lap, and one lap of this fisheye is the
-                // angular window (−π/4, π/4) — HALF the ring. So a fisheye toolbar can never show
-                // more than about half its buttons however much room the strip has, and the half it
-                // drops is a CONTIGUOUS BLOCK IN THE MIDDLE, on the far side of the tan poles. At
-                // eighteen chips that was seven in a row — align, group, order and everything
-                // between them simply absent from a bar with four hundred pixels of unused space in
-                // it, reachable only by knowing to drag the strip sideways. Same story on the edit
-                // footer: five of eight, with the cascade dial among the missing.
-                //
-                // That is the fisheye being asked the wrong question. It exists to show a bounded
-                // window onto MORE items than fit — exactly right for the shape browser, where a
-                // scene can hold three thousand shapes. A toolbar has eighteen, and when eighteen
-                // fit there is no window: they all go on the bar, evenly, at the pitch the chips
-                // actually are, and the ring has nothing left to scroll to.
-                //
-                // CENTRED, which is what keeps the edit footer reading as one control now that its
-                // strip is no longer capped at 680px — eight chips in a wide window sit together in
-                // the middle rather than spreading across it.
-                //
-                // The narrow case is untouched: there the buttons genuinely outrun the strip and the
-                // ring is what makes the bar usable at all. The angle is zeroed on the way in so a
-                // drag from before the window grew cannot leave a stale rotation behind the flat row.
-                //
-                // AND THE GAP CLOSES BEFORE THE RING GIVES UP. ITEM is the chip plus 16px of air,
-                // and 16 is a comfortable figure, not a required one: at 900px eighteen chips need
-                // 864 of a 768px strip at that pitch and fall back to the fisheye — which then shows
-                // eleven — when tightening the air to 10px would have fitted all eighteen with room
-                // over. So the pitch is squeezed toward the chip before the window is bounded, down
-                // to a 5px floor where the chips would start to touch. Below that they genuinely do
-                // not fit and the fisheye is the right answer.
-                const chipW = Math.max(8, ITEM - 16);
-                const pitch = Math.min(ITEM, W / n);
-                if (pitch >= chipW + 5) {
-                    angle = 0;
-                    const startX = (W - n * pitch) / 2 + pitch / 2;
-                    for (let i = 0; i < n; i++) {
-                        const b = btns[i];
-                        b.style.display = '';
-                        b.style.left = (startX + i * pitch) + 'px';
-                        b.style.setProperty('--ring-s', '1');
-                        b.style.opacity = '';
+                const W = strip.clientWidth || 600;
+                const ITEM = itemExtent(), chipW = Math.max(8, ITEM - GAP);
+                for (const b of btns) {
+                    b.style.display = '';
+                    b.style.setProperty('--ring-s', '1');
+                    b.style.opacity = '';
+                }
+                const ws = btns.map(b => b.offsetWidth || chipW);
+                const sum = ws.reduce((a, w) => a + w, 0);
+                if (sum + (n - 1) * GAP_MIN <= W - 2 * GAP_MIN) { // they fit: one even row, centred
+                    f = 0;
+                    const g = Math.max(GAP_MIN, Math.min(GAP, (W - sum) / (n + 1)));
+                    let x = (W - sum - (n - 1) * g) / 2;
+                    btns.forEach((b, i) => {
+                        b.style.left = (x + ws[i] / 2) + 'px';
+                        b.style.marginLeft = (-ws[i] / 2) + 'px';
                         b.style.zIndex = '100';
-                    }
+                        x += ws[i] + g;
+                    });
                     return;
                 }
-                // Capped at one lap, exactly as the shape browser's is — see layoutCarousel for what
-                // the wrap does. The header hides it better (sixteen chips put the duplicates further
-                // apart) but it is the same ring with the same flip in it.
-                const aperture = Math.min(1, (W + 2 * buffer) / vw);
-                const result = boma.realDimension(angle, n, aperture);
-                // The angular window can wrap past N when the item count is small, so the same
-                // button can be named twice. Keep the occurrence nearest the focus — the other one
-                // is the same chip coming round the far side of the ring.
-                const best = {};
-                result.indices.forEach(i => {
-                    if (i >= n)
-                        return;
-                    const pos = boma.fisheye.project(i, angle, n, ITEM);
-                    if (!isFinite(pos))
-                        return; // the θ=π singularity item
-                    if (!(i in best) || Math.abs(pos) < Math.abs(best[i]))
-                        best[i] = pos;
-                });
-                for (let i = 0; i < n; i++) {
-                    const b = btns[i];
-                    const itemX = best[i];
-                    const x = (itemX == null) ? null : itemX + half;
-                    if (x == null || x < -ITEM || x > W + ITEM) {
+                wrapF(n);
+                const mid = W / 2, half = Math.max(ITEM, W / 2 - chipW / 2);
+                const H = Math.max(1, half / ITEM - 1); // the focus's neighbours a pitch apart: half/(H + 1) = ITEM
+                geo = { mid, half, H, n };
+                const X = d => LINE.x(d / H) * half;
+                btns.forEach((b, k) => {
+                    b.style.marginLeft = '';
+                    let d = k - f;
+                    d -= Math.round(d / n) * n; // the nearer way round
+                    const x = X(d), room = Math.min(X(d + 1) - x, x - X(d - 1)), sc = Math.min(1, room / (chipW + 4));
+                    if (sc < 0.15) {
                         b.style.display = 'none';
-                        continue;
+                        return;
                     }
-                    const norm = Math.min(1, Math.abs(itemX) / half);
-                    b.style.display = '';
-                    b.style.left = x + 'px';
-                    // ONE SIZE, WHICHEVER BAR AND WHEREVER ON IT (Tom, Sep 11): the toolbar buttons in the
-                    // default view and the edit view are the same size. The ring used to shrink a chip
-                    // toward half size as it left the focus (0.5 + 0.5·f), and the two bars take this
-                    // branch at different moments — the top bar, with more chips, runs the fisheye at
-                    // widths where the edit footer still lays out flat at full size — so the same button
-                    // was two sizes depending on which view you were in. The lens SPACES; it does not
-                    // scale. Nothing overlaps without the shrink: project() is tan from the focus, so
-                    // the pitch is exactly ITEM (chip + GAP) at the centre and only widens outward.
-                    b.style.setProperty('--ring-s', '1');
-                    // NO FADE either. The ring used to dim a chip as it travelled away from the focus,
-                    // which is a depth cue and also a button you can see through — and the two rings did
-                    // it at two moments, so the same button was solid in one bar and ghosted in the
-                    // other. Distance is said by the spacing.
-                    b.style.opacity = '';
-                    b.style.zIndex = String(100 - Math.round(norm * 60));
-                }
+                    b.style.left = (mid + x) + 'px';
+                    b.style.setProperty('--ring-s', sc < 0.999 ? String(sc) : '1');
+                    b.style.zIndex = String(40 + Math.round(sc * 60));
+                });
             }
 
-            // The same gentle glide the shape browser has, on the same constants — see
-            // startMomentum for what "gentle" is worth in numbers. Short enough that the button
-            // you were reaching for is still where you left it; long enough that the bar has
-            // weight rather than being a scroll position you drag around.
-            let vel = 0;
             const stop = () => {
                 if (raf) {
                     cancelAnimationFrame(raf);
@@ -57225,16 +57161,16 @@
             };
             const glide = v => {
                 stop();
-                vel = Math.max(-RING_V_MAX, Math.min(RING_V_MAX, v || 0));
-                if (!isFinite(vel) || Math.abs(vel) < RING_V_MIN) {
+                vel = Math.max(-V_MAX, Math.min(V_MAX, v || 0));
+                if (!isFinite(vel) || Math.abs(vel) < V_MIN) {
                     vel = 0;
                     return;
                 }
                 const step = () => {
-                    angle = boma.normalizeAngle(angle + vel);
+                    f += vel;
                     layout();
-                    vel *= RING_FRICTION;
-                    if (Math.abs(vel) < RING_V_MIN) {
+                    vel *= FRICTION;
+                    if (Math.abs(vel) < V_MIN) {
                         raf = 0;
                         vel = 0;
                         return;
@@ -57244,9 +57180,7 @@
                 raf = requestAnimationFrame(step);
             };
 
-            // Drag to spin. Unlike the browser's background — which has empty strip to grab — this
-            // ring is made entirely of buttons, so a press is a candidate and only becomes a spin
-            // once it travels 4px. Under that it is a click, and the button gets it.
+            // Drag to spin: a press is a candidate and only becomes a spin once it travels 4px; under that it is a click.
             let spin = null;
             strip.addEventListener('pointerdown', e => {
                 stop();
@@ -57254,21 +57188,15 @@
                     return;
                 spin = {
                     x: e.clientX,
-                    start: angle,
+                    i0: f + (geo ? geo.H * sAt(e.clientX) : 0), // the chip under the finger, which the drag keeps there
                     id: e.pointerId,
                     active: false,
                     t: performance.now(),
-                    a: angle,
+                    a: f,
                     v: 0
                 };
             });
-            // ON THE WINDOW, NOT ON THE STRIP. A drag was only followed while the events kept
-            // arriving at .controls — a 34px-tall band — which made the whole gesture depend on
-            // setPointerCapture holding. When it does not (the capture call throws, the browser
-            // hands it back early, the pointer leaves the band before the 4px threshold has armed
-            // it) the strip simply stops hearing about the pointer, and the ring freezes mid-drag
-            // with the button still down: the lock-up. A press is a commitment to follow the
-            // pointer wherever it goes until it is released, so the follow belongs on the window.
+            // ON THE WINDOW, NOT ON THE STRIP: a press is followed wherever the pointer goes until it is released.
             window.addEventListener('pointermove', e => {
                 if (!spin || e.pointerId !== spin.id)
                     return;
@@ -57278,12 +57206,7 @@
                     strip.classList.remove('grabbing');
                     return;
                 }
-                // A MOVE WITH NO BUTTON HELD MEANS THE RELEASE WAS MISSED — but only in a browser
-                // that reports `buttons` on a move at all. Trusting it unconditionally is what killed
-                // every bar at once: where the field comes through as 0 during a genuine drag, the
-                // first move ended the gesture before it started, so nothing anywhere would swipe.
-                // So the guard arms itself: it only fires once this gesture has seen at least one
-                // move WITH a button down, which is proof the browser fills the field in.
+                // a move with no button held means the release was missed, once this gesture has shown the field is filled in
                 if (e.buttons !== 0)
                     spin.sawButtons = true;
                 else if (spin.sawButtons) {
@@ -57294,27 +57217,25 @@
                 if (!spin.active) {
                     if (Math.abs(dx) < 4)
                         return;
+                    if (!geo) { // a row has nothing to spin to
+                        spin = null;
+                        return;
+                    }
                     spin.active = true;
                     try {
                         strip.setPointerCapture(spin.id);
                     } catch (_) {}
                     strip.classList.add('grabbing');
                 }
-                angle = boma.normalizeAngle(spin.start + pixelsToAngle(dx, virtualWidth()));
-                // Radians per 16ms frame, smoothed 60/40 towards the newest sample, so one jittery
-                // final move cannot decide the throw. Sampled AFTER the angle is written — measuring
-                // against an angle that has not moved yet reads zero every time — and with
-                // angleDelta, which is the SIGNED difference: normalizeAngle folds into [0, π), so
-                // every backwards step came back as a large forwards one and both swipe directions
-                // glided the same way.
-                {
-                    const now = performance.now();
-                    const dtv = Math.max(1, now - spin.t);
-                    const inst = (boma.angleDelta(angle, spin.a) / dtv) * 16;
-                    spin.v = spin.v * 0.4 + inst * 0.6;
+                if (geo) {
+                    f = spin.i0 - geo.H * sAt(e.clientX);
+                    let dv = f - spin.a;
+                    dv -= Math.round(dv / geo.n) * geo.n;
+                    const now = performance.now(), dtv = Math.max(1, now - spin.t), inst = (dv / dtv) * 16;
+                    spin.v = spin.v * 0.4 + inst * 0.6; // chips per 16ms frame, smoothed toward the newest sample
                     spin.t = now;
-                    spin.a = angle;
-                    spin.moved = now; // when the ring last actually turned
+                    spin.a = f;
+                    spin.moved = now;
                 }
                 layout();
                 e.preventDefault();
@@ -57324,17 +57245,9 @@
                 if (!spin || (e && e.pointerId !== spin.id))
                     return;
                 const was = spin.active;
-                // Fresh enough to be a throw? See RING_THROW_MS. An inferred ending is not
-                // disqualifying by itself; an OLD one is.
-                const fresh = spin.moved && (performance.now() - spin.moved) < RING_THROW_MS;
+                const fresh = spin.moved && (performance.now() - spin.moved) < THROW_MS; // fresh enough to be a throw
                 const v = (stale === true && !fresh) ? 0 : spin.v;
-                _lastEnd = {
-                    was,
-                    stale: stale === true,
-                    fresh: !!fresh,
-                    v: spin.v,
-                    used: v
-                };
+                _lastEnd = { was, stale: stale === true, fresh: !!fresh, v: spin.v, used: v };
                 if (was) {
                     try {
                         strip.releasePointerCapture(spin.id);
@@ -57342,57 +57255,40 @@
                 }
                 spin = null;
                 if (was)
-                    glide(v); // a throw carries; a tap does not
+                    glide(v);
                 strip.classList.remove('grabbing');
                 if (!was)
                     return; // never travelled: it was a click
-                // It travelled, so the click about to fire is the tail of a spin and not a decision.
-                // Swallow exactly one, in the capture phase, before it reaches whichever button the
-                // finger came to rest on.
+                // the click about to fire is the tail of a spin and not a decision
                 const kill = ev => {
                     ev.stopPropagation();
                     ev.preventDefault();
                 };
-                strip.addEventListener('click', kill, {
-                    capture: true,
-                    once: true
-                });
+                strip.addEventListener('click', kill, { capture: true, once: true });
                 setTimeout(() => strip.removeEventListener('click', kill, true), 0);
             };
-            // A handle on the ring's own state, for headless checks — the angle, the live glide
-            // velocity, and the last release's verdict. Hung on the strip so each ring answers for
-            // itself rather than a global holding whichever was built last.
+            // a handle on the ring's own state, for headless checks (`angle` kept as the old name: it is the focus now, in chips)
             strip.__ring = {
-                get angle() {
-                    return angle;
-                },
-                get vel() {
-                    return vel;
-                },
-                get last() {
-                    return _lastEnd;
-                }
+                get angle() { return f; },
+                get focus() { return f; },
+                get vel() { return vel; },
+                get last() { return _lastEnd; },
+                get geo() { return geo; }
             };
-            // Every way a press can end, on the window for the same reason as the move.
             window.addEventListener('pointerup', endSpin);
             window.addEventListener('pointercancel', e => endSpin(e, true));
             window.addEventListener('blur', () => endSpin(null, true));
 
-            // THE WHEEL TURNS THIS RING TOO, at the same rate as the browser's — see
-            // WHEEL_SPIN_GAIN. The strip is the only part of the bar that takes the pointer, so a
-            // wheel that arrives here was pointed at the buttons and not at the drawing showing
-            // between them; everywhere else in the band still belongs to the canvas.
+            // the wheel turns it too (wheelSpinPixels, the browser's rate), only while it is a ring
             strip.addEventListener('wheel', e => {
                 const px = wheelSpinPixels(e);
-                if (!px)
+                if (!px || !geo)
                     return;
                 e.preventDefault();
                 stop();
-                angle = boma.normalizeAngle(angle - pixelsToAngle(px, virtualWidth()));
+                f += px / itemExtent();
                 layout();
-            }, {
-                passive: false
-            });
+            }, { passive: false });
 
             window.addEventListener('resize', () => {
                 forgetExtent();
@@ -57402,18 +57298,12 @@
                 forgetExtent();
                 layout();
             });
-            // Fonts and the icon metrics land after first paint, and the chip width is what the
-            // pitch is measured from — so one more pass once everything has settled.
+            // fonts and icon metrics land after first paint, so one more pass once everything has settled
             window.addEventListener('load', () => requestAnimationFrame(() => {
                 forgetExtent();
                 layout();
             }));
-            // …and re-lay whenever the strip's own width changes, which is the only reliable way
-            // to catch the case that matters: a ring inside a panel that is DISPLAY:NONE has a
-            // clientWidth of 0, so it lays out against the 600px fallback and every chip lands in
-            // the wrong place — spread past both edges of a strip that turned out to be narrower.
-            // The footer's ring is hidden until the mode opens, so that is its every first frame.
-            // An observer answers it without anything having to remember to ask.
+            // a ring inside a panel that is display:none has no width; lay it out again when its width arrives
             if (typeof ResizeObserver === 'function') {
                 let last = -1;
                 new ResizeObserver(() => {
@@ -57427,26 +57317,23 @@
             }
             return {
                 layout,
-                // measure the chip again and lay out: for a ring shown again after the window changed
-                // while it was hidden, when the observer above sees the same width it last saw
+                // measure the chip again and lay out: for a ring shown again after the window changed while it was hidden
                 refresh() {
                     forgetExtent();
                     layout();
                 },
-                // turn the ring so the i-th chip is in the middle (getCenteredIndex, read backwards)
+                // turn the ring so the i-th chip is in the middle
                 focus(i) {
-                    const n = items().length;
-                    if (!n)
+                    if (!items().length)
                         return;
                     stop();
-                    angle = boma.normalizeAngle(-i * Math.PI / n);
+                    f = i;
                     layout();
                 },
-                get angle() {
-                    return angle;
-                },
+                get angle() { return f; },
                 get centered() {
-                    return boma.getCenteredIndex(angle, items().length);
+                    const n = items().length;
+                    return n ? ((Math.round(f) % n) + n) % n : 0;
                 },
                 get shown() {
                     return items().filter(b => b.style.display !== 'none').length;
@@ -57517,7 +57404,7 @@
         }
         const _topRing = makeRing(document.querySelector('.topbar .controls'));
         if (_topRing)
-            _topRing.focus(1.5); // (Shapes leads again: turned between the second and third, a phone shows Shapes, Draw, Fill and Outline whole)
+            _topRing.focus(1); // (the second chip at the focus, so Shapes, Draw and Fill are the three drawn largest; 27 Nov 2026, the new ring: a half-way focus left none at full size)
         // The footer's ring is laid out in a strip that is DISPLAY:NONE until the mode opens, so
         // its clientWidth is 0 at load and every chip lands on top of the middle. enterEditMode
         // re-lays it once the strip has a width — see syncEditBtn.

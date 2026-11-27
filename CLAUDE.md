@@ -257,6 +257,14 @@ compatibly.
   drawing is placed there (`addPrimitive(key, at)`; the ring lets go through `__ringHeld`). `__strip.open(mode)` and `__strip.mode` for tests. Those buttons lead the top ring
   (`STRIP_FIRST`, moved to the front before the ring is built) and it opens turned to its second, so a phone shows Shapes, Draw and
   Fill at once; a phone test that needs another top-bar button in view has to turn the ring to it.
+- The button rings are the games page's ring, read from one vantage (27 Nov 2026, Tom: "the two ring works very well, ithe
+  should be used by default. draw repos uses the old ring. update it to the new ring."; THE RING READ FROM ONE VANTAGE at
+  `makeRing`): every bar made by `makeRing` (the top bar, the edit view's footer, each strip mode, the animation's chips)
+  lays chip k at d = k − f from the focus f, on the line chart x = s/(1 + |s|) with s = d/H (no square root, no trig, the
+  strip's ends the horizon), each chip drawn smaller as its room shrinks (`--ring-s`, gone below 0.15), and is a plain
+  centred row, nothing turning, whenever the chips' own widths fit side by side. `focus(i)` and `__ring.focus` are in chips;
+  `__ring.angle` is kept as a name for the same number. The shape browser's carousel (`layoutCarousel`, `boma`) is not this
+  ring and is unchanged.
 - The top bar holds the options and the strip at the foot their values (13 Nov 2026, Tom: "keep the options in the header
   and the footer is just for the values of that option"): Fill, Outline, Align, Order, Merge and Name stay on the
   top bar. Group left it (14 Nov 2026: "remove the group button in the top toolbar"): it is the selection strip's tile, and
