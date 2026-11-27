@@ -57103,6 +57103,35 @@
                 });
             }
 
+            // THE RING SAYS WHAT IS AT ITS FOCUS (27 Nov 2026, Tom: "When panning the ring, show the current button
+            // description."). A spin, a throw and the wheel each move every chip at once, and an icon carries no words, so
+            // the chip at the focus (the one the ring is turned to, at its middle) says its name while the ring moves, as a
+            // pointer resting on it would (THE BUTTONS SAY THEIR NAMES, which listens for these two events), and for a
+            // moment after it comes to rest. A row that fits turns nothing and says nothing.
+            const atFocus = () => {
+                if (!geo)
+                    return null;
+                const btns = items();
+                let k = Math.round(f) % btns.length;
+                if (k < 0)
+                    k += btns.length;
+                return btns[k] || null;
+            };
+            let _said = null;
+            const announce = () => {
+                const b = atFocus(); // said every frame it moves, so the name follows its chip
+                if (b) {
+                    _said = b;
+                    strip.dispatchEvent(new CustomEvent('ring-focus', { bubbles: true, detail: { button: b } }));
+                }
+            };
+            const rest = () => {
+                if (!_said)
+                    return;
+                const b = _said;
+                _said = null;
+                strip.dispatchEvent(new CustomEvent('ring-rest', { bubbles: true, detail: { button: b } }));
+            };
             const stop = () => {
                 if (raf) {
                     cancelAnimationFrame(raf);
@@ -57120,10 +57149,12 @@
                 const step = () => {
                     f += vel;
                     layout();
+                    announce();
                     vel *= FRICTION;
                     if (Math.abs(vel) < V_MIN) {
                         raf = 0;
                         vel = 0;
+                        rest();
                         return;
                     }
                     raf = requestAnimationFrame(step);
@@ -57189,6 +57220,7 @@
                     spin.moved = now;
                 }
                 layout();
+                announce();
                 e.preventDefault();
             });
             let _lastEnd = null;
@@ -57205,8 +57237,11 @@
                     } catch (_) {}
                 }
                 spin = null;
-                if (was)
+                if (was) {
                     glide(v);
+                    if (!raf) // no throw: it is at rest now
+                        rest();
+                }
                 strip.classList.remove('grabbing');
                 if (!was)
                     return; // never travelled: it was a click
@@ -57224,13 +57259,15 @@
                 get focus() { return f; },
                 get vel() { return vel; },
                 get last() { return _lastEnd; },
-                get geo() { return geo; }
+                get geo() { return geo; },
+                get atFocus() { return atFocus(); }
             };
             window.addEventListener('pointerup', endSpin);
             window.addEventListener('pointercancel', e => endSpin(e, true));
             window.addEventListener('blur', () => endSpin(null, true));
 
             // the wheel turns it too (wheelSpinPixels, the browser's rate), only while it is a ring
+            let wheelRest = 0;
             strip.addEventListener('wheel', e => {
                 const px = wheelSpinPixels(e);
                 if (!px || !geo)
@@ -57239,6 +57276,9 @@
                 stop();
                 f += px / itemExtent();
                 layout();
+                announce();
+                clearTimeout(wheelRest);
+                wheelRest = setTimeout(rest, 250); // the wheel has no release: it is at rest once its clicks stop
             }, { passive: false });
 
             window.addEventListener('resize', () => {
@@ -59032,7 +59072,7 @@
             tip.setAttribute('aria-hidden', 'true');
             document.body.appendChild(tip);
             let shown = null, hideT = null, press = null;
-            const nameOf = b => b.matches(TILES) ? (b.title || '') : (NAMES[b.id] || b.getAttribute('aria-label') || '');
+            const nameOf = b => b.matches(TILES) ? (b.title || '') : (NAMES[b.id] || b.getAttribute('aria-label') || b.title || '');
             function show(b) {
                 const name = nameOf(b);
                 clearTimeout(hideT);
@@ -59106,6 +59146,17 @@
             document.addEventListener('focusin', e => {
                 if (e.target && e.target.classList && e.target.classList.contains('trename'))
                     hide();
+            });
+            // a ring being turned says the name of the chip at its focus, and lets it go a moment after it rests
+            // (THE RING SAYS WHAT IS AT ITS FOCUS, in makeRing); a press being held is let go first, so its lift does not
+            // hide what the ring is saying
+            document.addEventListener('ring-focus', e => {
+                press = null;
+                show(e.detail.button);
+            });
+            document.addEventListener('ring-rest', e => {
+                if (shown === e.detail.button)
+                    hide(900);
             });
             window.__buttonName = () => shown && tip.classList.contains('on') ? { id: shown.id, name: tip.textContent } : null;
             // every button the two bars hold, with the name it would say: the smoke test fails on one with none
