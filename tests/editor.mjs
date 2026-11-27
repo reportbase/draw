@@ -1067,7 +1067,9 @@ T.current = 'the selection\'s options in the strip';
    taking the strip, so it came back somewhere else; now it comes back as it was left. */
 T.current = 'the strip holds still while put away';
 {
-  const hp = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  // 1200 wide, so the 18 tiles are a ring: since 27 Nov 2026 (THE SHAPE BROWSER IS THE RING READ FROM ONE VANTAGE TOO)
+  // tiles that fit side by side stand as a row and do not turn, and 18 fit across 1400
+  const hp = await browser.newPage({ viewport: { width: 1200, height: 900 } });
   hp.on('pageerror', e => failures.push(`[strip holds] ${e.message}`));
   await hp.route(/fonts\.g/, r => r.abort());
   const before = failures.length;

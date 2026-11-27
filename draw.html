@@ -30700,10 +30700,8 @@
             },
         };
 
-        // Carousel state — follows action.js exactly. ITEM_W is the per-item extent;
-        // currentAngle is a continuous rotation (radians) updated by pan/scroll; the
-        // centered shape is read back via boma.getCenteredIndex. Positions come from
-        // boma.realDimension (which indices) + boma.fisheye.project (where), never our own.
+        // Carousel state. ITEM_W is the per-item extent; currentAngle is the ring's focus, in entries (see THE SHAPE
+        // BROWSER IS THE RING READ FROM ONE VANTAGE TOO below; until 27 Nov 2026 it was boma's angle).
         // THE PITCH IS MEASURED, exactly as makeRing measures the header's — and for the same
         // reason its own note gives: the chip is 32px with a mouse and 42px at the touch/narrow
         // breakpoint, so a literal is right in one of the two cases. 16px of gap on top of
@@ -30742,14 +30740,28 @@
                 return 32 + 16; // still nothing: answer, but do NOT cache it
             return ( _itemW = w + 16) ;
         };
+        // THE SHAPE BROWSER IS THE RING READ FROM ONE VANTAGE TOO (27 Nov 2026, Tom: "update the shape browser to the new
+        // ring to."): the same law as makeRing's bars (THE RING READ FROM ONE VANTAGE). currentAngle keeps its name (the hook
+        // reads it) but is the focus now, in entries: entry e stands d = e − f from it, the nearer way round, at
+        // x = s/(1 + |s|) of the half-width with s = d/H, drawn smaller as its room shrinks, gone below 0.15. Rational both
+        // ways, the strip's ends the horizon; no boma, no angle, no tan.
         let currentAngle = 0;
+        let _browseGeo = null; // { left, mid, half, H, n } while the strip is a ring; null while it is a row
+        const BROWSE_LINE = { x: s => s / (1 + (s < 0 ? -s : s)), s: x => x / (1 - (x < 0 ? -x : x)) };
+        function browseSAt(clientX) {
+            const g = _browseGeo;
+            if (!g)
+                return 0;
+            let x = (clientX - g.left - g.mid) / g.half;
+            x = x > 0.995 ? 0.995 : x < -0.995 ? -0.995 : x;
+            return BROWSE_LINE.s(x);
+        }
+        // how far the focus moves for a drag from x0 to x: the entry under the finger stays under it
+        function browseDrag(x0, x) {
+            const g = _browseGeo;
+            return g ? g.H * (browseSAt(x0) - browseSAt(x)) : -(x - x0) / ITEM_W();
+        }
 
-        // Lay out exactly as action.js does (horizontal instead of vertical):
-        //   virtualWidth = N · ITEM_W · ψ₁
-        //   aperture     = viewportWidth / virtualWidth
-        //   realDimension(currentAngle, N, aperture) → visible indices
-        //   fisheye.project(index, currentAngle, N, ITEM_W) → each item's position
-        //   screenX = position + halfWidth
         // every tile of the drawing's strip fits across it, so it lies as a centred row and does not turn
         function stripFits(n, W) {
             if (n == null)
@@ -30758,7 +30770,8 @@
                 const strip = $('shapeScroller');
                 W = (strip && strip.clientWidth) || 600;
             }
-            return n * ITEM_W() <= W;
+            const w = ITEM_W() - 16; // the tile's own width: side by side with 4px between and at each end
+            return n * w + (n - 1) * 4 <= W - 8;
         }
         function layoutCarousel() {
             const strip = $('shapeScroller');
@@ -30782,90 +30795,39 @@
             // the first one in the middle and the last one at its left. So they stand in their order, centred, a tile's
             // pitch apart, and the strip does not turn (stripFits: the drag, the wheel and a glide leave it).
             let show = [];
+            _browseGeo = null;
             if (stripFits(n, W)) {
+                const w = itemExtent - 16, pitch = w + Math.max(4, Math.min(16, (W - n * w) / (n + 1)));
                 for (let e = 0; e < n; e++) {
-                    const itemX = (e - (n - 1) / 2) * itemExtent;
-                    show.push({ entIdx: e, itemX, x: itemX + halfWidth });
+                    const itemX = (e - (n - 1) / 2) * pitch;
+                    show.push({ entIdx: e, itemX, x: itemX + halfWidth, sc: 1 });
                 }
             } else {
-                // Canonical boma layout (boma.js CANONICAL USAGE / action.js). Positions come
-                // straight from fisheye.project — NO hand-rolled spread/stretch.
-                //   virtualWidth = N · ITEM · ψ₁
-                //   aperture     = (viewportWidth + 2·buffer) / virtualWidth   (buffer ≈ 2·ITEM)
-                //   realDimension(angle, N, aperture) → which indices are visible
-                //   fisheye.project(i, angle, N, ITEM)  → where each one sits (centered at 0)
-                //   screenX = position + halfWidth ; clip beyond [-ITEM, W+ITEM]
-                const virtualWidth = n * itemExtent * boma.PSI;
-                const buffer = 2 * itemExtent;
-                // APERTURE IS CAPPED AT ONE WHOLE RING. Uncapped, a wide window over few shapes asks
-                // realDimension for several LAPS — eight tiles in a 1280px strip works out at ~3.6 —
-                // so the same shape is named three or four times, once per lap. The dedupe below then
-                // keeps whichever occurrence is nearest the focus, and that choice FLIPS mid-drag: the
-                // tile you were pushing left vanishes and reappears at the right-hand end, and the
-                // slot its other occurrence would have filled is left as a hole in the row. That is
-                // the skip — the carousel teleporting an item to the far side of the strip and leaving
-                // a gap where it was, which reads as "it moved somewhere random when I stopped".
-                // One lap is all there is to show; asking for more can only ask for it again.
-                const aperture = Math.min(1, (W + 2 * buffer) / virtualWidth);
-
-                // ── ONLY WHAT CAN BE ON SCREEN ────────────────────────────────────────────
-                // realDimension answers with every index the aperture admits, and since the aperture
-                // is capped at one whole lap that is EVERY SHAPE — 5,000 projections per layout in a
-                // scattered scene, to place the dozen tiles that fit. The strip never drew them (the
-                // pool is sized to what shows), but it costed them, every frame of every spin.
-                //
-                // The fisheye is monotone in index either side of the focus, so the visible run is a
-                // contiguous window around it: read the focused index back from the angle, then walk
-                // outward in both directions and stop each side as soon as a projection leaves the
-                // clip range. The bound is a safety net, not the mechanism — it is what stops a
-                // degenerate projection walking the whole ring.
-                const focus = boma.getCenteredIndex(currentAngle, n);
-                const maxOut = Math.min(n, Math.ceil(W / Math.max(1, itemExtent)) + 6);
-                const idxs = [focus];
+                // THE RING READ FROM ONE VANTAGE (see currentAngle): walk out from the focus each way, the nearer way round,
+                // until a tile has too little room to be drawn; only those get a pooled tile.
+                currentAngle = currentAngle % n;
+                if (currentAngle < 0)
+                    currentAngle += n;
+                const w = itemExtent - 16;
+                const half = Math.max(itemExtent, halfWidth - w / 2);
+                const H = Math.max(1, half / itemExtent - 1); // the focus's neighbours a pitch apart
+                _browseGeo = { left: strip.getBoundingClientRect().left, mid: halfWidth, half, H, n };
+                const X = d => BROWSE_LINE.x(d / H) * half;
+                const f0 = Math.round(currentAngle), seen = new Set();
                 for (let side = -1; side <= 1; side += 2) {
-                    for (let o = 1; o <= maxOut; o++) {
-                        const i = ((focus + side * o) % n + n) % n;
-                        const pos = boma.fisheye.project(i, currentAngle, n, itemExtent);
-                        if (!isFinite(pos))
-                            break; // the θ=π singularity: the far side
-                        idxs.push(i);
-                        const x = pos + halfWidth;
-                        if (x < -itemExtent || x > W + itemExtent)
-                            break; // past the edge, and monotone
+                    for (let o = (side < 0 ? 0 : 1); o <= Math.ceil(n / 2); o++) {
+                        const e = ((f0 + side * o) % n + n) % n;
+                        if (seen.has(e))
+                            break;
+                        let d = e - currentAngle;
+                        d -= Math.round(d / n) * n; // the nearer way round
+                        const itemX = X(d), room = Math.min(X(d + 1) - itemX, itemX - X(d - 1));
+                        const sc = Math.min(1, room / (w + 4));
+                        if (sc < 0.15)
+                            break; // and every one past it has less
+                        seen.add(e);
+                        show.push({ entIdx: e, itemX, x: itemX + halfWidth, sc });
                     }
-                }
-                const result = {
-                    indices: idxs
-                };
-
-                // When there are few shapes the visible angular window can wrap past N, so the
-                // same index appears more than once. Keep each shape once, at the occurrence
-                // nearest the focus (smallest |position|).
-                const best = {}; // entIdx → position closest to center
-                result.indices.forEach(entIdx => {
-                    if (entIdx >= n)
-                        return;
-                    const pos = boma.fisheye.project(entIdx, currentAngle, n, itemExtent);
-                    if (!isFinite(pos))
-                        return; // θ=π singularity item → drop
-                    if (!(entIdx in best) || Math.abs(pos) < Math.abs(best[entIdx]))
-                        best[entIdx] = pos;
-                });
-
-                // Everything boma says is on screen, in index order. Sorting matters: it keeps the
-                // tile↔shape assignment stable as the window slides, so a drag re-stamps one tile
-                // per step instead of reshuffling all seventeen and redrawing every thumbnail.
-                for (const key in best) {
-                    const entIdx = +key;
-                    const itemX = best[entIdx]; // boma position, used directly
-                    const x = itemX + halfWidth; // screenX = position + halfWidth
-                    if (x < -itemExtent || x > W + itemExtent)
-                        continue; // incl. the θ=π singularity item
-                    show.push({
-                        entIdx,
-                        itemX,
-                        x
-                    });
                 }
                 show.sort((a, b) => a.entIdx - b.entIdx);
             }
@@ -30882,7 +30844,7 @@
             }
 
             for (let i = 0; i < show.length; i++) {
-                const {entIdx, itemX} = show[i];
+                const {entIdx} = show[i];
                 const x = show[i].x;
                 const ent = ents[entIdx];
                 const t = _tilePool[i];
@@ -30902,15 +30864,15 @@
                 t._ent = ent;
                 t.style.display = '';
                 ensureTileThumb(t); // about to be seen → give it its picture
-                const norm = Math.min(1, Math.abs(itemX) / halfWidth);
+
                 // ONE TILE SIZE (Tom, Sep 11), the same ruling as the toolbar's rings: the lens SPACES
                 // the tiles, it does not scale them. They used to shrink toward half size away from
                 // the focus (0.5 + 0.5·f). Nothing overlaps without it — project() is tan from the
                 // focus, so the pitch is ITEM_W (tile + 16) at the centre and only widens outward.
                 t.style.left = x + 'px';
-                t.style.transform = '';
+                t.style.transform = show[i].sc < 0.999 ? 'scale(' + show[i].sc + ')' : '';
                 t.style.opacity = ''; // solid, like the header's chips — see makeRing
-                t.style.zIndex = String(100 - Math.round(norm * 60));
+                t.style.zIndex = String(40 + Math.round(show[i].sc * 60));
                 // .active = genuinely selected (in the multi-select set, or the single
                 // active signal) — NOT the show-all state where nothing is isolated.
                 // An entry is selected when ANY of its members is. A selection expands to whole
@@ -30976,7 +30938,8 @@
             const e = browseIndexOfSp(idx);
             if (e < 0)
                 return;
-            currentAngle = boma.normalizeAngle(boma.getItemCenterAngle(e, n));
+            stopMomentum();
+            currentAngle = e;
             layoutCarousel();
         }
 
@@ -31006,15 +30969,7 @@
                 return null;
             if (n === 1)
                 return list[0];
-            let best = 0,
-                bd = Infinity;
-            for (let e = 0; e < n; e++) {
-                const d = Math.abs(boma.angleDelta(currentAngle, boma.getItemCenterAngle(e, n)));
-                if (d < bd) {
-                    bd = d;
-                    best = e;
-                }
-            }
+            const best = ((Math.round(currentAngle) % n) + n) % n;
             return list[best];
         }
         // PANNING THE STRIP NO LONGER SELECTS (13 Nov 2026, Tom: "When panning footer shapes it selects the shape, which
@@ -31082,12 +31037,6 @@
             };
         }
 
-        // Pixels of pan → change in currentAngle (boma.pixelsToAngle). A drag of the
-        // full virtualWidth rotates by π. Positions come straight from fisheye.project
-        // (no spread), so this is the genuine boma fisheye tracking.
-        function pixelsToAngle(pixels, virtualWidth) {
-            return (pixels / Math.max(1, virtualWidth)) * Math.PI;
-        }
         // ── THE WHEEL TURNS A BAR, SLOWLY ────────────────────────────────────────────
         // A notch is worth this fraction of the drag it would take to do the same thing by
         // hand. At 0.3 a wheel click moves the row about a third of a chip: enough that one
@@ -31108,11 +31057,6 @@
             const dx = e.deltaX * u,
                 dy = e.deltaY * u;
             return (Math.abs(dx) > Math.abs(dy) ? dx : dy) * WHEEL_SPIN_GAIN;
-        }
-
-        function carouselVirtualWidth() {
-            const n = browseEntries().length; // entries, like everything else on the ring
-            return n * ITEM_W() * boma.PSI;
         }
 
         // ── Carousel momentum: none ──
@@ -31158,8 +31102,8 @@
         // was making, whatever told us the press was over.
         const RING_THROW_MS = 140;
         const RING_FRICTION = 0.88; // velocity kept per frame
-        const RING_V_MAX = 0.055; // rad/frame ceiling on the launch
-        const RING_V_MIN = 0.0012; // below this it is not motion, it is a stop
+        const RING_V_MAX = 1.2; // entries/frame ceiling on the launch (the ring's focus is in entries since 27 Nov 2026)
+        const RING_V_MIN = 0.004; // below this it is not motion, it is a stop
         function startMomentum(vel) {
             stopMomentum();
             let v = Math.max(-RING_V_MAX, Math.min(RING_V_MAX, vel || 0));
@@ -31171,7 +31115,7 @@
                     momentum.vel = 0;
                     return;
                 }
-                currentAngle = boma.normalizeAngle(currentAngle + v);
+                currentAngle += v;
                 layoutCarousel();
                 stripFollowFocus();
                 v *= RING_FRICTION;
@@ -31211,8 +31155,10 @@
                     // near π. So the tracker reported a big forward velocity no matter which way the
                     // finger went, and both swipe directions glided the same way, the wrong way.
                     // boma carries the signed version and says so in its own comment.
-                    const dA = boma.angleDelta(angle, lastAngle);
-                    // radians per 16ms frame, smoothed so a jittery last move doesn't dominate
+                    const n = browseEntries().length || 1;
+                    let dA = angle - lastAngle;
+                    dA -= Math.round(dA / n) * n; // the signed step, the nearer way round the ring
+                    // entries per 16ms frame, smoothed so a jittery last move doesn't dominate
                     const inst = (dA / dt) * 16;
                     vpf = vpf * 0.4 + inst * 0.6;
                     lastT = now;
@@ -31270,8 +31216,7 @@
                 }
                 if (browseEntries().length <= 1 || stripFits())
                     return;
-                const delta = pixelsToAngle(e.clientX - spin.x, carouselVirtualWidth());
-                currentAngle = boma.normalizeAngle(spin.startAngle + delta);
+                currentAngle = spin.startAngle + browseDrag(spin.x, e.clientX);
                 vt.sample(currentAngle);
                 spin.moved = performance.now();
                 layoutCarousel();
@@ -31310,7 +31255,7 @@
                     return;
                 e.preventDefault();
                 stopMomentum();
-                currentAngle = boma.normalizeAngle(currentAngle - pixelsToAngle(px, carouselVirtualWidth()));
+                currentAngle += px / ITEM_W();
                 layoutCarousel();
                 stripFollowFocus();
             }, {
@@ -31435,8 +31380,7 @@
                     return;
                 if (browseEntries().length <= 1 || stripFits())
                     return;
-                const delta = pixelsToAngle(e.clientX - down.x, carouselVirtualWidth());
-                currentAngle = boma.normalizeAngle(down.startAngle + delta);
+                currentAngle = down.startAngle + browseDrag(down.x, e.clientX);
                 vt.sample(currentAngle);
                 down.moved = performance.now();
                 layoutCarousel();
@@ -57050,7 +56994,7 @@
         //
         // THE RING READ FROM ONE VANTAGE (27 Nov 2026, Tom: "the two ring works very well, ithe should be used by default.
         // draw repos uses the old ring. update it to the new ring."): the games page's toolbar ring, carried here. The
-        // old ring was the shape browser's machinery (boma.realDimension, boma.fisheye.project, an angle on a turn,
+        // old ring was the shape browser's machinery as it then stood (boma.realDimension, boma.fisheye.project, an angle on a turn,
         // capped at one lap, so a bar could show about half its chips). This one is an index read from a focus: chip k
         // stands at d = k − f items from it (the nearer way round, a count mod n, so the ring has no end), d is read
         // in thumbs, s = d/H, and laid on the line chart x = s/(1 + |s|) across the strip's half-width: rational both ways,
