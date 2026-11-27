@@ -57057,18 +57057,22 @@
                     return;
                 const W = strip.clientWidth || 600;
                 const ITEM = itemExtent(), chipW = Math.max(8, ITEM - GAP);
-                for (const b of btns) {
-                    b.style.display = '';
-                    b.style.setProperty('--ring-s', '1');
-                    b.style.opacity = '';
-                }
-                const ws = btns.map(b => b.offsetWidth || chipW);
+                // NO CHIP IS SHOWN OR SIZED TO BE MEASURED (27 Nov 2026, Tom: "why to the icons all expand to full size when
+                // panning."): a chip's transform eases (button.icon-btn's 80ms transition), so any size it is given and the
+                // browser applies, here by the offsetWidth read, is a size it then grows or shrinks from. The ring used to set every
+                // chip to 1 and show it before measuring, so a chip coming back round from the far end (hidden, then shown) grew
+                // to full size and shrank again on the way in. A shown chip is measured as it stands (a transform changes no
+                // offsetWidth); a hidden one is taken at the widest chip's width; and a chip's size is written before it is shown.
+                const ws = btns.map(b => (b.style.display === 'none' ? 0 : b.offsetWidth) || chipW);
                 const sum = ws.reduce((a, w) => a + w, 0);
                 if (sum + (n - 1) * GAP_MIN <= W - 2 * GAP_MIN) { // they fit: one even row, centred
                     f = 0;
                     const g = Math.max(GAP_MIN, Math.min(GAP, (W - sum) / (n + 1)));
                     let x = (W - sum - (n - 1) * g) / 2;
                     btns.forEach((b, i) => {
+                        b.style.setProperty('--ring-s', '1');
+                        b.style.display = '';
+                        b.style.opacity = '';
                         b.style.left = (x + ws[i] / 2) + 'px';
                         b.style.marginLeft = (-ws[i] / 2) + 'px';
                         b.style.zIndex = '100';
@@ -57087,11 +57091,14 @@
                     d -= Math.round(d / n) * n; // the nearer way round
                     const x = X(d), room = Math.min(X(d + 1) - x, x - X(d - 1)), sc = Math.min(1, room / (chipW + 4));
                     if (sc < 0.15) {
+                        b.style.setProperty('--ring-s', '0.15'); // so it comes back small
                         b.style.display = 'none';
                         return;
                     }
                     b.style.left = (mid + x) + 'px';
                     b.style.setProperty('--ring-s', sc < 0.999 ? String(sc) : '1');
+                    b.style.display = '';
+                    b.style.opacity = '';
                     b.style.zIndex = String(40 + Math.round(sc * 60));
                 });
             }
