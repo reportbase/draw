@@ -83,11 +83,11 @@ try {
       // for a finger's tile, 42 not a mouse's 28 (Tom: "2 3 4")
       const cdp = await ctx.newCDPSession(mp);
       // the buttons that turn the strip lead the ring, which opens on them (13 Nov 2026, Tom: "I cant find the buttons on
-      // top toolbar to toggle the bottom footerbar"): +, Fill and Outline whole between the lock and the menu
-      const inView = await mp.evaluate(() => { const l = document.getElementById('bLock').getBoundingClientRect().right, g = document.getElementById('gearBtn').getBoundingClientRect().left;
-        return [...document.querySelectorAll('.topbar .controls > .icon-btn')].filter(b => b.style.display !== 'none').map(b => [b.id, b.getBoundingClientRect()])
-          .filter(([, r]) => r.left >= l - 2 && r.right <= g + 2).sort((a, b) => a[1].left - b[1].left).map(a => a[0]); });
-      if (inView.slice(0, 3).join() !== 'bAddStrip,bDrawMenu,bStyle') throw new Error('a phone opens with ' + inView.join(' ') + ' in view');
+      // top toolbar to toggle the bottom footerbar"). Since 27 Nov 2026 the bar is the ring read from one vantage (THE RING
+      // READ FROM ONE VANTAGE): chips shrink with their distance from the focus, so the three drawn largest are Shapes, Draw, Fill
+      const inView = await mp.evaluate(() => [...document.querySelectorAll('.topbar .controls > .icon-btn')].filter(b => b.style.display !== 'none')
+        .map(b => [b.id, b.getBoundingClientRect()]).sort((a, b) => b[1].width - a[1].width).slice(0, 3).sort((a, b) => a[1].left - b[1].left).map(a => a[0]));
+      if (inView.join() !== 'bAddStrip,bDrawMenu,bStyle') throw new Error('a phone opens with ' + inView.join(' ') + ' largest');
       const at = await mp.evaluate(() => { const r = document.getElementById('bAddStrip').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: at[0], y: at[1] }] });
       await mp.waitForTimeout(150);
