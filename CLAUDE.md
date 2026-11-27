@@ -263,8 +263,10 @@ compatibly.
   lays chip k at d = k − f from the focus f, on the line chart x = s/(1 + |s|) with s = d/H (no square root, no trig, the
   strip's ends the horizon), each chip drawn smaller as its room shrinks (`--ring-s`, gone below 0.15), and is a plain
   centred row, nothing turning, whenever the chips' own widths fit side by side. `focus(i)` and `__ring.focus` are in chips;
-  `__ring.angle` is kept as a name for the same number. The shape browser's carousel (`layoutCarousel`, `boma`) is not this
-  ring and is unchanged.
+  `__ring.angle` is kept as a name for the same number. The shape browser follows the same law since the same day (Tom:
+  "update the shape browser to the new ring to."; THE SHAPE BROWSER IS THE RING READ FROM ONE VANTAGE TOO at `currentAngle`):
+  `layoutCarousel` still pools its tiles, but `currentAngle` is its focus in entries, a drag keeps the tile under the finger
+  (`browseDrag`), and it lies as a row whenever its tiles fit side by side (`stripFits`); `boma` lays out nothing now.
 - The top bar holds the options and the strip at the foot their values (13 Nov 2026, Tom: "keep the options in the header
   and the footer is just for the values of that option"): Fill, Outline, Align, Order, Merge and Name stay on the
   top bar. Group left it (14 Nov 2026: "remove the group button in the top toolbar"): it is the selection strip's tile, and
